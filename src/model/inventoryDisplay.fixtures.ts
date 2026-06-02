@@ -1,0 +1,359 @@
+import { createDefaultBackpack, type Entity, type InventoryRecord } from "./types";
+import { getInventorySections } from "./inventoryDisplay";
+import { getCharacterEncumbrance, getContentsCapacity } from "./encumbrance";
+import { getContainerSlotUsage, getRecordSlotBurden } from "./calculations";
+
+const characterEntity: Entity = {
+  id: "character-1",
+  name: "Morgan",
+  entityType: "character",
+  active: true,
+  sortOrder: 0,
+};
+
+const retainerEntity: Entity = {
+  id: "retainer-1",
+  name: "Tamsin",
+  entityType: "retainer",
+  active: true,
+  sortOrder: 1000,
+};
+
+const mountEntity: Entity = {
+  id: "mount-1",
+  name: "Mule",
+  entityType: "mount",
+  active: true,
+  sortOrder: 2000,
+  capacitySlots: 12,
+};
+
+const vehicleEntity: Entity = {
+  id: "vehicle-1",
+  name: "Cart",
+  entityType: "vehicle",
+  active: true,
+  sortOrder: 3000,
+  capacitySlots: 20,
+};
+
+const storageEntity: Entity = {
+  id: "storage-1",
+  name: "Vault",
+  entityType: "storage",
+  active: true,
+  sortOrder: 4000,
+  capacitySlots: 10,
+};
+
+const characterBackpack = createDefaultBackpack({
+  entityId: characterEntity.id,
+  id: "character-backpack-1",
+});
+
+const retainerBackpack = createDefaultBackpack({
+  entityId: retainerEntity.id,
+  id: "retainer-backpack-1",
+});
+
+const swordRecord: InventoryRecord = {
+  id: "sword-1",
+  recordType: "weapon",
+  name: "Sword",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "rightHand",
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+  weapon: {
+    hands: "oneHand",
+    damage: "1d8",
+  },
+};
+
+const armorRecord: InventoryRecord = {
+  id: "armor-1",
+  recordType: "armor",
+  name: "Chain",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 1000,
+  slotProfile: { kind: "fixed", slots: 2 },
+  armor: {
+    baseArmorClass: 14,
+  },
+};
+
+const coinsRecord: InventoryRecord = {
+  id: "coins-1",
+  recordType: "coins",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "coinPurse",
+  },
+  sortOrder: 2000,
+  slotProfile: { kind: "coins" },
+  coins: {
+    pp: 0,
+    gp: 125,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const ropeRecord: InventoryRecord = {
+  id: "rope-1",
+  recordType: "equipment",
+  name: "Rope",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "backpack",
+    containerId: characterBackpack.id,
+  },
+  sortOrder: 3000,
+  slotProfile: { kind: "fixed", slots: 1 },
+};
+
+const sackRecord: InventoryRecord = {
+  id: "sack-1",
+  recordType: "equipment",
+  name: "Sack",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "backpack",
+    containerId: characterBackpack.id,
+  },
+  sortOrder: 4000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  container: {
+    capacitySlots: 6,
+    handsRequired: 1,
+  },
+};
+
+const rationsRecord: InventoryRecord = {
+  id: "rations-1",
+  recordType: "equipment",
+  name: "Rations",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "container",
+    containerId: sackRecord.id,
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 3 },
+};
+
+const retainerDagger: InventoryRecord = {
+  id: "retainer-dagger-1",
+  recordType: "weapon",
+  name: "Dagger",
+  location: {
+    entityId: retainerEntity.id,
+    locationType: "equipped",
+    placement: "leftHand",
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+  weapon: {
+    hands: "oneHand",
+  },
+};
+
+const mountFeedRecord: InventoryRecord = {
+  id: "mount-feed-1",
+  recordType: "equipment",
+  name: "Feed",
+  location: {
+    entityId: mountEntity.id,
+    locationType: "contents",
+    placement: "contents",
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 4 },
+};
+
+const vehicleCrateRecord: InventoryRecord = {
+  id: "vehicle-crate-1",
+  recordType: "equipment",
+  name: "Crate",
+  location: {
+    entityId: vehicleEntity.id,
+    locationType: "contents",
+    placement: "contents",
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 2 },
+  container: {
+    capacitySlots: 8,
+  },
+};
+
+const vehicleToolsRecord: InventoryRecord = {
+  id: "vehicle-tools-1",
+  recordType: "equipment",
+  name: "Tools",
+  location: {
+    entityId: vehicleEntity.id,
+    locationType: "contents",
+    placement: "container",
+    containerId: vehicleCrateRecord.id,
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 3 },
+};
+
+const storageTreasureRecord: InventoryRecord = {
+  id: "storage-treasure-1",
+  recordType: "treasure",
+  name: "Silver plate",
+  location: {
+    entityId: storageEntity.id,
+    locationType: "contents",
+    placement: "contents",
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 2 },
+  treasure: {
+    gpValue: 50,
+  },
+};
+
+const sampleRecords = [
+  characterBackpack,
+  retainerBackpack,
+  swordRecord,
+  armorRecord,
+  coinsRecord,
+  ropeRecord,
+  sackRecord,
+  rationsRecord,
+  retainerDagger,
+  mountFeedRecord,
+  vehicleCrateRecord,
+  vehicleToolsRecord,
+  storageTreasureRecord,
+];
+
+const characterSections = getInventorySections(characterEntity, sampleRecords);
+const retainerSections = getInventorySections(retainerEntity, sampleRecords);
+const mountSections = getInventorySections(mountEntity, sampleRecords);
+const vehicleSections = getInventorySections(vehicleEntity, sampleRecords);
+const storageSections = getInventorySections(storageEntity, sampleRecords);
+
+export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
+  {
+    name: "character inventory sections include hands, other equipped, coin purse, and backpack",
+    actual: {
+      mode: characterSections.mode,
+      rightHand:
+        characterSections.mode === "characterLike"
+          ? characterSections.handRecordIds.rightHand
+          : undefined,
+      otherEquipped:
+        characterSections.mode === "characterLike"
+          ? characterSections.otherEquipped.map((record) => record.id)
+          : [],
+      coinRecord:
+        characterSections.mode === "characterLike"
+          ? characterSections.coinRecord?.id
+          : undefined,
+      backpackContents:
+        characterSections.mode === "characterLike"
+          ? characterSections.backpackContents.map((record) => record.id)
+          : [],
+      encumbrance: getCharacterEncumbrance(characterEntity, sampleRecords),
+      sackUsage: getContainerSlotUsage(sackRecord, sampleRecords),
+      coinSlots: getRecordSlotBurden(coinsRecord),
+    },
+    expected: {
+      mode: "characterLike",
+      rightHand: "sword-1",
+      otherEquipped: ["armor-1"],
+      coinRecord: "coins-1",
+      backpackContents: ["rope-1", "sack-1"],
+      encumbrance: {
+        equippedItems: 4,
+        stowedItems: 6,
+        equippedRate: { explorationFeet: 90, encounterFeet: 30 },
+        stowedRate: { explorationFeet: 120, encounterFeet: 40 },
+        movement: { explorationFeet: 90, encounterFeet: 30 },
+        overloaded: false,
+        band: "lightlyEncumbered",
+      },
+      sackUsage: {
+        usedSlots: 3,
+        capacitySlots: 6,
+      },
+      coinSlots: 2,
+    },
+  },
+  {
+    name: "retainer inventory uses character-like sections",
+    actual: {
+      mode: retainerSections.mode,
+      backpackContents:
+        retainerSections.mode === "characterLike"
+          ? retainerSections.backpackContents.length
+          : undefined,
+      hand:
+        retainerSections.mode === "characterLike"
+          ? retainerSections.handRecordIds.leftHand
+          : undefined,
+    },
+    expected: {
+      mode: "characterLike",
+      backpackContents: 0,
+      hand: "retainer-dagger-1",
+    },
+  },
+  {
+    name: "mount, vehicle, and storage use contents-only sections",
+    actual: {
+      mount:
+        mountSections.mode === "contentsOnly"
+          ? mountSections.contents.map((record) => record.id)
+          : [],
+      vehicle:
+        vehicleSections.mode === "contentsOnly"
+          ? vehicleSections.contents.map((record) => record.id)
+          : [],
+      storage:
+        storageSections.mode === "contentsOnly"
+          ? storageSections.contents.map((record) => record.id)
+          : [],
+      mountCapacity: getContentsCapacity(mountEntity, sampleRecords),
+      vehicleCapacity: getContentsCapacity(vehicleEntity, sampleRecords),
+      storageCapacity: getContentsCapacity(storageEntity, sampleRecords),
+    },
+    expected: {
+      mount: ["mount-feed-1"],
+      vehicle: ["vehicle-crate-1"],
+      storage: ["storage-treasure-1"],
+      mountCapacity: {
+        usedSlots: 4,
+        capacitySlots: 12,
+        overloaded: false,
+      },
+      vehicleCapacity: {
+        usedSlots: 3,
+        capacitySlots: 20,
+        overloaded: false,
+      },
+      storageCapacity: {
+        usedSlots: 2,
+        capacitySlots: 10,
+        overloaded: false,
+      },
+    },
+  },
+];

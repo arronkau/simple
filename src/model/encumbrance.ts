@@ -2,6 +2,7 @@ import {
   getContainerSlotUsage,
   getContentsSlots,
   getDirectChildRecords,
+  getEffectiveRecordSlotBurden,
   getRecordSlotBurden,
 } from "./calculations";
 import type {
@@ -121,7 +122,8 @@ export function getEquippedSlots(
         getEffectiveCarryState(record, records) === "equipped",
     )
     .reduce(
-      (equippedSlots, record) => equippedSlots + getRecordSlotBurden(record),
+      (equippedSlots, record) =>
+        equippedSlots + getMovementRecordSlotBurden(record, records),
       0,
     );
 }
@@ -141,7 +143,8 @@ export function getStowedSlots(
         getEffectiveCarryState(record, records) === "stowed",
     )
     .reduce(
-      (stowedSlots, record) => stowedSlots + getRecordSlotBurden(record),
+      (stowedSlots, record) =>
+        stowedSlots + getMovementRecordSlotBurden(record, records),
       0,
     );
 }
@@ -421,6 +424,17 @@ function isExcludedFromMovementBurden(
       ancestorRecord.container?.burdenMode === "fixedOnly" ||
       isHeldHandsRequiredContainer(ancestorRecord, records),
   );
+}
+
+function getMovementRecordSlotBurden(
+  record: InventoryRecord,
+  records: InventoryRecord[],
+): number {
+  if (record.container?.isBackpack === true) {
+    return getRecordSlotBurden(record);
+  }
+
+  return getEffectiveRecordSlotBurden(record, records);
 }
 
 function isHeldHandsRequiredContainer(
