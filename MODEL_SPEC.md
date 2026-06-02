@@ -6,6 +6,14 @@ Define the canonical data model for the app.
 
 This file is the source of truth for TypeScript interfaces, required and optional fields, invariants, and derived calculations. UI layout belongs in `INVENTORY_VIEW_SPEC.md`.
 
+The inventory model must match the carried-item rule distinction:
+
+- Every carried item is either `equipped` or `stowed`.
+- Equipped items are held, worn, actively used, or ready at short notice.
+- Stowed items are packed away in a coin purse, backpack, sack, pocket, chest, or other container.
+
+Do not add extra primary inventory categories beyond `equipped` and `stowed` for character-like entities.
+
 ## Principles
 
 - Keep the model small and explicit.
@@ -14,6 +22,7 @@ This file is the source of truth for TypeScript interfaces, required and optiona
 - Do not split v1 data into item definitions and inventory instances.
 - Do not store derived values unless a specific performance issue requires it.
 - Prefer warnings over hard blocks except where data would become corrupt or nonsensical.
+- Make `equipped` and `stowed` the primary carried-item states.
 
 ## App State
 
@@ -32,7 +41,6 @@ Both Firebase mode and localStorage mode should persist the same logical app sta
 ```ts
 export type EntityId = string;
 export type InventoryRecordId = string;
-
 export type ISODateTimeString = string;
 ```
 
@@ -76,7 +84,7 @@ export type Entity = {
 - `baseMovementFeet` is optional. Use it for characters, retainers, mounts, or vehicles when movement display is useful.
 - `character` is optional and should only be present for character-like entities.
 - Retainers may use `character` data if they need character-like stats.
-- Mounts, vehicles, and storage should not require hands or equipped/stowed distinctions in the UI.
+- Mounts, vehicles, and storage may own inventory but do not need hand slots or equipped/stowed UI treatment.
 
 ## Character Data
 
@@ -151,37 +159,66 @@ export type InventoryRecord = {
 
 ## Inventory Location
 
+Every inventory location has one primary carried-item state: `equipped` or `stowed`.
+
 ```ts
-export type LocationArea =
+export type CarryState = "equipped" | "stowed";
+
+export type EquippedPlacement =
   | "leftHand"
   | "rightHand"
   | "bothHands"
-  | "equipped"
-  | "stowed"
+  | "loose";
+
+export type StowedPlacement =
+  | "coinPurse"
+  | "backpack"
   | "container";
 
 export type InventoryLocation =
   | {
       entityId: EntityId;
-      area: "leftHand" | "rightHand" | "bothHands" | "equipped" | "stowed";
+      carryState: "equipped";
+      placement: EquippedPlacement;
     }
   | {
       entityId: EntityId;
-      area: "container";
+      carryState: "stowed";
+      placement: "coinPurse" | "backpack";
+    }
+  | {
+      entityId: EntityId;
+      carryState: "stowed";
+      placement: "container";
       containerId: InventoryRecordId;
     };
 ```
+
+### Location Meaning
+
+- `carryState: "equipped"` means the record is held, worn, actively used, or ready at short notice.
+- `carryState: "stowed"` means the record is packed away and not immediately ready.
+- `placement: "leftHand"`, `"rightHand"`, and `"bothHands"` are equipped hand placements.
+- `placement: "loose"` is for equipped items that are not hand-held, such as worn armor, a sheathed weapon, a ring, an amulet, or other ready gear.
+- `placement: "coinPurse"` is for the entity's coin record.
+- `placement: "backpack"` is the default stowed placement for non-coin stowed records not inside another specific container.
+- `placement: "container"` is for records inside a specific stowed container.
 
 ### Location Rules
 
 - Every inventory record must have a location.
 - Every inventory record must have an owning `entityId`, including records inside containers.
 - `location.entityId` must point to an existing entity.
-- `location.area: "container"` must include `containerId`.
+- `carryState` must be either `equipped` or `stowed`.
+- `placement: "container"` must include `containerId`.
 - `containerId` must point to an existing `InventoryRecord` with `container` data.
 - A contained record’s `entityId` must match the owning entity of its container.
 - Moving a container to another entity must also update all contained descendant records to the new `entityId`.
 - Cross-entity containment is invalid.
+- Coin records must use `carryState: "stowed"` and `placement: "coinPurse"`.
+- Non-coin records must not use `placement: "coinPurse"`.
+- Hand placements must use `carryState: "equipped"`.
+- Backpack and container placements must use `carryState: "stowed"`.
 
 ## Slot Profile
 
@@ -229,6 +266,7 @@ export type CoinData = {
 - Coin denomination fields are required and default to `0`.
 - Coin denomination fields must be non-negative integers.
 - Coin records should use `slotProfile: { kind: "coins" }`.
+- Coin records must use `location: { entityId, carryState: "stowed", placement: "coinPurse" }`.
 - Coin records do not require a user-entered name.
 - Adding coins to an entity with an existing coin record should update that record instead of creating a duplicate.
 
@@ -264,9 +302,11 @@ export type WeaponData = {
 ### Weapon Rules
 
 - `hands` is required for weapons.
-- A weapon with `hands: "twoHands"` must use `location.area: "bothHands"` when held.
-- A weapon with `hands: "oneHand"` may use `leftHand` or `rightHand` when held.
-- A one-handed weapon must not use `bothHands` unless a later rule explicitly allows exceptions.
+- A weapon with `hands: "twoHands"` must use `carryState: "equipped"` and `placement: "bothHands"` when held.
+- A weapon with `hands: "oneHand"` may use `carryState: "equipped"` and `placement: "leftHand"` or `"rightHand"` when held.
+- A one-handed weapon must not use `placement: "bothHands"` unless a later rule explicitly allows exceptions.
+- A sheathed or ready weapon that is not currently held should use `carryState: "equipped"` and `placement: "loose"`.
+- A packed-away weapon should use `carryState: "stowed"` and `placement: "backpack"` or `"container"`.
 
 ## Armor Data
 
@@ -279,7 +319,7 @@ export type ArmorData = {
 
 ### Armor Rules
 
-- Armor is active when `recordType === "armor"` and `location.area === "equipped"`.
+- Armor is active when `recordType === "armor"`, `location.carryState === "equipped"`, and `location.placement === "loose"`.
 - There is no separate armor location.
 - Stowed armor is inventory only and should not count as active armor.
 
@@ -295,8 +335,8 @@ export type ContainerData = {
 
 - A container is any non-coin `InventoryRecord` with `container` data.
 - `capacitySlots` is required and must be `>= 0`.
-- Containers may appear in `stowed`, `equipped`, hand, or contained locations.
-- Container contents are records where `location.area === "container"` and `location.containerId === container.id`.
+- Containers may be equipped, stowed in the backpack, held in hands, or contained inside another container if allowed by the nesting rules.
+- Container contents are records where `location.carryState === "stowed"`, `location.placement === "container"`, and `location.containerId === container.id`.
 - Container cycles are invalid.
 - Empty containers may be placed inside another container.
 - Non-empty containers may not be placed inside another container for v1.
@@ -419,10 +459,24 @@ containerUsedSlots = sum(recordSlots(child) for each record whose location.conta
 
 Container used slots do not include the container record itself.
 
+### Equipped Slots
+
+```ts
+equippedSlots = sum(recordSlots(record) for records where location.carryState === "equipped")
+```
+
+### Stowed Slots
+
+```ts
+stowedSlots = sum(recordSlots(record) for records where location.carryState === "stowed")
+```
+
+Stowed slots include coins, backpack items, and items inside stowed containers.
+
 ### Entity Used Slots
 
 ```ts
-entityUsedSlots = sum(recordSlots(record) for all records where record.location.entityId === entity.id)
+entityUsedSlots = equippedSlots + stowedSlots
 ```
 
 This includes records inside containers because they still belong to the entity.
@@ -435,7 +489,7 @@ treasureValue = sum(record.treasure.gpValue for entity treasure records)
 
 ### Hand Occupancy
 
-Derived from records where `location.area` is `leftHand`, `rightHand`, or `bothHands`.
+Derived from records where `location.carryState === "equipped"` and `location.placement` is `leftHand`, `rightHand`, or `bothHands`.
 
 A valid character-like entity has either:
 
@@ -473,18 +527,19 @@ The app should prevent state that violates these invariants:
 - Every entity has a unique `id`.
 - Every inventory record has a unique `id`.
 - Every inventory record points to an existing entity.
+- Every inventory record has exactly one primary carry state: `equipped` or `stowed`.
 - Every contained inventory record points to an existing container.
 - Every container reference points to a record with `container` data.
 - No container cycles.
 - No cross-entity containment.
 - Each entity has at most one coin record.
-- Coins use only `recordType: "coins"`, `coins`, and `slotProfile.kind: "coins"`.
+- Coins use only `recordType: "coins"`, `coins`, `slotProfile.kind: "coins"`, and stowed coin-purse location.
 - Treasure records do not use identification data.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.
-- A hand location cannot contain more than one record.
-- A two-handed weapon held in hands must use `bothHands`.
-- A one-handed weapon held in hands must use `leftHand` or `rightHand`.
+- A hand placement cannot contain more than one record.
+- A two-handed weapon held in hands must use equipped `bothHands`.
+- A one-handed weapon held in hands must use equipped `leftHand` or `rightHand`.
 - A record cannot be placed inside a non-container.
 - A non-empty container cannot be placed inside another container for v1.
 
@@ -500,12 +555,14 @@ The app may warn without blocking for:
 
 ## Migration and Legacy Fields
 
-Legacy fields such as `type`, `itemType`, `category`, `subtype`, `equipmentType`, `holderId`, or `ownerId` should not be used in new code.
+Legacy fields such as `type`, `itemType`, `category`, `subtype`, `equipmentType`, `holderId`, `ownerId`, `area`, or `location.area` should not be used in new code.
 
 If existing data contains legacy fields, migrate them into:
 
 - `recordType`
 - `location.entityId`
+- `location.carryState`
+- `location.placement`
 - type-specific data sections
 - `slotProfile`
 

@@ -2,11 +2,25 @@
 
 ## Goal
 
-Provide a table-usable inventory screen for managing carried, equipped, stored, and container-held records across party entities.
+Provide a table-usable inventory screen for managing equipped and stowed records across party entities.
 
 The view should prioritize fast play, clear state, and simple interactions over exhaustive rule automation.
 
 `MODEL_SPEC.md` is the source of truth for data interfaces, invariants, and derived calculations. This file is the source of truth for inventory UI structure and interaction behavior.
+
+## Rules Basis
+
+The inventory view must reflect the carried-item distinction:
+
+- **Equipped items** are held, actively used, worn, sheathed, or ready to use at short notice.
+- **Stowed items** are packed away in pockets, a coin purse, backpack, sack, chest, or similar storage. In combat, retrieving a packed item may take one round by table ruling.
+
+For character-like entities, the inventory view has only two primary inventory categories:
+
+1. Equipped
+2. Stowed
+
+Hands, loose equipped items, coin purse, backpack, and containers are subdivisions of those two categories. They are not separate primary inventory categories.
 
 ## Primary Objects Used by the View
 
@@ -37,7 +51,9 @@ Each entity section should show:
 - Name
 - Entity type
 - Active/inactive state
-- Used slots
+- Equipped slots
+- Stowed slots
+- Total used slots
 - Capacity slots, if applicable
 - Encumbrance or movement state, if applicable
 - Warning state if overloaded or invalid
@@ -70,21 +86,28 @@ Do not add a separate top-level containers section.
 
 ## Equipped Section
 
-The equipped section contains records that are held, worn, or otherwise active.
+The equipped section contains records that are held, worn, actively used, sheathed, or otherwise ready at short notice.
 
-It has two subsections:
+Relevant location state:
+
+```ts
+location.carryState === "equipped"
+```
+
+The equipped section has two subsections:
 
 1. Hands
 2. Other equipped
 
 ### Hands
 
-Relevant location values:
+Relevant equipped placements:
 
 ```ts
-location.area: "leftHand"
-location.area: "rightHand"
-location.area: "bothHands"
+location.carryState === "equipped"
+location.placement === "leftHand"
+location.placement === "rightHand"
+location.placement === "bothHands"
 ```
 
 Hand display is exclusive:
@@ -112,48 +135,61 @@ Empty hand states should display `Empty hand`.
 
 ### Other Equipped
 
-Relevant location value:
+Relevant equipped placement:
 
 ```ts
-location.area: "equipped"
+location.carryState === "equipped"
+location.placement === "loose"
 ```
 
-Use this section for worn or active gear that is not hand-held.
+Use this section for equipped items that are not currently occupying hands.
 
 Examples:
 
-- Armor
+- Armor worn
+- Shield slung but ready, if not occupying a hand by table ruling
+- Sheathed weapon ready at short notice
 - Worn cloak
 - Ring
 - Amulet
-- Other active gear
+- Other active or ready gear
 
 Armor is active when:
 
 ```ts
-record.recordType === "armor" && record.location.area === "equipped"
+record.recordType === "armor" &&
+record.location.carryState === "equipped" &&
+record.location.placement === "loose"
 ```
 
 There is no separate armor location.
 
 ## Stowed Section
 
-The stowed section contains carried inventory that is not equipped or held.
+The stowed section contains carried inventory that is packed away and not immediately ready.
 
-It has two subsections:
+Relevant location state:
+
+```ts
+location.carryState === "stowed"
+```
+
+The stowed section has two subsections:
 
 1. Coin purse
 2. Backpack
 
 ### Coin Purse
 
-Relevant record type:
+Relevant record and location:
 
 ```ts
 record.recordType === "coins"
+record.location.carryState === "stowed"
+record.location.placement === "coinPurse"
 ```
 
-The coin purse is a display section for the entity's coin record.
+The coin purse is the display section for the entity's coin record.
 
 For v1:
 
@@ -161,6 +197,7 @@ For v1:
 - The view presents that record as the entity's coin purse.
 - Coin records should not appear as generic loose items in the backpack.
 - Coin records should not require a user-entered name.
+- Coin records are always stowed, not equipped.
 
 Display coin records with:
 
@@ -179,21 +216,24 @@ If the entity has no coin record or all denominations are zero, show `No coins` 
 
 ### Backpack
 
-Relevant location value:
+Relevant stowed placements:
 
 ```ts
-location.area: "stowed"
+location.carryState === "stowed"
+location.placement === "backpack"
+location.placement === "container"
 ```
 
 The backpack section contains all non-coin stowed records, including:
 
-- Loose equipment
-- Loose treasure
+- Loose equipment packed away
+- Loose treasure packed away
 - Stowed weapons
 - Stowed armor
 - Containers
+- Records inside containers
 
-`Backpack` is a view section for non-coin stowed inventory. It does not require a literal Backpack inventory record unless the user creates one.
+`Backpack` is the default stowed carrying area for non-coin records. It may be represented as a container-like UI section with used slots and contents, but it does not require a literal Backpack inventory record unless the user creates one.
 
 Containers are displayed inline in this section rather than in a separate top-level containers section.
 
@@ -203,13 +243,14 @@ If the backpack is empty, show `Empty` and an add/move action.
 
 A container is any non-coin `InventoryRecord` with `container` data.
 
-Containers may appear in stowed, equipped, held, or contained locations. In the default character/retainer layout, most containers will appear inside the backpack section.
+In the character/retainer inventory view, containers are normally shown inside the stowed Backpack section. A container may also be equipped or held if the user marks it that way, but its contents remain stowed because items inside a container are packed away.
 
 Container contents are records with:
 
 ```ts
-location.area: "container"
-location.containerId: container.id
+location.carryState === "stowed"
+location.placement === "container"
+location.containerId === container.id
 ```
 
 Each displayed container should show compactly:
@@ -247,15 +288,16 @@ These entities do not need:
 
 - Hands
 - Equipped section
-- Stowed section distinction
+- Stowed section distinction in the UI
 - Coin purse/backpack labels unless useful later
 
-Unless a future rule requires otherwise, their inventory can use `stowed` as the default location area.
+For the underlying model, their inventory should still use `carryState: "stowed"` by default.
 
-Relevant location value:
+Relevant default location:
 
 ```ts
-location.area: "stowed"
+location.carryState === "stowed"
+location.placement === "backpack"
 ```
 
 Containers appear inline inside the contents list rather than as a separate top-level layout section.
@@ -270,7 +312,8 @@ Each inventory record should show compact summary information as applicable:
 - Quantity, if greater than 1
 - Slot burden, if greater than 1 or needed for warnings
 - Coin value or treasure value where useful
-- Equipped/held/container location if context is unclear
+- Equipped/stowed status if context is unclear
+- Specific placement if context is unclear
 - Uses remaining, if applicable
 - Lit state, if applicable
 - Warning state
@@ -353,7 +396,7 @@ Armor records may show compact metadata where useful:
 
 - Base AC or armor bonus
 - Slot burden, if greater than 1
-- Whether active based on `location.area === "equipped"`
+- Whether active based on equipped loose placement
 - Warning state
 
 ### Equipment Display
@@ -374,7 +417,8 @@ The add-record flow should allow the user to choose:
 
 - Record type
 - Entity
-- Location area
+- Primary carry state: equipped or stowed
+- Placement within that carry state
 - Container, if placing inside a container
 
 The form should expose only fields relevant to the selected record type.
@@ -394,7 +438,7 @@ Potential fields:
 - GP value
 - Coin denominations
 - Hands required
-- Location
+- Carry state and placement
 - Container data
 - Identification data for weapons, armor, and equipment only
 - Light/use data
@@ -408,13 +452,13 @@ Moving a record should update only `location` and `sortOrder` unless the user al
 
 Common moves:
 
-- Stowed to equipped
-- Equipped to stowed
-- Stowed to left hand
-- Stowed to right hand
-- Stowed to either hand, with two-handed records claiming `bothHands`
+- Stowed backpack to equipped loose
+- Equipped loose to stowed backpack
+- Stowed backpack to left hand
+- Stowed backpack to right hand
+- Stowed backpack to either hand, with two-handed records claiming `bothHands`
 - Into container
-- Out of container
+- Out of container to backpack
 - To another entity
 
 When moving a container to another entity, contained records should move with it according to the model invariant.
@@ -467,6 +511,8 @@ Block:
 - Dropping a one-handed item into `bothHands`.
 - Creating a container cycle.
 - Dropping a non-empty container into another container.
+- Dropping a non-coin record into the coin purse.
+- Moving a coin record out of the coin purse.
 
 Warn, but do not necessarily block:
 
@@ -476,7 +522,7 @@ Warn, but do not necessarily block:
 
 ### Sort Order
 
-Within a location or container, dropped records should receive stable `sortOrder` values.
+Within a placement or container, dropped records should receive stable `sortOrder` values.
 
 Do not refactor sorting globally unless needed.
 
@@ -486,10 +532,11 @@ The inventory view should display these values by deriving them from model data:
 
 - Slot burden per record
 - Used slots per container
-- Used slots per entity
+- Equipped slots per entity
+- Stowed slots per entity
+- Total used slots per entity
 - Coin value per coin record
 - Treasure value per entity
-- Equipped/stowed burden where rules require it
 - Hand occupancy
 - Overloaded or over-capacity warnings
 
@@ -506,13 +553,15 @@ The UI should prevent actions that create invalid state:
 - More than one item represented in the active `bothHands` display.
 - Any `leftHand` or `rightHand` item while `bothHands` is occupied.
 - A `bothHands` item while `leftHand` or `rightHand` is occupied.
-- A two-handed item failing to claim `bothHands`.
+- A two-handed item failing to claim `bothHands` when held.
 - A one-handed item being placed in `bothHands`.
 - Placing a record inside a non-container.
 - Creating a container cycle.
 - Placing a record in a missing entity.
 - Placing a record in a missing container.
 - Creating a second coin record for the same entity.
+- Placing a non-coin record in the coin purse.
+- Moving a coin record out of the coin purse.
 - Placing a non-empty container inside another container.
 
 ### Warnings
@@ -550,12 +599,13 @@ A first complete implementation of this view should satisfy:
 - Hand overload states are prevented.
 - Stowed section contains coin purse and backpack.
 - Coin records display denominations, derived GP value, and derived slots.
-- Backpack contains all non-coin stowed records.
+- Coin records are always stowed in the coin purse.
+- Backpack contains all non-coin stowed records not already visually nested under a container.
 - Containers appear inline inside backpack/contents rather than as a separate top-level layout section.
 - Treasure records are always identified.
 - Container records display used slots and capacity.
 - Mount, vehicle, and storage entities show a simpler contents layout.
-- Records can be moved between entity locations.
+- Records can be moved between valid entity locations.
 - Records can be moved into and out of containers.
 - The UI does not require Firebase to function in local mode.
 
@@ -565,5 +615,5 @@ A first complete implementation of this view should satisfy:
 - No separate item-definition model.
 - No complex permission model in this inventory-view pass.
 - No exhaustive magic-item automation.
-- No required literal Backpack inventory record for the backpack view section.
+- No separate armor location.
 - No separate top-level containers section.

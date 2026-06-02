@@ -11,7 +11,8 @@ The app should support:
 - Character and party inventory tracking.
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
-- Containers displayed inline inside carried inventory.
+- A rules-compliant split between equipped and stowed carried items.
+- Containers displayed inline inside stowed inventory.
 - Coins, treasure, weapons, armor, and equipment as inventory records.
 - Local/demo use without Firebase configuration.
 - Firebase-backed sync when Firebase environment variables are configured.
@@ -87,11 +88,33 @@ Local mode should:
 - Avoid a generic rules engine.
 - Avoid separate item-definition and inventory-instance layers for v1.
 - Keep inventory records self-contained enough to be edited directly.
-- Use derived calculations for slots, coin value, encumbrance state, and display summaries.
+- Use derived calculations for slots, equipped burden, stowed burden, coin value, encumbrance state, and display summaries.
 - Store derived values only if there is a clear performance need.
 - Keep validation focused on preventing corrupt or nonsensical state.
 - Use warnings for table-adjudicated problems where strict enforcement would slow play.
 - Favor minimal diffs and no unrelated refactors during implementation.
+
+## Core Inventory Rule
+
+Every carried item is classified as either equipped or stowed.
+
+### Equipped Items
+
+Equipped items are held, actively used, worn, sheathed, or otherwise ready to use at short notice.
+
+Examples:
+
+- Armor worn
+- Shield or weapon held in hand
+- Two-handed weapon held in both hands
+- Sheathed weapon ready at short notice
+- Worn ring, amulet, cloak, or similar active gear
+
+### Stowed Items
+
+Stowed items are packed away and not ready at short notice. They may be in a coin purse, backpack, pocket, sack, chest, or other container.
+
+In combat, retrieving a stowed item may take one round by table ruling. The app should represent this distinction clearly but does not need to automate combat timing.
 
 ## Core Domain Objects
 
@@ -130,6 +153,32 @@ type InventoryRecordType =
   | "armor"
   | "equipment";
 ```
+
+## Inventory Location Model
+
+The model uses two primary inventory states:
+
+```ts
+type CarryState = "equipped" | "stowed";
+```
+
+Character-like entities subdivide those states as follows:
+
+```md
+Equipped
+  Hands
+    Left hand
+    Right hand
+    Both hands
+  Other equipped / loose ready items
+
+Stowed
+  Coin purse
+  Backpack
+    Containers inline
+```
+
+Do not create separate primary categories for hands, armor, containers, backpack, or coin purse. Those are placements or view sections under equipped/stowed.
 
 ## Inventory View Layout
 
