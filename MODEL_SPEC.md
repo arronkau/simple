@@ -99,13 +99,15 @@ entity.entityType === "character" || entity.entityType === "retainer"
 
 Character-like entities use equipped/stowed locations.
 
-A newly created character-like entity should start with a literal backpack container record.
+On character or retainer creation, create exactly one default backpack record.
 
 That backpack is a normal `recordType: "equipment"` record with `container` data and `container.isBackpack === true`.
 
-A character-like entity may have at most one backpack container where `container.isBackpack === true`.
+Validation hard rule: a character-like entity may not have more than one backpack container where `container.isBackpack === true`.
 
-If a character-like entity has no backpack container, non-coin records cannot be placed into stowed backpack inventory. Those records must be equipped unless placed inside another valid existing container.
+Soft warning: an existing character-like entity with zero backpack containers should warn.
+
+Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a backpack record exists. Those records must be equipped unless placed inside another valid existing container.
 
 ## Non-Character Entities
 
@@ -332,7 +334,8 @@ export type CoinData = {
 
 ### Coin Rules
 
-- Each entity may have at most one `recordType: "coins"` record.
+- Character-like entities may have at most one `recordType: "coins"` record.
+- Non-character entities may have multiple coin records, as long as each record has a valid contents/container location.
 - Coin denomination fields are required and default to `0`.
 - Coin denomination fields must be non-negative integers.
 - Coin records should use `slotProfile: { kind: "coins" }`.
@@ -340,7 +343,8 @@ export type CoinData = {
 - Character-like coin records count toward stowed slots.
 - The coin purse is not a real container.
 - Coin records do not require a user-entered name.
-- Adding coins to an entity with an existing coin record should update that record instead of creating a duplicate.
+- Adding coins to a character-like entity with an existing coin record should update that record instead of creating a duplicate.
+- Adding coins to a non-character entity may create a new coin record or update a selected existing coin record, depending on the chosen valid contents/container location.
 - Non-character entities may contain coin records in contents or inside ordinary containers.
 - Non-character entities do not require a coin purse.
 
@@ -415,14 +419,17 @@ export type ContainerData = {
 - `handsRequired` defaults to `0`.
 - `isBackpack` defaults to `false`.
 - `burdenMode` defaults to `"contentsOnlyWhenLoaded"`.
-- A character-like entity should have exactly one backpack container with `isBackpack: true`.
+- On character or retainer creation, create exactly one default backpack record.
+- A character-like entity may not have more than one backpack container with `isBackpack: true`.
+- An existing character-like entity with zero backpack containers should warn.
 - A backpack container should normally use `handsRequired: 0`.
 - A container with `handsRequired: 1` may be equipped in `leftHand` or `rightHand`.
 - A container with `handsRequired: 2` must use `bothHands` when equipped.
 - A non-empty container with nonzero `handsRequired` should warn if it is not being held or equipped.
 - A non-empty hands-required container may contain records even while the container itself is equipped.
-- A container with contents held in hand, such as a sack, does not count toward encumbrance, and neither do items inside.
+- A container with contents held in hand, such as a sack, does not count toward movement-restricting encumbrance, and neither do items inside.
 - Empty containers may be placed inside another container.
+- A container nested inside another container may receive contents only if it is first moved out, unless a later task explicitly allows nested non-empty containers.
 - Non-empty containers may not be placed inside another container for v1.
 - Container cycles are invalid.
 - Deleting a non-empty container should be blocked unless a later task adds explicit delete-with-contents behavior.
@@ -430,11 +437,36 @@ export type ContainerData = {
 ### Backpack Rules
 
 - The backpack is a real inventory record.
+- On character or retainer creation, create exactly one default backpack record.
+- Validation hard rule: a character-like entity may not have more than one backpack container.
+- Soft warning: an existing character-like entity with zero backpack containers should warn.
+- Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a backpack record exists.
 - The backpack is represented by an `InventoryRecord` with `recordType: "equipment"` and `container.isBackpack === true`.
 - Character-like stowed non-coin records directly in the backpack use `locationType: "stowed"`, `placement: "backpack"`, and `containerId` set to the backpack record ID.
-- If the character-like entity has no backpack container, non-coin records cannot be moved to backpack stowed placement.
-- The UI should warn when a character-like entity has no backpack.
 - The UI should offer an action to create a backpack for a character-like entity if missing.
+
+Suggested default backpack factory:
+
+```ts
+const createDefaultBackpack = (entityId: EntityId): InventoryRecord => ({
+  id: generatedId,
+  recordType: "equipment",
+  name: "Backpack",
+  location: {
+    entityId,
+    locationType: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+  container: {
+    capacitySlots: 16,
+    handsRequired: 0,
+    isBackpack: true,
+    burdenMode: "contentsOnlyWhenLoaded",
+  },
+});
+```
 
 ## Identification Data
 
@@ -573,6 +605,7 @@ else if record has container data:
     effectiveRecordSlots(record) = baseRecordSlots(record)
   else if container.burdenMode === "containerPlusContents":
     effectiveRecordSlots(record) = baseRecordSlots(record)
+    effectiveRecordSlots(children and descendants of record) are counted normally
   else if container.burdenMode === "fixedOnly":
     effectiveRecordSlots(record) = baseRecordSlots(record)
     effectiveRecordSlots(children and descendants of record) = 0
@@ -680,6 +713,28 @@ If no detailed movement tiers are implemented yet, show:
 - overloaded warning if applicable
 - a placeholder movement state based on the slower burden category
 
+### Hand Occupancy
+
+Suggested helper:
+
+```ts
+getHandOccupancy(entityId, records): {
+  leftHand?: InventoryRecordId;
+  rightHand?: InventoryRecordId;
+  bothHands?: InventoryRecordId;
+  errors: string[];
+}
+```
+
+Rules:
+
+- If any record uses `bothHands`, no record may use `leftHand` or `rightHand`.
+- If a record uses `leftHand`, no other record may use `leftHand` or `bothHands`.
+- If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
+- A two-handed weapon must use `bothHands` when hand-held.
+- A hands-required `2` container must use `bothHands` when hand-held.
+- A hands-required `1` container may use `leftHand` or `rightHand` when hand-held.
+
 ## Hard Invariants
 
 The app should prevent state that violates these invariants:
@@ -695,18 +750,23 @@ The app should prevent state that violates these invariants:
 - Every container reference points to a record with `container` data.
 - No container cycles.
 - No cross-entity containment.
-- Each entity has at most one coin record.
+- Character-like entities have at most one coin record.
+- Non-character entities may have multiple coin records if each has a valid contents/container location.
 - Character-like coins use only `recordType: "coins"`, `coins`, `slotProfile.kind: "coins"`, and stowed coin-purse location.
 - Non-character coins use only `recordType: "coins"`, `coins`, `slotProfile.kind: "coins"`, and contents location.
 - Treasure records do not use identification data.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.
 - A hand placement cannot contain more than one record.
+- If any record uses `bothHands`, no record may use `leftHand` or `rightHand`.
+- If a record uses `leftHand`, no other record may use `leftHand` or `bothHands`.
+- If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
 - A two-handed weapon held in hands must use equipped `bothHands`.
 - A one-handed weapon held in hands must use equipped `leftHand` or `rightHand`.
 - A hands-required container must use a compatible hand placement when equipped.
 - A record cannot be placed inside a non-container.
 - A non-empty container cannot be placed inside another container for v1.
+- A container nested inside another container cannot receive contents until it is first moved out.
 - All non-coin records must have a non-empty trimmed `name`.
 
 ## Soft Warnings

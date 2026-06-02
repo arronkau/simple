@@ -32,7 +32,8 @@ For character-like entities:
 - The coin purse is not a real container.
 - Coin records count toward stowed slots.
 - Non-coin stowed records must go into the character's literal backpack container or another valid container.
-- Each character-like entity should start with a literal backpack container.
+- On character or retainer creation, create exactly one default backpack record.
+- A character-like entity may not have more than one backpack container.
 - If no backpack exists, the view should warn and should not allow stowing non-coin records into backpack placement.
 
 Hands, loose equipped items, coin purse, backpack, and containers are subdivisions of equipped/stowed. They are not separate primary inventory categories.
@@ -269,9 +270,9 @@ The backpack section represents a literal backpack container record.
 
 Backpack requirements:
 
-- Character-like entities should start with a backpack container.
+- On character or retainer creation, create exactly one default backpack record.
 - The backpack is an `InventoryRecord` with `recordType: "equipment"` and `container.isBackpack === true`.
-- A character-like entity may have at most one backpack container.
+- A character-like entity may not have more than one backpack container.
 - The backpack itself may be displayed as the section header rather than as a normal item row.
 - Non-coin stowed records directly in the backpack must point to the backpack record ID.
 - If no backpack exists, show a warning and an action to create one.
@@ -596,7 +597,7 @@ Drag-and-drop may be considered later, but it is not part of v1 acceptance crite
 - Character-like entities show equipped and stowed sections.
 - Character-like entities show hand occupancy correctly.
 - Character-like entities show coin purse as display-only placement, not as a real container.
-- Character-like entities start with a backpack container.
+- Character-like entities receive exactly one default backpack record on creation.
 - Character-like entities cannot stow non-coin records in backpack placement without a backpack container.
 - Mounts, vehicles, and storage show contents only.
 - Mounts, vehicles, and storage do not show hands, equipped, stowed, coin purse, or backpack sections.

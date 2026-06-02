@@ -140,9 +140,13 @@ For character-like entities, stowed inventory is allowed only in:
 - A valid container inside the backpack.
 - A valid hands-required container currently held in hand.
 
-A character-like entity should start with a literal backpack container.
+On character or retainer creation, create exactly one default backpack record.
 
-If a character-like entity has no backpack container, non-coin records cannot be placed in stowed backpack inventory. Those records must be equipped unless placed into another valid existing container.
+Validation hard rule: a character-like entity may not have more than one backpack container.
+
+Soft warning: an existing character-like entity with zero backpack containers should warn.
+
+Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a backpack record exists. Those records must be equipped unless placed into another valid existing container.
 
 #### Coin Purse
 

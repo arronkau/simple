@@ -41,34 +41,23 @@ Create the React/Vite/TypeScript app structure and local persistence shell.
 
 Stop after the app boots locally and persists the empty app state without errors.
 
-## Phase 2 — Implement Canonical Model Types
+## Phase 2A — Implement Canonical Model Types
 
 ### Task
 
-Add TypeScript types and validation helpers matching `MODEL_SPEC.md`.
+Add TypeScript interfaces and discriminated types matching `MODEL_SPEC.md`.
 
 ### Requirements
 
 - Implement `Entity`, `InventoryRecord`, `InventoryLocation`, `SlotProfile`, and type-specific data interfaces.
-- Enforce entity-type-specific location rules.
 - Use `locationType`, not `carryState`, as the stored location discriminator.
 - Use `entity` terminology only.
-- Ensure all non-coin records require a non-empty trimmed `name`.
 - Allow arbitrary string alignment.
-- Add derived calculations for:
-  - coin count
-  - coin GP value
-  - record slot burden
-  - container used slots
-  - equipped slots
-  - stowed slots
-  - contents slots
-  - total entity slots
-  - hand occupancy
-  - warnings
+- Include the default backpack factory shape from `MODEL_SPEC.md`.
 
 ### Non-goals
 
+- Do not implement UI.
 - Do not automate modifiers.
 - Do not implement detailed character-sheet rules.
 - Do not add legacy migration logic.
@@ -76,11 +65,116 @@ Add TypeScript types and validation helpers matching `MODEL_SPEC.md`.
 ### Validation
 
 - `npm run typecheck`
-- Unit tests for validation and derived calculations if a test runner exists.
 
 ### Stop Condition
 
-Stop when model types compile and validation covers all hard invariants from `MODEL_SPEC.md`.
+Stop when the canonical model types compile without adding UI or persistence behavior beyond what Phase 1 requires.
+
+## Phase 2B — Implement Slot and Coin Calculation Helpers
+
+### Task
+
+Add pure derived calculation helpers for coin values, slot burden, and container capacity.
+
+### Requirements
+
+- Add derived calculations for:
+  - coin count
+  - coin GP value
+  - record slot burden
+  - effective record slot burden
+  - container used slots
+  - contents slots
+  - total entity slots
+- Implement `containerPlusContents` as container base slots plus normally counted child/descendant slots.
+- Use `capacitySlots` / `usedSlots` terminology.
+- Held hands-required containers and contents are modeled normally but excluded from movement-restricting equipped/stowed burden.
+
+### Non-goals
+
+- Do not implement forms or move workflows.
+- Do not add Firebase.
+- Do not automate modifiers.
+
+### Validation
+
+- `npm run typecheck`
+- Unit tests for coin and slot calculations if a test runner exists.
+
+### Stop Condition
+
+Stop when pure calculation helpers compile and are covered by direct tests or clear manual fixtures.
+
+## Phase 2C — Implement Location and Containment Validation Helpers
+
+### Task
+
+Add pure validation helpers for entity-specific inventory locations, hand occupancy, and containment.
+
+### Requirements
+
+- Enforce entity-type-specific location rules.
+- Ensure all non-coin records require a non-empty trimmed `name`.
+- Enforce character-like coin records: at most one coin record and coin-purse placement only.
+- Allow non-character entities to have multiple coin records if each has a valid contents/container location.
+- Add explicit hand occupancy helper.
+- Prevent invalid hand collisions.
+- Prevent non-empty containers from being nested.
+- Prevent a nested empty container from receiving contents until moved out.
+- Prevent container cycles and cross-entity containment.
+- Enforce backpack rules:
+  - character/retainer creation creates one default backpack record
+  - character-like entities may not have more than one backpack
+  - missing backpack is a warning for existing entities
+  - non-coin records cannot move to stowed backpack placement unless a backpack exists
+
+### Non-goals
+
+- Do not implement UI.
+- Do not implement drag-and-drop.
+- Do not add legacy migration logic.
+
+### Validation
+
+- `npm run typecheck`
+- Unit tests for hard invariants if a test runner exists.
+
+### Stop Condition
+
+Stop when validation covers all hard invariants from `MODEL_SPEC.md` without adding inventory forms.
+
+## Phase 2D — Implement Encumbrance and Warning Helpers
+
+### Task
+
+Add pure helpers for equipped/stowed burden, movement, capacity warnings, and soft warnings according to `ENCUMBRANCE_SPEC.md`.
+
+### Requirements
+
+- Add derived calculations for:
+  - equipped slots
+  - stowed slots
+  - movement from slower equipped/stowed burden
+  - contents capacity results for non-character entities
+  - warnings
+- Coin purse is not a real container; character-like coin records in coin-purse placement count toward stowed burden.
+- Held hands-required containers and contents are excluded from equipped and stowed movement burden.
+- Non-empty hands-required containers not held should warn.
+
+### Non-goals
+
+- Do not implement UI display.
+- Do not implement combat or retrieval timing.
+- Do not add Firebase.
+
+### Validation
+
+- `npm run typecheck`
+- Unit tests for movement bands, overloads, held-container exclusion, and warnings if a test runner exists.
+
+### Stop Condition
+
+Stop when encumbrance helpers match `ENCUMBRANCE_SPEC.md` and do not mutate app state.
 
 ## Phase 3 — Entity CRUD
 
