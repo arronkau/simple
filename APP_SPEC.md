@@ -11,7 +11,7 @@ The app should support:
 - Character and party inventory tracking.
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
-- Containers and nested inventory where allowed.
+- Containers where useful, displayed inside stowed inventory.
 - Coins, treasure, weapons, armor, and equipment as inventory records.
 - Local/demo use without Firebase configuration.
 - Firebase-backed sync when Firebase environment variables are configured.
@@ -105,6 +105,20 @@ type InventoryRecordType =
   | "equipment";
 ```
 
+## Inventory View Layout
+
+The inventory view is the central workflow and should be optimized first.
+
+For character and retainer entities, the inventory view uses:
+
+- Entity header
+- Equipped section containing hands and other equipped items
+- Stowed section containing coin purse and backpack
+
+For mount, vehicle, and storage entities, the view may use a simpler contents list.
+
+Containers are displayed inside the stowed backpack section rather than as a separate top-level layout section.
+
 ## High-Level UI Areas
 
 The app should eventually include:
@@ -115,8 +129,6 @@ The app should eventually include:
 - Record add/edit modal
 - Entity add/edit modal
 - Settings or data-management view if needed
-
-The inventory view is the central workflow and should be optimized first.
 
 ## Non-Goals
 

@@ -1,687 +1,233 @@
-# Model Spec
+# Inventory View Spec
 
 ## Goal
 
-Define a simple model for a table-usable TTRPG character and inventory tracker.
+Provide a table-usable inventory screen for managing all carried, equipped, stored, and container-held records across party entities.
 
-The model uses two primary concepts:
+The view should prioritize fast play, clear state, and simple interactions over exhaustive rule automation.
 
-1. **Entity** — a character, retainer, mount, vehicle, or storage location that can own or carry inventory.
-2. **InventoryRecord** — a concrete inventory instance, stack, coin pile, treasure object, weapon, armor, equipment item, or container.
+## Primary Objects
+
+- `Entity`
+- `InventoryRecord`
+- `InventoryLocation`
+- `ContainerData`
+- `SlotProfile`
+
+Entity and holder are the same concept. Use entity terminology everywhere.
 
 ---
 
-# Entity Model
+# View Structure
 
-## Entity Type
+## Entity List
 
-```ts
-type EntityType =
-  | "character"
-  | "retainer"
-  | "mount"
-  | "vehicle"
-  | "storage";
-```
+The inventory view should display inventory grouped by entity.
 
-## Entity
-
-```ts
-type Entity = {
-  id: string;
-  type: EntityType;
-  name: string;
-
-  active: boolean;
-
-  capacitySlots?: number;
-
-  character?: CharacterData;
-  movement?: MovementData;
-
-  notes?: string;
-  sortOrder?: number;
-};
-```
-
-## `id`
-
-Unique identifier for the entity.
-
-Used by `InventoryLocation.entityId`.
-
-## `type`
-
-The kind of entity.
-
-Allowed values:
+Entity types:
 
 ```ts
 "character" | "retainer" | "mount" | "vehicle" | "storage"
 ```
 
-## `name`
+Active entities should appear before inactive entities.
 
-Display name for the entity.
+Within each active/inactive group, use `sortOrder` where available.
 
-Examples:
+## Entity Header
 
-```ts
-"Yost"
-"Mal"
-"Mule"
-"Wagon"
-"Townhouse Storage"
-```
+Each entity section should show:
 
-## `active`
+- Name
+- Movement state, TBD for now
+- Warning state if overloaded or invalid
 
-Whether this entity is currently active in the party view.
-
-Inactive entities remain stored but may be hidden or collapsed by default.
-
-## `capacitySlots`
-
-Optional total inventory capacity for the entity.
-
-Typical use:
-
-- Mounts
-- Vehicles
-- Storage locations
-- Special retainers or constrained carriers
-
-Characters and retainers may derive capacity from rules instead of storing it directly.
-
-## `character`
-
-Optional character data.
-
-Used by character-like entities only:
-
-- `character`
-- `retainer`
-
-Mounts, vehicles, and storage usually omit this.
-
-## `movement`
-
-Optional movement data.
-
-Used when an entity has movement that should be displayed or modified by encumbrance. Characters and retainers may derive movement from rules instead of storing it directly.
-
-## `notes`
-
-Freeform notes for the entity.
-
-## `sortOrder`
-
-Stable display order among entities.
+Keep the inventory header compact. Character-sheet data such as class, HP, AC, and XP belongs elsewhere unless a later layout pass explicitly adds it back.
 
 ---
 
-# Character Data
+# Character and Retainer Inventory Layout
 
-The exact character sheet model can be expanded later. Keep this minimal for inventory work.
+Characters and retainers use the full inventory layout.
 
-```ts
-type CharacterData = {
-  className?: string;
-  level?: number;
-  alignment?: string;
+## Recommended Section Order
 
-  hpCurrent?: number;
-  hpMax?: number;
-  armorClass?: number;
-
-  abilities?: Partial<Record<AbilityKey, number>>;
-  saves?: Partial<Record<SaveKey, number>>;
-  skills?: Partial<Record<SkillKey, number>>;
-
-  languages?: string[];
-  xp?: number;
-};
-```
-
-This model is intentionally incomplete. Do not block inventory implementation on a full character-sheet schema.
+1. Entity header
+2. Equipped
+3. Stowed
 
 ---
 
-# Movement Data
+# Equipped Section
+
+Use for hand-held, worn, or active gear.
+
+Relevant location values:
 
 ```ts
-type MovementData = {
-  baseExplorationSpeed?: number;
-  currentExplorationSpeed?: number;
-  encumbranceState?: "normal" | "slowed" | "overloaded";
-  notes?: string;
-};
-```
-
-Movement should usually be derived from inventory burden and rules data, not manually edited in most workflows.
-
----
-
-# Inventory Model
-
-## Inventory Record Type
-
-```ts
-type InventoryRecordType =
-  | "coins"
-  | "treasure"
-  | "weapon"
-  | "armor"
-  | "equipment";
-```
-
-## Inventory Record
-
-```ts
-type InventoryRecord = {
-  id: string;
-
-  recordType: InventoryRecordType;
-
-  name?: string;
-  description?: string;
-
-  quantity?: number;
-
-  slotProfile?: SlotProfile;
-
-  gpValue?: number;
-
-  coins?: CoinDenominations;
-
-  handsRequired?: 0 | 1 | 2;
-
-  identified?: boolean;
-  unidentifiedName?: string;
-  unidentifiedDescription?: string;
-
-  isLit?: boolean;
-  emitsLightRadius?: number;
-
-  usesRemaining?: number;
-  usesMax?: number;
-  consumedOnFinalUse?: boolean;
-
-  modifiers?: ItemModifiers;
-
-  weapon?: WeaponData;
-  armor?: ArmorData;
-  container?: ContainerData;
-
-  location: InventoryLocation;
-
-  sortOrder?: number;
-};
-```
-
-## `id`
-
-Unique identifier for this inventory record.
-
-Used for editing, deleting, sorting, drag-and-drop, and container references.
-
-## `recordType`
-
-The broad kind of inventory record.
-
-```ts
-"coins" | "treasure" | "weapon" | "armor" | "equipment"
-```
-
-## `name`
-
-The normal identified display name.
-
-Examples:
-
-```ts
-"Longsword"
-"Leather Armor"
-"Backpack"
-"Silver Chalice"
-```
-
-Coins omit this.
-
-## `description`
-
-The normal identified description.
-
-Used for item notes, treasure descriptions, magic item descriptions, or equipment details.
-
-Coins omit this.
-
-## `quantity`
-
-Number of items represented by this record.
-
-Defaults to `1` when omitted.
-
-Used for stackable equipment, ammunition, torches, rations, treasure multiples, etc.
-
-Coins do not use `quantity`; they use `coins`.
-
----
-
-# Slot Fields
-
-## Slot Profile
-
-```ts
-type SlotProfile =
-  | { slotsTaken: number; stackSize?: never }
-  | { stackSize: number; slotsTaken?: never };
-```
-
-Use `slotsTaken` for individually slotted items.
-
-```ts
-slotProfile: { slotsTaken: 1 }
-```
-
-Use `stackSize` for stackable items.
-
-```ts
-slotProfile: { stackSize: 3 }
-```
-
-Slot calculation:
-
-```ts
-if slotsTaken exists:
-  slots = quantity * slotsTaken
-
-if stackSize exists:
-  slots = Math.ceil(quantity / stackSize)
-```
-
-Rules:
-
-- `slotsTaken: 0` is allowed for negligible items.
-- A record must not define both `slotsTaken` and `stackSize`.
-- Coins do not use `slotProfile`; coin slots are derived from denomination counts.
-
----
-
-# Value Fields
-
-## `gpValue`
-
-Gold-piece value of this record.
-
-For treasure, this is required.
-
-For weapons, armor, and equipment, this is optional.
-
-For coins, this is derived from denomination counts and should not be stored.
-
-## `coins`
-
-Used only when `recordType === "coins"`.
-
-```ts
-type CoinDenominations = {
-  pp: number;
-  gp: number;
-  sp: number;
-  cp: number;
-};
-```
-
-Coin records store denomination counts only.
-
-Coin GP value is derived:
-
-```ts
-pp * 10 + gp + sp / 10 + cp / 100
-```
-
-Coin slots are derived:
-
-```ts
-const totalCoins = pp + gp + sp + cp;
-
-slots = totalCoins === 0
-  ? 0
-  : Math.ceil(totalCoins / 100);
-```
-
-Coins should not use:
-
-```ts
-name
-```
-
-```ts
-description
-```
-
-```ts
-slotProfile
-```
-
-```ts
-handsRequired
-```
-
-```ts
-gpValue
-```
-
-or other non-coin fields except where the UI needs a harmless display label.
-
----
-
-# Hands and Equipment Fields
-
-## `handsRequired`
-
-How many hands the record requires when held.
-
-```ts
-0 | 1 | 2
-```
-
-Typical meanings:
-
-- `0`: worn item, armor, ring, cloak, negligible item.
-- `1`: one-handed weapon, shield, torch.
-- `2`: two-handed weapon or bulky held object.
-
-Hand placement is controlled by `location.area`.
-
-Two-handed held items should use:
-
-```ts
+location.area: "leftHand"
+location.area: "rightHand"
 location.area: "bothHands"
+location.area: "equipped"
 ```
 
----
+The equipped section has two parts:
 
-# Identification Fields
+1. Hands
+2. Other equipped items
 
-## `identified`
+## Hands Display
 
-Whether this specific record is identified.
+Hand display is exclusive:
 
-If omitted, treat as identified.
+- Show `leftHand` and `rightHand` by default.
+- Show `bothHands` instead when a two-handed item occupies both hands.
+- Do not show `leftHand`, `rightHand`, and `bothHands` as three simultaneous slots.
 
-If explicitly `false`, use unidentified display fields.
+Behavior:
 
-## `unidentifiedName`
+- A one-handed item may occupy `leftHand` or `rightHand`.
+- A two-handed item occupies `bothHands`.
+- Dropping a two-handed item into either empty hand should claim both hands and change the display to the `bothHands` view.
+- Dropping a two-handed item into either hand should be blocked if either hand is already occupied.
+- Dropping a one-handed item should be blocked when `bothHands` is occupied.
 
-Displayed name when `identified === false`.
+Validation should prevent:
 
-Example:
+- More than one item in the same hand.
+- A two-handed item plus another hand-held item.
+- A two-handed item being represented as only one occupied hand.
+- A one-handed item being represented in `bothHands`.
 
-```ts
-"Strange Black Blade"
-```
+## Other Equipped Items
 
-## `unidentifiedDescription`
-
-Displayed description when `identified === false`.
-
----
-
-# Light and Use Fields
-
-## `emitsLightRadius`
-
-Light radius emitted by the item when lit.
-
-Presence of this field means the item can be lit.
-
-## `isLit`
-
-Whether this record is currently lit.
-
-Only relevant when `emitsLightRadius` exists.
-
-## `usesMax`
-
-Maximum number of uses this record can have.
+Use `location.area: "equipped"` for worn or active gear that is not hand-held.
 
 Examples:
 
-- Wand charges
-- Oil flask uses
-- Special consumable uses
-
-## `usesRemaining`
-
-Current number of uses remaining.
-
-## `consumedOnFinalUse`
-
-Whether the record should be removed or marked consumed when `usesRemaining` reaches `0`.
-
-This field describes behavior only. It does not require automatic consumption unless the UI already supports that.
-
----
-
-# Modifiers
-
-## `modifiers`
-
-Simple mechanical bonuses or notes.
-
-```ts
-type ItemModifiers = {
-  acBonus?: number;
-  toHitBonus?: number;
-  damageBonus?: number;
-  saveBonus?: number;
-
-  abilityBonuses?: Partial<Record<AbilityKey, number>>;
-  skillBonuses?: Partial<Record<SkillKey, number>>;
-
-  movementBonus?: number;
-
-  notes?: string;
-};
-```
-
-Used for weapons, armor, shields, rings, cloaks, treasure, or any other item that grants a simple modifier.
-
-Ambiguous effects should go in `notes`.
-
-This is not a generic rules engine.
-
----
-
-# Weapon Data
-
-## `weapon`
-
-Used only when `recordType === "weapon"`.
-
-```ts
-type WeaponData = {
-  damage: string;
-
-  qualities?: string[];
-
-  range?: {
-    short?: number;
-    medium?: number;
-    long?: number;
-  };
-};
-```
-
-## `weapon.damage`
-
-Damage expression.
-
-Example:
-
-```ts
-"1d8"
-```
-
-## `weapon.qualities`
-
-Optional weapon qualities.
-
-Example:
-
-```ts
-["slow", "two-handed"]
-```
-
-## `weapon.range`
-
-Optional missile/thrown weapon range data.
-
----
-
-# Armor Data
-
-## `armor`
-
-Used only when `recordType === "armor"`.
-
-```ts
-type ArmorData = {
-  baseAc: number;
-};
-```
-
-## `armor.baseAc`
-
-Base armor class provided by this armor.
+- Armor
+- Worn cloak
+- Ring
+- Amulet
+- Other active gear
 
 Armor is active when:
 
 ```ts
-recordType === "armor" && location.area === "equipped"
+record.recordType === "armor" && record.location.area === "equipped"
 ```
 
 There is no separate armor location.
 
 ---
 
-# Container Data
+# Stowed Section
 
-## `container`
+Use for carried inventory that is not equipped or held.
 
-Used for records that can contain other records.
-
-Usually used when `recordType === "equipment"`.
+Relevant location value:
 
 ```ts
-type ContainerData = {
-  capacitySlots: number;
-  countsAsSlotsWhenEmpty?: number;
-  canContainNonEmptyContainers?: boolean;
-};
+location.area: "stowed"
 ```
 
-## `container.capacitySlots`
+For simplicity, the stowed section has two parts:
 
-Maximum number of slots this container can hold.
+1. Coin purse
+2. Backpack
 
-## `container.countsAsSlotsWhenEmpty`
+## Coin Purse
 
-How many slots the container itself takes when empty.
+The coin purse is a simple display section for all coin records owned by the entity.
 
-## `container.canContainNonEmptyContainers`
+For v1, each entity should have at most one coin record. The inventory view displays this as the entity's coin purse.
 
-Whether this container may hold other containers that already contain items.
+Coins are still represented as `InventoryRecord` records with `recordType: "coins"`, but the view should present them as one practical coin purse rather than as generic loose items.
 
-Default should be false unless explicitly set.
+## Backpack
+
+The backpack section contains all other stowed records, including:
+
+- Loose equipment
+- Loose treasure
+- Stowed weapons or armor
+- Containers
+
+“Backpack” is a view section for non-coin stowed inventory. It does not require a literal Backpack inventory record unless the user creates one.
+
+Containers are displayed inside the backpack section rather than as a separate top-level layout section.
 
 ---
 
-# Location
+# Containers
 
-## Inventory Location
+A container is any `InventoryRecord` with `container` data.
 
-```ts
-type InventoryLocation = {
-  entityId: string;
-  entityType: EntityType;
+Container records may appear in stowed, equipped, held, or contained locations. In the default inventory layout, they appear inside the stowed backpack section unless the user has moved them elsewhere.
 
-  area:
-    | "equipped"
-    | "stowed"
-    | "container"
-    | "leftHand"
-    | "rightHand"
-    | "bothHands";
-
-  containerId?: string;
-};
-```
-
-## `location.entityId`
-
-ID of the character, retainer, mount, vehicle, or storage entity that ultimately owns or carries this record.
-
-## `location.entityType`
-
-The kind of entity.
-
-Allowed values:
+Container contents are records with:
 
 ```ts
-"character" | "retainer" | "mount" | "vehicle" | "storage"
+location.area: "container"
+location.containerId: "<container record id>"
 ```
 
-## `location.area`
+Each displayed container should show compactly:
 
-Where the record is placed.
+- Container name
+- Used slots / capacity slots
+- Over-capacity warning if applicable
+- Contained records
 
-Allowed values:
-
-```ts
-"equipped" | "stowed" | "container" | "leftHand" | "rightHand" | "bothHands"
-```
-
-Meanings:
-
-- `equipped`: worn or active equipment.
-- `stowed`: loose carried inventory.
-- `container`: inside another inventory record.
-- `leftHand`: held in left hand.
-- `rightHand`: held in right hand.
-- `bothHands`: held using both hands.
-
-Armor uses `equipped`.
-
-There is no `armor` location.
-
-## `location.containerId`
-
-The `id` of the containing inventory record.
-
-Required when:
-
-```ts
-location.area === "container"
-```
-
-Omitted otherwise.
+Container load is calculated from the slot burden of records whose `location.containerId` points to that container.
 
 ---
 
-# Sorting
+# Mount, Vehicle, and Storage Inventory Layout
 
-## `sortOrder`
+Mounts, vehicles, and storage use a simpler layout.
 
-Optional display order within the current location or container.
+## Recommended Section Order
 
-Used for stable inventory ordering.
+1. Entity header
+2. Contents
+
+## Contents Section
+
+Use a flat inventory list for records owned by the entity.
+
+These entities do not need:
+
+- Hands
+- Equipped section
+- Stowed section distinction
+
+Unless a future rule requires it, their inventory can use `stowed` as the default location area.
+
+Relevant location value:
+
+```ts
+location.area: "stowed"
+```
+
+Containers appear inside the contents list rather than as a separate top-level layout section.
 
 ---
 
-# Display Logic
+# Inventory Record Display
+
+## Row/Card Content
+
+Each inventory record should show, as applicable:
+
+- Display name
+- Quantity, if greater than 1, next to the name; for example, `Torch (3)`
+- Slot burden, if greater than 1
+- Uses remaining, if applicable
+- Lit state, if applicable
+- Warning state
+
+Keep rows compact. The inventory screen should not become a full rules reference page.
 
 ## Display Name
 
@@ -701,372 +247,269 @@ else:
   record.description
 ```
 
+Descriptions should be hidden, collapsed, or shown in edit/detail views by default to keep the inventory compact.
+
+
+## Slot Display
+
+Show calculated slot burden, not raw slot fields.
+
+Omit slot display for records that use 0 or 1 slot unless warning context requires it.
+
+Examples:
+
+- omit for `0 slots`
+- omit for `1 slot`
+- `2 slots`
+- `3/6 slots` for a container
+
+## Coins Display
+
+Coin records should display denomination counts and derived total value.
+
+Example:
+
+```md
+Coins — 12 gp, 35 sp, 80 cp — 2 slots — 16.3 gp value
+```
+
+Coin records should not require a user-entered name.
+
+## Treasure Display
+
+Treasure records should show:
+
+- Name
+- Slot burden, if greater than 1
+- GP value in detail/edit views when useful
+
+Treasure is always identified. Do not expose identification fields for treasure records.
+
+## Weapons Display
+
+Weapon records may show compact metadata where useful:
+
+- Damage
+- Hands required
+- Slot burden, if greater than 1
+- Warning state
+
+Do not turn the inventory row into a full weapon reference entry.
+
+## Armor Display
+
+Armor records may show compact metadata where useful:
+
+- Base AC
+- Slot burden, if greater than 1
+- Whether active based on `location.area === "equipped"`
+- Warning state
+
+## Equipment Display
+
+Equipment records may show compact metadata where useful:
+
+- Quantity if greater than 1
+- Slot burden, if greater than 1
+- Container status if applicable
+- Uses/light state if applicable
+- Warning state
+
 ---
 
-# Slot Calculation
+# Add and Edit Workflows
 
-## Coins
+## Add Record
 
-```ts
-const totalCoins =
-  record.coins.pp +
-  record.coins.gp +
-  record.coins.sp +
-  record.coins.cp;
+The add-record flow should allow the user to choose:
 
-const slots =
-  totalCoins === 0
-    ? 0
-    : Math.ceil(totalCoins / 100);
-```
+- Record type
+- Entity
+- Location area
+- Container, if placing inside a container
 
-## Non-Coins
+The form should expose only fields relevant to the selected record type.
 
-```ts
-const quantity = record.quantity ?? 1;
+Treasure creation should not expose identification fields.
 
-if record.slotProfile.slotsTaken exists:
-  slots = quantity * record.slotProfile.slotsTaken;
+## Edit Record
 
-if record.slotProfile.stackSize exists:
-  slots = Math.ceil(quantity / record.slotProfile.stackSize);
-```
+Editing a record should allow changes to relevant fields only.
+
+Potential fields:
+
+- Name and description
+- Quantity
+- Slot profile
+- GP value
+- Coin denominations
+- Hands required
+- Location
+- Container data
+- Identification data for weapons, armor, and equipment only
+- Light/use data
+- Weapon/armor data where applicable
+
+Avoid showing every possible field at once. Use type-specific sections.
+
+
+## Move Record
+
+Moving a record should update only `location` and `sortOrder` unless the user also edits the record.
+
+Common moves:
+
+- Stowed to equipped
+- Equipped to stowed
+- Stowed to left hand
+- Stowed to right hand
+- Stowed to either hand, with two-handed records claiming `bothHands`
+- Into container
+- Out of container
+- To another entity
+
+## Delete Record
+
+Deleting a record should require confirmation if:
+
+- It is a container with contents.
+- It has nonzero coin value.
+- It has nonzero treasure value.
+
+When deleting a container, the UI must either:
+
+- Prevent deletion until contents are moved, or
+- Ask whether to delete contents too.
+
+Default recommendation: prevent deletion until contents are moved.
 
 ---
 
-# Placement Rules
+# Drag-and-Drop Behavior
 
-## Armor
+Drag-and-drop may be implemented where practical, but button/menu movement is acceptable as a fallback.
 
-Armor is active when:
+## Drop Targets
 
-```ts
-record.recordType === "armor" &&
-record.location.area === "equipped"
-```
+Valid drop targets:
 
-Stowed armor, contained armor, or armor carried in hand does not provide base AC.
+- Entity stowed/backpack area
+- Equipped area for character-like entities
+- Left hand
+- Right hand
+- Container
+- Another entity
 
-## Containers
+`bothHands` is a resulting state, not a third simultaneous visible hand target in the default view. A two-handed item dropped into either empty hand should claim `bothHands`.
 
-A container is any inventory record with `container` data.
+## Drop Validation
 
-Items inside it use:
+Drops should be blocked or warned when they would create invalid state:
 
-```ts
-location.area: "container"
-location.containerId: "<container record id>"
-```
+- Dropping into a non-container record.
+- Dropping into a missing container.
+- Dropping a two-handed item into either hand when either hand is already occupied.
+- Dropping a one-handed item while `bothHands` is occupied.
+- Dropping into an occupied hand.
+- Dropping a non-empty container into another container unless allowed by container data.
+- Creating a container cycle.
 
-Container load is calculated from the slot burden of records whose `location.containerId` points to that container.
+## Sort Order
 
-## Hands
+Within a location or container, dropped records should receive stable `sortOrder` values.
 
-Hand-held records use one of:
+Do not refactor sorting globally unless needed.
 
-```ts
-location.area: "leftHand"
-location.area: "rightHand"
-location.area: "bothHands"
-```
+---
 
-Validation should prevent:
+# Derived Calculations
+
+The inventory view should derive:
+
+- Slot burden per record
+- Used slots per container
+- Used slots per entity
+- Coin value per coin record
+- Treasure value per entity
+- Equipped/stowed burden where rules require it
+- Hand occupancy
+- Overloaded or over-capacity warnings
+
+Do not store derived values unless there is a specific performance reason.
+
+---
+
+# Validation and Warnings
+
+## Hard Blocks
+
+The UI should prevent actions that create invalid state:
 
 - More than one item in `leftHand`.
 - More than one item in `rightHand`.
-- More than one item in `bothHands`.
-- A `bothHands` item plus any `leftHand` or `rightHand` item on the same entity.
-- A two-handed item being placed in `leftHand` or `rightHand`.
-- A one-handed item being placed in `bothHands` unless explicitly allowed by future UI behavior.
+- More than one item represented in the active `bothHands` display.
+- Any `leftHand` or `rightHand` item while `bothHands` is occupied.
+- A `bothHands` item while `leftHand` or `rightHand` is occupied.
+- A two-handed item failing to claim `bothHands`.
+- A one-handed item being placed in `bothHands`.
+- Placing a record inside a non-container.
+- Creating a container cycle.
+- Placing a record in a missing entity.
+- Placing a record in a missing container.
 
-A two-handed item is represented by:
+## Warnings
 
-```ts
-handsRequired: 2
-```
+The UI may warn without blocking:
 
-and should normally be placed with:
-
-```ts
-location.area: "bothHands"
-```
-
----
-
-# Validation Rules
-
-## Hard Validation
-
-Hard validation should prevent corrupt or nonsensical state:
-
-- Inventory records must have a valid `id`.
-- Inventory records must have a valid `recordType`.
-- Inventory records must have a valid `location.entityId`.
-- `location.entityId` must point to an existing entity.
-- `location.entityType` must match the entity's `type`.
-- `location.containerId` is required when `location.area === "container"`.
-- `location.containerId` must point to an existing inventory record with `container` data.
-- A record must not define both `slotProfile.slotsTaken` and `slotProfile.stackSize`.
-- Coin records must use `coins` and should not require `slotProfile`, `quantity`, or `gpValue`.
-- Hand locations must not violate hand-capacity rules.
-
-## Soft Warnings
-
-Soft warnings may be shown without blocking play:
-
+- Entity exceeds capacity.
+- Container exceeds capacity, if temporary overfilling is allowed.
 - Entity is overloaded.
-- Container is over capacity, if temporary overfilling is allowed.
-- Unidentified item has no unidentified display name.
-- Item has uses below zero or above max due to manual editing.
+- Record has incomplete optional metadata.
 
 ---
 
-# Complete Type Summary
+# Empty States
 
-```ts
-type EntityType =
-  | "character"
-  | "retainer"
-  | "mount"
-  | "vehicle"
-  | "storage";
+The inventory view should have useful empty states.
 
-type Entity = {
-  id: string;
-  type: EntityType;
-  name: string;
-  active: boolean;
-  capacitySlots?: number;
-  character?: CharacterData;
-  movement?: MovementData;
-  notes?: string;
-  sortOrder?: number;
-};
+Examples:
 
-type CharacterData = {
-  className?: string;
-  level?: number;
-  alignment?: string;
-  hpCurrent?: number;
-  hpMax?: number;
-  armorClass?: number;
-  abilities?: Partial<Record<AbilityKey, number>>;
-  saves?: Partial<Record<SaveKey, number>>;
-  skills?: Partial<Record<SkillKey, number>>;
-  languages?: string[];
-  xp?: number;
-};
-
-type MovementData = {
-  baseExplorationSpeed?: number;
-  currentExplorationSpeed?: number;
-  encumbranceState?: "normal" | "slowed" | "overloaded";
-  notes?: string;
-};
-
-type InventoryRecordType =
-  | "coins"
-  | "treasure"
-  | "weapon"
-  | "armor"
-  | "equipment";
-
-type SlotProfile =
-  | { slotsTaken: number; stackSize?: never }
-  | { stackSize: number; slotsTaken?: never };
-
-type CoinDenominations = {
-  pp: number;
-  gp: number;
-  sp: number;
-  cp: number;
-};
-
-type ItemModifiers = {
-  acBonus?: number;
-  toHitBonus?: number;
-  damageBonus?: number;
-  saveBonus?: number;
-  abilityBonuses?: Partial<Record<AbilityKey, number>>;
-  skillBonuses?: Partial<Record<SkillKey, number>>;
-  movementBonus?: number;
-  notes?: string;
-};
-
-type WeaponData = {
-  damage: string;
-  qualities?: string[];
-  range?: {
-    short?: number;
-    medium?: number;
-    long?: number;
-  };
-};
-
-type ArmorData = {
-  baseAc: number;
-};
-
-type ContainerData = {
-  capacitySlots: number;
-  countsAsSlotsWhenEmpty?: number;
-  canContainNonEmptyContainers?: boolean;
-};
-
-type InventoryLocation = {
-  entityId: string;
-  entityType: EntityType;
-  area: "equipped" | "stowed" | "container" | "leftHand" | "rightHand" | "bothHands";
-  containerId?: string;
-};
-
-type InventoryRecord = {
-  id: string;
-  recordType: InventoryRecordType;
-  name?: string;
-  description?: string;
-  quantity?: number;
-  slotProfile?: SlotProfile;
-  gpValue?: number;
-  coins?: CoinDenominations;
-  handsRequired?: 0 | 1 | 2;
-  identified?: boolean;
-  unidentifiedName?: string;
-  unidentifiedDescription?: string;
-  isLit?: boolean;
-  emitsLightRadius?: number;
-  usesRemaining?: number;
-  usesMax?: number;
-  consumedOnFinalUse?: boolean;
-  modifiers?: ItemModifiers;
-  weapon?: WeaponData;
-  armor?: ArmorData;
-  container?: ContainerData;
-  location: InventoryLocation;
-  sortOrder?: number;
-};
-```
+- No entities yet: show an action to create an entity.
+- Entity has no inventory: show an action to add a record.
+- Coin purse is empty: show `No coins` and an add/edit action.
+- Backpack is empty: show `Empty` and an add/move action.
+- Container is empty: show `Empty` and an add/move action.
+- Hand is empty: show `Empty hand`.
 
 ---
 
-# Field Use by Record Type
+# Minimal Acceptance Criteria
 
-## Coins
+A first complete implementation of this view should satisfy:
 
-Use:
+- Entities are displayed by active state and `sortOrder` where available.
+- Character and retainer entities show an entity header, equipped section, and stowed section.
+- Equipped section contains hands and other equipped items.
+- Hands display either `leftHand` and `rightHand` or `bothHands`, not all three simultaneously.
+- Two-handed records dropped into either empty hand claim `bothHands` and switch the hands display to the `bothHands` view.
+- Hand overload states are prevented.
+- Stowed section contains coin purse and backpack.
+- Containers appear inside backpack/contents rather than as a separate top-level layout section.
+- Mount, vehicle, and storage entities show a simpler contents layout.
+- Inventory records display compact summary information.
+- Coin records display denominations, derived GP value, and derived slots.
+- Treasure records are always identified.
+- Container records display used slots and capacity.
+- Records can be moved between entity locations.
+- Records can be moved into and out of containers.
+- The UI does not require Firebase to function in local mode.
 
-```ts
-id
-recordType: "coins"
-coins
-location
-sortOrder
-```
+---
 
-Do not require:
+# Non-Goals
 
-```ts
-name
-description
-quantity
-slotProfile
-gpValue
-handsRequired
-```
-
-## Treasure
-
-Use:
-
-```ts
-id
-recordType: "treasure"
-name
-description
-quantity
-slotProfile
-gpValue
-identified
-unidentifiedName
-unidentifiedDescription
-location
-sortOrder
-```
-
-Optional:
-
-```ts
-modifiers
-container
-```
-
-## Weapon
-
-Use:
-
-```ts
-id
-recordType: "weapon"
-name
-description
-quantity
-slotProfile
-gpValue
-handsRequired
-weapon
-modifiers
-identified
-unidentifiedName
-unidentifiedDescription
-location
-sortOrder
-```
-
-## Armor
-
-Use:
-
-```ts
-id
-recordType: "armor"
-name
-description
-quantity
-slotProfile
-gpValue
-handsRequired
-armor
-modifiers
-identified
-unidentifiedName
-unidentifiedDescription
-location
-sortOrder
-```
-
-## Equipment
-
-Use:
-
-```ts
-id
-recordType: "equipment"
-name
-description
-quantity
-slotProfile
-gpValue
-handsRequired
-container
-modifiers
-identified
-unidentifiedName
-unidentifiedDescription
-isLit
-emitsLightRadius
-usesRemaining
-usesMax
-consumedOnFinalUse
-location
-sortOrder
-```
+- No full OSE rules automation.
+- No separate item-definition model.
+- No complex permission model in this inventory-view pass.
+- No exhaustive magic-item automation.
+- No required literal Backpack inventory record for the backpack view section.
