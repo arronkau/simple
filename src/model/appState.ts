@@ -1,7 +1,9 @@
+import type { Entity, InventoryRecord } from "./types";
+
 export type AppState = {
   schemaVersion: 1;
-  entities: unknown[];
-  inventoryRecords: unknown[];
+  entities: Entity[];
+  inventoryRecords: InventoryRecord[];
 };
 
 export const APP_STATE_STORAGE_KEY = "simple.inventory.appState.v1";
