@@ -2,17 +2,18 @@
 
 ## Goal
 
-Define the canonical data model for the app.
+Define the canonical data model for the app. This file is the source of truth for TypeScript interfaces, required and optional fields, invariants, and derived calculations.
 
-This file is the source of truth for TypeScript interfaces, required and optional fields, invariants, and derived calculations. UI layout belongs in `INVENTORY_VIEW_SPEC.md`.
+UI layout belongs in `INVENTORY_VIEW_SPEC.md`. Encumbrance and movement rules belong in `ENCUMBRANCE_SPEC.md`.
 
 The inventory model must match the carried-item rule distinction:
 
-- Every carried item is either `equipped` or `stowed`.
+- Every character-like carried item is either `equipped` or `stowed`.
 - Equipped items are held, worn, actively used, or ready at short notice.
 - Stowed items are packed away in a coin purse, backpack, sack, pocket, chest, or other container.
+- Do not add extra primary inventory categories beyond `equipped` and `stowed` for character-like entities.
 
-Do not add extra primary inventory categories beyond `equipped` and `stowed` for character-like entities.
+For non-character entities (`mount`, `vehicle`, `storage`), use an explicit `contents` location instead of forcing a character-style equipped/stowed UI distinction.
 
 ## Principles
 
@@ -22,7 +23,26 @@ Do not add extra primary inventory categories beyond `equipped` and `stowed` for
 - Do not split v1 data into item definitions and inventory instances.
 - Do not store derived values unless a specific performance issue requires it.
 - Prefer warnings over hard blocks except where data would become corrupt or nonsensical.
-- Make `equipped` and `stowed` the primary carried-item states.
+- Hand accounting is generic. It applies to any record with `handsRequired > 0`, not only weapons.
+- Containers are real inventory records. Backpack and coin purse are literal containers for character-like entities.
+
+## Expected Implementation Modules
+
+Keep model logic out of React components.
+
+Suggested files:
+
+```text
+src/model/types.ts
+src/model/inventoryCalculations.ts
+src/model/inventoryValidation.ts
+src/model/inventoryMoves.ts
+src/model/displayNames.ts
+src/rules/encumbrance.ts
+src/store/appStore.ts
+```
+
+React components should call these helpers instead of duplicating slot, hand, coin, container, display-name, or encumbrance logic.
 
 ## App State
 
@@ -62,15 +82,11 @@ export type Entity = {
   id: EntityId;
   name: string;
   entityType: EntityType;
-
   active: boolean;
   sortOrder: number;
-
   capacitySlots?: number;
   baseMovementFeet?: number;
-
   character?: CharacterData;
-
   notes?: string;
   createdAt?: ISODateTimeString;
   updatedAt?: ISODateTimeString;
@@ -84,7 +100,8 @@ export type Entity = {
 - `baseMovementFeet` is optional. Use it for characters, retainers, mounts, or vehicles when movement display is useful.
 - `character` is optional and should only be present for character-like entities.
 - Retainers may use `character` data if they need character-like stats.
-- Mounts, vehicles, and storage may own inventory but do not need hand slots or equipped/stowed UI treatment.
+- Characters and retainers use equipped/stowed inventory states.
+- Mounts, vehicles, and storage own inventory but do not use hand slots or equipped/stowed UI treatment. Their direct inventory uses the explicit `contents` location.
 
 ## Character Data
 
@@ -92,12 +109,10 @@ export type Entity = {
 export type CharacterData = {
   className?: string;
   level?: number;
-
   hpCurrent?: number;
   hpMax?: number;
   armorClass?: number;
   xp?: number;
-
   alignment?: "lawful" | "neutral" | "chaotic" | string;
   languages?: string[];
 };
@@ -115,18 +130,17 @@ export type InventoryRecordType =
   | "armor"
   | "equipment";
 
+export type HandsRequired = 0 | 1 | 2;
+
 export type InventoryRecord = {
   id: InventoryRecordId;
   recordType: InventoryRecordType;
-
   name?: string;
   description?: string;
-
   location: InventoryLocation;
   sortOrder: number;
-
   slotProfile: SlotProfile;
-
+  handsRequired: HandsRequired;
   coins?: CoinData;
   treasure?: TreasureData;
   weapon?: WeaponData;
@@ -136,7 +150,6 @@ export type InventoryRecord = {
   uses?: UsesData;
   light?: LightData;
   modifiers?: Modifier[];
-
   notes?: string;
   createdAt?: ISODateTimeString;
   updatedAt?: ISODateTimeString;
@@ -145,13 +158,17 @@ export type InventoryRecord = {
 
 ### Inventory Record Field Rules
 
-- `id`, `recordType`, `location`, `sortOrder`, and `slotProfile` are required.
+- `id`, `recordType`, `location`, `sortOrder`, `slotProfile`, and `handsRequired` are required.
 - `name` is optional only for `recordType: "coins"`.
+- `handsRequired` defaults to `0`.
+- `handsRequired` may be `0`, `1`, or `2`.
+- `handsRequired` applies to all record types, including containers, equipment, armor, weapons, and treasure.
 - `coins` is required when `recordType === "coins"` and must be absent otherwise.
 - `treasure` is required when `recordType === "treasure"` and must be absent otherwise.
 - `weapon` is required when `recordType === "weapon"` and must be absent otherwise.
 - `armor` is required when `recordType === "armor"` and must be absent otherwise.
 - `container` may appear on any non-coin record if that record can contain other records.
+- `container` is required for literal backpack and coin-purse records.
 - `identification` may appear only on `weapon`, `armor`, or `equipment` records.
 - Treasure is always identified. Do not use identification fields for treasure.
 - Coins are always identified. Do not use identification fields for coins.
@@ -159,7 +176,9 @@ export type InventoryRecord = {
 
 ## Inventory Location
 
-Every inventory location has one primary carried-item state: `equipped` or `stowed`.
+Character-like inventory locations have one primary carried-item state: `equipped` or `stowed`.
+
+Non-character entities use `contents` for direct inventory.
 
 ```ts
 export type CarryState = "equipped" | "stowed";
@@ -171,7 +190,6 @@ export type EquippedPlacement =
   | "loose";
 
 export type StowedPlacement =
-  | "coinPurse"
   | "backpack"
   | "container";
 
@@ -184,11 +202,22 @@ export type InventoryLocation =
   | {
       entityId: EntityId;
       carryState: "stowed";
-      placement: "coinPurse" | "backpack";
+      placement: "backpack";
     }
   | {
       entityId: EntityId;
       carryState: "stowed";
+      placement: "container";
+      containerId: InventoryRecordId;
+    }
+  | {
+      entityId: EntityId;
+      carryState: "contents";
+      placement: "contents";
+    }
+  | {
+      entityId: EntityId;
+      carryState: "contents";
       placement: "container";
       containerId: InventoryRecordId;
     };
@@ -198,44 +227,87 @@ export type InventoryLocation =
 
 - `carryState: "equipped"` means the record is held, worn, actively used, or ready at short notice.
 - `carryState: "stowed"` means the record is packed away and not immediately ready.
+- `carryState: "contents"` means the record belongs to a mount, vehicle, or storage entity where equipped/stowed distinction is not modeled.
 - `placement: "leftHand"`, `"rightHand"`, and `"bothHands"` are equipped hand placements.
 - `placement: "loose"` is for equipped items that are not hand-held, such as worn armor, a sheathed weapon, a ring, an amulet, or other ready gear.
-- `placement: "coinPurse"` is for the entity's coin record.
-- `placement: "backpack"` is the default stowed placement for non-coin stowed records not inside another specific container.
-- `placement: "container"` is for records inside a specific stowed container.
+- `placement: "backpack"` means the record is directly inside the entity's literal backpack container.
+- `placement: "container"` means the record is inside a specific container record.
+- `placement: "contents"` means the record is direct inventory of a mount, vehicle, or storage entity.
 
 ### Location Rules
 
 - Every inventory record must have a location.
 - Every inventory record must have an owning `entityId`, including records inside containers.
 - `location.entityId` must point to an existing entity.
-- `carryState` must be either `equipped` or `stowed`.
+- Character-like entities use only `equipped` and `stowed` carry states.
+- Non-character entities use only `contents` carry state.
 - `placement: "container"` must include `containerId`.
 - `containerId` must point to an existing `InventoryRecord` with `container` data.
-- A contained record’s `entityId` must match the owning entity of its container.
+- A contained record's `entityId` must match the owning entity of its container.
 - Moving a container to another entity must also update all contained descendant records to the new `entityId`.
 - Cross-entity containment is invalid.
-- Coin records must use `carryState: "stowed"` and `placement: "coinPurse"`.
-- Non-coin records must not use `placement: "coinPurse"`.
 - Hand placements must use `carryState: "equipped"`.
-- Backpack and container placements must use `carryState: "stowed"`.
+- Backpack and character container placements must use `carryState: "stowed"`.
+- Direct mount, vehicle, and storage inventory must use `carryState: "contents"`.
+
+## Required Character Containers
+
+Characters and retainers should have literal container records for:
+
+1. Backpack
+2. Coin purse
+
+These are real inventory records. They can be stolen, lost, destroyed, overfilled, or moved, with game consequences.
+
+### Backpack Container
+
+A character-like entity cannot stow non-coin items unless it has a backpack container.
+
+Recommended record shape:
+
+```ts
+const backpack: InventoryRecord = {
+  id: "...",
+  recordType: "equipment",
+  name: "Backpack",
+  location: { entityId, carryState: "equipped", placement: "loose" },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 0,
+  container: { capacitySlots: 10, containerRole: "backpack" },
+};
+```
+
+The backpack container itself is equipped/worn, but items inside it are stowed container contents.
+
+### Coin Purse Container
+
+Coins must be inside a literal coin-purse container.
+
+Recommended record shape:
+
+```ts
+const coinPurse: InventoryRecord = {
+  id: "...",
+  recordType: "equipment",
+  name: "Coin Purse",
+  location: { entityId, carryState: "equipped", placement: "loose" },
+  sortOrder: 1,
+  slotProfile: { kind: "fixed", slots: 0 },
+  handsRequired: 0,
+  container: { capacitySlots: 999, containerRole: "coinPurse" },
+};
+```
+
+The coin record must use `placement: "container"` with `containerId` pointing to the entity's coin-purse container.
 
 ## Slot Profile
 
 ```ts
 export type SlotProfile =
-  | {
-      kind: "fixed";
-      slots: number;
-    }
-  | {
-      kind: "stackable";
-      quantity: number;
-      perSlot: number;
-    }
-  | {
-      kind: "coins";
-    };
+  | { kind: "fixed"; slots: number }
+  | { kind: "stackable"; quantity: number; perSlot: number }
+  | { kind: "coins" };
 ```
 
 ### Slot Profile Rules
@@ -266,7 +338,7 @@ export type CoinData = {
 - Coin denomination fields are required and default to `0`.
 - Coin denomination fields must be non-negative integers.
 - Coin records should use `slotProfile: { kind: "coins" }`.
-- Coin records must use `location: { entityId, carryState: "stowed", placement: "coinPurse" }`.
+- Coin records must be inside the entity's coin-purse container.
 - Coin records do not require a user-entered name.
 - Adding coins to an entity with an existing coin record should update that record instead of creating a duplicate.
 
@@ -289,11 +361,8 @@ export type TreasureData = {
 ## Weapon Data
 
 ```ts
-export type WeaponHands = "oneHand" | "twoHands";
-
 export type WeaponData = {
   damage?: string;
-  hands: WeaponHands;
   range?: string;
   qualities?: string[];
 };
@@ -301,12 +370,12 @@ export type WeaponData = {
 
 ### Weapon Rules
 
-- `hands` is required for weapons.
-- A weapon with `hands: "twoHands"` must use `carryState: "equipped"` and `placement: "bothHands"` when held.
-- A weapon with `hands: "oneHand"` may use `carryState: "equipped"` and `placement: "leftHand"` or `"rightHand"` when held.
-- A one-handed weapon must not use `placement: "bothHands"` unless a later rule explicitly allows exceptions.
+- Weapon hand behavior is controlled by the generic `handsRequired` field, not by weapon-specific hand data.
+- A weapon with `handsRequired: 2` must use equipped `bothHands` when held.
+- A weapon with `handsRequired: 1` may use equipped `leftHand` or `rightHand` when held.
+- A weapon with `handsRequired: 0` may be equipped loose or stowed, but should not occupy a hand.
 - A sheathed or ready weapon that is not currently held should use `carryState: "equipped"` and `placement: "loose"`.
-- A packed-away weapon should use `carryState: "stowed"` and `placement: "backpack"` or `"container"`.
+- A packed-away weapon should be stowed inside the backpack or another valid container.
 
 ## Armor Data
 
@@ -314,20 +383,32 @@ export type WeaponData = {
 export type ArmorData = {
   baseArmorClass?: number;
   armorBonus?: number;
+  armorKind?: "armor" | "shield" | "helmet" | string;
 };
 ```
 
 ### Armor Rules
 
-- Armor is active when `recordType === "armor"`, `location.carryState === "equipped"`, and `location.placement === "loose"`.
+- Body armor is active when `recordType === "armor"`, `armor.armorKind !== "shield"`, `location.carryState === "equipped"`, and `location.placement === "loose"`.
 - There is no separate armor location.
 - Stowed armor is inventory only and should not count as active armor.
+- Shields should be represented as `recordType: "armor"`, `armor.armorKind: "shield"`, `armor.armorBonus: 1`, and `handsRequired: 1`.
+- A shield's AC bonus applies only when the shield is equipped in `leftHand` or `rightHand`.
+- A shield in `loose`, `backpack`, `container`, or `contents` does not apply its AC bonus.
+- More generally, an item with `handsRequired > 0` should only apply active modifiers when it is actually in a valid hand placement.
 
 ## Container Data
 
 ```ts
+export type ContainerRole =
+  | "backpack"
+  | "coinPurse"
+  | "ordinary"
+  | string;
+
 export type ContainerData = {
   capacitySlots: number;
+  containerRole?: ContainerRole;
 };
 ```
 
@@ -335,12 +416,32 @@ export type ContainerData = {
 
 - A container is any non-coin `InventoryRecord` with `container` data.
 - `capacitySlots` is required and must be `>= 0`.
-- Containers may be equipped, stowed in the backpack, held in hands, or contained inside another container if allowed by the nesting rules.
-- Container contents are records where `location.carryState === "stowed"`, `location.placement === "container"`, and `location.containerId === container.id`.
+- `containerRole` is optional but recommended for literal backpacks and coin purses.
+- Container contents are records whose location points to the container's `id`.
 - Container cycles are invalid.
-- Empty containers may be placed inside another container.
-- Non-empty containers may not be placed inside another container for v1.
 - Deleting a non-empty container should be blocked unless a later task adds explicit delete-with-contents behavior.
+
+### Character-Like Container Placement Rules
+
+For characters and retainers:
+
+- Non-coin stowed records must be inside the literal backpack container or inside another valid container that is itself inside the backpack.
+- Coins must be inside the literal coin-purse container.
+- Ordinary containers with contents must normally be inside the backpack.
+- Exception: a container with `handsRequired > 0` may be equipped in hands while it has contents.
+- If a container with `handsRequired > 0` has contents but is not held in a valid hand placement, the app should warn.
+- The model must support a held container and its contents being treated as equipped for future encumbrance rules.
+- Do not implement special held-container encumbrance behavior in the model. Put those calculations in `ENCUMBRANCE_SPEC.md` / `src/rules/encumbrance.ts`.
+
+Example: a sack with `handsRequired: 1` may be held in the right hand while containing rations. The sack is equipped in `rightHand`; the rations point to the sack by `containerId`.
+
+### Nesting Rules
+
+- Empty ordinary containers may be placed inside another container.
+- Non-empty ordinary containers may not be placed inside another ordinary container for v1.
+- A backpack may contain ordinary containers.
+- A coin purse may contain only the entity's coin record.
+- A held hands-required container may contain ordinary records.
 
 ## Identification Data
 
@@ -400,11 +501,25 @@ export type Modifier = {
 };
 ```
 
-Modifiers are descriptive and optional for v1. They allow records such as magic rings, cloaks, or weapons to capture relevant bonuses without requiring full automation.
+Modifiers are descriptive and optional for v1. They allow records such as magic rings, cloaks, shields, or weapons to capture relevant bonuses without requiring full automation.
+
+If `handsRequired > 0`, active modifiers should apply only while the item is in a valid hand placement.
 
 ## Derived Calculations
 
 Do not persist these values unless a later performance task proves it necessary.
+
+### Display Name
+
+```ts
+if (record.identification?.identified === false) {
+  displayName = record.identification.unidentifiedName ?? "Unidentified Item";
+} else {
+  displayName = record.name?.trim() || "Unnamed Item";
+}
+```
+
+Coins may use the display label `Coins` even though `name` is optional.
 
 ### Coin Count
 
@@ -454,7 +569,7 @@ recordSlots =
 ### Container Used Slots
 
 ```ts
-containerUsedSlots = sum(recordSlots(child) for each record whose location.containerId === container.id)
+containerUsedSlots = sum(recordSlots(child) for each direct child of container)
 ```
 
 Container used slots do not include the container record itself.
@@ -462,16 +577,23 @@ Container used slots do not include the container record itself.
 ### Equipped Slots
 
 ```ts
-equippedSlots = sum(recordSlots(record) for records where location.carryState === "equipped")
+equippedSlots = sum(recordSlots(record) for character-like entity records treated as equipped)
 ```
+
+A record is treated as equipped if:
+
+- its own `location.carryState === "equipped"`; or
+- it is inside a container that is currently equipped in a valid hand placement and that container has `handsRequired > 0`.
+
+The second rule prepares the model for held-container encumbrance. Do not duplicate this logic in UI components.
 
 ### Stowed Slots
 
 ```ts
-stowedSlots = sum(recordSlots(record) for records where location.carryState === "stowed")
+stowedSlots = sum(recordSlots(record) for character-like entity records treated as stowed)
 ```
 
-Stowed slots include coins, backpack items, and items inside stowed containers.
+Records in the backpack, coin purse, or ordinary stowed containers count as stowed unless held-container rules classify them as equipped.
 
 ### Entity Used Slots
 
@@ -480,6 +602,14 @@ entityUsedSlots = equippedSlots + stowedSlots
 ```
 
 This includes records inside containers because they still belong to the entity.
+
+### Non-Character Contents Slots
+
+```ts
+contentsSlots = sum(recordSlots(record) for records where location.carryState === "contents")
+```
+
+Mounts, vehicles, and storage use contents slots rather than equipped/stowed slots.
 
 ### Treasure Value Per Entity
 
@@ -494,7 +624,23 @@ Derived from records where `location.carryState === "equipped"` and `location.pl
 A valid character-like entity has either:
 
 - zero or one record in `leftHand` and zero or one record in `rightHand`; or
-- zero or one record in `bothHands`; but not both hand modes at once.
+- zero or one record in `bothHands`;
+
+but not both hand modes at once.
+
+### Active Modifier Eligibility
+
+```ts
+modifierIsActive =
+  record.handsRequired === 0
+    ? record.location.carryState === "equipped"
+    : record.location.carryState === "equipped" &&
+      ["leftHand", "rightHand", "bothHands"].includes(record.location.placement)
+```
+
+For `handsRequired: 1`, valid active placements are `leftHand` or `rightHand`.
+
+For `handsRequired: 2`, the valid active placement is `bothHands`.
 
 ### Entity Capacity Warning
 
@@ -510,15 +656,74 @@ isEntityOverCapacity = entityUsedSlots > entity.capacitySlots
 isContainerOverCapacity = containerUsedSlots > container.capacitySlots
 ```
 
-### Character-Like Overloaded Warning
+## Examples
 
-For v1, if no more specific encumbrance rules are implemented:
+### Character with Literal Backpack and Coin Purse
 
 ```ts
-isOverloaded = entity.capacitySlots !== undefined && entityUsedSlots > entity.capacitySlots
+Backpack:
+  recordType: "equipment"
+  container.containerRole: "backpack"
+  location: equipped/loose
+
+Coin Purse:
+  recordType: "equipment"
+  container.containerRole: "coinPurse"
+  location: equipped/loose
+
+Coins:
+  recordType: "coins"
+  location: stowed/container
+  containerId: coinPurse.id
+
+Rope:
+  recordType: "equipment"
+  location: stowed/container
+  containerId: backpack.id
 ```
 
-If a later task adds OSE/Dolmenwood movement tiers, keep those rules in one calculation module and do not duplicate them in UI components.
+### Held Sack with Contents
+
+```ts
+Sack:
+  recordType: "equipment"
+  handsRequired: 1
+  container: { capacitySlots: 6, containerRole: "ordinary" }
+  location: { entityId, carryState: "equipped", placement: "rightHand" }
+
+Rations:
+  recordType: "equipment"
+  location: { entityId, carryState: "stowed", placement: "container", containerId: sack.id }
+```
+
+The rations point to the sack as container contents, but encumbrance helpers may treat them as part of the equipped burden because the containing sack is held.
+
+### Shield
+
+```ts
+Shield:
+  recordType: "armor"
+  handsRequired: 1
+  armor: { armorKind: "shield", armorBonus: 1 }
+  location: { entityId, carryState: "equipped", placement: "leftHand" }
+```
+
+The shield's AC bonus applies only while held in `leftHand` or `rightHand`.
+
+### Non-Character Storage Contents
+
+```ts
+Chest in storage:
+  location: { entityId: storageId, carryState: "contents", placement: "contents" }
+
+Gem inside chest:
+  location: {
+    entityId: storageId,
+    carryState: "contents",
+    placement: "container",
+    containerId: chest.id
+  }
+```
 
 ## Hard Invariants
 
@@ -527,21 +732,25 @@ The app should prevent state that violates these invariants:
 - Every entity has a unique `id`.
 - Every inventory record has a unique `id`.
 - Every inventory record points to an existing entity.
-- Every inventory record has exactly one primary carry state: `equipped` or `stowed`.
+- Character-like records use only `equipped` or `stowed` carry states.
+- Non-character records use only `contents` carry state.
 - Every contained inventory record points to an existing container.
 - Every container reference points to a record with `container` data.
 - No container cycles.
 - No cross-entity containment.
 - Each entity has at most one coin record.
-- Coins use only `recordType: "coins"`, `coins`, `slotProfile.kind: "coins"`, and stowed coin-purse location.
+- Coin records use only `recordType: "coins"`, `coins`, and `slotProfile.kind: "coins"`.
+- Coin records must be inside a coin-purse container.
 - Treasure records do not use identification data.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.
 - A hand placement cannot contain more than one record.
-- A two-handed weapon held in hands must use equipped `bothHands`.
-- A one-handed weapon held in hands must use equipped `leftHand` or `rightHand`.
+- A `handsRequired: 2` record held in hands must use equipped `bothHands`.
+- A `handsRequired: 1` record held in hands must use equipped `leftHand` or `rightHand`.
+- A `handsRequired: 0` record must not occupy a hand placement.
 - A record cannot be placed inside a non-container.
-- A non-empty container cannot be placed inside another container for v1.
+- A non-empty ordinary container cannot be placed inside another ordinary container for v1.
+- A character-like entity cannot stow non-coin items without a literal backpack container.
 
 ## Soft Warnings
 
@@ -552,10 +761,12 @@ The app may warn without blocking for:
 - Missing optional metadata.
 - Unidentified equipment, armor, or weapon lacking an unidentified name.
 - Records with unknown imported fields during migration.
+- A hands-required container with contents that is not held in a valid hand placement.
+- A character-like entity missing its literal backpack or literal coin purse.
 
 ## Migration and Legacy Fields
 
-Legacy fields such as `type`, `itemType`, `category`, `subtype`, `equipmentType`, `holderId`, `ownerId`, `area`, or `location.area` should not be used in new code.
+Legacy fields such as `type`, `itemType`, `category`, `subtype`, `equipmentType`, `holderId`, `ownerId`, `area`, `location.area`, `handSlot`, or weapon-specific hand fields should not be used in new code.
 
 If existing data contains legacy fields, migrate them into:
 
@@ -563,7 +774,9 @@ If existing data contains legacy fields, migrate them into:
 - `location.entityId`
 - `location.carryState`
 - `location.placement`
+- `containerId`, where applicable
 - type-specific data sections
 - `slotProfile`
+- generic `handsRequired`
 
 Do not preserve duplicate classification fields after migration unless needed temporarily during an explicit migration step.
