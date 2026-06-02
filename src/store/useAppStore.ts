@@ -10,8 +10,28 @@ import {
   writeLocalAppState,
   type AppState,
 } from "../model/appState";
-import type { EntityId, EntityType, InventoryRecordId } from "../model/types";
-import { createInitialInventoryRecordsForEntity } from "../model/validation";
+import {
+  createInventoryRecordFromInput,
+  createInventoryLocation,
+  getCharacterCoinRecord,
+  getMoveDescendantRecordIds,
+  isContainerRecordEmpty,
+  mergeCoinData,
+  moveInventoryRecord,
+  updateInventoryRecordFromInput,
+  type InventoryRecordFormInput,
+  type InventoryRecordLocationInput,
+} from "../model/inventoryRecords";
+import type {
+  EntityId,
+  EntityType,
+  InventoryLocation,
+  InventoryRecordId,
+} from "../model/types";
+import {
+  createInitialInventoryRecordsForEntity,
+  validateInventoryState,
+} from "../model/validation";
 
 type AppStore = {
   appState: AppState;
@@ -19,6 +39,21 @@ type AppStore = {
   updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
   setEntityActive: (entityId: EntityId, active: boolean) => void;
   deleteEntity: (entityId: EntityId) => void;
+  createInventoryRecord: (
+    entityId: EntityId,
+    input: InventoryRecordFormInput,
+  ) => InventoryMutationResult;
+  updateInventoryRecord: (
+    recordId: InventoryRecordId,
+    input: InventoryRecordFormInput,
+  ) => InventoryMutationResult;
+  moveInventoryRecord: (
+    recordId: InventoryRecordId,
+    location: InventoryRecordLocationInput,
+  ) => InventoryMutationResult;
+  deleteInventoryRecord: (
+    recordId: InventoryRecordId,
+  ) => InventoryMutationResult;
   resetLocalState: () => void;
 };
 
@@ -26,6 +61,10 @@ type CreateEntityStoreInput = {
   name: string;
   entityType: EntityType;
 };
+
+export type InventoryMutationResult =
+  | { ok: true; recordId?: InventoryRecordId }
+  | { ok: false; message: string };
 
 const initialAppState = readLocalAppState();
 
@@ -117,6 +156,318 @@ export const useAppStore = create<AppStore>((set) => ({
       },
     }));
   },
+  createInventoryRecord: (entityId, input) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Entity was not found.",
+    };
+
+    set((state) => {
+      const targetEntityId = input.location?.entityId ?? entityId;
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === targetEntityId,
+      );
+
+      if (!entity) {
+        return state;
+      }
+
+      const existingCharacterCoinRecord =
+        input.recordType === "coins"
+          ? getCharacterCoinRecord(entity.id, state.appState.inventoryRecords)
+          : undefined;
+
+      if (
+        input.recordType === "coins" &&
+        existingCharacterCoinRecord?.recordType === "coins"
+      ) {
+        const nextInventoryRecords = state.appState.inventoryRecords.map(
+          (record) => {
+            if (
+              record.id !== existingCharacterCoinRecord.id ||
+              record.recordType !== "coins"
+            ) {
+              return record;
+            }
+
+            return {
+              ...record,
+              coins: mergeCoinData(record.coins, input.coins),
+            };
+          },
+        );
+        const validationResult = validateInventoryState(
+          state.appState.entities,
+          nextInventoryRecords,
+        );
+
+        if (!validationResult.valid) {
+          result = {
+            ok: false,
+            message: validationResult.errors[0]?.message ?? "Invalid record.",
+          };
+          return state;
+        }
+
+        result = { ok: true, recordId: existingCharacterCoinRecord.id };
+
+        return {
+          appState: {
+            ...state.appState,
+            inventoryRecords: nextInventoryRecords,
+          },
+        };
+      }
+
+      const recordId = createId("record");
+      const buildResult = createInventoryRecordFromInput({
+        entity,
+        id: recordId,
+        records: state.appState.inventoryRecords,
+        input: {
+          ...input,
+          location: {
+            ...(input.location ?? { placement: "default" }),
+            entityId: entity.id,
+          },
+        },
+      });
+
+      if (!buildResult.ok) {
+        result = buildResult;
+        return state;
+      }
+
+      const nextInventoryRecords = [
+        ...state.appState.inventoryRecords,
+        buildResult.record,
+      ];
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid record.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: {
+          ...state.appState,
+          inventoryRecords: nextInventoryRecords,
+        },
+      };
+    });
+
+    return result;
+  },
+  updateInventoryRecord: (recordId, input) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+      const targetEntityId = input.location?.entityId ?? record?.location.entityId;
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === targetEntityId,
+      );
+
+      if (!record || !entity) {
+        return state;
+      }
+
+      const buildResult = updateInventoryRecordFromInput({
+        record,
+        records: state.appState.inventoryRecords,
+        entity,
+        input: {
+          ...input,
+          location: {
+            ...(input.location ?? { placement: "default" }),
+            entityId: entity.id,
+          },
+        },
+      });
+
+      if (!buildResult.ok) {
+        result = buildResult;
+        return state;
+      }
+
+      const replacedInventoryRecords = state.appState.inventoryRecords.map(
+        (candidateRecord) =>
+          candidateRecord.id === recordId ? buildResult.record : candidateRecord,
+      );
+      const nextInventoryRecords = areInventoryLocationsEqual(
+        record.location,
+        buildResult.record.location,
+      )
+        ? replacedInventoryRecords
+        : moveInventoryRecord({
+            recordId,
+            records: replacedInventoryRecords,
+            location: buildResult.record.location,
+          }).map((candidateRecord) =>
+            candidateRecord.id === recordId
+              ? {
+                  ...buildResult.record,
+                  sortOrder: candidateRecord.sortOrder,
+                  location: candidateRecord.location,
+                }
+              : candidateRecord,
+          );
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid record.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: {
+          ...state.appState,
+          inventoryRecords: nextInventoryRecords,
+        },
+      };
+    });
+
+    return result;
+  },
+  moveInventoryRecord: (recordId, location) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === location.entityId,
+      );
+
+      if (!record || !entity) {
+        return state;
+      }
+
+      const locationResult = createInventoryLocation({
+        entity,
+        recordType: record.recordType,
+        records: state.appState.inventoryRecords,
+        location,
+        editingRecordId: recordId,
+      });
+
+      if (!locationResult.ok) {
+        result = locationResult;
+        return state;
+      }
+
+      const nextInventoryRecords = moveInventoryRecord({
+        recordId,
+        records: state.appState.inventoryRecords,
+        location: locationResult.location,
+      });
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid move.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: {
+          ...state.appState,
+          inventoryRecords: nextInventoryRecords,
+        },
+      };
+    });
+
+    return result;
+  },
+  deleteInventoryRecord: (recordId) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+
+      if (!record) {
+        return state;
+      }
+
+      if (
+        record.container &&
+        (!isContainerRecordEmpty(record.id, state.appState.inventoryRecords) ||
+          getMoveDescendantRecordIds(record.id, state.appState.inventoryRecords)
+            .size > 0)
+      ) {
+        result = {
+          ok: false,
+          message: "Non-empty containers cannot be deleted.",
+        };
+        return state;
+      }
+
+      const nextInventoryRecords = state.appState.inventoryRecords.filter(
+        (candidateRecord) => candidateRecord.id !== recordId,
+      );
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid delete.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: {
+          ...state.appState,
+          inventoryRecords: nextInventoryRecords,
+        },
+      };
+    });
+
+    return result;
+  },
   resetLocalState: () => {
     set({ appState: createEmptyAppState() });
   },
@@ -132,4 +483,21 @@ function createId(prefix: "entity" | "record"): EntityId & InventoryRecordId {
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
   return `${prefix}-${randomId}`;
+}
+
+function areInventoryLocationsEqual(
+  leftLocation: InventoryLocation,
+  rightLocation: InventoryLocation,
+): boolean {
+  const leftContainerId =
+    "containerId" in leftLocation ? leftLocation.containerId : undefined;
+  const rightContainerId =
+    "containerId" in rightLocation ? rightLocation.containerId : undefined;
+
+  return (
+    leftLocation.entityId === rightLocation.entityId &&
+    leftLocation.locationType === rightLocation.locationType &&
+    leftLocation.placement === rightLocation.placement &&
+    leftContainerId === rightContainerId
+  );
 }
