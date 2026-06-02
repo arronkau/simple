@@ -2,19 +2,20 @@
 
 ## Overview
 
-This is a small-scale hobby TTRPG character and inventory tracker for table use. Favor practical, table-usable behavior over heavy abstractions. Local responsiveness and simple workflows matter more than exhaustive rules enforcement.
+This is a small-scale hobby TTRPG character and inventory tracker for table use.
+
+Favor practical, table-usable behavior over heavy abstractions. Local responsiveness and simple workflows matter more than exhaustive rules enforcement.
 
 The app should support:
 
 - Character and party inventory tracking.
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
-- Item-based encumbrance and movement display.
-- A rules-compliant split between equipped and stowed carried items for character-like entities.
-- Explicit contents inventory for mounts, vehicles, and storage.
-- Literal backpack and coin-purse containers for character-like entities.
-- Containers displayed inline inside backpack, held hands-required containers, or non-character contents.
+- Slot-based encumbrance.
+- Character-like inventory with a clear distinction between equipped and stowed carried items.
+- Literal backpack containers for character-like stowed non-coin inventory.
+- Character coin purse display for coin records.
+- Simple contents inventory for mounts, vehicles, and storage.
 - Coins, treasure, weapons, armor, and equipment as inventory records.
-- Generic hand accounting for any item with `handsRequired > 0`.
 - Local/demo use without Firebase configuration.
 - Firebase-backed sync when Firebase environment variables are configured.
 
@@ -23,12 +24,13 @@ The app should support:
 Use these files as the implementation source of truth:
 
 - `APP_SPEC.md` — app-level goals, constraints, tech stack, and persistence expectations.
-- `MODEL_SPEC.md` — canonical data model, interfaces, invariants, examples, and derived calculations.
+- `MODEL_SPEC.md` — canonical data model, interfaces, invariants, and derived calculations.
 - `INVENTORY_VIEW_SPEC.md` — canonical inventory UI layout and behavior.
-- `ENCUMBRANCE_SPEC.md` — canonical encumbrance and movement behavior.
-- `TASKS.md` — current implementation priorities and sequencing, once created.
+- `TASKS.md` — current implementation priorities and sequencing.
 
-Do not duplicate model rules inside view specs. Do not infer new model fields from UI needs unless `MODEL_SPEC.md` is first updated.
+Do not duplicate model rules inside view specs.
+
+Do not infer new model fields from UI needs unless `MODEL_SPEC.md` is first updated.
 
 ## Tech Stack
 
@@ -43,50 +45,220 @@ Do not duplicate model rules inside view specs. Do not infer new model fields fr
 
 ## Environment
 
-Firebase config is read from Vite environment variables:
+Firebase config is read from Vite environment variables.
 
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
+Use `.env.example` as the template:
 
-When these are missing, the app should continue to run against localStorage.
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
 
-## Persistence Expectations
+When these values are missing, the app must continue to run against localStorage.
 
-For v1, the logical app state shape is defined in `MODEL_SPEC.md`.
+## Persistence Behavior
 
-LocalStorage mode should persist the full logical `AppState` shape.
+The app should support two persistence modes.
 
-Firebase mode may either:
+### Firebase Mode
 
-1. persist the full logical `AppState` shape in one document for simplicity; or
-2. persist normalized collections while hydrating the same logical shape in app state.
+Use Firebase mode when all required Firebase environment variables are present.
 
-Do not invent a Firebase schema during unrelated inventory work. If Firebase sync is in scope, document the chosen schema before implementation.
+Firebase mode should:
 
-## Implementation Priorities
+- Use Firebase anonymous auth.
+- Store shared app state in Firestore.
+- Support real-time sync where practical.
+- Use the same logical `AppState` shape as local mode unless a later migration explicitly changes it.
 
-Initial implementation should prioritize:
+### Local Mode
 
-1. canonical model types;
-2. pure calculation and validation helpers;
-3. localStorage-backed Zustand state;
-4. explicit-control inventory movement;
-5. inventory UI rendering;
-6. encumbrance display.
+Use local mode automatically when Firebase config is missing.
 
-Initial implementation should not require:
+Local mode should:
 
-- drag-and-drop;
-- Firebase sync;
-- permission model;
-- audit log;
-- full character automation;
-- full magic item automation.
+- Store state in localStorage.
+- Require no cloud setup.
+- Support local development, demos, and single-table play.
+- Preserve the same visible app behavior except for unavailable sync.
 
-## Interaction Constraint
+## Design Constraints
 
-The app should not require drag-and-drop for core inventory management. Drag-and-drop may be added later, but all required inventory operations must be possible through explicit controls such as buttons, menus, or selects.
+- Prefer minimal, understandable data models.
+- Avoid a generic rules engine.
+- Avoid separate item-definition and inventory-instance layers for v1.
+- Keep inventory records self-contained enough to be edited directly.
+- Use derived calculations for slots, equipped burden, stowed burden, coin value, encumbrance state, movement state, and display summaries.
+- Store derived values only if there is a clear performance need.
+- Keep validation focused on preventing corrupt or nonsensical state.
+- Use warnings for table-adjudicated problems where strict enforcement would slow play.
+- Favor minimal diffs and no unrelated refactors during implementation.
+- Do not implement drag-and-drop in the initial pass.
+- Do not include legacy migration code or legacy terminology.
+- Use `entity` terminology everywhere.
+
+## Core Inventory Rules
+
+The app uses two inventory models depending on entity type.
+
+### Character-Like Entities
+
+Characters and retainers are character-like entities.
+
+Every carried record owned by a character-like entity is either:
+
+1. `equipped`
+2. `stowed`
+
+#### Equipped Items
+
+Equipped items are held, actively used, worn, sheathed, or otherwise ready to use at short notice.
+
+Examples:
+
+- Armor worn
+- Shield or weapon held in hand
+- Two-handed weapon held in both hands
+- Sheathed weapon ready at short notice
+- Worn ring, amulet, cloak, or similar active gear
+- Any item not placed into valid stowed storage
+
+Default location for newly added non-coin records on character-like entities is equipped loose.
+
+#### Stowed Items
+
+Stowed items are packed away and not ready at short notice.
+
+For character-like entities, stowed inventory is allowed only in:
+
+- Coin purse placement for coin records.
+- The character's literal backpack container.
+- A valid container inside the backpack.
+- A valid hands-required container currently held in hand.
+
+A character-like entity should start with a literal backpack container.
+
+If a character-like entity has no backpack container, non-coin records cannot be placed in stowed backpack inventory. Those records must be equipped unless placed into another valid existing container.
+
+#### Coin Purse
+
+The coin purse is not a real container.
+
+It is a placement/display concept for a character-like entity's coin record.
+
+Coin records in the coin purse count toward stowed slots.
+
+### Non-Character Entities
+
+Mounts, vehicles, and storage entities do not use equipped/stowed inventory.
+
+They use a simpler contents model.
+
+These entities may contain:
+
+- Coins
+- Treasure
+- Weapons
+- Armor
+- Equipment
+- Containers
+- Records inside containers
+
+Mounts, vehicles, and storage do not require a backpack or coin purse.
+
+Coin records for mounts, vehicles, and storage may be placed directly in contents or inside ordinary containers.
+
+## Core Domain Objects
+
+The app has two main domain objects.
+
+### Entity
+
+An `Entity` is a character, retainer, mount, vehicle, or storage location that can own inventory.
+
+Use `entity` terminology everywhere in code, UI labels, and documentation.
+
+### InventoryRecord
+
+An `InventoryRecord` is a specific record owned by an entity.
+
+It may represent coins, treasure, a weapon, armor, or equipment.
+
+Containers are not a separate record type. A container is an `InventoryRecord` with `container` data.
+
+## Entity Types
+
+```ts
+type EntityType =
+  | "character"
+  | "retainer"
+  | "mount"
+  | "vehicle"
+  | "storage";
+```
+
+## Inventory Record Types
+
+```ts
+type InventoryRecordType =
+  | "coins"
+  | "treasure"
+  | "weapon"
+  | "armor"
+  | "equipment";
+```
+
+## Inventory Location Model
+
+Character-like entities use equipped and stowed locations.
+
+Non-character entities use contents locations.
+
+Do not force mounts, vehicles, or storage into equipped/stowed state.
+
+## Inventory View Layout
+
+The inventory view is the central workflow and should be optimized first.
+
+For character and retainer entities, the inventory view uses:
+
+1. Entity header
+2. Equipped
+   - Hands
+   - Other equipped
+3. Stowed
+   - Coin purse
+   - Backpack container and its contents
+   - Containers inline
+
+For mount, vehicle, and storage entities, the view uses:
+
+1. Entity header
+2. Contents
+   - Containers inline
+
+Containers are displayed inline in the backpack or contents list rather than as a separate top-level layout section.
+
+## High-Level UI Areas
+
+The app should eventually include:
+
+- Party overview
+- Character/entity detail view
+- Inventory view
+- Record add/edit modal
+- Entity add/edit modal
+- Settings or data-management view if needed
+
+## Non-Goals
+
+- No full automation of all OSE rules.
+- No separate item-definition database for v1 unless imported reference data already exists.
+- No exhaustive magic-item rules engine.
+- No strict enforcement of every encumbrance edge case unless it prevents invalid state.
+- No drag-and-drop in the initial implementation.
+- No unrelated visual redesign while implementing the model.
