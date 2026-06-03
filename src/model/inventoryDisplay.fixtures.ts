@@ -281,13 +281,13 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
       coinRecord: "coins-1",
       backpackContents: ["rope-1", "sack-1"],
       encumbrance: {
-        equippedItems: 4,
+        equippedItems: 3,
         stowedItems: 6,
-        equippedRate: { explorationFeet: 90, encounterFeet: 30 },
+        equippedRate: { explorationFeet: 120, encounterFeet: 40 },
         stowedRate: { explorationFeet: 120, encounterFeet: 40 },
-        movement: { explorationFeet: 90, encounterFeet: 30 },
+        movement: { explorationFeet: 120, encounterFeet: 40 },
         overloaded: false,
-        band: "lightlyEncumbered",
+        band: "normal",
       },
       sackUsage: {
         usedSlots: 3,

@@ -62,6 +62,85 @@ const torchesRecord: InventoryRecord = {
   slotProfile: { kind: "stackable", quantity: 6, perSlot: 3 },
 };
 
+const yostBackpackRecord = createDefaultBackpack({
+  entityId: characterEntity.id,
+  id: "yost-backpack-1",
+});
+
+const yostBackpackTreasureRecord: InventoryRecord = {
+  id: "yost-backpack-treasure-1",
+  recordType: "treasure",
+  name: "Treasure",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "backpack",
+    containerId: yostBackpackRecord.id,
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+  treasure: {
+    gpValue: 10,
+  },
+};
+
+const yostBackpackSmallSackRecord: InventoryRecord = {
+  id: "yost-backpack-sack-1",
+  recordType: "equipment",
+  name: "Small Sack",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "backpack",
+    containerId: yostBackpackRecord.id,
+  },
+  sortOrder: 1000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 1,
+  container: {
+    capacitySlots: 4,
+    burdenMode: "contentsOnlyWhenLoaded",
+  },
+};
+
+const yostHeldEmptySmallSackRecord: InventoryRecord = {
+  ...yostBackpackSmallSackRecord,
+  id: "yost-held-empty-sack-1",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "rightHand",
+  },
+};
+
+const yostHeldLoadedSmallSackRecord: InventoryRecord = {
+  ...yostHeldEmptySmallSackRecord,
+  id: "yost-held-loaded-sack-1",
+};
+
+const yostHeldSackTreasureRecord: InventoryRecord = {
+  id: "yost-held-sack-treasure-1",
+  recordType: "treasure",
+  name: "Sack Treasure",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "container",
+    containerId: yostHeldLoadedSmallSackRecord.id,
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+  treasure: {
+    gpValue: 10,
+  },
+};
+
+const secondYostHeldSackTreasureRecord: InventoryRecord = {
+  ...yostHeldSackTreasureRecord,
+  id: "yost-held-sack-treasure-2",
+  sortOrder: 1000,
+};
+
 const equippedSixSlotsRecord: InventoryRecord = {
   id: "equipped-six-1",
   recordType: "equipment",
@@ -216,7 +295,26 @@ const overloadedBoxContentsRecord: InventoryRecord = {
   slotProfile: { kind: "fixed", slots: 3 },
 };
 
+const emptyBackpackRecords = [backpackRecord];
 const literalBackpackRecords = [backpackRecord, ropeRecord, torchesRecord];
+const yostLoadedBackpackRecords = [
+  yostBackpackRecord,
+  yostBackpackTreasureRecord,
+];
+const yostLoadedBackpackWithEmptySackRecords = [
+  ...yostLoadedBackpackRecords,
+  yostBackpackSmallSackRecord,
+];
+const yostLoadedBackpackWithHeldEmptySackRecords = [
+  ...yostLoadedBackpackRecords,
+  yostHeldEmptySmallSackRecord,
+];
+const yostLoadedBackpackWithHeldLoadedSackRecords = [
+  ...yostLoadedBackpackRecords,
+  yostHeldLoadedSmallSackRecord,
+  yostHeldSackTreasureRecord,
+  secondYostHeldSackTreasureRecord,
+];
 const heldSackRecords = [heldSackRecord, heldSackRationsRecord];
 const looseSackRecords = [looseSackRecord, looseSackRationsRecord];
 const cappedStorageRecords = [
@@ -225,9 +323,29 @@ const cappedStorageRecords = [
   overloadedBoxContentsRecord,
 ];
 
-const literalBackpackEncumbrance = getCharacterEncumbrance(
+const emptyBackpackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  emptyBackpackRecords,
+);
+const loadedLiteralBackpackEncumbrance = getCharacterEncumbrance(
   characterEntity,
   literalBackpackRecords,
+);
+const yostLoadedBackpackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  yostLoadedBackpackRecords,
+);
+const yostLoadedBackpackWithEmptySackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  yostLoadedBackpackWithEmptySackRecords,
+);
+const yostLoadedBackpackWithHeldEmptySackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  yostLoadedBackpackWithHeldEmptySackRecords,
+);
+const yostLoadedBackpackWithHeldLoadedSackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  yostLoadedBackpackWithHeldLoadedSackRecords,
 );
 const morganEncumbrance = getCharacterEncumbrance(characterEntity, [
   equippedSixSlotsRecord,
@@ -279,18 +397,71 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "literal backpack counts backpack as equipped and contents as stowed",
+    name: "empty literal backpack counts own slots as equipped",
     actual: {
-      equippedItems: literalBackpackEncumbrance.equippedItems,
-      stowedItems: literalBackpackEncumbrance.stowedItems,
-      movement: literalBackpackEncumbrance.movement,
-      band: literalBackpackEncumbrance.band,
+      equippedItems: emptyBackpackEncumbrance.equippedItems,
+      stowedItems: emptyBackpackEncumbrance.stowedItems,
+      movement: emptyBackpackEncumbrance.movement,
+      band: emptyBackpackEncumbrance.band,
     },
     expected: {
       equippedItems: 1,
+      stowedItems: 0,
+      movement: { explorationFeet: 120, encounterFeet: 40 },
+      band: "normal",
+    },
+  },
+  {
+    name: "loaded contents-only backpack counts contents but not own slots",
+    actual: {
+      equippedItems: loadedLiteralBackpackEncumbrance.equippedItems,
+      stowedItems: loadedLiteralBackpackEncumbrance.stowedItems,
+      movement: loadedLiteralBackpackEncumbrance.movement,
+      band: loadedLiteralBackpackEncumbrance.band,
+    },
+    expected: {
+      equippedItems: 0,
       stowedItems: 3,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       band: "normal",
+    },
+  },
+  {
+    name: "Yost contents-only container examples match equipped and stowed totals",
+    actual: {
+      loadedBackpack: summarizeEncumbrance(yostLoadedBackpackEncumbrance),
+      loadedBackpackUsage: getContainerSlotUsage(
+        yostBackpackRecord,
+        yostLoadedBackpackRecords,
+      ),
+      loadedBackpackWithEmptySack: summarizeEncumbrance(
+        yostLoadedBackpackWithEmptySackEncumbrance,
+      ),
+      loadedBackpackWithHeldEmptySack: summarizeEncumbrance(
+        yostLoadedBackpackWithHeldEmptySackEncumbrance,
+      ),
+      loadedBackpackWithHeldLoadedSack: summarizeEncumbrance(
+        yostLoadedBackpackWithHeldLoadedSackEncumbrance,
+      ),
+    },
+    expected: {
+      loadedBackpack: { equippedItems: 0, stowedItems: 1, totalItems: 1 },
+      loadedBackpackUsage: { usedSlots: 1, capacitySlots: 16 },
+      loadedBackpackWithEmptySack: {
+        equippedItems: 0,
+        stowedItems: 2,
+        totalItems: 2,
+      },
+      loadedBackpackWithHeldEmptySack: {
+        equippedItems: 1,
+        stowedItems: 1,
+        totalItems: 2,
+      },
+      loadedBackpackWithHeldLoadedSack: {
+        equippedItems: 0,
+        stowedItems: 1,
+        totalItems: 1,
+      },
     },
   },
   {
@@ -412,4 +583,15 @@ function summarizeWarnings(warnings: EncumbranceWarning[]): WarningSummary {
       leftCode.localeCompare(rightCode),
     ),
   );
+}
+
+function summarizeEncumbrance(encumbrance: {
+  equippedItems: number;
+  stowedItems: number;
+}): { equippedItems: number; stowedItems: number; totalItems: number } {
+  return {
+    equippedItems: encumbrance.equippedItems,
+    stowedItems: encumbrance.stowedItems,
+    totalItems: encumbrance.equippedItems + encumbrance.stowedItems,
+  };
 }

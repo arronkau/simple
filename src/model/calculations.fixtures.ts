@@ -6,6 +6,7 @@ import {
   getContainerSlotUsage,
   getContentsSlots,
   getEffectiveRecordAndContentsSlotBurden,
+  getEffectiveRecordSlotBurden,
   getRecordSlotBurden,
   getTotalEntitySlots,
 } from "./calculations";
@@ -91,6 +92,37 @@ const torchRecord: InventoryRecord = {
   slotProfile: { kind: "stackable", quantity: 6, perSlot: 3 },
 };
 
+const contentsOnlyBoxRecord: InventoryRecord = {
+  id: "contents-only-box-1",
+  recordType: "equipment",
+  name: "Contents Only Box",
+  location: {
+    entityId: "storage-1",
+    locationType: "contents",
+    placement: "contents",
+  },
+  sortOrder: 2000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  container: {
+    capacitySlots: 4,
+    burdenMode: "contentsOnlyWhenLoaded",
+  },
+};
+
+const contentsOnlyBoxChildRecord: InventoryRecord = {
+  id: "contents-only-box-child-1",
+  recordType: "equipment",
+  name: "Packed Item",
+  location: {
+    entityId: "storage-1",
+    locationType: "contents",
+    placement: "container",
+    containerId: contentsOnlyBoxRecord.id,
+  },
+  sortOrder: 0,
+  slotProfile: { kind: "fixed", slots: 1 },
+};
+
 const sackRecord: InventoryRecord = {
   id: "sack-1",
   recordType: "equipment",
@@ -123,6 +155,11 @@ const rationsRecord: InventoryRecord = {
 };
 
 const capacityRecords = [crateRecord, ropeRecord, torchRecord];
+const emptyContentsOnlyRecords = [contentsOnlyBoxRecord];
+const loadedContentsOnlyRecords = [
+  contentsOnlyBoxRecord,
+  contentsOnlyBoxChildRecord,
+];
 const heldContainerRecords = [sackRecord, rationsRecord];
 
 export const CALCULATION_MANUAL_FIXTURES = [
@@ -160,6 +197,41 @@ export const CALCULATION_MANUAL_FIXTURES = [
       crateTotalSlots: 5,
       contentsSlots: 5,
       totalEntitySlots: 5,
+    },
+  },
+  {
+    name: "contentsOnlyWhenLoaded counts own slots only while empty",
+    actual: {
+      emptyOwnSlots: getEffectiveRecordSlotBurden(
+        contentsOnlyBoxRecord,
+        emptyContentsOnlyRecords,
+      ),
+      loadedOwnSlots: getEffectiveRecordSlotBurden(
+        contentsOnlyBoxRecord,
+        loadedContentsOnlyRecords,
+      ),
+      loadedContainerUsage: getContainerSlotUsage(
+        contentsOnlyBoxRecord,
+        loadedContentsOnlyRecords,
+      ),
+      loadedTotalSlots: getEffectiveRecordAndContentsSlotBurden(
+        contentsOnlyBoxRecord,
+        loadedContentsOnlyRecords,
+      ),
+      loadedEntitySlots: getTotalEntitySlots(
+        storageEntity,
+        loadedContentsOnlyRecords,
+      ),
+    },
+    expected: {
+      emptyOwnSlots: 1,
+      loadedOwnSlots: 0,
+      loadedContainerUsage: {
+        usedSlots: 1,
+        capacitySlots: 4,
+      },
+      loadedTotalSlots: 1,
+      loadedEntitySlots: 1,
     },
   },
   {

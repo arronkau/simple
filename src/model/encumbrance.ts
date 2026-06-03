@@ -3,7 +3,6 @@ import {
   getContentsSlots,
   getDirectChildRecords,
   getEffectiveRecordSlotBurden,
-  getRecordSlotBurden,
 } from "./calculations";
 import type {
   Entity,
@@ -431,10 +430,6 @@ function getMovementRecordSlotBurden(
   record: InventoryRecord,
   records: InventoryRecord[],
 ): number {
-  if (record.container?.isBackpack === true) {
-    return getRecordSlotBurden(record);
-  }
-
   return getEffectiveRecordSlotBurden(record, records);
 }
 
