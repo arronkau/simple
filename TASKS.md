@@ -2,311 +2,295 @@
 
 ## Goal
 
-Implement the app from the current specs with minimal diffs, local-first behavior, and no unrelated refactors.
+Continue the app after Firebase mode with a regression-hardening pass and then table-facing campaign workflow features. Keep the implementation simple, local-first, Firebase-compatible, and aligned with the existing inventory model.
 
-This file controls implementation sequencing.
+This file controls implementation sequencing. Earlier phases 1-6 are considered complete and should not be reimplemented except where regression hardening identifies a specific bug.
 
 ## Current Priority
 
-Build the local-only app and inventory model first. Add Firebase sync only after local behavior is stable.
+Run Phase 7B before adding new features. The app now needs post-Firebase correctness coverage so later feature work does not build on unstable inventory, persistence, or sync behavior.
 
-## Phase 1 — Scaffold Local App
+## Global Guardrails
+
+- Favor minimal diffs.
+- Do not add unrelated refactors.
+- Do not add a separate item-definition layer unless a later phase explicitly requires a narrow reusable catalog.
+- Preserve localStorage mode when Firebase env vars are absent.
+- Preserve Firebase mode when Firebase env vars are present.
+- Do not change the canonical inventory model casually.
+- Keep character-like inventory distinct from non-character entity inventory.
+- Character-like entities use equipped/stowed placement, hands, coin purse display, and a literal backpack container.
+- Mounts, vehicles, and storage use simple contents inventory, not equipped/stowed placement.
+- Coin purse remains a placement/display concept, not a real container.
+- Prepared treasure hoards and shopping data should create normal inventory records when awarded or purchased.
+- Drag-and-drop remains optional and last.
+
+## Standard Validation Commands
+
+Run these after each phase unless a phase gives more specific validation:
+
+```bash
+npm install
+npm run typecheck
+npm run test
+npm run build
+```
+
+Also manually verify both modes when persistence or state shape changes:
+
+- Run with Firebase env vars missing and confirm localStorage mode still works.
+- Run with Firebase env vars configured and confirm Firestore sync still works.
+
+---
+
+## Phase 7B — Post-Firebase Regression Hardening
 
 ### Task
 
-Create the React/Vite/TypeScript app structure and local persistence shell.
+Stabilize the completed local/Firebase app before adding new features. Fix spec drift, invalid UI affordances, inventory edge cases, and missing regression coverage.
+
+### Context
+
+Phases 1-6 are complete. Firebase has been added after local behavior stabilized. The next risk is subtle breakage in inventory invariants, Firestore persistence, local fallback, and UI workflows.
+
+### Scope
+
+- Audit the current implementation against `MODEL_SPEC.md`, `APP_SPEC.md`, and `ENCUMBRANCE_SPEC.md`.
+- Update specs only where they contradict the implemented and intended model.
+- Add regression fixtures/tests for high-risk inventory behavior.
+- Fix broken or misleading UI affordances that cannot work safely.
 
 ### Requirements
 
-- Use React 19, Vite, TypeScript, React Router, Zustand, and plain CSS.
-- Add localStorage persistence for the `AppState` shape from `MODEL_SPEC.md`.
-- App must run with no Firebase configuration.
-- Add `.env.example` with the Firebase variable names from `APP_SPEC.md`.
+- Tighten delete confirmation for valuable records:
+  - Require explicit confirmation for non-empty containers, coin records, treasure, and records with `gpValue` or meaningful coin value.
+  - Continue blocking deletion of non-empty containers unless the existing model already supports safe recursive deletion.
+- Make coin display safe when coin records lack names.
+  - Coin rows should not require `name` for display.
+  - Coin labels should derive from denomination counts when needed.
+- Filter obviously invalid container destinations before submit where practical.
+  - Hide or disable the current record, descendants, cross-entity invalid containers, non-empty nested containers, and destinations that violate entity location rules.
+  - Keep validation helpers authoritative; UI filtering is a convenience, not the only defense.
+- Add regression tests/fixtures for:
+  - default backpack creation
+  - missing backpack warning
+  - duplicate backpack prevention
+  - coin purse placement and stowed burden
+  - non-character coin records in contents or containers
+  - container movement across entities
+  - descendant entityId updates after container moves
+  - held hands-required container exclusion from movement burden
+  - non-empty hands-required container warning when not held
+  - sibling sort ordering
+  - invalid container destination rejection
+  - valuable-record delete confirmation behavior where testable
+- Ensure localStorage and Firebase modes preserve the same logical `AppState` shape.
 
 ### Non-goals
 
-- Do not add Firebase behavior yet.
+- Do not add new feature surfaces beyond hardening existing behavior.
+- Do not implement audit log yet.
+- Do not implement party summary yet.
+- Do not redesign visual layout.
 - Do not add drag-and-drop.
-- Do not add legacy migration code.
-- Do not add a separate item-definition layer.
+
+### Likely Files
+
+- `TASKS.md`
+- `MODEL_SPEC.md`
+- `APP_SPEC.md`
+- `ENCUMBRANCE_SPEC.md`
+- `src/App.tsx`
+- `src/model/types.ts`
+- `src/model/calculations.ts`
+- `src/model/encumbrance.ts`
+- `src/model/validation.ts`
+- `src/model/inventoryDisplay.ts`
+- `src/model/*fixtures.ts`
+- `src/store/useAppStore.ts`
+- `src/store/useAppStore.fixtures.ts`
+- Firebase/local persistence files if separate from the store
 
 ### Validation
 
-- `npm install`
-- `npm run dev`
-- `npm run build`
-- `npm run typecheck` if configured
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Add/edit/move/delete each record type in local mode.
+- Repeat representative add/edit/move/delete flows in Firebase mode.
+- Confirm invalid moves are blocked before persistence.
+- Confirm UI no longer offers record-type edits that cannot safely work.
+- Confirm valuable records require stronger confirmation before deletion.
 
 ### Stop Condition
 
-Stop after the app boots locally and persists the empty app state without errors.
+Stop when regression tests cover the listed edge cases, all validation commands pass, and no new feature work has been added.
 
-## Phase 2A — Implement Canonical Model Types
+---
+
+## Phase 8 — Audit Log
 
 ### Task
 
-Add TypeScript interfaces and discriminated types matching `MODEL_SPEC.md`.
+Add an audit log for significant campaign and inventory edits.
+
+### Context
+
+The app is now Firebase-capable, which makes shared edits more likely. The referee needs visibility into major changes without logging every harmless keystroke.
+
+### Scope
+
+- Add an append-only audit log to app state.
+- Record significant events from inventory/entity workflows.
+- Display a readable audit log view.
+- Keep logging compatible with localStorage and Firebase modes.
 
 ### Requirements
 
-- Implement `Entity`, `InventoryRecord`, `InventoryLocation`, `SlotProfile`, and type-specific data interfaces.
-- Use `locationType`, not `carryState`, as the stored location discriminator.
-- Use `entity` terminology only.
-- Allow arbitrary string alignment.
-- Include the default backpack factory shape from `MODEL_SPEC.md`.
+- Add an `AuditLogEntry` model with at least:
+  - `id`
+  - `createdAt`
+  - `actorId` or actor label when available
+  - `eventType`
+  - `entityId` when applicable
+  - `recordId` when applicable
+  - short human-readable `summary`
+  - structured `details` for before/after values where useful
+- Log significant inventory edits:
+  - create/delete entity
+  - create/delete inventory record
+  - move record between entities
+  - change coin totals, storing denomination deltas where practical
+  - edit treasure value
+  - mark entity active/inactive
+- Avoid logging trivial UI-only state.
+- Add an audit log screen or panel reachable from the app.
+- Show newest entries first by default.
+- Allow basic filtering by entity and event type if simple.
+- Keep the audit log append-only in normal UI.
+- Add a reasonable retention strategy only if needed for state size; otherwise defer pruning.
 
 ### Non-goals
 
-- Do not implement UI.
-- Do not automate modifiers.
-- Do not implement detailed character-sheet rules.
-- Do not add legacy migration logic.
+- Do not build role-based permissions yet.
+- Do not build a full undo system.
+- Do not log every field blur or temporary form edit.
+- Do not make audit entries editable.
+
+### Likely Files
+
+- `src/model/types.ts`
+- `src/model/appState.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- `src/styles.css`
+- `src/model/*fixtures.ts`
+- Persistence/sync files if separate
 
 ### Validation
 
-- `npm run typecheck`
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Create, edit, move, and delete records; confirm expected audit entries appear.
+- Change coins; confirm delta is readable.
+- Move an item between two entities; confirm source and destination are clear.
+- Confirm local mode persists audit entries.
+- Confirm Firebase mode syncs audit entries without duplicating them.
 
 ### Stop Condition
 
-Stop when the canonical model types compile without adding UI or persistence behavior beyond what Phase 1 requires.
+Stop when significant edits produce stable, readable audit entries in both local and Firebase modes without adding permissions or undo behavior.
 
-## Phase 2B — Implement Slot and Coin Calculation Helpers
+---
 
-### Task
-
-Add pure derived calculation helpers for coin values, slot burden, and container capacity.
-
-### Requirements
-
-- Add derived calculations for:
-  - coin count
-  - coin GP value
-  - record slot burden
-  - effective record slot burden
-  - container used slots
-  - contents slots
-  - total entity slots
-- Implement `containerPlusContents` as container base slots plus normally counted child/descendant slots.
-- Use `capacitySlots` / `usedSlots` terminology.
-- Held hands-required containers and contents are modeled normally but excluded from movement-restricting equipped/stowed burden.
-
-### Non-goals
-
-- Do not implement forms or move workflows.
-- Do not add Firebase.
-- Do not automate modifiers.
-
-### Validation
-
-- `npm run typecheck`
-- Unit tests for coin and slot calculations if a test runner exists.
-
-### Stop Condition
-
-Stop when pure calculation helpers compile and are covered by direct tests or clear manual fixtures.
-
-## Phase 2C — Implement Location and Containment Validation Helpers
+## Phase 9 — Party Summary
 
 ### Task
 
-Add pure validation helpers for entity-specific inventory locations, hand occupancy, and containment.
+Add a referee-facing party summary view for quick table use.
+
+### Context
+
+The inventory view is detailed. The referee also needs a compact overview of the party’s operational state: HP, AC, movement, encumbrance, coin/treasure, warnings, and relevant notes.
+
+### Scope
+
+- Add a party summary route/view.
+- Summarize active character-like entities first.
+- Include non-character entities in a separate support/storage section.
 
 ### Requirements
 
-- Enforce entity-type-specific location rules.
-- Ensure all non-coin records require a non-empty trimmed `name`.
-- Enforce character-like coin records: at most one coin record and coin-purse placement only.
-- Allow non-character entities to have multiple coin records if each has a valid contents/container location.
-- Add explicit hand occupancy helper.
-- Prevent invalid hand collisions.
-- Prevent non-empty containers from being nested.
-- Prevent a nested empty container from receiving contents until moved out.
-- Prevent container cycles and cross-entity containment.
-- Enforce backpack rules:
-  - character/retainer creation creates one default backpack record
-  - character-like entities may not have more than one backpack
-  - missing backpack is a warning for existing entities
-  - non-coin records cannot move to stowed backpack placement unless a backpack exists
-
-### Non-goals
-
-- Do not implement UI.
-- Do not implement drag-and-drop.
-- Do not add legacy migration logic.
-
-### Validation
-
-- `npm run typecheck`
-- Unit tests for hard invariants if a test runner exists.
-
-### Stop Condition
-
-Stop when validation covers all hard invariants from `MODEL_SPEC.md` without adding inventory forms.
-
-## Phase 2D — Implement Encumbrance and Warning Helpers
-
-### Task
-
-Add pure helpers for equipped/stowed burden, movement, capacity warnings, and soft warnings according to `ENCUMBRANCE_SPEC.md`.
-
-### Requirements
-
-- Add derived calculations for:
+- Add navigation to the summary view.
+- For each active character/retainer, show:
+  - name
+  - type/class/level if present
+  - HP current/max if present
+  - AC if present
+  - movement derived from encumbrance
   - equipped slots
   - stowed slots
-  - movement from slower equipped/stowed burden
-  - contents capacity results for non-character entities
+  - total carried slots
+  - coin totals and GP value
+  - treasure GP value
+  - warning count with expandable warning text
+  - short notes if present
+- For mounts, vehicles, and storage, show:
+  - name
+  - type
+  - used/capacity slots when capacity exists
+  - contents summary
+  - coin/treasure value
   - warnings
-- Coin purse is not a real container; character-like coin records in coin-purse placement count toward stowed burden.
-- Held hands-required containers and contents are excluded from equipped and stowed movement burden.
-- Non-empty hands-required containers not held should warn.
+- Include party totals:
+  - total coin value
+  - total treasure value
+  - total combined value
+  - total warnings
+- Keep the view read-only except links/buttons to open the relevant entity in existing edit/detail flows.
 
 ### Non-goals
 
-- Do not implement UI display.
-- Do not implement combat or retrieval timing.
-- Do not add Firebase.
+- Do not replace the detailed inventory view.
+- Do not implement permissions.
+- Do not add drag-and-drop.
+- Do not create separate character-sheet automation.
+
+### Likely Files
+
+- `src/App.tsx`
+- `src/styles.css`
+- `src/model/calculations.ts`
+- `src/model/encumbrance.ts`
+- `src/model/inventoryDisplay.ts`
+- `src/model/types.ts`
 
 ### Validation
 
-- `npm run typecheck`
-- Unit tests for movement bands, overloads, held-container exclusion, and warnings if a test runner exists.
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Confirm active characters/retainers appear before inactive entities.
+- Confirm movement matches inventory view calculations.
+- Confirm coin/treasure totals match underlying records.
+- Confirm warnings match existing validation/encumbrance helpers.
 
 ### Stop Condition
 
-Stop when encumbrance helpers match `ENCUMBRANCE_SPEC.md` and do not mutate app state.
-
-## Phase 3 — Entity CRUD
-
-### Task
-
-Implement entity list and add/edit/delete flows.
-
-### Requirements
-
-- Support entity types: character, retainer, mount, vehicle, storage.
-- Active entities display before inactive entities.
-- Use `sortOrder`.
-- Creating a character or retainer creates a default backpack container.
-- Mounts, vehicles, and storage do not get backpacks or coin purses.
-- Use localStorage persistence.
-
-### Non-goals
-
-- Do not implement Firebase.
-- Do not implement drag-and-drop.
-- Do not implement a full character sheet.
-
-### Validation
-
-- Create, edit, deactivate, and delete entities.
-- Confirm character-like entities receive one backpack.
-- Confirm non-character entities do not receive backpacks.
-
-### Stop Condition
-
-Stop when entity CRUD is stable and persisted locally.
-
-## Phase 4 — Inventory Display
-
-### Task
-
-Implement inventory display according to `INVENTORY_VIEW_SPEC.md`.
-
-### Requirements
-
-- Characters and retainers show:
-  - header
-  - equipped hands
-  - other equipped
-  - stowed coin purse
-  - stowed backpack
-  - containers inline
-- Mounts, vehicles, and storage show:
-  - header
-  - contents
-  - containers inline
-- Show slot counts and warnings.
-- Show movement state from slower equipped/stowed burden for character-like entities.
-- Show contents slots for non-character entities.
-- Do not show coin purse/backpack/hands on non-character entities.
-
-### Non-goals
-
-- Do not implement drag-and-drop.
-- Do not redesign the whole app.
-- Do not automate combat or retrieval timing.
-
-### Validation
-
-- `npm run build`
-- Manual check with sample character, retainer, mount, vehicle, and storage.
-
-### Stop Condition
-
-Stop when the inventory screen displays all entity types correctly using sample data.
-
-## Phase 5 — Inventory Add/Edit/Move
-
-### Task
-
-Implement record add/edit/move workflows with type-specific forms.
-
-### Requirements
-
-- Use the form matrix in `INVENTORY_VIEW_SPEC.md`.
-- Character-like non-coin records default to equipped loose.
-- Character-like coins default to coin purse.
-- Non-character records default to contents.
-- Character-like non-coin records can be moved to backpack only if the character has a backpack container.
-- Coin creation updates the existing entity coin record instead of creating duplicates.
-- Container moves update descendant entity IDs when moved across entities.
-- Prevent invalid hand occupancy.
-- Prevent non-empty containers from being nested.
-- Block deleting non-empty containers.
-
-### Non-goals
-
-- Do not implement drag-and-drop.
-- Do not create item templates.
-- Do not add legacy import or migration.
-
-### Validation
-
-- Add/edit each record type.
-- Move records between allowed locations.
-- Verify invalid moves are blocked or warned according to the specs.
-- Verify add/edit forms do not expose irrelevant fields.
-
-### Stop Condition
-
-Stop when CRUD and move flows satisfy the minimal acceptance criteria in `INVENTORY_VIEW_SPEC.md`.
-
-## Phase 6 — Firebase Mode
-
-### Task
-
-Add Firebase anonymous auth and Firestore sync after local behavior is stable.
-
-### Requirements
-
-- Use Firebase mode only when all required env vars are present.
-- Preserve the same logical `AppState` shape.
-- Keep localStorage mode working.
-- Avoid UI behavior differences except sync availability.
-
-### Non-goals
-
-- Do not change the model shape during Firebase implementation.
-- Do not add multiplayer permissions unless specified later.
-
-### Validation
-
-- Run with Firebase env vars missing.
-- Run with Firebase env vars configured.
-- Confirm local mode still works.
-- Confirm Firestore mode syncs app state.
-
-### Stop Condition
-
-Stop when Firebase mode works without breaking local mode.
+Stop when the party summary gives a correct read-only operational overview without changing inventory behavior.
