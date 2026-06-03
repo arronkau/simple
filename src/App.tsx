@@ -202,7 +202,7 @@ function LocalAppShell() {
   }
 
   function removeInventoryRecord(record: InventoryRecord) {
-    if (!window.confirm(`Delete ${getRecordDisplayName(record)}?`)) {
+    if (!window.confirm(getDeleteConfirmationMessage(record))) {
       return;
     }
 
@@ -1386,12 +1386,48 @@ function getBackpackSummary(entity: Entity, backpackCount: number) {
   return `${backpackCount} backpacks`;
 }
 
-function getRecordDisplayName(record: InventoryRecord) {
+export function getRecordDisplayName(record: InventoryRecord) {
+  if (record.recordType === "coins") {
+    return "Coins";
+  }
+
   if (record.identification?.identified === false) {
     return record.identification.unidentifiedName ?? "Unidentified Item";
   }
 
   return record.name;
+}
+
+export function getDeleteConfirmationMessage(record: InventoryRecord) {
+  if (record.recordType === "coins") {
+    if (getCoinCount(record.coins) > 0) {
+      return `Delete coin record containing ${formatCoinDenominations(record)} worth ${formatGpValue(
+        getCoinGpValue(record.coins),
+      )} gp?`;
+    }
+
+    return "Delete coin record?";
+  }
+
+  const displayName = getRecordDisplayName(record);
+
+  if (record.recordType === "treasure" && record.treasure.gpValue > 0) {
+    return `Delete treasure "${displayName}" worth ${formatGpValue(
+      record.treasure.gpValue,
+    )} gp?`;
+  }
+
+  if (record.container?.isBackpack === true) {
+    return `Delete backpack "${displayName}"? This may make stowed inventory invalid.`;
+  }
+
+  if (record.container && record.container.capacitySlots > 0) {
+    return `Delete container "${displayName}" with ${formatSlots(
+      record.container.capacitySlots,
+    )} capacity?`;
+  }
+
+  return `Delete ${displayName}?`;
 }
 
 function getRecordMetadata(
@@ -1493,7 +1529,9 @@ function formatCapacity(usedSlots: number, capacitySlots: number | undefined) {
 }
 
 function formatGpValue(value: number) {
-  return Number.isInteger(value) ? value.toString() : value.toFixed(2);
+  return Number.isInteger(value)
+    ? value.toString()
+    : Number(value.toFixed(2)).toString();
 }
 
 function formatHandsRequired(handsRequired: HandsRequired) {

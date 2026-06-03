@@ -1,6 +1,7 @@
 import { getDirectChildRecords } from "./calculations";
 import {
   createDefaultBackpack,
+  type ContainerData,
   type Entity,
   type EntityId,
   type InventoryLocation,
@@ -21,6 +22,7 @@ export type ValidationIssueCode =
   | "invalidCoinCount"
   | "invalidCoinPursePlacement"
   | "invalidBackpackPlacement"
+  | "invalidTreasureContainer"
   | "invalidContainerReference"
   | "crossEntityContainment"
   | "containerCycle"
@@ -264,6 +266,23 @@ function validateRecordLocations(
         errorIssue(
           "invalidEntityLocationType",
           "Mounts, vehicles, and storage must use contents locations.",
+          { recordId: record.id, entityId: entity.id },
+        ),
+      );
+    }
+
+    const recordWithPossibleContainer = record as InventoryRecord & {
+      container?: ContainerData;
+    };
+
+    if (
+      record.recordType === "treasure" &&
+      recordWithPossibleContainer.container
+    ) {
+      issues.push(
+        errorIssue(
+          "invalidTreasureContainer",
+          "Treasure records cannot be containers.",
           { recordId: record.id, entityId: entity.id },
         ),
       );

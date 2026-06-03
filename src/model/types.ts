@@ -219,7 +219,7 @@ export type TreasureRecord = NonCoinInventoryRecordShared & {
   name: string;
   slotProfile: NonCoinSlotProfile;
   treasure: TreasureData;
-  container?: ContainerData;
+  container?: never;
   coins?: never;
   weapon?: never;
   armor?: never;

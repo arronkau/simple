@@ -493,7 +493,6 @@ function buildInventoryRecord({
     slotProfile,
     handsRequired,
     ...(description ? { description } : {}),
-    ...(container ? { container } : {}),
   };
 
   switch (input.recordType) {
@@ -513,6 +512,7 @@ function buildInventoryRecord({
         ok: true,
         record: {
           ...shared,
+          ...(container ? { container } : {}),
           recordType: "weapon",
           weapon: {
             ...(normalizeOptionalText(input.weapon?.damage)
@@ -529,6 +529,7 @@ function buildInventoryRecord({
         ok: true,
         record: {
           ...shared,
+          ...(container ? { container } : {}),
           recordType: "armor",
           armor: {
             ...(input.armor?.baseArmorClass !== undefined
@@ -545,6 +546,7 @@ function buildInventoryRecord({
         ok: true,
         record: {
           ...shared,
+          ...(container ? { container } : {}),
           recordType: "equipment",
         },
       };

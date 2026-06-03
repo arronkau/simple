@@ -373,6 +373,25 @@ const cycleBRecord: InventoryRecord = {
   },
 };
 
+const treasureContainerRecord = {
+  id: "treasure-container-1",
+  recordType: "treasure",
+  name: "Gem Box",
+  location: {
+    entityId: storageEntity.id,
+    locationType: "contents",
+    placement: "contents",
+  },
+  sortOrder: 3000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  treasure: {
+    gpValue: 100,
+  },
+  container: {
+    capacitySlots: 4,
+  },
+} as unknown as InventoryRecord;
+
 const validCharacterResult = validateInventoryState(
   [characterEntity],
   [backpackRecord, ropeRecord, characterCoinsRecord],
@@ -425,6 +444,7 @@ const invalidContainmentResult = validateInventoryState(
     crossEntityContainedRecord,
     cycleARecord,
     cycleBRecord,
+    treasureContainerRecord,
   ],
 );
 
@@ -560,6 +580,7 @@ export const VALIDATION_MANUAL_FIXTURES = [
         containerCycle: 2,
         crossEntityContainment: 1,
         invalidContainerReference: 1,
+        invalidTreasureContainer: 1,
         nestedContainerReceivingContents: 3,
         nestedNonEmptyContainer: 3,
       },
