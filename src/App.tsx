@@ -210,7 +210,11 @@ function LocalAppShell() {
   }
 
   function removeInventoryRecord(record: InventoryRecord) {
-    if (!window.confirm(getDeleteConfirmationMessage(record))) {
+    if (
+      !window.confirm(
+        getDeleteConfirmationMessage(record, appState.inventoryRecords),
+      )
+    ) {
       return;
     }
 
@@ -1388,6 +1392,10 @@ function getEntityRecordCount(entityId: EntityId, appState: AppStateLike) {
     (record) => record.location.entityId === entityId,
   ).length;
 
+  return formatRecordCount(count);
+}
+
+function formatRecordCount(count: number) {
   return count === 1 ? "1 record" : `${count} records`;
 }
 
@@ -1415,36 +1423,53 @@ export function getRecordDisplayName(record: InventoryRecord) {
   return record.name;
 }
 
-export function getDeleteConfirmationMessage(record: InventoryRecord) {
+export function getDeleteConfirmationMessage(
+  record: InventoryRecord,
+  allRecords: InventoryRecord[] = [],
+) {
   if (record.recordType === "coins") {
     if (getCoinCount(record.coins) > 0) {
-      return `Delete coin record containing ${formatCoinDenominations(record)} worth ${formatGpValue(
+      return `Confirm delete coin record containing ${formatCoinDenominations(record)} worth ${formatGpValue(
         getCoinGpValue(record.coins),
       )} gp?`;
     }
 
-    return "Delete coin record?";
+    return "Confirm delete empty coin record?";
   }
 
   const displayName = getRecordDisplayName(record);
 
-  if (record.recordType === "treasure" && record.treasure.gpValue > 0) {
-    return `Delete treasure "${displayName}" worth ${formatGpValue(
-      record.treasure.gpValue,
-    )} gp?`;
+  if (record.recordType === "treasure") {
+    if (record.treasure.gpValue > 0) {
+      return `Confirm delete treasure "${displayName}" worth ${formatGpValue(
+        record.treasure.gpValue,
+      )} gp?`;
+    }
+
+    return `Confirm delete treasure "${displayName}" with no recorded gp value?`;
   }
 
   if (record.container?.isBackpack === true) {
-    return `Delete backpack "${displayName}"? This may make stowed inventory invalid.`;
+    return `Confirm delete backpack "${displayName}" with ${formatSlots(
+      record.container.capacitySlots,
+    )} capacity? This may make stowed inventory invalid.`;
   }
 
-  if (record.container && record.container.capacitySlots > 0) {
-    return `Delete container "${displayName}" with ${formatSlots(
+  if (record.container) {
+    const childCount = getDirectChildRecords(record.id, allRecords).length;
+
+    if (childCount > 0) {
+      return `Confirm delete non-empty container "${displayName}" containing ${formatRecordCount(
+        childCount,
+      )}? This is blocked until the contents are moved.`;
+    }
+
+    return `Confirm delete empty container "${displayName}" with ${formatSlots(
       record.container.capacitySlots,
     )} capacity?`;
   }
 
-  return `Delete ${displayName}?`;
+  return `Confirm delete "${displayName}"?`;
 }
 
 function getRecordMetadata(

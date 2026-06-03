@@ -32,6 +32,24 @@ const legacyWeaponRecord: InventoryRecord = {
   },
 };
 
+const firebaseCoinRecord: InventoryRecord = {
+  id: "coins-1",
+  recordType: "coins",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "coinPurse",
+  },
+  sortOrder: 1000,
+  slotProfile: { kind: "coins" },
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
 const storedAppState: AppState = {
   schemaVersion: 1,
   entities: [characterEntity],
@@ -39,6 +57,11 @@ const storedAppState: AppState = {
 };
 
 const parsedAppState = parseAppState(storedAppState);
+const firebaseDocumentAppState: AppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [firebaseCoinRecord],
+};
 
 const localRoundTripAppState = withMockLocalStorage(() => {
   writeLocalAppState(storedAppState);
@@ -75,6 +98,11 @@ export const APP_STATE_MANUAL_FIXTURES = [
       inventoryRecords: [],
     }),
     expected: undefined,
+  },
+  {
+    name: "Firebase document data preserves the same logical AppState shape",
+    actual: parseAppState(firebaseDocumentAppState),
+    expected: firebaseDocumentAppState,
   },
   {
     name: "local app state persists through localStorage",
