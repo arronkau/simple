@@ -32,9 +32,18 @@ import {
   createInitialInventoryRecordsForEntity,
   validateInventoryState,
 } from "../model/validation";
+import { getRuntimeFirebaseConfig } from "../persistence/firebaseConfig";
+import {
+  startFirebaseAppStateSync,
+  type FirebaseWriteAppState,
+} from "../persistence/firebaseSync";
+import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 type AppStore = {
   appState: AppState;
+  persistenceMode: PersistenceMode;
+  syncError?: string;
+  syncStatus: SyncStatus;
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
   updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
   setEntityActive: (entityId: EntityId, active: boolean) => void;
@@ -67,11 +76,16 @@ export type InventoryMutationResult =
   | { ok: false; message: string };
 
 const initialAppState = readLocalAppState();
+const firebaseConfig = getRuntimeFirebaseConfig();
+const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
 
 writeLocalAppState(initialAppState);
 
 export const useAppStore = create<AppStore>((set) => ({
   appState: initialAppState,
+  persistenceMode,
+  syncError: undefined,
+  syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
   createEntity: (input) => {
     const name = input.name.trim();
 
@@ -473,9 +487,31 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 }));
 
-useAppStore.subscribe((state) => {
+let applyingRemoteAppState = false;
+let firebaseWriteAppState: FirebaseWriteAppState | undefined;
+let pendingFirebaseAppState: AppState | undefined;
+let writingFirebaseAppState = false;
+
+useAppStore.subscribe((state, previousState) => {
+  if (state.appState === previousState.appState) {
+    return;
+  }
+
   writeLocalAppState(state.appState);
+
+  if (applyingRemoteAppState) {
+    applyingRemoteAppState = false;
+    return;
+  }
+
+  if (state.persistenceMode === "firebase") {
+    queueFirebaseAppStateWrite(state.appState);
+  }
 });
+
+if (firebaseConfig && canStartFirebaseSync()) {
+  void startConfiguredFirebaseSync();
+}
 
 function createId(prefix: "entity" | "record"): EntityId & InventoryRecordId {
   const randomId =
@@ -500,4 +536,110 @@ function areInventoryLocationsEqual(
     leftLocation.placement === rightLocation.placement &&
     leftContainerId === rightContainerId
   );
+}
+
+function canStartFirebaseSync(): boolean {
+  return typeof window !== "undefined";
+}
+
+async function startConfiguredFirebaseSync(): Promise<void> {
+  if (!firebaseConfig) {
+    return;
+  }
+
+  await startFirebaseAppStateSync({
+    config: firebaseConfig,
+    getCurrentAppState: () => useAppStore.getState().appState,
+    onError: (message) => {
+      setSyncMetadata("error", message);
+    },
+    onReadyToWrite: (writeAppState) => {
+      firebaseWriteAppState = writeAppState;
+      void flushFirebaseAppStateWrite();
+    },
+    onRemoteAppState: (appState) => {
+      applyRemoteAppState(appState);
+    },
+    onStatusChange: (syncStatus) => {
+      setSyncMetadata(syncStatus);
+    },
+  });
+}
+
+function queueFirebaseAppStateWrite(appState: AppState): void {
+  pendingFirebaseAppState = appState;
+
+  if (!firebaseWriteAppState) {
+    return;
+  }
+
+  void flushFirebaseAppStateWrite();
+}
+
+async function flushFirebaseAppStateWrite(): Promise<void> {
+  if (
+    !firebaseWriteAppState ||
+    !pendingFirebaseAppState ||
+    writingFirebaseAppState
+  ) {
+    return;
+  }
+
+  const appState = pendingFirebaseAppState;
+  pendingFirebaseAppState = undefined;
+  writingFirebaseAppState = true;
+  setSyncMetadata("saving");
+
+  try {
+    await firebaseWriteAppState(appState);
+    writingFirebaseAppState = false;
+
+    if (pendingFirebaseAppState) {
+      void flushFirebaseAppStateWrite();
+      return;
+    }
+
+    setSyncMetadata("synced");
+  } catch (error) {
+    writingFirebaseAppState = false;
+
+    if (!pendingFirebaseAppState) {
+      pendingFirebaseAppState = appState;
+    }
+
+    setSyncMetadata("error", formatSyncError(error));
+  }
+}
+
+function applyRemoteAppState(appState: AppState): void {
+  setSyncMetadata("synced");
+
+  if (areAppStatesEqual(useAppStore.getState().appState, appState)) {
+    return;
+  }
+
+  applyingRemoteAppState = true;
+  useAppStore.setState({ appState });
+}
+
+function setSyncMetadata(syncStatus: SyncStatus, syncError?: string): void {
+  useAppStore.setState({
+    syncError: syncStatus === "error" ? syncError : undefined,
+    syncStatus,
+  });
+}
+
+function areAppStatesEqual(
+  leftAppState: AppState,
+  rightAppState: AppState,
+): boolean {
+  return JSON.stringify(leftAppState) === JSON.stringify(rightAppState);
+}
+
+function formatSyncError(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return "Firebase sync failed.";
 }

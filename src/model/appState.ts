@@ -36,13 +36,10 @@ export function readLocalAppState(): AppState {
     }
 
     const parsedValue: unknown = JSON.parse(storedValue);
+    const parsedAppState = parseAppState(parsedValue);
 
-    if (isAppState(parsedValue)) {
-      return {
-        schemaVersion: 1,
-        entities: parsedValue.entities,
-        inventoryRecords: normalizeInventoryRecords(parsedValue.inventoryRecords),
-      };
+    if (parsedAppState) {
+      return parsedAppState;
     }
   } catch {
     return createEmptyAppState();
@@ -61,6 +58,18 @@ export function writeLocalAppState(appState: AppState): void {
   } catch {
     // Storage can fail in private contexts or when quota is exceeded.
   }
+}
+
+export function parseAppState(value: unknown): AppState | undefined {
+  if (!isAppState(value)) {
+    return undefined;
+  }
+
+  return {
+    schemaVersion: 1,
+    entities: value.entities,
+    inventoryRecords: normalizeInventoryRecords(value.inventoryRecords),
+  };
 }
 
 function normalizeInventoryRecords(records: InventoryRecord[]): InventoryRecord[] {

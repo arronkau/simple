@@ -35,6 +35,11 @@ import {
 } from "./model/inventoryDisplay";
 import type { AppState } from "./model/appState";
 import { getRecordHandsRequired } from "./model/types";
+import {
+  FIREBASE_APP_STATE_COLLECTION,
+  FIREBASE_APP_STATE_DOCUMENT_ID,
+} from "./persistence/firebaseSync";
+import type { PersistenceMode, SyncStatus } from "./persistence/types";
 import type {
   ContainerBurdenMode,
   Entity,
@@ -111,6 +116,9 @@ type RecordFormState = {
 
 function LocalAppShell() {
   const appState = useAppStore((state) => state.appState);
+  const persistenceMode = useAppStore((state) => state.persistenceMode);
+  const syncError = useAppStore((state) => state.syncError);
+  const syncStatus = useAppStore((state) => state.syncStatus);
   const createEntity = useAppStore((state) => state.createEntity);
   const updateEntity = useAppStore((state) => state.updateEntity);
   const setEntityActive = useAppStore((state) => state.setEntityActive);
@@ -225,11 +233,14 @@ function LocalAppShell() {
       <section className="workspace-panel" aria-labelledby="app-title">
         <div className="app-header">
           <div>
-            <p className="eyebrow">Persistence: Local</p>
+            <p className="eyebrow">
+              {formatPersistenceSummary(persistenceMode, syncStatus)}
+            </p>
             <h1 id="app-title">Simple Inventory</h1>
+            {syncError ? <p className="sync-message">{syncError}</p> : null}
           </div>
           <button type="button" onClick={resetLocalState}>
-            Reset local state
+            Reset state
           </button>
         </div>
 
@@ -419,8 +430,14 @@ function LocalAppShell() {
         </section>
 
         <div className="storage-key">
-          <span>Storage key</span>
-          <code>{APP_STATE_STORAGE_KEY}</code>
+          <span>
+            {persistenceMode === "firebase" ? "Firestore document" : "Storage key"}
+          </span>
+          <code>
+            {persistenceMode === "firebase"
+              ? `${FIREBASE_APP_STATE_COLLECTION}/${FIREBASE_APP_STATE_DOCUMENT_ID}`
+              : APP_STATE_STORAGE_KEY}
+          </code>
         </div>
       </section>
     </main>
@@ -1843,6 +1860,27 @@ function parseNumberInput(value: string, fallback = 0) {
 
   return Number.isFinite(parsedValue) ? parsedValue : fallback;
 }
+
+function formatPersistenceSummary(
+  persistenceMode: PersistenceMode,
+  syncStatus: SyncStatus,
+): string {
+  if (persistenceMode === "local") {
+    return "Persistence: Local";
+  }
+
+  return `Persistence: Firebase / ${SYNC_STATUS_LABELS[syncStatus]}`;
+}
+
+const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
+  authenticating: "Authenticating",
+  connecting: "Connecting",
+  error: "Error",
+  local: "Local",
+  saving: "Saving",
+  synced: "Synced",
+  syncing: "Syncing",
+};
 
 type AppStateLike = ReturnType<typeof useAppStore.getState>["appState"];
 

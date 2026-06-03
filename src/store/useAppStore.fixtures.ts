@@ -42,6 +42,19 @@ const mountEntity = phase3State.entities.find((entity) => entity.id === mountId)
 
 export const PHASE_3_STORE_MANUAL_FIXTURES = [
   {
+    name: "store uses local persistence when Firebase config is missing",
+    actual: {
+      persistenceMode: useAppStore.getState().persistenceMode,
+      syncError: useAppStore.getState().syncError,
+      syncStatus: useAppStore.getState().syncStatus,
+    },
+    expected: {
+      persistenceMode: "local",
+      syncError: undefined,
+      syncStatus: "local",
+    },
+  },
+  {
     name: "character-like entity creation creates one backpack",
     actual: {
       entityCount: phase3State.entities.length,

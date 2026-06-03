@@ -1,7 +1,9 @@
 import { CALCULATION_MANUAL_FIXTURES } from "./model/calculations.fixtures";
 import { ENCUMBRANCE_MANUAL_FIXTURES } from "./model/encumbrance.fixtures";
+import { APP_STATE_MANUAL_FIXTURES } from "./model/appState.fixtures";
 import { INVENTORY_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryDisplay.fixtures";
 import { VALIDATION_MANUAL_FIXTURES } from "./model/validation.fixtures";
+import { FIREBASE_CONFIG_MANUAL_FIXTURES } from "./persistence/firebaseConfig.fixtures";
 import {
   PHASE_3_STORE_MANUAL_FIXTURES,
   PHASE_5_STORE_MANUAL_FIXTURES,
@@ -19,8 +21,10 @@ type ManualFixture = {
 };
 
 const manualFixtures: ManualFixture[] = [
+  ...APP_STATE_MANUAL_FIXTURES,
   ...CALCULATION_MANUAL_FIXTURES,
   ...ENCUMBRANCE_MANUAL_FIXTURES,
+  ...FIREBASE_CONFIG_MANUAL_FIXTURES,
   ...INVENTORY_DISPLAY_MANUAL_FIXTURES,
   ...VALIDATION_MANUAL_FIXTURES,
   ...PHASE_3_STORE_MANUAL_FIXTURES,
