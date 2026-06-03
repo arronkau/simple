@@ -6,7 +6,8 @@ import {
   writeLocalAppState,
   type AppState,
 } from "./appState";
-import type { Entity, InventoryRecord } from "./types";
+import { createEmptyCharacterData } from "./characters";
+import type { AuditLogEntry, Entity, InventoryRecord } from "./types";
 
 const characterEntity: Entity = {
   id: "character-1",
@@ -14,6 +15,11 @@ const characterEntity: Entity = {
   entityType: "character",
   active: true,
   sortOrder: 0,
+};
+
+const normalizedCharacterEntity: Entity = {
+  ...characterEntity,
+  character: createEmptyCharacterData(),
 };
 
 const legacyWeaponRecord: InventoryRecord = {
@@ -50,17 +56,38 @@ const firebaseCoinRecord: InventoryRecord = {
   },
 };
 
-const storedAppState: AppState = {
+const auditLogEntry: AuditLogEntry = {
+  id: "audit-1",
+  actorLabel: "Local user",
+  createdAt: "2026-06-03T12:00:00.000Z",
+  entityId: characterEntity.id,
+  eventType: "inventoryRecordCreated",
+  recordId: firebaseCoinRecord.id,
+  summary: 'Created coins for "Morgan".',
+  details: {
+    recordType: "coins",
+  },
+};
+
+const legacyStoredAppState: Omit<AppState, "auditLog"> = {
   schemaVersion: 1,
   entities: [characterEntity],
   inventoryRecords: [legacyWeaponRecord],
 };
 
-const parsedAppState = parseAppState(storedAppState);
-const firebaseDocumentAppState: AppState = {
+const storedAppState: AppState = {
   schemaVersion: 1,
   entities: [characterEntity],
+  inventoryRecords: [legacyWeaponRecord],
+  auditLog: [auditLogEntry],
+};
+
+const parsedLegacyAppState = parseAppState(legacyStoredAppState);
+const firebaseDocumentAppState: AppState = {
+  schemaVersion: 1,
+  entities: [normalizedCharacterEntity],
   inventoryRecords: [firebaseCoinRecord],
+  auditLog: [auditLogEntry],
 };
 
 const localRoundTripAppState = withMockLocalStorage(() => {
@@ -77,18 +104,25 @@ export const APP_STATE_MANUAL_FIXTURES = [
   {
     name: "app state parsing preserves v1 shape and normalizes records",
     actual: {
-      schemaVersion: parsedAppState?.schemaVersion,
-      entities: parsedAppState?.entities,
+      schemaVersion: parsedLegacyAppState?.schemaVersion,
+      entities: parsedLegacyAppState?.entities,
+      auditLog: parsedLegacyAppState?.auditLog,
       recordHandsRequired:
-        parsedAppState?.inventoryRecords[0]?.recordType === "weapon"
-          ? parsedAppState.inventoryRecords[0].handsRequired
+        parsedLegacyAppState?.inventoryRecords[0]?.recordType === "weapon"
+          ? parsedLegacyAppState.inventoryRecords[0].handsRequired
           : undefined,
     },
     expected: {
       schemaVersion: 1,
-      entities: [characterEntity],
+      entities: [normalizedCharacterEntity],
+      auditLog: [],
       recordHandsRequired: 2,
     },
+  },
+  {
+    name: "app state parsing preserves current audit log entries",
+    actual: parseAppState(storedAppState)?.auditLog,
+    expected: [auditLogEntry],
   },
   {
     name: "invalid app state values do not parse",
@@ -109,6 +143,7 @@ export const APP_STATE_MANUAL_FIXTURES = [
     actual: localRoundTripAppState,
     expected: {
       ...storedAppState,
+      entities: [normalizedCharacterEntity],
       inventoryRecords: [
         {
           ...legacyWeaponRecord,

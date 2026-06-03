@@ -16,6 +16,7 @@ The app should support:
 - Character coin purse display for coin records.
 - Simple contents inventory for mounts, vehicles, and storage.
 - Coins, treasure, weapons, armor, and equipment as inventory records.
+- A read-only audit log for significant entity and inventory changes.
 - Local/demo use without Firebase configuration.
 - Firebase-backed sync when Firebase environment variables are configured.
 
@@ -73,7 +74,7 @@ Firebase mode should:
 - Use Firebase anonymous auth.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
-- Use the same logical `AppState` shape as local mode unless a later migration explicitly changes it.
+- Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
 
 ### Local Mode
 
@@ -85,6 +86,7 @@ Local mode should:
 - Require no cloud setup.
 - Support local development, demos, and single-table play.
 - Preserve the same visible app behavior except for unavailable sync.
+- Persist audit entries in the same app-state document shape used by Firebase mode.
 
 ## Design Constraints
 

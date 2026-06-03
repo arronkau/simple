@@ -1,7 +1,10 @@
 import {
+  getAuditEntityFilterOptions,
   getDeleteConfirmationMessage,
+  getFilteredAuditLogEntries,
   getRecordDisplayName,
 } from "./App";
+import type { AppState } from "./model/appState";
 import { createDefaultBackpack, type InventoryRecord } from "./model/types";
 
 const emptyCoinRecord: InventoryRecord = {
@@ -114,6 +117,46 @@ const ordinaryRecord: InventoryRecord = {
   handsRequired: 0,
 };
 
+const auditFilterAppState: AppState = {
+  schemaVersion: 1,
+  entities: [
+    {
+      id: "entity-active",
+      active: true,
+      entityType: "character",
+      name: "Active Entity",
+      sortOrder: 0,
+    },
+  ],
+  inventoryRecords: [],
+  auditLog: [
+    {
+      id: "audit-1",
+      actorLabel: "Local user",
+      createdAt: "2026-06-03T10:00:00.000Z",
+      entityId: "entity-active",
+      eventType: "entityCreated",
+      summary: "Created active entity.",
+    },
+    {
+      id: "audit-2",
+      actorLabel: "Local user",
+      createdAt: "2026-06-03T11:00:00.000Z",
+      entityId: "entity-deleted",
+      eventType: "entityDeleted",
+      summary: "Deleted old entity.",
+    },
+    {
+      id: "audit-3",
+      actorLabel: "Local user",
+      createdAt: "2026-06-03T12:00:00.000Z",
+      entityId: "entity-active",
+      eventType: "coinsChanged",
+      summary: "Changed coins.",
+    },
+  ],
+};
+
 export const APP_MANUAL_FIXTURES = [
   {
     name: "coin display is safe for unnamed coin records",
@@ -156,5 +199,28 @@ export const APP_MANUAL_FIXTURES = [
         'Confirm delete non-empty container "Sack" containing 1 record? This is blocked until the contents are moved.',
       ordinary: 'Confirm delete "Rope"?',
     },
+  },
+  {
+    name: "audit log helper derives current and historical entity filters",
+    actual: getAuditEntityFilterOptions(auditFilterAppState),
+    expected: [
+      {
+        label: "Active Entity",
+        value: "entity-active",
+      },
+      {
+        label: "entity-deleted",
+        value: "entity-deleted",
+      },
+    ],
+  },
+  {
+    name: "audit log helper filters newest-first entries",
+    actual: getFilteredAuditLogEntries(
+      auditFilterAppState.auditLog,
+      "entity-active",
+      "coinsChanged",
+    ).map((entry) => entry.id),
+    expected: ["audit-3"],
   },
 ];

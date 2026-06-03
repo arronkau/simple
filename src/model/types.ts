@@ -2,6 +2,32 @@ export type EntityId = string;
 export type InventoryRecordId = string;
 export type ISODateTimeString = string;
 
+export type AuditLogEntryId = string;
+
+export type AuditEventType =
+  | "entityCreated"
+  | "entityDeleted"
+  | "entityActivated"
+  | "entityDeactivated"
+  | "inventoryRecordCreated"
+  | "inventoryRecordDeleted"
+  | "inventoryRecordMoved"
+  | "coinsChanged"
+  | "treasureValueChanged";
+
+export type AuditLogDetailValue = string | number | boolean | null;
+
+export type AuditLogEntry = {
+  id: AuditLogEntryId;
+  createdAt: ISODateTimeString;
+  actorLabel: string;
+  eventType: AuditEventType;
+  entityId?: EntityId;
+  recordId?: InventoryRecordId;
+  summary: string;
+  details?: Record<string, AuditLogDetailValue>;
+};
+
 export type EntityType =
   | "character"
   | "retainer"
@@ -9,15 +35,44 @@ export type EntityType =
   | "vehicle"
   | "storage";
 
+export type AbilityScores = {
+  str: number | null;
+  int: number | null;
+  wis: number | null;
+  dex: number | null;
+  con: number | null;
+  cha: number | null;
+};
+
+export type CharacterAlignment = "Law" | "Neutrality" | "Chaos" | "";
+
+export type CharacterSkill = {
+  id: string;
+  name: string;
+  chanceInSix: number;
+  description?: string;
+};
+
+export type CharacterFeature = {
+  id: string;
+  title: string;
+  description: string;
+};
+
 export type CharacterData = {
-  className?: string;
-  level?: number;
-  hpCurrent?: number;
-  hpMax?: number;
-  armorClass?: number;
-  xp?: number;
-  alignment?: string;
-  languages?: string[];
+  className: string;
+  level: number | null;
+  alignment: CharacterAlignment;
+  xp: number | null;
+  hp: {
+    current: number | null;
+    max: number | null;
+  };
+  abilityScores: AbilityScores;
+  skills: CharacterSkill[];
+  languages: string[];
+  description: string;
+  features: CharacterFeature[];
 };
 
 export type Entity = {

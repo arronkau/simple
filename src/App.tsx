@@ -1,6 +1,11 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { APP_STATE_STORAGE_KEY } from "./model/appState";
+import {
+  AUDIT_EVENT_TYPE_LABELS,
+  getAuditEventTypeLabel,
+  getNewestAuditLogEntries,
+} from "./model/auditLog";
 import {
   getCoinCount,
   getCoinGpValue,
@@ -16,6 +21,10 @@ import {
   getStowedSlots,
   type EncumbranceWarning,
 } from "./model/encumbrance";
+import {
+  ABILITY_SCORE_KEYS,
+  normalizeCharacterData,
+} from "./model/characters";
 import {
   ENTITY_TYPE_LABELS,
   ENTITY_TYPES,
@@ -41,6 +50,10 @@ import {
 } from "./persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "./persistence/types";
 import type {
+  AuditEventType,
+  AuditLogEntry,
+  CharacterAlignment,
+  CharacterData,
   ContainerBurdenMode,
   Entity,
   EntityId,
@@ -56,7 +69,7 @@ import {
   validateInventoryState,
   type ValidationIssue,
 } from "./model/validation";
-import { useAppStore } from "./store/useAppStore";
+import { useAppStore, type EntityMutationResult } from "./store/useAppStore";
 
 type EntityFormState = {
   name: string;
@@ -114,6 +127,35 @@ type RecordFormState = {
   burdenMode: ContainerBurdenMode;
 };
 
+type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
+
+type CharacterSkillFormState = {
+  id: string;
+  name: string;
+  chanceInSix: string;
+  description: string;
+};
+
+type CharacterFeatureFormState = {
+  id: string;
+  title: string;
+  description: string;
+};
+
+type CharacterSheetFormState = {
+  className: string;
+  level: string;
+  alignment: CharacterAlignment;
+  xp: string;
+  hpCurrent: string;
+  hpMax: string;
+  abilityScores: Record<AbilityScoreKey, string>;
+  skills: CharacterSkillFormState[];
+  languagesText: string;
+  description: string;
+  features: CharacterFeatureFormState[];
+};
+
 function LocalAppShell() {
   const appState = useAppStore((state) => state.appState);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
@@ -121,6 +163,7 @@ function LocalAppShell() {
   const syncStatus = useAppStore((state) => state.syncStatus);
   const createEntity = useAppStore((state) => state.createEntity);
   const updateEntity = useAppStore((state) => state.updateEntity);
+  const updateCharacterData = useAppStore((state) => state.updateCharacterData);
   const setEntityActive = useAppStore((state) => state.setEntityActive);
   const deleteEntity = useAppStore((state) => state.deleteEntity);
   const createInventoryRecord = useAppStore(
@@ -145,6 +188,12 @@ function LocalAppShell() {
   const [recordFormMessage, setRecordFormMessage] = useState<
     string | undefined
   >();
+  const [auditEntityFilter, setAuditEntityFilter] = useState<
+    EntityId | "all"
+  >("all");
+  const [auditEventTypeFilter, setAuditEventTypeFilter] = useState<
+    AuditEventType | "all"
+  >("all");
 
   function handleCreateEntity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -408,6 +457,13 @@ function LocalAppShell() {
                       )}
                     </div>
 
+                    {isCharacterLikeEntity(entity) ? (
+                      <CharacterSheetPanel
+                        entity={entity}
+                        onSaveCharacterData={updateCharacterData}
+                      />
+                    ) : null}
+
                     <InventoryDisplay
                       entity={entity}
                       appState={appState}
@@ -433,6 +489,14 @@ function LocalAppShell() {
           )}
         </section>
 
+        <AuditLogPanel
+          appState={appState}
+          entityFilter={auditEntityFilter}
+          eventTypeFilter={auditEventTypeFilter}
+          onEntityFilterChange={setAuditEntityFilter}
+          onEventTypeFilterChange={setAuditEventTypeFilter}
+        />
+
         <div className="storage-key">
           <span>
             {persistenceMode === "firebase" ? "Firestore document" : "Storage key"}
@@ -445,6 +509,385 @@ function LocalAppShell() {
         </div>
       </section>
     </main>
+  );
+}
+
+function CharacterSheetPanel({
+  entity,
+  onSaveCharacterData,
+}: {
+  entity: Entity;
+  onSaveCharacterData: (
+    entityId: EntityId,
+    characterData: CharacterData,
+  ) => EntityMutationResult;
+}) {
+  const [formState, setFormState] = useState<CharacterSheetFormState>(() =>
+    createCharacterSheetFormState(normalizeCharacterData(entity.character)),
+  );
+  const [message, setMessage] = useState<
+    { tone: "error" | "success"; text: string } | undefined
+  >();
+
+  useEffect(() => {
+    setFormState(
+      createCharacterSheetFormState(normalizeCharacterData(entity.character)),
+    );
+  }, [entity.character]);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const result = onSaveCharacterData(
+      entity.id,
+      toCharacterDataFormInput(formState),
+    );
+
+    if (!result.ok) {
+      setMessage({ tone: "error", text: result.message });
+      return;
+    }
+
+    setMessage({ tone: "success", text: "Character sheet saved." });
+  }
+
+  function updateAbilityScore(key: AbilityScoreKey, value: string) {
+    setFormState((currentState) => ({
+      ...currentState,
+      abilityScores: {
+        ...currentState.abilityScores,
+        [key]: value,
+      },
+    }));
+  }
+
+  function updateSkill(
+    skillId: string,
+    patch: Partial<CharacterSkillFormState>,
+  ) {
+    setFormState((currentState) => ({
+      ...currentState,
+      skills: currentState.skills.map((skill) =>
+        skill.id === skillId ? { ...skill, ...patch } : skill,
+      ),
+    }));
+  }
+
+  function updateFeature(
+    featureId: string,
+    patch: Partial<CharacterFeatureFormState>,
+  ) {
+    setFormState((currentState) => ({
+      ...currentState,
+      features: currentState.features.map((feature) =>
+        feature.id === featureId ? { ...feature, ...patch } : feature,
+      ),
+    }));
+  }
+
+  return (
+    <section
+      className="character-sheet-panel"
+      aria-label={`${entity.name} character sheet`}
+    >
+      <form className="character-sheet-form" onSubmit={handleSubmit}>
+        <div className="record-form-heading">
+          <h4>Character Sheet</h4>
+          {message ? (
+            <p
+              className={
+                message.tone === "error" ? "form-error" : "form-success"
+              }
+            >
+              {message.text}
+            </p>
+          ) : null}
+        </div>
+
+        <section className="character-sheet-section">
+          <h5>Identity</h5>
+          <div className="character-sheet-grid">
+            <label>
+              <span>Class</span>
+              <input
+                autoComplete="off"
+                maxLength={80}
+                type="text"
+                value={formState.className}
+                onChange={(event) =>
+                  setFormState({
+                    ...formState,
+                    className: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <NumberField
+              label="Level"
+              value={formState.level}
+              onChange={(value) =>
+                setFormState({ ...formState, level: value })
+              }
+            />
+            <label>
+              <span>Alignment</span>
+              <select
+                value={formState.alignment}
+                onChange={(event) =>
+                  setFormState({
+                    ...formState,
+                    alignment: event.target.value as CharacterAlignment,
+                  })
+                }
+              >
+                <option value="">Unspecified</option>
+                <option value="Law">Law</option>
+                <option value="Neutrality">Neutrality</option>
+                <option value="Chaos">Chaos</option>
+              </select>
+            </label>
+            <NumberField
+              label="XP"
+              value={formState.xp}
+              onChange={(value) => setFormState({ ...formState, xp: value })}
+            />
+          </div>
+        </section>
+
+        <section className="character-sheet-section">
+          <h5>HP</h5>
+          <div className="character-sheet-grid compact-grid">
+            <NumberField
+              label="Current HP"
+              value={formState.hpCurrent}
+              onChange={(value) =>
+                setFormState({ ...formState, hpCurrent: value })
+              }
+            />
+            <NumberField
+              label="Max HP"
+              value={formState.hpMax}
+              onChange={(value) =>
+                setFormState({ ...formState, hpMax: value })
+              }
+            />
+          </div>
+        </section>
+
+        <section className="character-sheet-section">
+          <h5>Ability Scores</h5>
+          <div className="ability-score-grid">
+            {ABILITY_SCORE_KEYS.map((abilityScoreKey) => (
+              <NumberField
+                key={abilityScoreKey}
+                label={abilityScoreKey.toUpperCase()}
+                min="1"
+                value={formState.abilityScores[abilityScoreKey]}
+                onChange={(value) =>
+                  updateAbilityScore(abilityScoreKey, value)
+                }
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="character-sheet-section">
+          <div className="repeatable-heading">
+            <h5>Skills</h5>
+            <button
+              type="button"
+              onClick={() =>
+                setFormState((currentState) => ({
+                  ...currentState,
+                  skills: [...currentState.skills, createEmptySkillFormState()],
+                }))
+              }
+            >
+              Add skill
+            </button>
+          </div>
+
+          {formState.skills.length === 0 ? (
+            <p className="empty-state compact">No skills</p>
+          ) : (
+            <div className="repeatable-list">
+              {formState.skills.map((skill) => (
+                <div className="repeatable-row skill-row" key={skill.id}>
+                  <label>
+                    <span>Name</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={80}
+                      required
+                      type="text"
+                      value={skill.name}
+                      onChange={(event) =>
+                        updateSkill(skill.id, { name: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Chance</span>
+                    <select
+                      value={skill.chanceInSix}
+                      onChange={(event) =>
+                        updateSkill(skill.id, {
+                          chanceInSix: event.target.value,
+                        })
+                      }
+                    >
+                      {[1, 2, 3, 4, 5, 6].map((chance) => (
+                        <option key={chance} value={chance.toString()}>
+                          {chance} in 6
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="wide-field">
+                    <span>Description</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={160}
+                      type="text"
+                      value={skill.description}
+                      onChange={(event) =>
+                        updateSkill(skill.id, {
+                          description: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    onClick={() =>
+                      setFormState((currentState) => ({
+                        ...currentState,
+                        skills: currentState.skills.filter(
+                          (candidateSkill) => candidateSkill.id !== skill.id,
+                        ),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="character-sheet-section">
+          <h5>Languages</h5>
+          <label>
+            <span>Languages</span>
+            <textarea
+              rows={3}
+              value={formState.languagesText}
+              onChange={(event) =>
+                setFormState({
+                  ...formState,
+                  languagesText: event.target.value,
+                })
+              }
+            />
+          </label>
+        </section>
+
+        <section className="character-sheet-section">
+          <div className="repeatable-heading">
+            <h5>Features</h5>
+            <button
+              type="button"
+              onClick={() =>
+                setFormState((currentState) => ({
+                  ...currentState,
+                  features: [
+                    ...currentState.features,
+                    createEmptyFeatureFormState(),
+                  ],
+                }))
+              }
+            >
+              Add feature
+            </button>
+          </div>
+
+          {formState.features.length === 0 ? (
+            <p className="empty-state compact">No features</p>
+          ) : (
+            <div className="repeatable-list">
+              {formState.features.map((feature) => (
+                <div className="repeatable-row feature-row" key={feature.id}>
+                  <label>
+                    <span>Title</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={80}
+                      type="text"
+                      value={feature.title}
+                      onChange={(event) =>
+                        updateFeature(feature.id, {
+                          title: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="wide-field">
+                    <span>Description</span>
+                    <textarea
+                      rows={2}
+                      value={feature.description}
+                      onChange={(event) =>
+                        updateFeature(feature.id, {
+                          description: event.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    onClick={() =>
+                      setFormState((currentState) => ({
+                        ...currentState,
+                        features: currentState.features.filter(
+                          (candidateFeature) =>
+                            candidateFeature.id !== feature.id,
+                        ),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="character-sheet-section">
+          <h5>Description</h5>
+          <label>
+            <span>Description / notes</span>
+            <textarea
+              rows={4}
+              value={formState.description}
+              onChange={(event) =>
+                setFormState({
+                  ...formState,
+                  description: event.target.value,
+                })
+              }
+            />
+          </label>
+        </section>
+
+        <div className="record-form-actions">
+          <button type="submit">Save character sheet</button>
+        </div>
+      </form>
+    </section>
   );
 }
 
@@ -1079,11 +1522,13 @@ function InventoryRecordForm({
 
 function NumberField({
   label,
+  min = "0",
   onChange,
   step = "1",
   value,
 }: {
   label: string;
+  min?: string;
   onChange: (value: string) => void;
   step?: string;
   value: string;
@@ -1092,7 +1537,7 @@ function NumberField({
     <label>
       <span>{label}</span>
       <input
-        min="0"
+        min={min}
         step={step}
         type="number"
         value={value}
@@ -1387,6 +1832,141 @@ function WarningList({
   );
 }
 
+function AuditLogPanel({
+  appState,
+  entityFilter,
+  eventTypeFilter,
+  onEntityFilterChange,
+  onEventTypeFilterChange,
+}: {
+  appState: AppState;
+  entityFilter: EntityId | "all";
+  eventTypeFilter: AuditEventType | "all";
+  onEntityFilterChange: (entityId: EntityId | "all") => void;
+  onEventTypeFilterChange: (eventType: AuditEventType | "all") => void;
+}) {
+  const filteredEntries = getFilteredAuditLogEntries(
+    appState.auditLog,
+    entityFilter,
+    eventTypeFilter,
+  );
+
+  return (
+    <section className="audit-panel" aria-labelledby="audit-title">
+      <div className="section-heading">
+        <div>
+          <h2 id="audit-title">Audit Log</h2>
+          <p>{formatAuditEntryCount(appState.auditLog.length)}</p>
+        </div>
+      </div>
+
+      <div className="audit-filters">
+        <label>
+          <span>Entity</span>
+          <select
+            value={entityFilter}
+            onChange={(event) =>
+              onEntityFilterChange(event.target.value as EntityId | "all")
+            }
+          >
+            <option value="all">All entities</option>
+            {getAuditEntityFilterOptions(appState).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          <span>Event</span>
+          <select
+            value={eventTypeFilter}
+            onChange={(event) =>
+              onEventTypeFilterChange(
+                event.target.value as AuditEventType | "all",
+              )
+            }
+          >
+            <option value="all">All events</option>
+            {Object.entries(AUDIT_EVENT_TYPE_LABELS).map(([eventType, label]) => (
+              <option key={eventType} value={eventType}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {filteredEntries.length === 0 ? (
+        <p className="empty-state compact">No audit entries</p>
+      ) : (
+        <ul className="audit-list" aria-label="Audit entries">
+          {filteredEntries.map((entry) => (
+            <li className="audit-entry" key={entry.id}>
+              <div className="audit-entry-heading">
+                <strong>{entry.summary}</strong>
+                <time dateTime={entry.createdAt}>
+                  {formatAuditTimestamp(entry.createdAt)}
+                </time>
+              </div>
+              <div className="record-meta">
+                <span>{getAuditEventTypeLabel(entry.eventType)}</span>
+                <span>{entry.actorLabel}</span>
+                {entry.entityId ? (
+                  <span>{getAuditEntityLabel(entry, appState.entities)}</span>
+                ) : null}
+              </div>
+              {entry.details && Object.keys(entry.details).length > 0 ? (
+                <dl className="audit-details">
+                  {Object.entries(entry.details).map(([key, value]) => (
+                    <div key={key}>
+                      <dt>{formatAuditDetailLabel(key)}</dt>
+                      <dd>{formatAuditDetailValue(value)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function getFilteredAuditLogEntries(
+  auditLog: AuditLogEntry[],
+  entityFilter: EntityId | "all",
+  eventTypeFilter: AuditEventType | "all",
+): AuditLogEntry[] {
+  return getNewestAuditLogEntries(auditLog).filter((entry) => {
+    if (entityFilter !== "all" && entry.entityId !== entityFilter) {
+      return false;
+    }
+
+    return eventTypeFilter === "all" || entry.eventType === eventTypeFilter;
+  });
+}
+
+export function getAuditEntityFilterOptions(
+  appState: AppState,
+): Array<{ label: string; value: EntityId }> {
+  const optionsById = new Map<EntityId, string>();
+
+  getSortedEntities(appState.entities).forEach((entity) => {
+    optionsById.set(entity.id, entity.name);
+  });
+
+  appState.auditLog.forEach((entry) => {
+    if (entry.entityId && !optionsById.has(entry.entityId)) {
+      optionsById.set(entry.entityId, entry.entityId);
+    }
+  });
+
+  return [...optionsById.entries()].map(([value, label]) => ({ label, value }));
+}
+
 function getEntityRecordCount(entityId: EntityId, appState: AppStateLike) {
   const count = appState.inventoryRecords.filter(
     (record) => record.location.entityId === entityId,
@@ -1397,6 +1977,10 @@ function getEntityRecordCount(entityId: EntityId, appState: AppStateLike) {
 
 function formatRecordCount(count: number) {
   return count === 1 ? "1 record" : `${count} records`;
+}
+
+function formatAuditEntryCount(count: number) {
+  return count === 1 ? "1 entry" : `${count} entries`;
 }
 
 function getBackpackSummary(entity: Entity, backpackCount: number) {
@@ -1610,6 +2194,192 @@ function formatContainerHeldState(record: InventoryRecord) {
   }
 
   return handsRequired === 1 ? "1 hand required" : "2 hands required";
+}
+
+function getAuditEntityLabel(entry: AuditLogEntry, entities: Entity[]): string {
+  if (!entry.entityId) {
+    return "No entity";
+  }
+
+  return (
+    entities.find((entity) => entity.id === entry.entityId)?.name ??
+    entry.entityId
+  );
+}
+
+function formatAuditTimestamp(createdAt: string): string {
+  const date = new Date(createdAt);
+
+  if (Number.isNaN(date.getTime())) {
+    return createdAt;
+  }
+
+  return date.toLocaleString();
+}
+
+function formatAuditDetailLabel(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (letter) => letter.toUpperCase())
+    .replace(/\bGp\b/g, "GP")
+    .replace(/\bPp\b/g, "PP")
+    .replace(/\bSp\b/g, "SP")
+    .replace(/\bCp\b/g, "CP")
+    .replace(/\bId\b/g, "ID");
+}
+
+function formatAuditDetailValue(value: string | number | boolean | null): string {
+  if (value === null) {
+    return "None";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  return value.toString();
+}
+
+function createCharacterSheetFormState(
+  characterData: CharacterData,
+): CharacterSheetFormState {
+  const normalizedCharacterData = normalizeCharacterData(characterData);
+
+  return {
+    className: normalizedCharacterData.className,
+    level: formatNullableNumberInput(normalizedCharacterData.level),
+    alignment: normalizedCharacterData.alignment,
+    xp: formatNullableNumberInput(normalizedCharacterData.xp),
+    hpCurrent: formatNullableNumberInput(normalizedCharacterData.hp.current),
+    hpMax: formatNullableNumberInput(normalizedCharacterData.hp.max),
+    abilityScores: ABILITY_SCORE_KEYS.reduce<Record<AbilityScoreKey, string>>(
+      (abilityScores, key) => ({
+        ...abilityScores,
+        [key]: formatNullableNumberInput(
+          normalizedCharacterData.abilityScores[key],
+        ),
+      }),
+      {
+        str: "",
+        int: "",
+        wis: "",
+        dex: "",
+        con: "",
+        cha: "",
+      },
+    ),
+    skills: normalizedCharacterData.skills.map((skill) => ({
+      id: skill.id,
+      name: skill.name,
+      chanceInSix: skill.chanceInSix.toString(),
+      description: skill.description ?? "",
+    })),
+    languagesText: normalizedCharacterData.languages.join("\n"),
+    description: normalizedCharacterData.description,
+    features: normalizedCharacterData.features.map((feature) => ({
+      id: feature.id,
+      title: feature.title,
+      description: feature.description,
+    })),
+  };
+}
+
+function toCharacterDataFormInput(
+  formState: CharacterSheetFormState,
+): CharacterData {
+  return {
+    className: formState.className.trim(),
+    level: parseNullableIntegerInput(formState.level),
+    alignment: formState.alignment,
+    xp: parseNullableIntegerInput(formState.xp),
+    hp: {
+      current: parseNullableIntegerInput(formState.hpCurrent),
+      max: parseNullableIntegerInput(formState.hpMax),
+    },
+    abilityScores: ABILITY_SCORE_KEYS.reduce<CharacterData["abilityScores"]>(
+      (abilityScores, key) => ({
+        ...abilityScores,
+        [key]: parseNullableIntegerInput(formState.abilityScores[key]),
+      }),
+      {
+        str: null,
+        int: null,
+        wis: null,
+        dex: null,
+        con: null,
+        cha: null,
+      },
+    ),
+    skills: formState.skills.map((skill) => ({
+      id: skill.id,
+      name: skill.name.trim(),
+      chanceInSix: parseIntegerInput(skill.chanceInSix),
+      ...(skill.description.trim()
+        ? { description: skill.description.trim() }
+        : {}),
+    })),
+    languages: parseLanguagesInput(formState.languagesText),
+    description: formState.description.trim(),
+    features: formState.features
+      .map((feature) => ({
+        id: feature.id,
+        title: feature.title.trim(),
+        description: feature.description.trim(),
+      }))
+      .filter((feature) => feature.title || feature.description),
+  };
+}
+
+function createEmptySkillFormState(): CharacterSkillFormState {
+  return {
+    id: createFormRowId("skill"),
+    name: "",
+    chanceInSix: "1",
+    description: "",
+  };
+}
+
+function createEmptyFeatureFormState(): CharacterFeatureFormState {
+  return {
+    id: createFormRowId("feature"),
+    title: "",
+    description: "",
+  };
+}
+
+function parseLanguagesInput(value: string): string[] {
+  return value
+    .split(/[\n,]+/)
+    .map((language) => language.trim())
+    .filter((language) => language.length > 0);
+}
+
+function parseNullableIntegerInput(value: string): number | null {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  return parseIntegerInput(trimmedValue);
+}
+
+function parseIntegerInput(value: string): number {
+  const parsedValue = Number(value);
+
+  return Number.isInteger(parsedValue) ? parsedValue : Number.NaN;
+}
+
+function formatNullableNumberInput(value: number | null): string {
+  return value === null ? "" : value.toString();
+}
+
+function createFormRowId(prefix: "feature" | "skill"): string {
+  const randomId =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+  return `${prefix}-${randomId}`;
 }
 
 function createEmptyRecordForm(entity: Entity): RecordFormState {

@@ -1,4 +1,10 @@
 import type { Entity, EntityId, EntityType } from "./types";
+import {
+  createEmptyCharacterData,
+  isCharacterLikeEntityType,
+} from "./characters";
+
+export { isCharacterLikeEntityType } from "./characters";
 
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   character: "Character",
@@ -35,13 +41,17 @@ export function createEntity({
   entityType,
   sortOrder,
 }: CreateEntityInput): Entity {
-  return {
+  const entity: Entity = {
     id,
     name: name.trim(),
     entityType,
     active: true,
     sortOrder,
   };
+
+  return isCharacterLikeEntityType(entityType)
+    ? { ...entity, character: createEmptyCharacterData() }
+    : entity;
 }
 
 export function getNextEntitySortOrder(entities: Entity[]): number {
@@ -64,8 +74,4 @@ export function getSortedEntities(entities: Entity[]): Entity[] {
 
     return leftEntity.name.localeCompare(rightEntity.name);
   });
-}
-
-export function isCharacterLikeEntityType(entityType: EntityType): boolean {
-  return entityType === "character" || entityType === "retainer";
 }

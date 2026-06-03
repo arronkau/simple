@@ -33,7 +33,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 2.5rem;
   border: 1px solid #a4b0ba;
@@ -42,6 +43,12 @@ select {
   color: #182129;
   background: #ffffff;
   font: inherit;
+}
+
+textarea {
+  min-height: 4.75rem;
+  padding: 0.65rem 0.75rem;
+  resize: vertical;
 }
 
 input[type="checkbox"] {
@@ -56,7 +63,8 @@ button:hover {
 
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid #7aa7d9;
   outline-offset: 2px;
 }
@@ -295,6 +303,94 @@ h5 {
   background: #fff2f2;
 }
 
+.character-sheet-panel {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.75rem;
+  border-top: 1px solid #e1e5e8;
+  padding-top: 0.9rem;
+}
+
+.character-sheet-form {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid #cdd7df;
+  border-radius: 8px;
+  padding: 0.9rem;
+  background: #f7fafc;
+}
+
+.character-sheet-section {
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.character-sheet-section label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.character-sheet-section label > span {
+  color: #5a6974;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.character-sheet-grid,
+.ability-score-grid {
+  display: grid;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.character-sheet-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.character-sheet-grid.compact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ability-score-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.repeatable-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.repeatable-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.repeatable-row {
+  display: grid;
+  grid-template-columns:
+    minmax(10rem, 1fr) minmax(7rem, 9rem) minmax(12rem, 2fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  border: 1px solid #d7dde1;
+  border-radius: 8px;
+  padding: 0.7rem;
+  background: #ffffff;
+}
+
+.feature-row {
+  grid-template-columns: minmax(10rem, 1fr) minmax(14rem, 2fr) auto;
+}
+
+.form-success {
+  color: #23613a;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .inventory-display {
   display: grid;
   grid-column: 1 / -1;
@@ -493,6 +589,97 @@ h5 {
   align-items: center;
 }
 
+.audit-panel {
+  display: grid;
+  gap: 0.9rem;
+  border-top: 1px solid #e1e5e8;
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+}
+
+.audit-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 16rem));
+  gap: 0.75rem;
+}
+
+.audit-filters label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.audit-filters span {
+  color: #5a6974;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.audit-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.audit-entry {
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid #d7dde1;
+  border-radius: 8px;
+  padding: 0.8rem;
+  background: #fbfcfd;
+}
+
+.audit-entry-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.audit-entry-heading strong {
+  overflow-wrap: anywhere;
+}
+
+.audit-entry-heading time {
+  flex: 0 0 auto;
+  color: #5a6974;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.audit-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+}
+
+.audit-details div {
+  display: inline-flex;
+  min-height: 1.5rem;
+  align-items: center;
+  border: 1px solid #d7dde1;
+  border-radius: 6px;
+  padding: 0 0.55rem;
+  color: #52616c;
+  background: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.audit-details dt,
+.audit-details dd {
+  margin: 0;
+}
+
+.audit-details dt::after {
+  content: ":";
+  margin-right: 0.25rem;
+}
+
 .storage-key {
   display: grid;
   gap: 0.35rem;
@@ -538,8 +725,16 @@ h5 {
   }
 
   .record-row,
-  .record-form-grid {
+  .record-form-grid,
+  .character-sheet-grid,
+  .character-sheet-grid.compact-grid,
+  .repeatable-row,
+  .audit-filters {
     grid-template-columns: 1fr;
+  }
+
+  .ability-score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .wide-field {
@@ -556,5 +751,9 @@ h5 {
 
   .hand-grid {
     grid-template-columns: 1fr;
+  }
+
+  .audit-entry-heading {
+    flex-direction: column;
   }
 }
