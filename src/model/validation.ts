@@ -27,7 +27,6 @@ export type ValidationIssueCode =
   | "nestedNonEmptyContainer"
   | "nestedContainerReceivingContents"
   | "handCollision"
-  | "invalidHandPlacement"
   | "duplicateBackpack"
   | "missingBackpack";
 
@@ -113,35 +112,6 @@ export function getHandOccupancy(
       occupancy[placement] = record.id;
     }
 
-    if (record.recordType === "weapon") {
-      if (record.weapon.hands === "twoHands" && placement !== "bothHands") {
-        occupancy.errors.push(
-          `${record.id} is a two-handed weapon and must occupy bothHands.`,
-        );
-      }
-
-      if (record.weapon.hands === "oneHand" && placement === "bothHands") {
-        occupancy.errors.push(
-          `${record.id} is a one-handed weapon and cannot occupy bothHands.`,
-        );
-      }
-    }
-
-    if (record.container?.handsRequired === 2 && placement !== "bothHands") {
-      occupancy.errors.push(
-        `${record.id} requires two hands and must occupy bothHands.`,
-      );
-    }
-
-    if (
-      record.container?.handsRequired === 1 &&
-      placement !== "leftHand" &&
-      placement !== "rightHand"
-    ) {
-      occupancy.errors.push(
-        `${record.id} requires one hand and must occupy leftHand or rightHand.`,
-      );
-    }
   }
 
   if (occupancy.bothHands && (occupancy.leftHand || occupancy.rightHand)) {
@@ -479,14 +449,9 @@ function validateHandOccupancy(
   return entities
     .filter(isCharacterLikeEntity)
     .flatMap((entity) =>
-      getHandOccupancy(entity.id, records).errors.map((message) => {
-        const code =
-          message.includes("must occupy") || message.includes("cannot occupy")
-            ? "invalidHandPlacement"
-            : "handCollision";
-
-        return errorIssue(code, message, { entityId: entity.id });
-      }),
+      getHandOccupancy(entity.id, records).errors.map((message) =>
+        errorIssue("handCollision", message, { entityId: entity.id }),
+      ),
     );
 }
 

@@ -22,6 +22,7 @@ import {
   getSortedEntities,
 } from "./model/entities";
 import {
+  getUsableContainerRecords,
   getLocationPlacementKey,
   type InventoryRecordFormInput,
   type InventoryRecordPlacementKey,
@@ -33,15 +34,16 @@ import {
   getRecordById,
 } from "./model/inventoryDisplay";
 import type { AppState } from "./model/appState";
+import { getRecordHandsRequired } from "./model/types";
 import type {
   ContainerBurdenMode,
   Entity,
   EntityId,
   EntityType,
+  HandsRequired,
   InventoryRecord,
   InventoryRecordId,
   InventoryRecordType,
-  WeaponHands,
 } from "./model/types";
 import {
   findBackpackRecords,
@@ -92,7 +94,6 @@ type RecordFormState = {
   sp: string;
   cp: string;
   gpValue: string;
-  weaponHands: WeaponHands;
   damage: string;
   range: string;
   baseArmorClass: string;
@@ -694,7 +695,7 @@ function InventoryRecordForm({
     ) ?? entity;
   const targetIsCharacterLike = isCharacterLikeEntity(targetEntity);
   const containerOptions = getContainerOptions({
-    entityId: targetEntity.id,
+    entity: targetEntity,
     records: appState.inventoryRecords,
     editingRecordId: formState.recordId,
   });
@@ -724,14 +725,20 @@ function InventoryRecordForm({
           <select
             disabled={formState.mode === "edit"}
             value={formState.recordType}
-            onChange={(event) =>
+            onChange={(event) => {
+              const recordType = event.target.value as InventoryRecordType;
+
               onChange({
                 ...formState,
-                recordType: event.target.value as InventoryRecordType,
+                recordType,
+                handsRequired: getDefaultHandsRequired(recordType).toString() as
+                  | "0"
+                  | "1"
+                  | "2",
                 placement: "default",
                 containerId: "",
-              })
-            }
+              });
+            }}
           >
             {RECORD_TYPES.map((recordType) => (
               <option key={recordType} value={recordType}>
@@ -914,23 +921,27 @@ function InventoryRecordForm({
           />
         ) : null}
 
+        {formState.recordType !== "coins" ? (
+          <label>
+            <span>Hands required</span>
+            <select
+              value={formState.handsRequired}
+              onChange={(event) =>
+                onChange({
+                  ...formState,
+                  handsRequired: event.target.value as "0" | "1" | "2",
+                })
+              }
+            >
+              <option value="0">None</option>
+              <option value="1">One</option>
+              <option value="2">Two</option>
+            </select>
+          </label>
+        ) : null}
+
         {formState.recordType === "weapon" ? (
           <>
-            <label>
-              <span>Hands</span>
-              <select
-                value={formState.weaponHands}
-                onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    weaponHands: event.target.value as WeaponHands,
-                  })
-                }
-              >
-                <option value="oneHand">One hand</option>
-                <option value="twoHands">Two hands</option>
-              </select>
-            </label>
             <label>
               <span>Damage</span>
               <input
@@ -1003,22 +1014,6 @@ function InventoryRecordForm({
                 onChange({ ...formState, capacitySlots: value })
               }
             />
-            <label>
-              <span>Hands required</span>
-              <select
-                value={formState.handsRequired}
-                onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    handsRequired: event.target.value as "0" | "1" | "2",
-                  })
-                }
-              >
-                <option value="0">None</option>
-                <option value="1">One</option>
-                <option value="2">Two</option>
-              </select>
-            </label>
             <label>
               <span>Burden</span>
               <select
@@ -1414,9 +1409,15 @@ function getRecordMetadata(
     metadata.push(`${formatGpValue(record.treasure.gpValue)} gp`);
   }
 
-  if (record.recordType === "weapon") {
-    metadata.push(record.weapon.hands === "twoHands" ? "Two hands" : "One hand");
+  if (record.recordType !== "coins") {
+    const handsRequired = getRecordHandsRequired(record);
 
+    if (handsRequired > 0) {
+      metadata.push(formatHandsRequired(handsRequired));
+    }
+  }
+
+  if (record.recordType === "weapon") {
     if (record.weapon.damage) {
       metadata.push(record.weapon.damage);
     }
@@ -1495,6 +1496,10 @@ function formatGpValue(value: number) {
   return Number.isInteger(value) ? value.toString() : value.toFixed(2);
 }
 
+function formatHandsRequired(handsRequired: HandsRequired) {
+  return handsRequired === 1 ? "One hand" : "Two hands";
+}
+
 function formatWarningState(
   warnings: EncumbranceWarning[],
   validationIssues: ValidationIssue[],
@@ -1509,7 +1514,9 @@ function formatWarningState(
 }
 
 function formatContainerHeldState(record: InventoryRecord) {
-  if (!record.container || (record.container.handsRequired ?? 0) === 0) {
+  const handsRequired = getRecordHandsRequired(record);
+
+  if (!record.container || handsRequired === 0) {
     return "No hands required";
   }
 
@@ -1522,7 +1529,7 @@ function formatContainerHeldState(record: InventoryRecord) {
     return `Held in ${record.location.placement}`;
   }
 
-  return `${record.container.handsRequired} hand required`;
+  return handsRequired === 1 ? "1 hand required" : "2 hands required";
 }
 
 function createEmptyRecordForm(entity: Entity): RecordFormState {
@@ -1540,7 +1547,6 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
     sp: "0",
     cp: "0",
     gpValue: "0",
-    weaponHands: "oneHand",
     damage: "",
     range: "",
     baseArmorClass: "",
@@ -1584,8 +1590,6 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
     cp: record.recordType === "coins" ? record.coins.cp.toString() : "0",
     gpValue:
       record.recordType === "treasure" ? record.treasure.gpValue.toString() : "0",
-    weaponHands:
-      record.recordType === "weapon" ? record.weapon.hands : "oneHand",
     damage: record.recordType === "weapon" ? record.weapon.damage ?? "" : "",
     range: record.recordType === "weapon" ? record.weapon.range ?? "" : "",
     baseArmorClass:
@@ -1599,7 +1603,7 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
     ...slotState,
     isContainer: Boolean(record.container),
     capacitySlots: record.container?.capacitySlots.toString() ?? "0",
-    handsRequired: (record.container?.handsRequired ?? 0).toString() as
+    handsRequired: getRecordHandsRequired(record).toString() as
       | "0"
       | "1"
       | "2",
@@ -1646,12 +1650,16 @@ function toInventoryRecordFormInput(
           kind: "fixed" as const,
           slots: parseNumberInput(formState.slots, 1),
         };
+  const handsRequired = Number(formState.handsRequired) as HandsRequired;
+  const nonCoinSharedInput = {
+    ...sharedInput,
+    handsRequired,
+  };
   const container =
     formState.isContainer &&
     formState.recordType !== "treasure"
       ? {
           capacitySlots: parseNumberInput(formState.capacitySlots),
-          handsRequired: Number(formState.handsRequired) as 0 | 1 | 2,
           isBackpack: formState.isBackpack,
           burdenMode: formState.burdenMode,
         }
@@ -1659,7 +1667,7 @@ function toInventoryRecordFormInput(
 
   if (formState.recordType === "treasure") {
     return {
-      ...sharedInput,
+      ...nonCoinSharedInput,
       recordType: "treasure",
       name: formState.name,
       gpValue: parseNumberInput(formState.gpValue),
@@ -1669,13 +1677,12 @@ function toInventoryRecordFormInput(
 
   if (formState.recordType === "weapon") {
     return {
-      ...sharedInput,
+      ...nonCoinSharedInput,
       recordType: "weapon",
       name: formState.name,
       slotProfile,
       container,
       weapon: {
-        hands: formState.weaponHands,
         damage: formState.damage,
         range: formState.range,
       },
@@ -1684,7 +1691,7 @@ function toInventoryRecordFormInput(
 
   if (formState.recordType === "armor") {
     return {
-      ...sharedInput,
+      ...nonCoinSharedInput,
       recordType: "armor",
       name: formState.name,
       slotProfile,
@@ -1701,7 +1708,7 @@ function toInventoryRecordFormInput(
   }
 
   return {
-    ...sharedInput,
+    ...nonCoinSharedInput,
     recordType: "equipment",
     name: formState.name,
     slotProfile,
@@ -1709,21 +1716,20 @@ function toInventoryRecordFormInput(
   };
 }
 
+function getDefaultHandsRequired(recordType: InventoryRecordType): HandsRequired {
+  return recordType === "weapon" ? 1 : 0;
+}
+
 function getContainerOptions({
   editingRecordId,
-  entityId,
+  entity,
   records,
 }: {
   editingRecordId?: InventoryRecordId;
-  entityId: EntityId;
+  entity: Entity;
   records: InventoryRecord[];
 }) {
-  return records.filter(
-    (record) =>
-      record.id !== editingRecordId &&
-      record.location.entityId === entityId &&
-      Boolean(record.container),
-  );
+  return getUsableContainerRecords({ editingRecordId, entity, records });
 }
 
 function getPlacementOptions({

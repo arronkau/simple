@@ -12,6 +12,7 @@ import type {
   InventoryRecord,
   InventoryRecordId,
 } from "./types";
+import { getRecordHandsRequired } from "./types";
 import { findBackpackRecords, isCharacterLikeEntity } from "./validation";
 
 export type MovementRate = {
@@ -354,7 +355,7 @@ function getHandsRequiredContainerWarnings(
     if (
       record.location.entityId !== entity.id ||
       !record.container ||
-      (record.container.handsRequired ?? 0) === 0 ||
+      getRecordHandsRequired(record) === 0 ||
       getDirectChildRecords(record.id, records).length === 0 ||
       isHeldHandsRequiredContainer(record, records)
     ) {
@@ -442,7 +443,7 @@ function isHeldHandsRequiredContainer(
   records: InventoryRecord[],
 ): boolean {
   return (
-    Boolean(record.container && (record.container.handsRequired ?? 0) > 0) &&
+    Boolean(record.container && getRecordHandsRequired(record) > 0) &&
     getDirectChildRecords(record.id, records).length > 0 &&
     record.location.locationType === "equipped" &&
     isHandPlacement(record.location.placement)

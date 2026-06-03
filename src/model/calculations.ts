@@ -1,3 +1,4 @@
+import { getRecordHandsRequired } from "./types";
 import type {
   CoinData,
   Entity,
@@ -298,7 +299,7 @@ function isHeldHandsRequiredContainer(
   childRecords: InventoryRecord[],
 ): boolean {
   return (
-    Boolean(record.container && (record.container.handsRequired ?? 0) > 0) &&
+    Boolean(record.container && getRecordHandsRequired(record) > 0) &&
     childRecords.length > 0 &&
     record.location.locationType === "equipped" &&
     isHandPlacement(record.location.placement)

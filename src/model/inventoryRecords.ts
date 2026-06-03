@@ -3,6 +3,7 @@ import {
   findBackpackRecords,
   isCharacterLikeEntity,
 } from "./validation";
+import { getRecordHandsRequired, normalizeHandsRequired } from "./types";
 import type {
   ArmorData,
   CoinData,
@@ -10,6 +11,7 @@ import type {
   ContainerData,
   Entity,
   EntityId,
+  HandsRequired,
   InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
@@ -45,6 +47,7 @@ export type InventoryRecordFormInput = {
   armor?: Partial<ArmorData>;
   slotProfile?: NonCoinSlotProfile;
   container?: Partial<ContainerData>;
+  handsRequired?: HandsRequired;
   location?: InventoryRecordLocationInput;
 };
 
@@ -102,7 +105,7 @@ export function createInventoryRecordFromInput({
 
   const sortOrder = getNextInventoryRecordSortOrder(
     records,
-    locationResult.location.entityId,
+    locationResult.location,
   );
 
   return buildInventoryRecord({
@@ -140,7 +143,10 @@ export function updateInventoryRecordFromInput({
 
   return buildInventoryRecord({
     id: record.id,
-    input,
+    input: {
+      ...input,
+      handsRequired: input.handsRequired ?? getRecordHandsRequired(record),
+    },
     location: locationResult.location,
     sortOrder: record.sortOrder,
   });
@@ -326,7 +332,7 @@ export function moveInventoryRecord({
 
   const descendantRecordIds = getDescendantRecordIds(recordId, records);
   const targetEntityId = location.entityId;
-  const sortOrder = getNextInventoryRecordSortOrder(records, targetEntityId);
+  const sortOrder = getNextInventoryRecordSortOrder(records, location);
 
   return records.map((candidateRecord) => {
     if (candidateRecord.id === recordId) {
@@ -406,6 +412,39 @@ export function getLocationPlacementKey(
   return location.placement;
 }
 
+export function getUsableContainerRecords({
+  editingRecordId,
+  entity,
+  records,
+}: {
+  editingRecordId?: InventoryRecordId;
+  entity: Entity;
+  records: InventoryRecord[];
+}): InventoryRecord[] {
+  const editingRecord = editingRecordId
+    ? records.find((record) => record.id === editingRecordId)
+    : undefined;
+  const editingDescendantRecordIds = editingRecordId
+    ? getDescendantRecordIds(editingRecordId, records)
+    : new Set<InventoryRecordId>();
+
+  if (
+    editingRecord?.container &&
+    getDirectChildRecords(editingRecord.id, records).length > 0
+  ) {
+    return [];
+  }
+
+  return records.filter(
+    (record) =>
+      record.id !== editingRecordId &&
+      record.location.entityId === entity.id &&
+      Boolean(record.container) &&
+      !locationHasContainerId(record.location) &&
+      !editingDescendantRecordIds.has(record.id),
+  );
+}
+
 function buildInventoryRecord({
   id,
   input,
@@ -445,12 +484,14 @@ function buildInventoryRecord({
 
   const slotProfile = normalizeSlotProfile(input.slotProfile);
   const container = normalizeContainer(input.container);
+  const handsRequired = getInputHandsRequired(input);
   const shared = {
     id,
     name,
     location,
     sortOrder,
     slotProfile,
+    handsRequired,
     ...(description ? { description } : {}),
     ...(container ? { container } : {}),
   };
@@ -474,7 +515,6 @@ function buildInventoryRecord({
           ...shared,
           recordType: "weapon",
           weapon: {
-            hands: input.weapon?.hands ?? "oneHand",
             ...(normalizeOptionalText(input.weapon?.damage)
               ? { damage: normalizeOptionalText(input.weapon?.damage) }
               : {}),
@@ -533,9 +573,9 @@ function getUsableContainerId({
 
   if (
     !containerRecord ||
-    !containerRecord.container ||
-    containerRecord.location.entityId !== entity.id ||
-    containerRecord.id === editingRecordId
+    !getUsableContainerRecords({ entity, records, editingRecordId }).some(
+      (record) => record.id === containerRecord.id,
+    )
   ) {
     return {
       ok: false,
@@ -551,17 +591,36 @@ function getUsableContainerId({
 
 function getNextInventoryRecordSortOrder(
   records: InventoryRecord[],
-  entityId: EntityId,
+  location: InventoryLocation,
 ): number {
-  const entityRecords = records.filter(
-    (record) => record.location.entityId === entityId,
+  const siblingRecords = records.filter((record) =>
+    areInventoryLocationsSiblings(record.location, location),
   );
 
-  if (entityRecords.length === 0) {
+  if (siblingRecords.length === 0) {
     return 0;
   }
 
-  return Math.max(...entityRecords.map((record) => record.sortOrder)) + 1000;
+  return Math.max(...siblingRecords.map((record) => record.sortOrder)) + 1000;
+}
+
+function areInventoryLocationsSiblings(
+  leftLocation: InventoryLocation,
+  rightLocation: InventoryLocation,
+): boolean {
+  const leftContainerId = locationHasContainerId(leftLocation)
+    ? leftLocation.containerId
+    : undefined;
+  const rightContainerId = locationHasContainerId(rightLocation)
+    ? rightLocation.containerId
+    : undefined;
+
+  return (
+    leftLocation.entityId === rightLocation.entityId &&
+    leftLocation.locationType === rightLocation.locationType &&
+    leftLocation.placement === rightLocation.placement &&
+    leftContainerId === rightContainerId
+  );
 }
 
 function getDescendantRecordIds(
@@ -624,7 +683,6 @@ function normalizeContainer(
 
   return {
     capacitySlots: Math.max(0, normalizeNumber(container.capacitySlots, 0)),
-    handsRequired: normalizeHandsRequired(container.handsRequired),
     ...(container.isBackpack ? { isBackpack: true } : {}),
     ...(container.burdenMode
       ? { burdenMode: container.burdenMode as ContainerBurdenMode }
@@ -632,12 +690,18 @@ function normalizeContainer(
   };
 }
 
-function normalizeHandsRequired(value: ContainerData["handsRequired"]): 0 | 1 | 2 {
-  if (value === 1 || value === 2) {
-    return value;
+function getInputHandsRequired(input: InventoryRecordFormInput): HandsRequired {
+  if (input.recordType === "weapon") {
+    return normalizeHandsRequired(
+      input.handsRequired,
+      input.weapon?.hands === "twoHands" ? 2 : 1,
+    );
   }
 
-  return 0;
+  return normalizeHandsRequired(
+    input.handsRequired,
+    normalizeHandsRequired(input.container?.handsRequired),
+  );
 }
 
 function normalizeNumber(value: number | undefined, fallback: number): number {
@@ -658,4 +722,10 @@ function normalizeOptionalText(value: string | undefined): string | undefined {
   return normalizedValue && normalizedValue.length > 0
     ? normalizedValue
     : undefined;
+}
+
+function locationHasContainerId(
+  location: InventoryLocation,
+): location is InventoryLocation & { containerId: InventoryRecordId } {
+  return "containerId" in location;
 }

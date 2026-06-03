@@ -104,7 +104,7 @@ Suggested helper:
 getEffectiveCarryState(record, allRecords): "equipped" | "stowed" | "contents" | "excluded"
 ```
 
-A contained record is excluded when its nearest containing ancestor has `handsRequired > 0` and is equipped in a valid hand placement.
+A contained record is excluded when its nearest containing ancestor is a container record with record-level `handsRequired > 0` and is equipped in a hand placement.
 
 ## Character-Like Stowed Count
 
@@ -134,7 +134,7 @@ For encumbrance:
 
 ## Held Hands-Required Containers
 
-Some containers require hands:
+Some container records require hands via record-level `handsRequired`:
 
 - small sack: likely `handsRequired: 1`
 - large sack: likely `handsRequired: 1` or `2`, depending on campaign data
@@ -142,7 +142,7 @@ Some containers require hands:
 
 Rules:
 
-- A container with `handsRequired > 0` may contain items while held.
+- A container record with `handsRequired > 0` may contain items while held.
 - If it contains items and is not held, warn.
 - If held, the container occupies the appropriate hand placement.
 - Its contents remain modeled as container contents.

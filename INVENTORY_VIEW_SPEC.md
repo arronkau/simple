@@ -148,26 +148,23 @@ location.placement === "bothHands"
 Hand display is exclusive:
 
 - Show `leftHand` and `rightHand` by default.
-- Show `bothHands` instead when a two-handed item or two-handed container occupies both hands.
+- Show `bothHands` instead when a record occupies both hands.
 - Do not show `leftHand`, `rightHand`, and `bothHands` as three simultaneous slots.
 
 Behavior:
 
-- A one-handed item may occupy `leftHand` or `rightHand`.
-- A two-handed item occupies `bothHands`.
-- A container with `handsRequired: 1` may occupy `leftHand` or `rightHand`.
-- A container with `handsRequired: 2` must occupy `bothHands`.
-- Moving a two-handed record into either empty hand should claim both hands and switch the display to `bothHands`.
-- Moving a two-handed record into either hand should be blocked if either hand is already occupied.
-- Moving a one-handed record should be blocked when `bothHands` is occupied.
+- Any non-coin equipped record may occupy `leftHand`, `rightHand`, or `bothHands`.
+- `handsRequired` is the minimum hand count needed for active/use effects, not a placement prohibition.
+- A `handsRequired: 0` record may still be placed in hand.
+- A `handsRequired: 1` record is active-ready in `leftHand`, `rightHand`, or `bothHands`.
+- A `handsRequired: 2` record is active-ready in `bothHands`.
+- Moving a record into `bothHands` should be blocked if either hand is already occupied.
+- Moving a record into `leftHand` or `rightHand` should be blocked when `bothHands` is occupied.
 
 Validation should prevent:
 
 - More than one item in the same hand.
-- A two-handed item plus another hand-held item.
-- A two-handed item represented as only one occupied hand.
-- A one-handed item represented in `bothHands`.
-- A `handsRequired: 2` container represented as only one occupied hand.
+- A `bothHands` item plus another hand-held item.
 
 Empty hand states should display `Empty hand`.
 
@@ -334,7 +331,7 @@ The view should warn when:
 
 - A container has `handsRequired: 1` or `handsRequired: 2`.
 - The container is non-empty.
-- The container is not equipped in a compatible hand placement.
+- The container is not equipped in a hand placement.
 
 The warning should not block play unless the resulting state violates a hard invariant.
 
@@ -505,10 +502,18 @@ For non-character entities:
 |---|---|---|---|---|
 | `coins` on character-like entity | PP, GP, SP, CP | Coin purse | None | Name, description, identification, weapon, armor, treasure |
 | `coins` on non-character entity | PP, GP, SP, CP | Contents | Container placement | Name, description, identification, weapon, armor, treasure |
-| `treasure` | Name, GP value, slot profile | Character-like: equipped loose; non-character: contents | Description, placement | Identification, weapon, armor, coins |
-| `weapon` | Name, hands, slot profile | Character-like: equipped loose; non-character: contents | Description, damage, range, qualities, identification, placement, uses, modifiers | Coins, treasure, armor |
-| `armor` | Name, slot profile | Character-like: equipped loose; non-character: contents | Description, base AC, armor bonus, identification, placement, uses, modifiers | Coins, treasure, weapon |
-| `equipment` | Name, slot profile | Character-like: equipped loose; non-character: contents | Description, container data, uses, light, identification, placement, modifiers | Coins, treasure, weapon-only fields, armor-only fields |
+| `treasure` | Name, GP value, slot profile | Character-like: equipped loose; non-character: contents | Description, placement, hands required | Identification, weapon, armor, coins |
+| `weapon` | Name, slot profile | Character-like: equipped loose; non-character: contents | Description, damage, range, qualities, identification, placement, hands required, uses, modifiers | Coins, treasure, armor |
+| `armor` | Name, slot profile | Character-like: equipped loose; non-character: contents | Description, base AC, armor bonus, identification, placement, hands required, uses, modifiers | Coins, treasure, weapon |
+| `equipment` | Name, slot profile | Character-like: equipped loose; non-character: contents | Description, container data, uses, light, identification, placement, hands required, modifiers | Coins, treasure, weapon-only fields, armor-only fields |
+
+### Hand Requirement Form Field
+
+Show `handsRequired` for every non-coin record.
+
+| Field | Required? | Default | Notes |
+|---|---:|---|---|
+| `handsRequired` | No | Weapons: `1`; other non-coins: `0` | Allowed values: `0`, `1`, `2`; describes minimum active/use hand count |
 
 ### Container Form Fields
 
@@ -517,7 +522,6 @@ Show container fields only when the user marks a non-coin record as a container.
 | Field | Required? | Default | Notes |
 |---|---:|---|---|
 | `capacitySlots` | Yes | None | Must be `>= 0` |
-| `handsRequired` | No | `0` | Allowed values: `0`, `1`, `2` |
 | `isBackpack` | No | `false` | Only one backpack per character-like entity |
 | `burdenMode` | No | `contentsOnlyWhenLoaded` | Advanced field; may be hidden behind details |
 
@@ -547,8 +551,7 @@ Potential fields:
 - Quantity or slot profile
 - GP value
 - Coin denominations
-- Weapon hands required
-- Container hands required
+- Hands required
 - Location and placement
 - Container data
 - Identification data for weapons, armor, and equipment only
@@ -571,7 +574,7 @@ Common character-like moves:
 - Backpack to equipped loose
 - Backpack to left hand
 - Backpack to right hand
-- Backpack to either hand, with two-handed records claiming `bothHands`
+- Backpack to both hands
 - Backpack into container
 - Container to backpack
 - To another entity

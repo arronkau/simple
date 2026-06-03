@@ -1,3 +1,4 @@
+import { getRecordHandsRequired } from "./types";
 import type { Entity, InventoryRecord } from "./types";
 
 export type AppState = {
@@ -40,7 +41,7 @@ export function readLocalAppState(): AppState {
       return {
         schemaVersion: 1,
         entities: parsedValue.entities,
-        inventoryRecords: parsedValue.inventoryRecords,
+        inventoryRecords: normalizeInventoryRecords(parsedValue.inventoryRecords),
       };
     }
   } catch {
@@ -60,6 +61,19 @@ export function writeLocalAppState(appState: AppState): void {
   } catch {
     // Storage can fail in private contexts or when quota is exceeded.
   }
+}
+
+function normalizeInventoryRecords(records: InventoryRecord[]): InventoryRecord[] {
+  return records.map((record) => {
+    if (record.recordType === "coins") {
+      return record;
+    }
+
+    return {
+      ...record,
+      handsRequired: getRecordHandsRequired(record),
+    };
+  });
 }
 
 function isAppState(value: unknown): value is AppState {

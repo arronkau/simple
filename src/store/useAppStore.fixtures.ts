@@ -1,4 +1,5 @@
 import { getSortedEntities } from "../model/entities";
+import { getUsableContainerRecords } from "../model/inventoryRecords";
 import { findBackpackRecords } from "../model/validation";
 import { useAppStore } from "./useAppStore";
 
@@ -171,6 +172,7 @@ let phase5InvalidHandOk = true;
 let phase5NestedContainerMoveOk = true;
 let phase5DeleteNonEmptyContainerOk = true;
 let phase5CrossEntityDescendantEntityId: string | undefined;
+let phase5NestedContainerId: string | undefined;
 
 if (phase5CharacterId) {
   const swordResult = useAppStore.getState().createInventoryRecord(
@@ -178,7 +180,6 @@ if (phase5CharacterId) {
     {
       recordType: "weapon",
       name: "Sword",
-      weapon: { hands: "oneHand" },
       slotProfile: { kind: "fixed", slots: 1 },
     },
   );
@@ -210,7 +211,6 @@ if (phase5CharacterId) {
         {
           recordType: "weapon",
           name: "Hammer",
-          weapon: { hands: "oneHand" },
           slotProfile: { kind: "fixed", slots: 1 },
         },
       )
@@ -235,10 +235,30 @@ if (phase5CharacterId) {
     },
   );
 
+  if (spareBagResult.ok && spareBagResult.recordId) {
+    const nestedPouchResult = useAppStore.getState().createInventoryRecord(
+      phase5CharacterId,
+      {
+        recordType: "equipment",
+        name: "Nested Pouch",
+        slotProfile: { kind: "fixed", slots: 1 },
+        container: { capacitySlots: 1 },
+        location: {
+          entityId: phase5CharacterId,
+          placement: "container",
+          containerId: spareBagResult.recordId,
+        },
+      },
+    );
+
+    if (nestedPouchResult.ok) {
+      phase5NestedContainerId = nestedPouchResult.recordId;
+    }
+  }
+
   useAppStore.getState().createInventoryRecord(phase5CharacterId, {
     recordType: "weapon",
     name: "Dagger",
-    weapon: { hands: "oneHand" },
     slotProfile: { kind: "fixed", slots: 1 },
     location: { entityId: phase5CharacterId, placement: "leftHand" },
   });
@@ -247,7 +267,6 @@ if (phase5CharacterId) {
     .createInventoryRecord(phase5CharacterId, {
       recordType: "weapon",
       name: "Axe",
-      weapon: { hands: "oneHand" },
       slotProfile: { kind: "fixed", slots: 1 },
       location: { entityId: phase5CharacterId, placement: "leftHand" },
     }).ok;
@@ -328,6 +347,31 @@ if (phase5StorageAId && phase5StorageBId) {
   }
 }
 
+const phase5FinalState = useAppStore.getState().appState;
+const phase5DaggerRecord = phase5FinalState.inventoryRecords.find(
+  (record) => record.recordType === "weapon" && record.name === "Dagger",
+);
+const phase5SackRecord = phase5FinalState.inventoryRecords.find(
+  (record) => record.recordType === "equipment" && record.name === "Sack",
+);
+const phase5CharacterEntity = phase5FinalState.entities.find(
+  (entity) => entity.id === phase5CharacterId,
+);
+const phase5NewRecordContainerOptionIds = phase5CharacterEntity
+  ? getUsableContainerRecords({
+      entity: phase5CharacterEntity,
+      records: phase5FinalState.inventoryRecords,
+    }).map((record) => record.id)
+  : [];
+const phase5SackMoveContainerOptionIds =
+  phase5CharacterEntity && phase5SackRecord
+    ? getUsableContainerRecords({
+        entity: phase5CharacterEntity,
+        records: phase5FinalState.inventoryRecords,
+        editingRecordId: phase5SackRecord.id,
+      }).map((record) => record.id)
+    : [];
+
 export const PHASE_5_STORE_MANUAL_FIXTURES = [
   {
     name: "character coin creation merges into a single coin-purse record",
@@ -376,6 +420,15 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     },
   },
   {
+    name: "new records use sibling sort order for their target location",
+    actual: {
+      daggerSortOrder: phase5DaggerRecord?.sortOrder,
+    },
+    expected: {
+      daggerSortOrder: 0,
+    },
+  },
+  {
     name: "non-empty containers cannot nest or delete",
     actual: {
       nestedContainerMoveOk: phase5NestedContainerMoveOk,
@@ -384,6 +437,19 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     expected: {
       nestedContainerMoveOk: false,
       deleteNonEmptyContainerOk: false,
+    },
+  },
+  {
+    name: "usable container options exclude invalid destinations before submit",
+    actual: {
+      nestedContainerOffered:
+        phase5NestedContainerId !== undefined &&
+        phase5NewRecordContainerOptionIds.includes(phase5NestedContainerId),
+      nonEmptyContainerMoveOptions: phase5SackMoveContainerOptionIds.length,
+    },
+    expected: {
+      nestedContainerOffered: false,
+      nonEmptyContainerMoveOptions: 0,
     },
   },
   {

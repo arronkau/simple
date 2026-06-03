@@ -67,8 +67,8 @@ const swordRecord: InventoryRecord = {
   },
   sortOrder: 0,
   slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 1,
   weapon: {
-    hands: "oneHand",
     damage: "1d8",
   },
 };
@@ -133,9 +133,9 @@ const sackRecord: InventoryRecord = {
   },
   sortOrder: 4000,
   slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 1,
   container: {
     capacitySlots: 6,
-    handsRequired: 1,
   },
 };
 
@@ -164,9 +164,8 @@ const retainerDagger: InventoryRecord = {
   },
   sortOrder: 0,
   slotProfile: { kind: "fixed", slots: 1 },
-  weapon: {
-    hands: "oneHand",
-  },
+  handsRequired: 1,
+  weapon: {},
 };
 
 const mountFeedRecord: InventoryRecord = {

@@ -126,10 +126,12 @@ export type TreasureData = {
 };
 
 export type WeaponHands = "oneHand" | "twoHands";
+export type HandsRequired = 0 | 1 | 2;
 
 export type WeaponData = {
   damage?: string;
-  hands: WeaponHands;
+  /** @deprecated Use the record-level handsRequired field. */
+  hands?: WeaponHands;
   range?: string;
   qualities?: string[];
 };
@@ -146,6 +148,7 @@ export type ContainerBurdenMode =
 
 export type ContainerData = {
   capacitySlots: number;
+  /** @deprecated Use the record-level handsRequired field. */
   handsRequired?: 0 | 1 | 2;
   isBackpack?: boolean;
   burdenMode?: ContainerBurdenMode;
@@ -195,6 +198,10 @@ type InventoryRecordShared = {
   updatedAt?: ISODateTimeString;
 };
 
+type NonCoinInventoryRecordShared = InventoryRecordShared & {
+  handsRequired?: HandsRequired;
+};
+
 export type CoinsRecord = InventoryRecordShared & {
   recordType: "coins";
   name?: string;
@@ -207,7 +214,7 @@ export type CoinsRecord = InventoryRecordShared & {
   identification?: never;
 };
 
-export type TreasureRecord = InventoryRecordShared & {
+export type TreasureRecord = NonCoinInventoryRecordShared & {
   recordType: "treasure";
   name: string;
   slotProfile: NonCoinSlotProfile;
@@ -219,7 +226,7 @@ export type TreasureRecord = InventoryRecordShared & {
   identification?: never;
 };
 
-export type WeaponRecord = InventoryRecordShared & {
+export type WeaponRecord = NonCoinInventoryRecordShared & {
   recordType: "weapon";
   name: string;
   slotProfile: NonCoinSlotProfile;
@@ -231,7 +238,7 @@ export type WeaponRecord = InventoryRecordShared & {
   armor?: never;
 };
 
-export type ArmorRecord = InventoryRecordShared & {
+export type ArmorRecord = NonCoinInventoryRecordShared & {
   recordType: "armor";
   name: string;
   slotProfile: NonCoinSlotProfile;
@@ -243,7 +250,7 @@ export type ArmorRecord = InventoryRecordShared & {
   weapon?: never;
 };
 
-export type EquipmentRecord = InventoryRecordShared & {
+export type EquipmentRecord = NonCoinInventoryRecordShared & {
   recordType: "equipment";
   name: string;
   slotProfile: NonCoinSlotProfile;
@@ -284,11 +291,79 @@ export function createDefaultBackpack({
     },
     sortOrder,
     slotProfile: { kind: "fixed", slots: 1 },
+    handsRequired: 0,
     container: {
       capacitySlots: 16,
-      handsRequired: 0,
       isBackpack: true,
       burdenMode: "contentsOnlyWhenLoaded",
     },
   };
+}
+
+export function getRecordHandsRequired(record: InventoryRecord): HandsRequired {
+  if (record.recordType === "coins") {
+    return 0;
+  }
+
+  const recordHandsRequired = coerceHandsRequired(record.handsRequired);
+
+  if (recordHandsRequired !== undefined) {
+    return recordHandsRequired;
+  }
+
+  if (record.recordType === "weapon") {
+    if (record.weapon.hands === "twoHands") {
+      return 2;
+    }
+
+    if (record.weapon.hands === "oneHand") {
+      return 1;
+    }
+  }
+
+  return normalizeHandsRequired(record.container?.handsRequired);
+}
+
+export function getEquippedHandsUsed(
+  location: InventoryLocation,
+): HandsRequired | undefined {
+  if (location.locationType !== "equipped") {
+    return undefined;
+  }
+
+  switch (location.placement) {
+    case "bothHands":
+      return 2;
+    case "leftHand":
+    case "rightHand":
+      return 1;
+    case "loose":
+      return 0;
+  }
+}
+
+export function isRecordHandsRequirementSatisfied(
+  record: InventoryRecord,
+): boolean {
+  const equippedHandsUsed = getEquippedHandsUsed(record.location);
+
+  return (
+    equippedHandsUsed !== undefined &&
+    equippedHandsUsed >= getRecordHandsRequired(record)
+  );
+}
+
+export function normalizeHandsRequired(
+  value: unknown,
+  fallback: HandsRequired = 0,
+): HandsRequired {
+  return coerceHandsRequired(value) ?? fallback;
+}
+
+function coerceHandsRequired(value: unknown): HandsRequired | undefined {
+  if (value === 0 || value === 1 || value === 2) {
+    return value;
+  }
+
+  return undefined;
 }

@@ -200,7 +200,7 @@ export type InventoryRecord = {
 - `treasure` is required when `recordType === "treasure"` and must be absent otherwise.
 - `weapon` is required when `recordType === "weapon"` and must be absent otherwise.
 - `armor` is required when `recordType === "armor"` and must be absent otherwise.
-- `container` may appear on any non-coin record if that record can contain other records.
+- `container` may appear on weapon, armor, or equipment records if that record can contain other records; treasure records do not use container data.
 - `identification` may appear only on `weapon`, `armor`, or `equipment` records.
 - Treasure is always identified. Do not use identification fields for treasure.
 - Coins are always identified. Do not use identification fields for coins.
@@ -367,11 +367,10 @@ export type TreasureData = {
 ## Weapon Data
 
 ```ts
-export type WeaponHands = "oneHand" | "twoHands";
-
 export type WeaponData = {
   damage?: string;
-  hands: WeaponHands;
+  /** @deprecated Use record-level handsRequired. */
+  hands?: "oneHand" | "twoHands";
   range?: string;
   qualities?: string[];
 };
@@ -379,12 +378,28 @@ export type WeaponData = {
 
 ### Weapon Rules
 
-- `hands` is required for weapons.
-- A weapon with `hands: "twoHands"` must use `locationType: "equipped"` and `placement: "bothHands"` when held.
-- A weapon with `hands: "oneHand"` may use `locationType: "equipped"` and `placement: "leftHand"` or `"rightHand"` when held.
-- A one-handed weapon must not use `placement: "bothHands"` unless a later rule explicitly allows exceptions.
+- New weapon records default to record-level `handsRequired: 1`.
+- Legacy `weapon.hands` may be read only to derive missing record-level `handsRequired`.
 - A sheathed or ready weapon that is not currently held should use `locationType: "equipped"` and `placement: "loose"`.
 - A packed-away weapon on a character-like entity should use a valid stowed backpack or container location.
+
+## General Hand Requirement
+
+All non-coin records may use top-level hand requirement metadata:
+
+```ts
+handsRequired?: 0 | 1 | 2;
+```
+
+Rules:
+
+- `handsRequired` is the minimum number of occupied hands needed for the record's active/use effect.
+- `handsRequired: 0` is active whenever equipped, whether loose or held.
+- `handsRequired: 1` is active when equipped in `leftHand`, `rightHand`, or `bothHands`.
+- `handsRequired: 2` is active when equipped in `bothHands`.
+- `handsRequired` does not prohibit hand placement; hand placements are still allowed for any non-coin equipped record subject to occupancy collisions.
+- Defaults: weapons use `1`; treasure, armor, and equipment use `0`.
+- Examples: torch `1`, shield `1`, 10 foot pole `2`, ring `0`.
 
 ## Armor Data
 
@@ -406,6 +421,7 @@ export type ArmorData = {
 ```ts
 export type ContainerData = {
   capacitySlots: number;
+  /** @deprecated Use record-level handsRequired. */
   handsRequired?: 0 | 1 | 2;
   isBackpack?: boolean;
   burdenMode?: "contentsOnlyWhenLoaded" | "containerPlusContents" | "fixedOnly";
@@ -416,16 +432,14 @@ export type ContainerData = {
 
 - A container is any non-coin `InventoryRecord` with `container` data.
 - `capacitySlots` is required and must be `>= 0`.
-- `handsRequired` defaults to `0`.
+- Legacy `container.handsRequired` may be read only to derive missing record-level `handsRequired`.
 - `isBackpack` defaults to `false`.
 - `burdenMode` defaults to `"contentsOnlyWhenLoaded"`.
 - On character or retainer creation, create exactly one default backpack record.
 - A character-like entity may not have more than one backpack container with `isBackpack: true`.
 - An existing character-like entity with zero backpack containers should warn.
-- A backpack container should normally use `handsRequired: 0`.
-- A container with `handsRequired: 1` may be equipped in `leftHand` or `rightHand`.
-- A container with `handsRequired: 2` must use `bothHands` when equipped.
-- A non-empty container with nonzero `handsRequired` should warn if it is not being held or equipped.
+- A backpack container should normally use record-level `handsRequired: 0`.
+- A non-empty container with nonzero record-level `handsRequired` should warn if it is not being held or equipped.
 - A non-empty hands-required container may contain records even while the container itself is equipped.
 - A container with contents held in hand, such as a sack, does not count toward movement-restricting encumbrance, and neither do items inside.
 - Empty containers may be placed inside another container.
@@ -459,9 +473,9 @@ const createDefaultBackpack = (entityId: EntityId): InventoryRecord => ({
   },
   sortOrder: 0,
   slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 0,
   container: {
     capacitySlots: 16,
-    handsRequired: 0,
     isBackpack: true,
     burdenMode: "contentsOnlyWhenLoaded",
   },
@@ -731,9 +745,7 @@ Rules:
 - If any record uses `bothHands`, no record may use `leftHand` or `rightHand`.
 - If a record uses `leftHand`, no other record may use `leftHand` or `bothHands`.
 - If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
-- A two-handed weapon must use `bothHands` when hand-held.
-- A hands-required `2` container must use `bothHands` when hand-held.
-- A hands-required `1` container may use `leftHand` or `rightHand` when hand-held.
+- Hand occupancy does not validate whether `handsRequired` is satisfied for active/use effects.
 
 ## Hard Invariants
 
@@ -761,9 +773,6 @@ The app should prevent state that violates these invariants:
 - If any record uses `bothHands`, no record may use `leftHand` or `rightHand`.
 - If a record uses `leftHand`, no other record may use `leftHand` or `bothHands`.
 - If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
-- A two-handed weapon held in hands must use equipped `bothHands`.
-- A one-handed weapon held in hands must use equipped `leftHand` or `rightHand`.
-- A hands-required container must use a compatible hand placement when equipped.
 - A record cannot be placed inside a non-container.
 - A non-empty container cannot be placed inside another container for v1.
 - A container nested inside another container cannot receive contents until it is first moved out.

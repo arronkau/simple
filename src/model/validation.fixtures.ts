@@ -1,4 +1,10 @@
-import { createDefaultBackpack, type Entity, type InventoryRecord } from "./types";
+import {
+  createDefaultBackpack,
+  getRecordHandsRequired,
+  isRecordHandsRequirementSatisfied,
+  type Entity,
+  type InventoryRecord,
+} from "./types";
 import {
   createInitialInventoryRecordsForEntity,
   getHandOccupancy,
@@ -107,14 +113,13 @@ const leftHandSword: InventoryRecord = {
   },
   sortOrder: 0,
   slotProfile: { kind: "fixed", slots: 1 },
-  weapon: {
-    hands: "oneHand",
-  },
+  handsRequired: 1,
+  weapon: {},
 };
 
 const leftHandShield: InventoryRecord = {
   id: "shield-1",
-  recordType: "equipment",
+  recordType: "armor",
   name: "Shield",
   location: {
     entityId: characterEntity.id,
@@ -123,6 +128,8 @@ const leftHandShield: InventoryRecord = {
   },
   sortOrder: 1000,
   slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 1,
+  armor: {},
 };
 
 const bothHandsBow: InventoryRecord = {
@@ -136,9 +143,8 @@ const bothHandsBow: InventoryRecord = {
   },
   sortOrder: 2000,
   slotProfile: { kind: "fixed", slots: 1 },
-  weapon: {
-    hands: "twoHands",
-  },
+  handsRequired: 2,
+  weapon: {},
 };
 
 const invalidOneHandedBothHands: InventoryRecord = {
@@ -149,6 +155,101 @@ const invalidOneHandedBothHands: InventoryRecord = {
     entityId: characterEntity.id,
     locationType: "equipped",
     placement: "bothHands",
+  },
+};
+
+const ringInHandRecord: InventoryRecord = {
+  id: "ring-1",
+  recordType: "equipment",
+  name: "Ring",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "rightHand",
+  },
+  sortOrder: 5000,
+  slotProfile: { kind: "fixed", slots: 0 },
+  handsRequired: 0,
+};
+
+const looseTorchRecord: InventoryRecord = {
+  id: "torch-loose-1",
+  recordType: "equipment",
+  name: "Torch",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 6000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 1,
+};
+
+const heldTorchRecord: InventoryRecord = {
+  ...looseTorchRecord,
+  id: "torch-held-1",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "leftHand",
+  },
+};
+
+const leftHandPoleRecord: InventoryRecord = {
+  id: "pole-left-1",
+  recordType: "equipment",
+  name: "10 foot pole",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "leftHand",
+  },
+  sortOrder: 7000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 2,
+};
+
+const bothHandsPoleRecord: InventoryRecord = {
+  ...leftHandPoleRecord,
+  id: "pole-both-1",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "bothHands",
+  },
+};
+
+const legacyWeaponRecord: InventoryRecord = {
+  id: "legacy-bow-1",
+  recordType: "weapon",
+  name: "Legacy Bow",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "bothHands",
+  },
+  sortOrder: 8000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  weapon: {
+    hands: "twoHands",
+  },
+};
+
+const legacyContainerRecord: InventoryRecord = {
+  id: "legacy-sack-1",
+  recordType: "equipment",
+  name: "Legacy Sack",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "rightHand",
+  },
+  sortOrder: 9000,
+  slotProfile: { kind: "fixed", slots: 1 },
+  container: {
+    capacitySlots: 6,
+    handsRequired: 1,
   },
 };
 
@@ -307,6 +408,11 @@ const invalidLocationAndHandsResult = validateInventoryState(
   ],
 );
 
+const generalHandRequirementResult = validateInventoryState(
+  [characterEntity],
+  [backpackRecord, ringInHandRecord, leftHandPoleRecord],
+);
+
 const invalidContainmentResult = validateInventoryState(
   [characterEntity, storageEntity],
   [
@@ -409,10 +515,36 @@ export const VALIDATION_MANUAL_FIXTURES = [
         handCollision: 3,
         invalidCoinCount: 1,
         invalidEntityLocationType: 1,
-        invalidHandPlacement: 1,
       },
-      handErrors: 4,
+      handErrors: 3,
       warnings: {},
+    },
+  },
+  {
+    name: "general hand requirements support minimum active semantics",
+    actual: {
+      valid: generalHandRequirementResult.valid,
+      errors: summarizeIssues(generalHandRequirementResult.errors),
+      ringInHand: isRecordHandsRequirementSatisfied(ringInHandRecord),
+      looseTorch: isRecordHandsRequirementSatisfied(looseTorchRecord),
+      heldTorch: isRecordHandsRequirementSatisfied(heldTorchRecord),
+      leftHandPole: isRecordHandsRequirementSatisfied(leftHandPoleRecord),
+      bothHandsPole: isRecordHandsRequirementSatisfied(bothHandsPoleRecord),
+      shieldHandsRequired: getRecordHandsRequired(leftHandShield),
+      legacyWeaponHandsRequired: getRecordHandsRequired(legacyWeaponRecord),
+      legacyContainerHandsRequired: getRecordHandsRequired(legacyContainerRecord),
+    },
+    expected: {
+      valid: true,
+      errors: {},
+      ringInHand: true,
+      looseTorch: false,
+      heldTorch: true,
+      leftHandPole: false,
+      bothHandsPole: true,
+      shieldHandsRequired: 1,
+      legacyWeaponHandsRequired: 2,
+      legacyContainerHandsRequired: 1,
     },
   },
   {

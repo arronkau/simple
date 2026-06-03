@@ -102,9 +102,9 @@ const sackRecord: InventoryRecord = {
   },
   sortOrder: 0,
   slotProfile: { kind: "fixed", slots: 1 },
+  handsRequired: 1,
   container: {
     capacitySlots: 6,
-    handsRequired: 1,
   },
 };
 
