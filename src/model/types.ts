@@ -219,7 +219,7 @@ export type UsesData = {
 
 export type LightData = {
   isLit: boolean;
-  turnsRemaining?: number;
+  lightDescription?: string;
 };
 
 export type KnownModifierTarget =

@@ -249,6 +249,16 @@ For mount, vehicle, and storage entities, the view uses:
 
 Containers are displayed inline in the backpack or contents list rather than as a separate top-level layout section.
 
+## Record Add/Edit Modal
+
+The inventory page uses its existing add/edit entry points. The record modal owns item creation and editing details; adding modal fields must not add new page-level add buttons or inventory-page controls.
+
+For non-coin records, the default modal stays compact: type, name, quantity, slots/items field, stackable checkbox, description, type-specific core fields, and checkbox-driven optional sections. Location controls are hidden by default and open from a Move button in the footer.
+
+Coin records use a compact coin-only body with PP, GP, SP, and CP fields. Movement remains available through the same hidden Move section.
+
+Optional modal sections expose container data, unidentified data, light source data, uses/charges, modifiers, GM notes, and weapon qualities. Light source burn state uses the shared uses object; light data stores only lit state and free-text light description.
+
 ## High-Level UI Areas
 
 The app should eventually include:

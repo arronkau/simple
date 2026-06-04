@@ -12,11 +12,15 @@ import type {
   Entity,
   EntityId,
   HandsRequired,
+  IdentificationData,
   InventoryBurden,
   InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
   InventoryRecordType,
+  LightData,
+  Modifier,
+  UsesData,
   WeaponData,
 } from "./types";
 
@@ -49,6 +53,11 @@ export type InventoryRecordFormInput = {
   burden?: InventoryBurden;
   container?: Partial<ContainerData>;
   handsRequired?: HandsRequired;
+  identification?: Partial<IdentificationData>;
+  uses?: Partial<UsesData>;
+  light?: Partial<LightData>;
+  modifiers?: Modifier[];
+  notes?: string;
   location?: InventoryRecordLocationInput;
 };
 
@@ -486,6 +495,10 @@ function buildInventoryRecord({
   const burden = normalizeBurden(input.burden);
   const container = normalizeContainer(input.container);
   const handsRequired = getInputHandsRequired(input);
+  const uses = normalizeUses(input.uses);
+  const light = normalizeLight(input.light);
+  const modifiers = normalizeModifiers(input.modifiers);
+  const notes = normalizeOptionalText(input.notes);
   const shared = {
     id,
     name,
@@ -495,7 +508,12 @@ function buildInventoryRecord({
     burden,
     handsRequired,
     ...(description ? { description } : {}),
+    ...(uses ? { uses } : {}),
+    ...(light ? { light } : {}),
+    ...(modifiers.length > 0 ? { modifiers } : {}),
+    ...(notes ? { notes } : {}),
   };
+  const identification = normalizeIdentification(input.identification);
 
   switch (input.recordType) {
     case "treasure":
@@ -515,6 +533,7 @@ function buildInventoryRecord({
         record: {
           ...shared,
           ...(container ? { container } : {}),
+          ...(identification ? { identification } : {}),
           recordType: "weapon",
           weapon: {
             ...(normalizeOptionalText(input.weapon?.damage)
@@ -522,6 +541,9 @@ function buildInventoryRecord({
               : {}),
             ...(normalizeOptionalText(input.weapon?.range)
               ? { range: normalizeOptionalText(input.weapon?.range) }
+              : {}),
+            ...(input.weapon?.qualities && input.weapon.qualities.length > 0
+              ? { qualities: normalizeQualities(input.weapon.qualities) }
               : {}),
           },
         },
@@ -532,6 +554,7 @@ function buildInventoryRecord({
         record: {
           ...shared,
           ...(container ? { container } : {}),
+          ...(identification ? { identification } : {}),
           recordType: "armor",
           armor: {
             ...(input.armor?.baseArmorClass !== undefined
@@ -549,6 +572,7 @@ function buildInventoryRecord({
         record: {
           ...shared,
           ...(container ? { container } : {}),
+          ...(identification ? { identification } : {}),
           recordType: "equipment",
         },
       };
@@ -697,6 +721,86 @@ function normalizeContainer(
       ? { burdenMode: container.burdenMode as ContainerBurdenMode }
       : {}),
   };
+}
+
+function normalizeIdentification(
+  identification: Partial<IdentificationData> | undefined,
+): IdentificationData | undefined {
+  if (!identification) {
+    return undefined;
+  }
+
+  if (identification.identified !== false) {
+    return undefined;
+  }
+
+  return {
+    identified: false,
+    ...(normalizeOptionalText(identification.unidentifiedName)
+      ? {
+          unidentifiedName: normalizeOptionalText(
+            identification.unidentifiedName,
+          ),
+        }
+      : {}),
+    ...(normalizeOptionalText(identification.unidentifiedDescription)
+      ? {
+          unidentifiedDescription: normalizeOptionalText(
+            identification.unidentifiedDescription,
+          ),
+        }
+      : {}),
+  };
+}
+
+function normalizeUses(
+  uses: Partial<UsesData> | undefined,
+): UsesData | undefined {
+  if (!uses) {
+    return undefined;
+  }
+
+  const current = Math.max(0, normalizeInteger(uses.current, 0));
+  const max =
+    uses.max === undefined ? undefined : Math.max(current, normalizeInteger(uses.max, current));
+
+  return {
+    current,
+    ...(max !== undefined ? { max } : {}),
+  };
+}
+
+function normalizeLight(
+  light: Partial<LightData> | undefined,
+): LightData | undefined {
+  if (!light) {
+    return undefined;
+  }
+
+  return {
+    isLit: light.isLit === true,
+    ...(normalizeOptionalText(light.lightDescription)
+      ? { lightDescription: normalizeOptionalText(light.lightDescription) }
+      : {}),
+  };
+}
+
+function normalizeQualities(qualities: string[]): string[] {
+  return qualities
+    .map((quality) => normalizeOptionalText(quality))
+    .filter((quality): quality is string => Boolean(quality));
+}
+
+function normalizeModifiers(modifiers: Modifier[] | undefined): Modifier[] {
+  return (modifiers ?? [])
+    .map((modifier) => ({
+      target: normalizeOptionalText(modifier.target) ?? "other",
+      value: normalizeNumber(modifier.value, 0),
+      ...(normalizeOptionalText(modifier.label)
+        ? { label: normalizeOptionalText(modifier.label) }
+        : {}),
+    }))
+    .filter((modifier) => Number.isFinite(modifier.value));
 }
 
 function getInputHandsRequired(input: InventoryRecordFormInput): HandsRequired {

@@ -740,6 +740,44 @@ h5 {
   grid-column: span 2;
 }
 
+.record-form-section-title,
+.record-form-section {
+  grid-column: 1 / -1;
+}
+
+.record-form-section-title {
+  margin: 0.35rem 0 0;
+  color: #2f3a42;
+  font-size: 0.95rem;
+}
+
+.record-form-section {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  border-top: 1px solid #e1e5e8;
+  padding-top: 0.75rem;
+}
+
+.record-form-section > span {
+  color: #5a6974;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.record-form-section textarea {
+  grid-column: 1 / -1;
+}
+
+.modifier-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr) minmax(0, 1.4fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
 .checkbox-field {
   min-height: 2.5rem;
   grid-template-columns: auto minmax(0, 1fr);
@@ -887,8 +925,10 @@ h5 {
 
   .record-row,
   .record-form-grid,
+  .record-form-section,
   .character-sheet-grid,
   .character-sheet-grid.compact-grid,
+  .modifier-row,
   .repeatable-row,
   .audit-filters {
     grid-template-columns: 1fr;

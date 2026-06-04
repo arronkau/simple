@@ -558,7 +558,7 @@ export type UsesData = {
 
 export type LightData = {
   isLit: boolean;
-  turnsRemaining?: number;
+  lightDescription?: string;
 };
 ```
 
@@ -567,7 +567,8 @@ export type LightData = {
 - Uses and light data are optional.
 - `uses.current` must be `>= 0`.
 - `uses.max`, if present, must be `>= uses.current`.
-- `light.turnsRemaining`, if present, must be `>= 0`.
+- `light.lightDescription`, if present, is a free-text table description such as radius or beam shape.
+- Light burn duration and remaining burn/use state use the shared `uses` object.
 - Do not automate light depletion unless a later task explicitly adds turn tracking.
 
 ## Modifiers

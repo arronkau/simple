@@ -1,5 +1,7 @@
 import {
+  createInventoryRecordFromInput,
   createInventoryLocation,
+  updateInventoryRecordFromInput,
   getUsableContainerRecords,
 } from "./inventoryRecords";
 import type { Entity, InventoryRecord } from "./types";
@@ -172,6 +174,125 @@ const invalidCrossEntityContainerLocation = createInventoryLocation({
   },
 });
 
+const defaultCharacterEquipmentResult = createInventoryRecordFromInput({
+  entity: characterEntity,
+  id: "created-rope",
+  records: [topLevelContainerRecord],
+  input: {
+    recordType: "equipment",
+    name: "Rope",
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 0 },
+  },
+});
+
+const stackedEquipmentResult = createInventoryRecordFromInput({
+  entity: characterEntity,
+  id: "created-torches",
+  records: [],
+  input: {
+    recordType: "equipment",
+    name: "Torches",
+    quantity: 6,
+    burden: { kind: "stacked", itemsPerSlot: 3 },
+  },
+});
+
+const advancedWeaponResult = createInventoryRecordFromInput({
+  entity: characterEntity,
+  id: "created-sword",
+  records: [],
+  input: {
+    recordType: "weapon",
+    name: "True sword",
+    description: "Referee description",
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+    handsRequired: 1,
+    weapon: {
+      damage: "1d8",
+      range: "Melee",
+      qualities: ["silver", "magic"],
+    },
+    identification: {
+      identified: false,
+      unidentifiedName: "Odd blade",
+      unidentifiedDescription: "A blade with unfamiliar marks",
+    },
+    light: {
+      isLit: true,
+      lightDescription: "30' radius",
+    },
+    uses: {
+      current: 6,
+      max: 6,
+    },
+    modifiers: [
+      {
+        target: "attack",
+        value: 1,
+        label: "Magic weapon",
+      },
+    ],
+    notes: "Referee only label, not permissioned.",
+  },
+});
+
+const updatedNonLightUsesResult = updateInventoryRecordFromInput({
+  entity: characterEntity,
+  records: [],
+  record: {
+    id: "wand-1",
+    recordType: "equipment",
+    name: "Wand",
+    location: {
+      entityId: characterEntity.id,
+      locationType: "equipped",
+      placement: "loose",
+    },
+    sortOrder: 0,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+    uses: { current: 2, max: 5 },
+  },
+  input: {
+    recordType: "equipment",
+    name: "Wand",
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+    uses: { current: 1, max: 5 },
+  },
+});
+
+const removedOptionalDataResult = updateInventoryRecordFromInput({
+  entity: characterEntity,
+  records: [],
+  record: {
+    id: "masked-1",
+    recordType: "equipment",
+    name: "Masked item",
+    location: {
+      entityId: characterEntity.id,
+      locationType: "equipped",
+      placement: "loose",
+    },
+    sortOrder: 0,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+    identification: { identified: false, unidentifiedName: "Unknown thing" },
+    uses: { current: 3 },
+    light: { isLit: false, lightDescription: "Lantern" },
+    modifiers: [{ target: "armorClass", value: 1 }],
+    notes: "Hidden details",
+  },
+  input: {
+    recordType: "equipment",
+    name: "Masked item",
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+  },
+});
+
 export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
   {
     name: "container options filter invalid destinations before submit",
@@ -229,6 +350,139 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
     expected: {
       ok: false,
       message: "Selected container is not available.",
+    },
+  },
+  {
+    name: "default character equipment creation uses equipped loose and supports zero slots",
+    actual: defaultCharacterEquipmentResult,
+    expected: {
+      ok: true,
+      record: {
+        id: "created-rope",
+        name: "Rope",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "equipped",
+          placement: "loose",
+        },
+        sortOrder: 1000,
+        quantity: 1,
+        burden: { kind: "fixed", slotsPerItem: 0 },
+        handsRequired: 0,
+        recordType: "equipment",
+      },
+    },
+  },
+  {
+    name: "stackable item form input saves as stacked items per slot",
+    actual: stackedEquipmentResult,
+    expected: {
+      ok: true,
+      record: {
+        id: "created-torches",
+        name: "Torches",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "equipped",
+          placement: "loose",
+        },
+        sortOrder: 0,
+        quantity: 6,
+        burden: { kind: "stacked", itemsPerSlot: 3 },
+        handsRequired: 0,
+        recordType: "equipment",
+      },
+    },
+  },
+  {
+    name: "advanced exposed weapon fields are preserved on create",
+    actual: advancedWeaponResult,
+    expected: {
+      ok: true,
+      record: {
+        id: "created-sword",
+        name: "True sword",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "equipped",
+          placement: "loose",
+        },
+        sortOrder: 0,
+        quantity: 1,
+        burden: { kind: "fixed", slotsPerItem: 1 },
+        handsRequired: 1,
+        description: "Referee description",
+        uses: {
+          current: 6,
+          max: 6,
+        },
+        light: {
+          isLit: true,
+          lightDescription: "30' radius",
+        },
+        modifiers: [
+          {
+            target: "attack",
+            value: 1,
+            label: "Magic weapon",
+          },
+        ],
+        notes: "Referee only label, not permissioned.",
+        identification: {
+          identified: false,
+          unidentifiedName: "Odd blade",
+          unidentifiedDescription: "A blade with unfamiliar marks",
+        },
+        recordType: "weapon",
+        weapon: {
+          damage: "1d8",
+          range: "Melee",
+          qualities: ["silver", "magic"],
+        },
+      },
+    },
+  },
+  {
+    name: "non-light uses update without creating duplicate light data",
+    actual: updatedNonLightUsesResult,
+    expected: {
+      ok: true,
+      record: {
+        id: "wand-1",
+        name: "Wand",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "equipped",
+          placement: "loose",
+        },
+        sortOrder: 0,
+        quantity: 1,
+        burden: { kind: "fixed", slotsPerItem: 1 },
+        handsRequired: 0,
+        uses: { current: 1, max: 5 },
+        recordType: "equipment",
+      },
+    },
+  },
+  {
+    name: "omitted optional sections remove advanced record data on update",
+    actual: removedOptionalDataResult,
+    expected: {
+      ok: true,
+      record: {
+        id: "masked-1",
+        name: "Masked item",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "equipped",
+          placement: "loose",
+        },
+        sortOrder: 0,
+        quantity: 1,
+        burden: { kind: "fixed", slotsPerItem: 1 },
+        handsRequired: 0,
+        recordType: "equipment",
+      },
     },
   },
 ];

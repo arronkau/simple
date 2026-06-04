@@ -65,6 +65,8 @@ import type {
   InventoryRecord,
   InventoryRecordId,
   InventoryRecordType,
+  KnownModifierTarget,
+  Modifier,
 } from "./model/types";
 import {
   findBackpackRecords,
@@ -100,6 +102,31 @@ const RECORD_TYPES: InventoryRecordType[] = [
   "equipment",
 ];
 
+const MODIFIER_TARGET_OPTIONS: Array<{
+  label: string;
+  value: KnownModifierTarget | "ability:str" | "ability:int" | "ability:wis" | "ability:dex" | "ability:con" | "ability:cha" | "other";
+}> = [
+  { label: "AC", value: "armorClass" },
+  { label: "Attack", value: "attack" },
+  { label: "Damage", value: "damage" },
+  { label: "Saves", value: "savingThrow" },
+  { label: "Strength", value: "ability:str" },
+  { label: "Intelligence", value: "ability:int" },
+  { label: "Wisdom", value: "ability:wis" },
+  { label: "Dexterity", value: "ability:dex" },
+  { label: "Constitution", value: "ability:con" },
+  { label: "Charisma", value: "ability:cha" },
+  { label: "Movement", value: "movement" },
+  { label: "Other", value: "other" },
+];
+
+type ModifierFormRow = {
+  id: string;
+  target: string;
+  value: string;
+  label: string;
+};
+
 type RecordFormState = {
   mode: "create" | "edit";
   entityId: EntityId;
@@ -119,15 +146,31 @@ type RecordFormState = {
   range: string;
   baseArmorClass: string;
   armorBonus: string;
-  burdenKind: "none" | "fixed" | "stacked";
+  stackable: boolean;
   quantity: string;
   slotsPerItem: string;
   itemsPerSlot: string;
+  showMovement: boolean;
   isContainer: boolean;
   capacitySlots: string;
   handsRequired: "0" | "1" | "2";
   isBackpack: boolean;
   burdenMode: ContainerBurdenMode;
+  isUnidentified: boolean;
+  unidentifiedName: string;
+  unidentifiedDescription: string;
+  isLight: boolean;
+  lightDescription: string;
+  isLit: boolean;
+  trackUses: boolean;
+  usesCurrent: string;
+  usesMax: string;
+  addModifiers: boolean;
+  modifiers: ModifierFormRow[];
+  notesEnabled: boolean;
+  notes: string;
+  addWeaponQualities: boolean;
+  qualities: string;
 };
 
 type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
@@ -1646,7 +1689,6 @@ function InventoryRecordForm({
     appState.entities.find(
       (candidateEntity) => candidateEntity.id === formState.targetEntityId,
     ) ?? entity;
-  const targetIsCharacterLike = isCharacterLikeEntity(targetEntity);
   const containerOptions = getContainerOptions({
     entity: targetEntity,
     records: appState.inventoryRecords,
@@ -1660,10 +1702,15 @@ function InventoryRecordForm({
     (placementOption) =>
       placementOption.value !== "container" || containerOptions.length > 0,
   );
-  const showLocationControls =
-    formState.recordType !== "coins" || !targetIsCharacterLike;
+  const showLocationControls = formState.showMovement;
   const showContainerSelect = formState.placement === "container";
   const showNonCoinFields = formState.recordType !== "coins";
+  const showContainerFields =
+    formState.recordType !== "coins" && formState.recordType !== "treasure";
+  const showIdentificationFields =
+    formState.recordType === "weapon" ||
+    formState.recordType === "armor" ||
+    formState.recordType === "equipment";
 
   return (
     <form className="record-form" onSubmit={onSubmit}>
@@ -1701,30 +1748,36 @@ function InventoryRecordForm({
           </select>
         </label>
 
-        <label>
-          <span>Owner</span>
-          <select
-            value={formState.targetEntityId}
-            onChange={(event) =>
-              onChange({
-                ...formState,
-                targetEntityId: event.target.value,
-                placement: "default",
-                containerId: "",
-              })
-            }
-          >
-            {getSortedEntities(appState.entities).map((candidateEntity) => (
-              <option key={candidateEntity.id} value={candidateEntity.id}>
-                {candidateEntity.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {showLocationControls ? (
+          <h5 className="record-form-section-title">Move item</h5>
+        ) : null}
 
         {showLocationControls ? (
           <label>
-            <span>Placement</span>
+            <span>Owner / Holder</span>
+            <select
+              value={formState.targetEntityId}
+              onChange={(event) =>
+                onChange({
+                  ...formState,
+                  targetEntityId: event.target.value,
+                  placement: "default",
+                  containerId: "",
+                })
+              }
+            >
+              {getSortedEntities(appState.entities).map((candidateEntity) => (
+                <option key={candidateEntity.id} value={candidateEntity.id}>
+                  {candidateEntity.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        {showLocationControls ? (
+          <label>
+            <span>Location</span>
             <select
               value={formState.placement}
               onChange={(event) =>
@@ -1808,6 +1861,42 @@ function InventoryRecordForm({
               />
             </label>
 
+            <NumberField
+              label="Quantity"
+              value={formState.quantity}
+              onChange={(value) =>
+                onChange({ ...formState, quantity: value })
+              }
+            />
+
+            <NumberField
+              label={formState.stackable ? "Items per slot" : "Slots per item"}
+              step={formState.stackable ? "1" : "0.25"}
+              value={
+                formState.stackable
+                  ? formState.itemsPerSlot
+                  : formState.slotsPerItem
+              }
+              onChange={(value) =>
+                onChange(
+                  formState.stackable
+                    ? { ...formState, itemsPerSlot: value }
+                    : { ...formState, slotsPerItem: value },
+                )
+              }
+            />
+
+            <label className="checkbox-field">
+              <input
+                checked={formState.stackable}
+                type="checkbox"
+                onChange={(event) =>
+                  onChange({ ...formState, stackable: event.target.checked })
+                }
+              />
+              <span>Stackable</span>
+            </label>
+
             <label className="wide-field">
               <span>Description</span>
               <input
@@ -1820,55 +1909,6 @@ function InventoryRecordForm({
                 }
               />
             </label>
-
-            <label>
-              <span>Burden type</span>
-              <select
-                value={formState.burdenKind}
-                onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    burdenKind: event.target.value as
-                      | "none"
-                      | "fixed"
-                      | "stacked",
-                  })
-                }
-              >
-                <option value="none">No slots</option>
-                <option value="fixed">Fixed slots per item</option>
-                <option value="stacked">Stackable items per slot</option>
-              </select>
-            </label>
-
-            <NumberField
-              label="Quantity"
-              value={formState.quantity}
-              onChange={(value) =>
-                onChange({ ...formState, quantity: value })
-              }
-            />
-
-            {formState.burdenKind === "fixed" ? (
-              <NumberField
-                label="Slots per item"
-                step="0.25"
-                value={formState.slotsPerItem}
-                onChange={(value) =>
-                  onChange({ ...formState, slotsPerItem: value })
-                }
-              />
-            ) : null}
-
-            {formState.burdenKind === "stacked" ? (
-              <NumberField
-                label="Items per slot"
-                value={formState.itemsPerSlot}
-                onChange={(value) =>
-                  onChange({ ...formState, itemsPerSlot: value })
-                }
-              />
-            ) : null}
           </>
         ) : null}
 
@@ -1881,7 +1921,7 @@ function InventoryRecordForm({
           />
         ) : null}
 
-        {formState.recordType !== "coins" ? (
+        {formState.recordType === "weapon" ? (
           <label>
             <span>Hands required</span>
             <select
@@ -1948,8 +1988,7 @@ function InventoryRecordForm({
           </>
         ) : null}
 
-        {formState.recordType !== "coins" &&
-        formState.recordType !== "treasure" ? (
+        {showContainerFields ? (
           <label className="checkbox-field">
             <input
               checked={formState.isContainer}
@@ -1962,12 +2001,98 @@ function InventoryRecordForm({
           </label>
         ) : null}
 
-        {formState.isContainer &&
-        formState.recordType !== "coins" &&
-        formState.recordType !== "treasure" ? (
+        {showIdentificationFields ? (
+          <label className="checkbox-field">
+            <input
+              checked={formState.isUnidentified}
+              type="checkbox"
+              onChange={(event) =>
+                onChange({
+                  ...formState,
+                  isUnidentified: event.target.checked,
+                })
+              }
+            />
+            <span>Unidentified</span>
+          </label>
+        ) : null}
+
+        {showNonCoinFields ? (
+          <label className="checkbox-field">
+            <input
+              checked={formState.isLight}
+              type="checkbox"
+              onChange={(event) =>
+                onChange({
+                  ...formState,
+                  isLight: event.target.checked,
+                  trackUses: event.target.checked,
+                })
+              }
+            />
+            <span>Light source</span>
+          </label>
+        ) : null}
+
+        {showNonCoinFields && !formState.isLight ? (
+          <label className="checkbox-field">
+            <input
+              checked={formState.trackUses}
+              type="checkbox"
+              onChange={(event) =>
+                onChange({ ...formState, trackUses: event.target.checked })
+              }
+            />
+            <span>Track uses / charges</span>
+          </label>
+        ) : null}
+
+        {showNonCoinFields ? (
+          <label className="checkbox-field">
+            <input
+              checked={formState.addModifiers}
+              type="checkbox"
+              onChange={(event) =>
+                onChange({ ...formState, addModifiers: event.target.checked })
+              }
+            />
+            <span>Add modifiers</span>
+          </label>
+        ) : null}
+
+        {showNonCoinFields ? (
+          <label className="checkbox-field">
+            <input
+              checked={formState.notesEnabled}
+              type="checkbox"
+              onChange={(event) =>
+                onChange({ ...formState, notesEnabled: event.target.checked })
+              }
+            />
+            <span>Add GM notes</span>
+          </label>
+        ) : null}
+
+        {formState.recordType === "weapon" ? (
+          <label className="checkbox-field">
+            <input
+              checked={formState.addWeaponQualities}
+              type="checkbox"
+              onChange={(event) =>
+                onChange({
+                  ...formState,
+                  addWeaponQualities: event.target.checked,
+                })
+              }
+            />
+            <span>Add weapon qualities</span>
+          </label>
+        ) : null}
+
+        {formState.isContainer && showContainerFields ? (
           <>
             <NumberField
-              label="Capacity"
+              label="Container capacity"
               step="0.25"
               value={formState.capacitySlots}
               onChange={(value) =>
@@ -1975,7 +2100,23 @@ function InventoryRecordForm({
               }
             />
             <label>
-              <span>Burden</span>
+              <span>Hands required to carry</span>
+              <select
+                value={formState.handsRequired}
+                onChange={(event) =>
+                  onChange({
+                    ...formState,
+                    handsRequired: event.target.value as "0" | "1" | "2",
+                  })
+                }
+              >
+                <option value="0">None</option>
+                <option value="1">One</option>
+                <option value="2">Two</option>
+              </select>
+            </label>
+            <label>
+              <span>Burden mode</span>
               <select
                 value={formState.burdenMode}
                 onChange={(event) =>
@@ -1998,16 +2139,228 @@ function InventoryRecordForm({
                   onChange({ ...formState, isBackpack: event.target.checked })
                 }
               />
-              <span>Backpack</span>
+              <span>Counts as backpack</span>
             </label>
           </>
+        ) : null}
+
+        {formState.isUnidentified && showIdentificationFields ? (
+          <>
+            <label>
+              <span>Unidentified name</span>
+              <input
+                autoComplete="off"
+                maxLength={100}
+                type="text"
+                value={formState.unidentifiedName}
+                onChange={(event) =>
+                  onChange({
+                    ...formState,
+                    unidentifiedName: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label className="wide-field">
+              <span>Unidentified description</span>
+              <input
+                autoComplete="off"
+                maxLength={160}
+                type="text"
+                value={formState.unidentifiedDescription}
+                onChange={(event) =>
+                  onChange({
+                    ...formState,
+                    unidentifiedDescription: event.target.value,
+                  })
+                }
+              />
+            </label>
+          </>
+        ) : null}
+
+        {formState.isLight && showNonCoinFields ? (
+          <>
+            <label className="wide-field">
+              <span>Light description</span>
+              <input
+                autoComplete="off"
+                maxLength={120}
+                type="text"
+                value={formState.lightDescription}
+                onChange={(event) =>
+                  onChange({
+                    ...formState,
+                    lightDescription: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label className="checkbox-field">
+              <input
+                checked={formState.isLit}
+                type="checkbox"
+                onChange={(event) =>
+                  onChange({ ...formState, isLit: event.target.checked })
+                }
+              />
+              <span>Currently lit</span>
+            </label>
+            <NumberField
+              label="Current uses"
+              value={formState.usesCurrent}
+              onChange={(value) =>
+                onChange({ ...formState, usesCurrent: value })
+              }
+            />
+            <NumberField
+              label="Max uses"
+              value={formState.usesMax}
+              onChange={(value) => onChange({ ...formState, usesMax: value })}
+            />
+          </>
+        ) : null}
+
+        {formState.trackUses && !formState.isLight && showNonCoinFields ? (
+          <>
+            <NumberField
+              label="Current uses"
+              value={formState.usesCurrent}
+              onChange={(value) =>
+                onChange({ ...formState, usesCurrent: value })
+              }
+            />
+            <NumberField
+              label="Max uses"
+              value={formState.usesMax}
+              onChange={(value) => onChange({ ...formState, usesMax: value })}
+            />
+          </>
+        ) : null}
+
+        {formState.addModifiers && showNonCoinFields ? (
+          <div className="record-form-section">
+            {formState.modifiers.map((modifierRow) => (
+              <div className="modifier-row" key={modifierRow.id}>
+                <label>
+                  <span>Target</span>
+                  <select
+                    value={modifierRow.target}
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        modifiers: formState.modifiers.map((candidateRow) =>
+                          candidateRow.id === modifierRow.id
+                            ? { ...candidateRow, target: event.target.value }
+                            : candidateRow,
+                        ),
+                      })
+                    }
+                  >
+                    {MODIFIER_TARGET_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <NumberField
+                  label="Value"
+                  min="-99"
+                  value={modifierRow.value}
+                  onChange={(value) =>
+                    onChange({
+                      ...formState,
+                      modifiers: formState.modifiers.map((candidateRow) =>
+                        candidateRow.id === modifierRow.id
+                          ? { ...candidateRow, value }
+                          : candidateRow,
+                      ),
+                    })
+                  }
+                />
+                <label>
+                  <span>Label</span>
+                  <input
+                    autoComplete="off"
+                    maxLength={80}
+                    type="text"
+                    value={modifierRow.label}
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        modifiers: formState.modifiers.map((candidateRow) =>
+                          candidateRow.id === modifierRow.id
+                            ? { ...candidateRow, label: event.target.value }
+                            : candidateRow,
+                        ),
+                      })
+                    }
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      ...formState,
+                      modifiers: formState.modifiers.filter(
+                        (candidateRow) => candidateRow.id !== modifierRow.id,
+                      ),
+                    })
+                  }
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() =>
+                onChange({
+                  ...formState,
+                  modifiers: [
+                    ...formState.modifiers,
+                    createEmptyModifierFormRow(),
+                  ],
+                })
+              }
+            >
+              Add modifier
+            </button>
+          </div>
+        ) : null}
+
+        {formState.notesEnabled && showNonCoinFields ? (
+          <label className="record-form-section">
+            <span>GM notes</span>
+            <textarea
+              maxLength={1000}
+              rows={3}
+              value={formState.notes}
+              onChange={(event) =>
+                onChange({ ...formState, notes: event.target.value })
+              }
+            />
+          </label>
+        ) : null}
+
+        {formState.addWeaponQualities && formState.recordType === "weapon" ? (
+          <label className="record-form-section">
+            <span>Qualities</span>
+            <input
+              autoComplete="off"
+              maxLength={160}
+              type="text"
+              value={formState.qualities}
+              onChange={(event) =>
+                onChange({ ...formState, qualities: event.target.value })
+              }
+            />
+          </label>
         ) : null}
       </div>
 
       <div className="record-form-actions">
-        <button type="submit">
-          {formState.mode === "edit" ? "Save record" : "Create record"}
-        </button>
         {onDelete ? (
           <button className="danger-button" type="button" onClick={onDelete}>
             Delete
@@ -2015,6 +2368,17 @@ function InventoryRecordForm({
         ) : null}
         <button type="button" onClick={onCancel}>
           Cancel
+        </button>
+        {!formState.showMovement ? (
+          <button
+            type="button"
+            onClick={() => onChange({ ...formState, showMovement: true })}
+          >
+            Move
+          </button>
+        ) : null}
+        <button type="submit">
+          {formState.mode === "edit" ? "Save record" : "Create record"}
         </button>
       </div>
     </form>
@@ -2814,7 +3178,7 @@ function formatNullableNumberInput(value: number | null): string {
   return value === null ? "" : value.toString();
 }
 
-function createFormRowId(prefix: "feature" | "skill"): string {
+function createFormRowId(prefix: "feature" | "modifier" | "skill"): string {
   const randomId =
     globalThis.crypto?.randomUUID?.() ??
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
@@ -2841,15 +3205,31 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
     range: "",
     baseArmorClass: "",
     armorBonus: "",
-    burdenKind: "fixed",
+    stackable: false,
     quantity: "1",
     slotsPerItem: "1",
     itemsPerSlot: "1",
+    showMovement: false,
     isContainer: false,
     capacitySlots: "0",
     handsRequired: "0",
     isBackpack: false,
     burdenMode: "contentsOnlyWhenLoaded",
+    isUnidentified: false,
+    unidentifiedName: "",
+    unidentifiedDescription: "",
+    isLight: false,
+    lightDescription: "",
+    isLit: false,
+    trackUses: false,
+    usesCurrent: "0",
+    usesMax: "",
+    addModifiers: false,
+    modifiers: [createEmptyModifierFormRow()],
+    notesEnabled: false,
+    notes: "",
+    addWeaponQualities: false,
+    qualities: "",
   };
 }
 
@@ -2891,6 +3271,7 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
         ? record.armor.armorBonus.toString()
         : "",
     ...slotState,
+    showMovement: isRecordLocationIncomplete(record),
     isContainer: Boolean(record.container),
     capacitySlots: record.container?.capacitySlots.toString() ?? "0",
     handsRequired: getRecordHandsRequired(record).toString() as
@@ -2899,6 +3280,28 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
       | "2",
     isBackpack: record.container?.isBackpack === true,
     burdenMode: record.container?.burdenMode ?? "contentsOnlyWhenLoaded",
+    isUnidentified: record.identification?.identified === false,
+    unidentifiedName: record.identification?.unidentifiedName ?? "",
+    unidentifiedDescription:
+      record.identification?.unidentifiedDescription ?? "",
+    isLight: Boolean(record.light),
+    lightDescription: record.light?.lightDescription ?? "",
+    isLit: record.light?.isLit === true,
+    trackUses: Boolean(record.uses),
+    usesCurrent: record.uses?.current.toString() ?? "0",
+    usesMax: record.uses?.max?.toString() ?? "",
+    addModifiers: Boolean(record.modifiers && record.modifiers.length > 0),
+    modifiers:
+      record.modifiers && record.modifiers.length > 0
+        ? record.modifiers.map(createModifierFormRowFromModifier)
+        : [createEmptyModifierFormRow()],
+    notesEnabled: Boolean(record.notes),
+    notes: record.notes ?? "",
+    addWeaponQualities:
+      record.recordType === "weapon" &&
+      Boolean(record.weapon.qualities && record.weapon.qualities.length > 0),
+    qualities:
+      record.recordType === "weapon" ? record.weapon.qualities?.join(", ") ?? "" : "",
   };
 }
 
@@ -2912,7 +3315,6 @@ function toInventoryRecordFormInput(
   };
   const sharedInput = {
     recordType: formState.recordType,
-    description: formState.description,
     location,
   };
 
@@ -2930,9 +3332,7 @@ function toInventoryRecordFormInput(
   }
 
   const burden =
-    formState.burdenKind === "none"
-      ? { kind: "none" as const }
-      : formState.burdenKind === "stacked"
+    formState.stackable
         ? {
             kind: "stacked" as const,
             itemsPerSlot: parseNumberInput(formState.itemsPerSlot, 1),
@@ -2942,19 +3342,54 @@ function toInventoryRecordFormInput(
             slotsPerItem: parseNumberInput(formState.slotsPerItem, 1),
           };
   const handsRequired = Number(formState.handsRequired) as HandsRequired;
+  const uses =
+    formState.isLight || formState.trackUses
+      ? {
+          current: parseNumberInput(formState.usesCurrent),
+          ...(formState.usesMax
+            ? { max: parseNumberInput(formState.usesMax) }
+            : {}),
+        }
+      : undefined;
   const nonCoinSharedInput = {
     ...sharedInput,
+    description: formState.description,
     quantity: parseNumberInput(formState.quantity, 1),
     burden,
     handsRequired,
+    ...(formState.isLight
+      ? {
+          light: {
+            isLit: formState.isLit,
+            lightDescription: formState.lightDescription,
+          },
+          uses,
+        }
+      : formState.trackUses
+        ? { uses }
+        : {}),
+    ...(formState.addModifiers
+      ? { modifiers: formState.modifiers.map(toModifierInput) }
+      : {}),
+    ...(formState.notesEnabled ? { notes: formState.notes } : {}),
   };
   const container =
     formState.isContainer &&
     formState.recordType !== "treasure"
       ? {
           capacitySlots: parseNumberInput(formState.capacitySlots),
+          handsRequired,
           isBackpack: formState.isBackpack,
           burdenMode: formState.burdenMode,
+        }
+      : undefined;
+  const identification =
+    formState.isUnidentified &&
+    formState.recordType !== "treasure"
+      ? {
+          identified: false,
+          unidentifiedName: formState.unidentifiedName,
+          unidentifiedDescription: formState.unidentifiedDescription,
         }
       : undefined;
 
@@ -2973,9 +3408,13 @@ function toInventoryRecordFormInput(
       recordType: "weapon",
       name: formState.name,
       container,
+      identification,
       weapon: {
         damage: formState.damage,
         range: formState.range,
+        ...(formState.addWeaponQualities
+          ? { qualities: parseQualityList(formState.qualities) }
+          : {}),
       },
     };
   }
@@ -2986,6 +3425,7 @@ function toInventoryRecordFormInput(
       recordType: "armor",
       name: formState.name,
       container,
+      identification,
       armor: {
         ...(formState.baseArmorClass
           ? { baseArmorClass: parseNumberInput(formState.baseArmorClass) }
@@ -3002,6 +3442,7 @@ function toInventoryRecordFormInput(
     recordType: "equipment",
     name: formState.name,
     container,
+    identification,
   };
 }
 
@@ -3064,37 +3505,74 @@ function getPlacementOptions({
 
 function getRecordFormSlotState(record: InventoryRecord) {
   if (record.recordType === "coins") {
-    return {
-      burdenKind: "fixed" as const,
-      quantity: "1",
-      slotsPerItem: "1",
-      itemsPerSlot: "1",
-    };
+      return {
+        stackable: false,
+        quantity: "1",
+        slotsPerItem: "1",
+        itemsPerSlot: "1",
+      };
   }
 
   switch (record.burden.kind) {
     case "none":
       return {
-        burdenKind: "none" as const,
+        stackable: false,
         quantity: record.quantity.toString(),
-        slotsPerItem: "1",
+        slotsPerItem: "0",
         itemsPerSlot: "1",
       };
     case "fixed":
       return {
-        burdenKind: "fixed" as const,
+        stackable: false,
         quantity: record.quantity.toString(),
         slotsPerItem: record.burden.slotsPerItem.toString(),
         itemsPerSlot: "1",
       };
     case "stacked":
       return {
-        burdenKind: "stacked" as const,
+        stackable: true,
         quantity: record.quantity.toString(),
         slotsPerItem: "1",
         itemsPerSlot: record.burden.itemsPerSlot.toString(),
       };
   }
+}
+
+function createEmptyModifierFormRow(): ModifierFormRow {
+  return {
+    id: createFormRowId("modifier"),
+    target: "armorClass",
+    value: "0",
+    label: "",
+  };
+}
+
+function createModifierFormRowFromModifier(modifier: Modifier): ModifierFormRow {
+  return {
+    id: createFormRowId("modifier"),
+    target: modifier.target,
+    value: modifier.value.toString(),
+    label: modifier.label ?? "",
+  };
+}
+
+function toModifierInput(modifierRow: ModifierFormRow): Modifier {
+  return {
+    target: modifierRow.target,
+    value: parseNumberInput(modifierRow.value),
+    ...(modifierRow.label.trim() ? { label: modifierRow.label } : {}),
+  };
+}
+
+function parseQualityList(qualities: string): string[] {
+  return qualities
+    .split(",")
+    .map((quality) => quality.trim())
+    .filter((quality) => quality.length > 0);
+}
+
+function isRecordLocationIncomplete(record: InventoryRecord): boolean {
+  return "containerId" in record.location && record.location.containerId.length === 0;
 }
 
 function parseNumberInput(value: string, fallback = 0) {

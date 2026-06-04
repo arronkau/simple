@@ -115,6 +115,49 @@ const storedAppState: AppState = {
   auditLog: [auditLogEntry],
 };
 
+const advancedRecordAppState: AppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [
+    {
+      id: "advanced-lantern",
+      recordType: "equipment",
+      name: "Bullseye lantern",
+      description: "True description",
+      location: {
+        entityId: characterEntity.id,
+        locationType: "equipped",
+        placement: "loose",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: {
+        identified: false,
+        unidentifiedName: "Odd lantern",
+        unidentifiedDescription: "A hooded brass lamp",
+      },
+      light: {
+        isLit: true,
+        lightDescription: "Directional beam",
+      },
+      uses: {
+        current: 24,
+        max: 24,
+      },
+      modifiers: [
+        {
+          target: "movement",
+          value: 10,
+          label: "Signal beam",
+        },
+      ],
+      notes: "GM-facing label only.",
+    },
+  ],
+  auditLog: [],
+};
+
 const parsedLegacyAppState = parseAppState(legacyStoredAppState);
 const firebaseDocumentAppState: AppState = {
   schemaVersion: 1,
@@ -206,6 +249,14 @@ export const APP_STATE_MANUAL_FIXTURES = [
     name: "Firebase document data preserves the same logical AppState shape",
     actual: parseAppState(firebaseDocumentAppState),
     expected: firebaseDocumentAppState,
+  },
+  {
+    name: "app state parsing preserves exposed advanced inventory fields",
+    actual: parseAppState(advancedRecordAppState)?.inventoryRecords[0],
+    expected: {
+      ...advancedRecordAppState.inventoryRecords[0],
+      handsRequired: 0,
+    },
   },
   {
     name: "local app state persists through localStorage",
