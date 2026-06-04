@@ -219,8 +219,13 @@ export function getCharacterEncumbrance(
   const stowedItems = getStowedSlots(entity, records);
   const equippedRate = getMovementRateForEquippedItems(equippedItems);
   const stowedRate = getMovementRateForStowedItems(stowedItems);
+  const globallyOverloaded = equippedItems + stowedItems > 16;
 
-  if (equippedRate === "overloaded" || stowedRate === "overloaded") {
+  if (
+    equippedRate === "overloaded" ||
+    stowedRate === "overloaded" ||
+    globallyOverloaded
+  ) {
     const overloadedReason = getOverloadedReason(equippedRate, stowedRate);
 
     return {

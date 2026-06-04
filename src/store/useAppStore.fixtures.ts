@@ -183,6 +183,7 @@ const phase5TradeGoodsRecord =
   );
 
 let phase5BackpackMoveOk = false;
+let phase5MissingContainerMoveOk = true;
 let phase5MissingBackpackMoveOk = true;
 let phase5InvalidHandOk = true;
 let phase5NestedContainerMoveOk = true;
@@ -215,6 +216,13 @@ if (phase5CharacterId) {
         entityId: phase5CharacterId,
         placement: "container",
         containerId: phase5BackpackRecord?.id,
+      }).ok;
+    phase5MissingContainerMoveOk = useAppStore
+      .getState()
+      .moveInventoryRecord(swordResult.recordId, {
+        entityId: phase5CharacterId,
+        placement: "container",
+        containerId: "missing-container",
       }).ok;
   }
 
@@ -455,11 +463,13 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     name: "move validation blocks invalid backpack and hand states",
     actual: {
       backpackMoveOk: phase5BackpackMoveOk,
+      missingContainerMoveOk: phase5MissingContainerMoveOk,
       missingBackpackMoveOk: phase5MissingBackpackMoveOk,
       invalidHandOk: phase5InvalidHandOk,
     },
     expected: {
       backpackMoveOk: true,
+      missingContainerMoveOk: false,
       missingBackpackMoveOk: false,
       invalidHandOk: false,
     },

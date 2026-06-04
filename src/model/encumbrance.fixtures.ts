@@ -154,6 +154,12 @@ const equippedSixSlotsRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 6 },
 };
 
+const equippedEightSlotsRecord: InventoryRecord = {
+  ...equippedSixSlotsRecord,
+  id: "equipped-eight-1",
+  burden: { kind: "fixed", slotsPerItem: 8 },
+};
+
 const equippedTenSlotsRecord: InventoryRecord = {
   ...equippedSixSlotsRecord,
   id: "equipped-ten-1",
@@ -255,6 +261,12 @@ const heldSackRationsRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
+const heldSackOverfilledRationsRecord: InventoryRecord = {
+  ...heldSackRationsRecord,
+  id: "held-overfilled-rations-1",
+  burden: { kind: "fixed", slotsPerItem: 7 },
+};
+
 const looseSackRationsRecord: InventoryRecord = {
   ...heldSackRationsRecord,
   id: "loose-rations-1",
@@ -339,6 +351,27 @@ const storageSackContentsRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
+const nineSlotBackpackContentsRecord: InventoryRecord = {
+  id: "nine-slot-backpack-load-1",
+  recordType: "equipment",
+  name: "Nine slot load",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: backpackRecord.id,
+  },
+  sortOrder: 5000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 9 },
+};
+
+const fourteenSlotBackpackContentsRecord: InventoryRecord = {
+  ...nineSlotBackpackContentsRecord,
+  id: "fourteen-slot-backpack-load-1",
+  name: "Fourteen slot load",
+  burden: { kind: "fixed", slotsPerItem: 14 },
+};
+
 const litLanternRecord: InventoryRecord = {
   id: "lit-lantern-1",
   recordType: "equipment",
@@ -397,6 +430,11 @@ const yostLoadedBackpackWithHeldLoadedSackRecords = [
   secondYostHeldSackTreasureRecord,
 ];
 const heldSackRecords = [heldSackRecord, heldSackRationsRecord];
+const heldOverfilledSackWithBackpackRecords = [
+  backpackRecord,
+  heldSackRecord,
+  heldSackOverfilledRationsRecord,
+];
 const looseSackRecords = [looseSackRecord, looseSackRationsRecord];
 const cappedStorageRecords = [
   storageLoadRecord,
@@ -409,10 +447,20 @@ const storageHandsRequiredSackRecords = [
 ];
 const overfilledBackpackRecords = [backpackRecord, heavyBackpackContentsRecord];
 const overloadedCharacterRecords = [backpackRecord, seventeenSlotCoinsRecord];
+const globalOverloadRecords = [
+  backpackRecord,
+  equippedEightSlotsRecord,
+  nineSlotBackpackContentsRecord,
+];
 const movementReducedRecords = [
   backpackRecord,
   equippedSixSlotsRecord,
   fourSlotCoinsRecord,
+];
+const stowedSlowerRecords = [
+  backpackRecord,
+  heldSackRecord,
+  fourteenSlotBackpackContentsRecord,
 ];
 const itemStatusRecords = [
   backpackRecord,
@@ -456,6 +504,14 @@ const equippedOverloadEncumbrance = getCharacterEncumbrance(characterEntity, [
   equippedTenSlotsRecord,
   fiveSlotCoinsRecord,
 ]);
+const globalOverloadEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  globalOverloadRecords,
+);
+const stowedSlowerEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  stowedSlowerRecords,
+);
 const heldSackEncumbrance = getCharacterEncumbrance(
   characterEntity,
   heldSackRecords,
@@ -577,6 +633,21 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
+    name: "slower stowed movement wins over equipped movement",
+    actual: {
+      equippedItems: stowedSlowerEncumbrance.equippedItems,
+      stowedItems: stowedSlowerEncumbrance.stowedItems,
+      movement: stowedSlowerEncumbrance.movement,
+      band: stowedSlowerEncumbrance.band,
+    },
+    expected: {
+      equippedItems: 1,
+      stowedItems: 15,
+      movement: { explorationFeet: 30, encounterFeet: 10 },
+      band: "heavilyEncumbered",
+    },
+  },
+  {
     name: "stowed overload produces zero movement",
     actual: {
       overloaded: stowedOverloadEncumbrance.overloaded,
@@ -607,6 +678,25 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
+    name: "global equipped plus stowed overload produces zero movement",
+    actual: {
+      equippedItems: globalOverloadEncumbrance.equippedItems,
+      stowedItems: globalOverloadEncumbrance.stowedItems,
+      overloaded: globalOverloadEncumbrance.overloaded,
+      overloadedReason: globalOverloadEncumbrance.overloadedReason,
+      movement: globalOverloadEncumbrance.movement,
+      band: globalOverloadEncumbrance.band,
+    },
+    expected: {
+      equippedItems: 8,
+      stowedItems: 10,
+      overloaded: true,
+      overloadedReason: "both",
+      movement: { explorationFeet: 0, encounterFeet: 0 },
+      band: "overloaded",
+    },
+  },
+  {
     name: "held containers count own slots and exclude contents from movement burden",
     actual: {
       containerState: getEffectiveCarryState(heldSackRecord, heldSackRecords),
@@ -631,6 +721,32 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       stowedItems: 0,
       visibleContainerUsage: { usedSlots: 3, capacitySlots: 6 },
       warnings: { missingBackpack: 1 },
+    },
+  },
+  {
+    name: "held overfilled container with backpack warns only for container capacity",
+    actual: {
+      encumbrance: summarizeEncumbrance(
+        getCharacterEncumbrance(
+          characterEntity,
+          heldOverfilledSackWithBackpackRecords,
+        ),
+      ),
+      visibleContainerUsage: getContainerSlotUsage(
+        heldSackRecord,
+        heldOverfilledSackWithBackpackRecords,
+      ),
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(
+          characterEntity,
+          heldOverfilledSackWithBackpackRecords,
+        ),
+      ),
+    },
+    expected: {
+      encumbrance: { equippedItems: 1, stowedItems: 1, totalItems: 2 },
+      visibleContainerUsage: { usedSlots: 7, capacitySlots: 6 },
+      warnings: { containerOverCapacity: 1 },
     },
   },
   {

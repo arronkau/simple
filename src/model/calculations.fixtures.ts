@@ -89,6 +89,22 @@ const torchRecord: InventoryRecord = {
   burden: { kind: "stacked", itemsPerSlot: 3 },
 };
 
+const exactCapacityCrateRecord: InventoryRecord = {
+  ...crateRecord,
+  id: "exact-capacity-crate-1",
+  container: {
+    capacitySlots: 3,
+  },
+};
+
+const overCapacityCrateRecord: InventoryRecord = {
+  ...crateRecord,
+  id: "over-capacity-crate-1",
+  container: {
+    capacitySlots: 2,
+  },
+};
+
 const contentsOnlyBoxRecord: InventoryRecord = {
   id: "contents-only-box-1",
   recordType: "equipment",
@@ -152,6 +168,40 @@ const rationsRecord: InventoryRecord = {
 };
 
 const capacityRecords = [crateRecord, ropeRecord, torchRecord];
+const exactCapacityRecords = [
+  exactCapacityCrateRecord,
+  {
+    ...ropeRecord,
+    location: {
+      kind: "container" as const,
+      containerId: exactCapacityCrateRecord.id,
+    },
+  },
+  {
+    ...torchRecord,
+    location: {
+      kind: "container" as const,
+      containerId: exactCapacityCrateRecord.id,
+    },
+  },
+];
+const overCapacityRecords = [
+  overCapacityCrateRecord,
+  {
+    ...ropeRecord,
+    location: {
+      kind: "container" as const,
+      containerId: overCapacityCrateRecord.id,
+    },
+  },
+  {
+    ...torchRecord,
+    location: {
+      kind: "container" as const,
+      containerId: overCapacityCrateRecord.id,
+    },
+  },
+];
 const emptyContentsOnlyRecords = [contentsOnlyBoxRecord];
 const loadedContentsOnlyRecords = [
   contentsOnlyBoxRecord,
@@ -166,11 +216,46 @@ export const CALCULATION_MANUAL_FIXTURES = [
       coinCount: getCoinCount(coinsRecord.coins),
       coinGpValue: getCoinGpValue(coinsRecord.coins),
       coinSlots: getCoinSlotBurden(coinsRecord.coins),
+      ninetyNineCoinSlots: getCoinSlotBurden({
+        pp: 0,
+        gp: 99,
+        sp: 0,
+        cp: 0,
+      }),
+      oneHundredCoinSlots: getCoinSlotBurden({
+        pp: 0,
+        gp: 100,
+        sp: 0,
+        cp: 0,
+      }),
+      oneHundredOneCoinSlots: getCoinSlotBurden({
+        pp: 0,
+        gp: 101,
+        sp: 0,
+        cp: 0,
+      }),
+      mixedCoinSlots: getCoinSlotBurden({
+        pp: 2,
+        gp: 40,
+        sp: 50,
+        cp: 9,
+      }),
+      mixedCoinGpValue: getCoinGpValue({
+        pp: 2,
+        gp: 40,
+        sp: 50,
+        cp: 9,
+      }),
     },
     expected: {
       coinCount: 127,
       coinGpValue: 16.3,
       coinSlots: 2,
+      ninetyNineCoinSlots: 1,
+      oneHundredCoinSlots: 1,
+      oneHundredOneCoinSlots: 2,
+      mixedCoinSlots: 2,
+      mixedCoinGpValue: 55.09,
     },
   },
   {
@@ -194,6 +279,31 @@ export const CALCULATION_MANUAL_FIXTURES = [
       crateTotalSlots: 5,
       contentsSlots: 5,
       totalEntitySlots: 5,
+    },
+  },
+  {
+    name: "stackable equipment and capacity boundaries are exact",
+    actual: {
+      torchBurden: getRecordSlotBurden(torchRecord),
+      exactCapacityUsage: getContainerSlotUsage(
+        exactCapacityCrateRecord,
+        exactCapacityRecords,
+      ),
+      overCapacityUsage: getContainerSlotUsage(
+        overCapacityCrateRecord,
+        overCapacityRecords,
+      ),
+    },
+    expected: {
+      torchBurden: 2,
+      exactCapacityUsage: {
+        usedSlots: 3,
+        capacitySlots: 3,
+      },
+      overCapacityUsage: {
+        usedSlots: 3,
+        capacitySlots: 2,
+      },
     },
   },
   {
