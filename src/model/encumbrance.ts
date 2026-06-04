@@ -57,10 +57,7 @@ export type EncumbranceWarningCode =
   | "containerOverCapacity"
   | "missingBackpack"
   | "handsRequiredContainerNotHeld"
-  | "entityOverloaded"
-  | "movementReduced"
-  | "litItem"
-  | "unidentifiedItem";
+  | "entityOverloaded";
 
 export type EncumbranceWarning = {
   code: EncumbranceWarningCode;
@@ -282,7 +279,6 @@ export function getEncumbranceWarnings(
     ...getBackpackWarnings(entity, records),
     ...getHandsRequiredContainerWarnings(entity, records),
     ...getCharacterMovementWarnings(entity, records),
-    ...getItemStatusWarnings(entity, records),
   ];
 }
 
@@ -411,55 +407,7 @@ function getCharacterMovementWarnings(
     ];
   }
 
-  if (encumbrance.movement.explorationFeet < NORMAL_MOVEMENT.explorationFeet) {
-    return [
-      {
-        code: "movementReduced",
-        message: `${entity.name}'s movement is reduced by encumbrance.`,
-        entityId: entity.id,
-        usedSlots: encumbrance.equippedItems + encumbrance.stowedItems,
-      },
-    ];
-  }
-
   return [];
-}
-
-function getItemStatusWarnings(
-  entity: Entity,
-  records: InventoryRecord[],
-): EncumbranceWarning[] {
-  return records.flatMap((record) => {
-    if (record.entityId !== entity.id) {
-      return [];
-    }
-
-    const warnings: EncumbranceWarning[] = [];
-
-    if (record.light?.isLit) {
-      warnings.push({
-        code: "litItem",
-        message: `${record.name ?? "Item"} is lit.`,
-        entityId: entity.id,
-        recordId: record.id,
-      });
-    }
-
-    if (
-      record.identification?.identified === false &&
-      (record.identification.unidentifiedName ||
-        record.identification.unidentifiedDescription)
-    ) {
-      warnings.push({
-        code: "unidentifiedItem",
-        message: `${record.name ?? "Item"} has unidentified item details.`,
-        entityId: entity.id,
-        recordId: record.id,
-      });
-    }
-
-    return warnings;
-  });
 }
 
 function getOverloadedReason(

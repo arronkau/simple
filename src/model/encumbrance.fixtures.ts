@@ -644,7 +644,6 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       warnings: {
         handsRequiredContainerNotHeld: 1,
         missingBackpack: 1,
-        movementReduced: 1,
       },
     },
   },
@@ -676,30 +675,25 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "movement reduction creates a character warning",
+    name: "standard movement reduction does not create a warning",
     actual: {
       warnings: summarizeWarnings(
         getEncumbranceWarnings(characterEntity, movementReducedRecords),
       ),
     },
     expected: {
-      warnings: {
-        movementReduced: 1,
-      },
+      warnings: {},
     },
   },
   {
-    name: "lit and unidentified item status warnings are exposed",
+    name: "lit and unidentified item statuses do not create warnings",
     actual: {
       warnings: summarizeWarnings(
         getEncumbranceWarnings(characterEntity, itemStatusRecords),
       ),
     },
     expected: {
-      warnings: {
-        litItem: 1,
-        unidentifiedItem: 1,
-      },
+      warnings: {},
     },
   },
   {
