@@ -38,10 +38,9 @@ const ropeRecord: InventoryRecord = {
   id: "rope-1",
   recordType: "equipment",
   name: "Rope",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "backpack",
+    kind: "container",
     containerId: backpackRecord.id,
   },
   sortOrder: 0,
@@ -53,10 +52,9 @@ const torchesRecord: InventoryRecord = {
   id: "torches-1",
   recordType: "equipment",
   name: "Torches",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "backpack",
+    kind: "container",
     containerId: backpackRecord.id,
   },
   sortOrder: 1000,
@@ -73,10 +71,9 @@ const yostBackpackTreasureRecord: InventoryRecord = {
   id: "yost-backpack-treasure-1",
   recordType: "treasure",
   name: "Treasure",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "backpack",
+    kind: "container",
     containerId: yostBackpackRecord.id,
   },
   sortOrder: 0,
@@ -91,10 +88,9 @@ const yostBackpackSmallSackRecord: InventoryRecord = {
   id: "yost-backpack-sack-1",
   recordType: "equipment",
   name: "Small Sack",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "backpack",
+    kind: "container",
     containerId: yostBackpackRecord.id,
   },
   sortOrder: 1000,
@@ -109,9 +105,9 @@ const yostBackpackSmallSackRecord: InventoryRecord = {
 const yostHeldEmptySmallSackRecord: InventoryRecord = {
   ...yostBackpackSmallSackRecord,
   id: "yost-held-empty-sack-1",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "rightHand",
   },
 };
@@ -125,10 +121,9 @@ const yostHeldSackTreasureRecord: InventoryRecord = {
   id: "yost-held-sack-treasure-1",
   recordType: "treasure",
   name: "Sack Treasure",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: yostHeldLoadedSmallSackRecord.id,
   },
   sortOrder: 0,
@@ -149,9 +144,9 @@ const equippedSixSlotsRecord: InventoryRecord = {
   id: "equipped-six-1",
   recordType: "equipment",
   name: "Equipped Bundle",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
   sortOrder: 0,
@@ -169,10 +164,9 @@ const equippedTenSlotsRecord: InventoryRecord = {
 const fourSlotCoinsRecord: InventoryRecord = {
   id: "coins-400",
   recordType: "coins",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "coinPurse",
+    kind: "coinPurse",
   },
   sortOrder: 1000,
   coins: {
@@ -209,9 +203,9 @@ const heldSackRecord: InventoryRecord = {
   id: "sack-held-1",
   recordType: "equipment",
   name: "Sack",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "rightHand",
   },
   sortOrder: 0,
@@ -226,9 +220,9 @@ const heldSackRecord: InventoryRecord = {
 const looseSackRecord: InventoryRecord = {
   ...heldSackRecord,
   id: "sack-loose-1",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
 };
@@ -237,10 +231,9 @@ const heldSackRationsRecord: InventoryRecord = {
   id: "held-rations-1",
   recordType: "equipment",
   name: "Rations",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: heldSackRecord.id,
   },
   sortOrder: 0,
@@ -251,10 +244,9 @@ const heldSackRationsRecord: InventoryRecord = {
 const looseSackRationsRecord: InventoryRecord = {
   ...heldSackRationsRecord,
   id: "loose-rations-1",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: looseSackRecord.id,
   },
 };
@@ -263,10 +255,9 @@ const storageLoadRecord: InventoryRecord = {
   id: "storage-load-1",
   recordType: "equipment",
   name: "Stored Load",
+  entityId: cappedStorageEntity.id,
   location: {
-    entityId: cappedStorageEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 0,
   quantity: 1,
@@ -277,10 +268,9 @@ const smallBoxRecord: InventoryRecord = {
   id: "small-box-1",
   recordType: "equipment",
   name: "Small Box",
+  entityId: cappedStorageEntity.id,
   location: {
-    entityId: cappedStorageEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 1000,
   quantity: 1,
@@ -294,10 +284,9 @@ const overloadedBoxContentsRecord: InventoryRecord = {
   id: "box-contents-1",
   recordType: "equipment",
   name: "Box Contents",
+  entityId: cappedStorageEntity.id,
   location: {
-    entityId: cappedStorageEntity.id,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: smallBoxRecord.id,
   },
   sortOrder: 0,
@@ -407,7 +396,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "empty literal backpack counts own slots as equipped",
+    name: "empty stowed-root backpack counts own slots as stowed",
     actual: {
       equippedItems: emptyBackpackEncumbrance.equippedItems,
       stowedItems: emptyBackpackEncumbrance.stowedItems,
@@ -415,8 +404,8 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       band: emptyBackpackEncumbrance.band,
     },
     expected: {
-      equippedItems: 1,
-      stowedItems: 0,
+      equippedItems: 0,
+      stowedItems: 1,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       band: "normal",
     },
@@ -430,8 +419,8 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       band: loadedLiteralBackpackEncumbrance.band,
     },
     expected: {
-      equippedItems: 1,
-      stowedItems: 3,
+      equippedItems: 0,
+      stowedItems: 4,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       band: "normal",
     },
@@ -455,21 +444,21 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       ),
     },
     expected: {
-      loadedBackpack: { equippedItems: 1, stowedItems: 1, totalItems: 2 },
+      loadedBackpack: { equippedItems: 0, stowedItems: 2, totalItems: 2 },
       loadedBackpackUsage: { usedSlots: 1, capacitySlots: 16 },
       loadedBackpackWithEmptySack: {
+        equippedItems: 0,
+        stowedItems: 3,
+        totalItems: 3,
+      },
+      loadedBackpackWithHeldEmptySack: {
         equippedItems: 1,
         stowedItems: 2,
         totalItems: 3,
       },
-      loadedBackpackWithHeldEmptySack: {
-        equippedItems: 2,
-        stowedItems: 1,
-        totalItems: 3,
-      },
       loadedBackpackWithHeldLoadedSack: {
-        equippedItems: 2,
-        stowedItems: 1,
+        equippedItems: 1,
+        stowedItems: 2,
         totalItems: 3,
       },
     },

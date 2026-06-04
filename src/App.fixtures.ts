@@ -10,10 +10,9 @@ import { createDefaultBackpack, type InventoryRecord } from "./model/types";
 const emptyCoinRecord: InventoryRecord = {
   id: "coins-empty",
   recordType: "coins",
+  entityId: "character-1",
   location: {
-    entityId: "character-1",
-    locationType: "stowed",
-    placement: "coinPurse",
+    kind: "coinPurse",
   },
   sortOrder: 0,
   coins: {
@@ -39,10 +38,9 @@ const zeroTreasureRecord: InventoryRecord = {
   id: "treasure-zero",
   recordType: "treasure",
   name: "Plain stone",
+  entityId: "storage-1",
   location: {
-    entityId: "storage-1",
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 0,
   quantity: 1,
@@ -70,9 +68,9 @@ const emptyContainerRecord: InventoryRecord = {
   id: "container-empty",
   recordType: "equipment",
   name: "Sack",
+  entityId: "character-1",
   location: {
-    entityId: "character-1",
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
   sortOrder: 0,
@@ -93,10 +91,9 @@ const childRecord: InventoryRecord = {
   id: "container-child",
   recordType: "equipment",
   name: "Torch",
+  entityId: "character-1",
   location: {
-    entityId: "character-1",
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: nonEmptyContainerRecord.id,
   },
   sortOrder: 0,
@@ -109,9 +106,9 @@ const ordinaryRecord: InventoryRecord = {
   id: "ordinary-1",
   recordType: "equipment",
   name: "Rope",
+  entityId: "character-1",
   location: {
-    entityId: "character-1",
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
   sortOrder: 0,

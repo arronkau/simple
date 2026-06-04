@@ -4,13 +4,12 @@ import type { InventoryRecord } from "./types";
 const entityId = "character-1";
 
 const baseLocation = {
-  entityId,
-  locationType: "contents",
-  placement: "contents",
+  kind: "contents",
 } as const;
 
 const ropeRecord: InventoryRecord = {
   id: "rope-1",
+  entityId,
   recordType: "equipment",
   name: "Rope",
   location: baseLocation,
@@ -21,6 +20,7 @@ const ropeRecord: InventoryRecord = {
 
 const rationsRecord: InventoryRecord = {
   id: "rations-1",
+  entityId,
   recordType: "equipment",
   name: "Rations",
   location: baseLocation,
@@ -31,6 +31,7 @@ const rationsRecord: InventoryRecord = {
 
 const litTorchRecord: InventoryRecord = {
   id: "torch-lit-1",
+  entityId,
   recordType: "equipment",
   name: "Torch",
   location: baseLocation,
@@ -42,6 +43,7 @@ const litTorchRecord: InventoryRecord = {
 
 const unlitTorchStackRecord: InventoryRecord = {
   id: "torch-unlit-1",
+  entityId,
   recordType: "equipment",
   name: "Torch",
   location: baseLocation,
@@ -53,6 +55,7 @@ const unlitTorchStackRecord: InventoryRecord = {
 
 const longswordRecord: InventoryRecord = {
   id: "longsword-1",
+  entityId,
   recordType: "weapon",
   name: "Longsword",
   location: baseLocation,
@@ -67,6 +70,7 @@ const longswordRecord: InventoryRecord = {
 
 const unidentifiedPotionRecord: InventoryRecord = {
   id: "potion-1",
+  entityId,
   recordType: "equipment",
   name: "Potion",
   location: baseLocation,
@@ -81,6 +85,7 @@ const unidentifiedPotionRecord: InventoryRecord = {
 
 const chainmailRecord: InventoryRecord = {
   id: "chainmail-1",
+  entityId,
   recordType: "armor",
   name: "Chainmail",
   location: baseLocation,
@@ -95,6 +100,7 @@ const chainmailRecord: InventoryRecord = {
 
 const gemsRecord: InventoryRecord = {
   id: "gems-1",
+  entityId,
   recordType: "treasure",
   name: "Gems",
   location: baseLocation,
@@ -108,6 +114,7 @@ const gemsRecord: InventoryRecord = {
 
 const zeroValueTreasureRecord: InventoryRecord = {
   id: "treasure-0",
+  entityId,
   recordType: "treasure",
   name: "Strange token",
   location: baseLocation,
@@ -121,6 +128,7 @@ const zeroValueTreasureRecord: InventoryRecord = {
 
 const coinsRecord: InventoryRecord = {
   id: "coins-1",
+  entityId,
   recordType: "coins",
   name: "Coin stash",
   location: baseLocation,
@@ -135,6 +143,7 @@ const coinsRecord: InventoryRecord = {
 
 const backpackRecord: InventoryRecord = {
   id: "backpack-1",
+  entityId,
   recordType: "equipment",
   name: "Backpack",
   location: baseLocation,
@@ -148,12 +157,11 @@ const backpackRecord: InventoryRecord = {
 
 const backpackContentsRecord: InventoryRecord = {
   id: "backpack-rope-1",
+  entityId,
   recordType: "equipment",
   name: "Rope",
   location: {
-    entityId,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: backpackRecord.id,
   },
   sortOrder: 0,
@@ -163,6 +171,7 @@ const backpackContentsRecord: InventoryRecord = {
 
 const overloadedSackRecord: InventoryRecord = {
   id: "sack-1",
+  entityId,
   recordType: "equipment",
   name: "Small sack",
   location: baseLocation,
@@ -177,12 +186,11 @@ const overloadedSackRecord: InventoryRecord = {
 
 const overloadedSackContentsRecord: InventoryRecord = {
   id: "sack-rations-1",
+  entityId,
   recordType: "equipment",
   name: "Rations",
   location: {
-    entityId,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: overloadedSackRecord.id,
   },
   sortOrder: 0,

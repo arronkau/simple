@@ -346,14 +346,14 @@ No warning is shown because the non-empty hands-required container is held.
 
 A character has:
 
-- Backpack, equipped loose, fixed 1 slot
+- Backpack, stowed root, fixed 1 slot
 - Rope inside backpack, fixed 1 slot
 - Torches inside backpack, stackable 6 at 3 per slot = 2 slots
 
 Effective classification:
 
 ```text
-Backpack -> equipped, 1 slot
+Backpack -> stowed, 1 slot
 Rope -> stowed
 Torches -> stowed
 ```
@@ -361,13 +361,13 @@ Torches -> stowed
 Equipped count contribution:
 
 ```text
-1
+0
 ```
 
 Stowed count contribution:
 
 ```text
-3
+4
 ```
 
 Visible backpack capacity:
@@ -383,7 +383,7 @@ Assume a backpack and a small sack are containers with fixed 1 slot. Assume ever
 Empty backpack:
 
 ```text
-Yost (equipped 1 / stowed 0 / total 1)
+Yost (equipped 0 / stowed 1 / total 1)
 - hands: empty
 - backpack: empty
 ```
@@ -391,7 +391,7 @@ Yost (equipped 1 / stowed 0 / total 1)
 Loaded backpack:
 
 ```text
-Yost (equipped 1 / stowed 1 / total 2)
+Yost (equipped 0 / stowed 2 / total 2)
 - hands: empty
 - backpack:
   - treasure item
@@ -402,7 +402,7 @@ The backpack capacity display is `1 / 16`; the backpack's own fixed slot still c
 Loaded backpack with empty sack:
 
 ```text
-Yost (equipped 1 / stowed 2 / total 3)
+Yost (equipped 0 / stowed 3 / total 3)
 - hands: empty
 - backpack:
   - treasure item
@@ -414,7 +414,7 @@ The empty sack counts as 1 stowed slot. The loaded backpack also counts its own 
 Loaded backpack with empty held sack:
 
 ```text
-Yost (equipped 2 / stowed 1 / total 3)
+Yost (equipped 1 / stowed 2 / total 3)
 - hands:
   - small sack: empty
 - backpack:
@@ -424,7 +424,7 @@ Yost (equipped 2 / stowed 1 / total 3)
 Loaded backpack with loaded held sack:
 
 ```text
-Yost (equipped 2 / stowed 1 / total 3)
+Yost (equipped 1 / stowed 2 / total 3)
 - hands:
   - small sack:
     - treasure item

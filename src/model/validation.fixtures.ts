@@ -53,10 +53,9 @@ const stowedRootChestRecord: InventoryRecord = {
   id: "stowed-root-chest-1",
   recordType: "equipment",
   name: "Stowed Root Chest",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
-    placement: "loose",
+    kind: "stowedRoot",
   },
   sortOrder: 1000,
   quantity: 1,
@@ -70,10 +69,9 @@ const stowedRootChestContentsRecord: InventoryRecord = {
   id: "stowed-root-chest-contents-1",
   recordType: "equipment",
   name: "Chest gear",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "backpack",
+    kind: "container",
     containerId: stowedRootChestRecord.id,
   },
   sortOrder: 0,
@@ -85,9 +83,9 @@ const carriedBackpackRecord: InventoryRecord = {
   id: "carried-backpack-1",
   recordType: "equipment",
   name: "Carried Backpack",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "bothHands",
   },
   sortOrder: 1000,
@@ -104,10 +102,9 @@ const carriedBackpackContentsRecord: InventoryRecord = {
   id: "carried-backpack-contents-1",
   recordType: "equipment",
   name: "Packed gear",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: carriedBackpackRecord.id,
   },
   sortOrder: 0,
@@ -119,10 +116,9 @@ const ropeRecord: InventoryRecord = {
   id: "rope-1",
   recordType: "equipment",
   name: "Rope",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "backpack",
+    kind: "container",
     containerId: backpackRecord.id,
   },
   sortOrder: 2000,
@@ -133,10 +129,9 @@ const ropeRecord: InventoryRecord = {
 const characterCoinsRecord: InventoryRecord = {
   id: "coins-1",
   recordType: "coins",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "coinPurse",
+    kind: "coinPurse",
   },
   sortOrder: 3000,
   coins: { pp: 0, gp: 1, sp: 0, cp: 0 },
@@ -151,10 +146,9 @@ const secondCharacterCoinsRecord: InventoryRecord = {
 const nonCharacterCoinsRecord: InventoryRecord = {
   id: "mount-coins-1",
   recordType: "coins",
+  entityId: mountEntity.id,
   location: {
-    entityId: mountEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 0,
   coins: { pp: 0, gp: 2, sp: 0, cp: 0 },
@@ -171,9 +165,9 @@ const leftHandSword: InventoryRecord = {
   id: "sword-1",
   recordType: "weapon",
   name: "Sword",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "leftHand",
   },
   sortOrder: 0,
@@ -187,9 +181,9 @@ const leftHandShield: InventoryRecord = {
   id: "shield-1",
   recordType: "armor",
   name: "Shield",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "leftHand",
   },
   sortOrder: 1000,
@@ -203,9 +197,9 @@ const bothHandsBow: InventoryRecord = {
   id: "bow-1",
   recordType: "weapon",
   name: "Bow",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "bothHands",
   },
   sortOrder: 2000,
@@ -219,9 +213,9 @@ const invalidOneHandedBothHands: InventoryRecord = {
   ...leftHandSword,
   id: "dagger-1",
   name: "Dagger",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "bothHands",
   },
 };
@@ -230,9 +224,9 @@ const ringInHandRecord: InventoryRecord = {
   id: "ring-1",
   recordType: "equipment",
   name: "Ring",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "rightHand",
   },
   sortOrder: 5000,
@@ -245,9 +239,9 @@ const looseTorchRecord: InventoryRecord = {
   id: "torch-loose-1",
   recordType: "equipment",
   name: "Torch",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
   sortOrder: 6000,
@@ -259,9 +253,9 @@ const looseTorchRecord: InventoryRecord = {
 const heldTorchRecord: InventoryRecord = {
   ...looseTorchRecord,
   id: "torch-held-1",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "leftHand",
   },
 };
@@ -270,9 +264,9 @@ const leftHandPoleRecord: InventoryRecord = {
   id: "pole-left-1",
   recordType: "equipment",
   name: "10 foot pole",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "leftHand",
   },
   sortOrder: 7000,
@@ -284,9 +278,9 @@ const leftHandPoleRecord: InventoryRecord = {
 const bothHandsPoleRecord: InventoryRecord = {
   ...leftHandPoleRecord,
   id: "pole-both-1",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "bothHands",
   },
 };
@@ -295,9 +289,9 @@ const legacyWeaponRecord: InventoryRecord = {
   id: "legacy-bow-1",
   recordType: "weapon",
   name: "Legacy Bow",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "bothHands",
   },
   sortOrder: 8000,
@@ -312,9 +306,9 @@ const legacyContainerRecord: InventoryRecord = {
   id: "legacy-sack-1",
   recordType: "equipment",
   name: "Legacy Sack",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "rightHand",
   },
   sortOrder: 9000,
@@ -336,9 +330,9 @@ const nonCharacterEquippedRecord: InventoryRecord = {
   id: "mount-saddle-1",
   recordType: "equipment",
   name: "Saddle",
+  entityId: mountEntity.id,
   location: {
-    entityId: mountEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
   sortOrder: 0,
@@ -350,10 +344,9 @@ const storageCrateRecord: InventoryRecord = {
   id: "crate-1",
   recordType: "equipment",
   name: "Crate",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 0,
   quantity: 1,
@@ -367,10 +360,9 @@ const nonContainerRecord: InventoryRecord = {
   id: "stone-1",
   recordType: "equipment",
   name: "Stone",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 1000,
   quantity: 1,
@@ -380,10 +372,9 @@ const nonContainerRecord: InventoryRecord = {
 const insideNonContainerRecord: InventoryRecord = {
   ...ropeRecord,
   id: "inside-stone-1",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: nonContainerRecord.id,
   },
 };
@@ -392,10 +383,9 @@ const nestedContainerRecord: InventoryRecord = {
   id: "nested-bag-1",
   recordType: "equipment",
   name: "Nested Bag",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: storageCrateRecord.id,
   },
   sortOrder: 2000,
@@ -409,10 +399,9 @@ const nestedContainerRecord: InventoryRecord = {
 const insideNestedContainerRecord: InventoryRecord = {
   ...ropeRecord,
   id: "inside-nested-bag-1",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: nestedContainerRecord.id,
   },
 };
@@ -420,10 +409,9 @@ const insideNestedContainerRecord: InventoryRecord = {
 const crossEntityContainedRecord: InventoryRecord = {
   ...ropeRecord,
   id: "cross-entity-1",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: storageCrateRecord.id,
   },
 };
@@ -431,10 +419,9 @@ const crossEntityContainedRecord: InventoryRecord = {
 const cycleARecord: InventoryRecord = {
   ...nestedContainerRecord,
   id: "cycle-a",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: "cycle-b",
   },
 };
@@ -442,10 +429,9 @@ const cycleARecord: InventoryRecord = {
 const cycleBRecord: InventoryRecord = {
   ...nestedContainerRecord,
   id: "cycle-b",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "container",
+    kind: "container",
     containerId: "cycle-a",
   },
 };
@@ -454,10 +440,9 @@ const treasureContainerRecord = {
   id: "treasure-container-1",
   recordType: "treasure",
   name: "Gem Box",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 3000,
   quantity: 1,

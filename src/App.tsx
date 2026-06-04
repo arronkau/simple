@@ -68,7 +68,7 @@ import type {
   Modifier,
 } from "./model/types";
 import {
-  findBackpackRecords,
+  findTopLevelStowedContainerRecords,
   isCharacterLikeEntity,
   validateInventoryState,
   type ValidationIssue,
@@ -796,7 +796,7 @@ function EntityInventoryRow({
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
-  const backpackCount = findBackpackRecords(
+  const backpackCount = findTopLevelStowedContainerRecords(
     entity.id,
     appState.inventoryRecords,
   ).length;
@@ -940,7 +940,7 @@ function CharactersPage({
       ) : (
         <ul className="entity-list" aria-label="Characters">
           {characterEntities.map((entity) => {
-            const backpackCount = findBackpackRecords(
+            const backpackCount = findTopLevelStowedContainerRecords(
               entity.id,
               appState.inventoryRecords,
             ).length;
@@ -1621,7 +1621,7 @@ function CharacterInventoryDisplay({
           )}
         </InventorySubsection>
 
-        <InventorySubsection title="Backpack">
+        <InventorySubsection title="Stowed container">
           {sections.backpackRecord ? (
             <ContainerBlock
               containerRecord={sections.backpackRecord}
@@ -1631,7 +1631,7 @@ function CharacterInventoryDisplay({
               onEditRecord={onEditRecord}
             />
           ) : (
-            <p className="empty-state compact">Missing backpack</p>
+            <p className="empty-state compact">Missing stowed container</p>
           )}
         </InventorySubsection>
       </InventorySection>
@@ -1693,6 +1693,7 @@ function InventoryRecordForm({
     editingRecordId: formState.recordId,
   });
   const placementOptions = getPlacementOptions({
+    isContainer: formState.isContainer,
     recordType: formState.recordType,
     targetEntity,
     records: appState.inventoryRecords,
@@ -2856,7 +2857,7 @@ export function getAuditEntityFilterOptions(
 
 function getEntityRecordCount(entityId: EntityId, appState: AppStateLike) {
   const count = appState.inventoryRecords.filter(
-    (record) => record.location.entityId === entityId,
+    (record) => record.entityId === entityId,
   ).length;
 
   return formatRecordCount(count);
@@ -2872,14 +2873,14 @@ function formatAuditEntryCount(count: number) {
 
 function getBackpackSummary(entity: Entity, backpackCount: number) {
   if (entity.entityType !== "character" && entity.entityType !== "retainer") {
-    return "No backpack required";
+    return "No stowed container required";
   }
 
   if (backpackCount === 1) {
-    return "1 backpack";
+    return "1 stowed container";
   }
 
-  return `${backpackCount} backpacks`;
+  return `${backpackCount} stowed containers`;
 }
 
 export function getRecordDisplayName(record: InventoryRecord) {
@@ -3216,7 +3217,7 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
 
 function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
   const baseForm = createEmptyRecordForm({
-    id: record.location.entityId,
+    id: record.entityId,
     name: "",
     entityType: "character",
     active: true,
@@ -3227,10 +3228,10 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
   return {
     ...baseForm,
     mode: "edit",
-    entityId: record.location.entityId,
+    entityId: record.entityId,
     recordId: record.id,
     recordType: record.recordType,
-    targetEntityId: record.location.entityId,
+    targetEntityId: record.entityId,
     placement: getLocationPlacementKey(record.location),
     containerId: "containerId" in record.location ? record.location.containerId : "",
     name: record.recordType === "coins" ? "" : record.name,
@@ -3442,10 +3443,12 @@ function getContainerOptions({
 }
 
 function getPlacementOptions({
+  isContainer,
   recordType,
   records,
   targetEntity,
 }: {
+  isContainer: boolean;
   recordType: InventoryRecordType;
   records: InventoryRecord[];
   targetEntity: Entity;
@@ -3473,11 +3476,11 @@ function getPlacementOptions({
     { value: "bothHands", label: "Both hands" },
   ];
 
-  if (findBackpackRecords(targetEntity.id, records).length > 0) {
-    options.push({ value: "backpack", label: "Backpack" });
+  if (isContainer) {
+    options.push({ value: "stowedRoot", label: "Stowed container" });
   }
 
-  options.push({ value: "container", label: "Container" });
+  options.push({ value: "container", label: "Inside container" });
 
   return options;
 }

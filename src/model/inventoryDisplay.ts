@@ -1,6 +1,11 @@
 import { getDirectChildRecords } from "./calculations";
 import type { Entity, EntityId, InventoryRecord } from "./types";
-import { findBackpackRecords, getHandOccupancy, isCharacterLikeEntity } from "./validation";
+import {
+  findBackpackRecords,
+  findTopLevelStowedContainerRecords,
+  getHandOccupancy,
+  isCharacterLikeEntity,
+} from "./validation";
 
 export type CharacterInventorySections = {
   mode: "characterLike";
@@ -35,15 +40,16 @@ export function getInventorySections(
     return {
       mode: "contentsOnly",
       contents: ownedRecords.filter(
-        (record) =>
-          record.location.locationType === "contents" &&
-          record.location.placement === "contents",
+        (record) => record.location.kind === "contents",
       ),
     };
   }
 
   const backpackRecords = findBackpackRecords(entity.id, ownedRecords);
-  const backpackRecord = backpackRecords[0];
+  const backpackRecord = findTopLevelStowedContainerRecords(
+    entity.id,
+    ownedRecords,
+  )[0];
   const backpackRecordIds = new Set(
     backpackRecords.map((record) => record.id),
   );
@@ -53,15 +59,14 @@ export function getInventorySections(
     handRecordIds: getHandOccupancy(entity.id, ownedRecords),
     otherEquipped: ownedRecords.filter(
       (record) =>
-        record.location.locationType === "equipped" &&
+        record.location.kind === "equipped" &&
         record.location.placement === "loose" &&
         !backpackRecordIds.has(record.id),
     ),
     coinRecord: ownedRecords.find(
       (record) =>
         record.recordType === "coins" &&
-        record.location.locationType === "stowed" &&
-        record.location.placement === "coinPurse",
+        record.location.kind === "coinPurse",
     ),
     backpackRecord,
     backpackRecords,
@@ -75,7 +80,7 @@ export function getOwnedRecords(
   entityId: EntityId,
   records: InventoryRecord[],
 ): InventoryRecord[] {
-  return records.filter((record) => record.location.entityId === entityId);
+  return records.filter((record) => record.entityId === entityId);
 }
 
 export function getRecordById(

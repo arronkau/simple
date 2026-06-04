@@ -148,7 +148,7 @@ Validation hard rule: a character-like entity may not have more than one top-lev
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a top-level stowed container exists. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 #### Coin Purse
 
@@ -238,7 +238,7 @@ For character and retainer entities, the inventory view uses:
    - Other equipped
 3. Stowed
    - Coin purse
-   - Backpack container and its contents
+   - Stowed container and its contents
    - Containers inline
 
 For mount, vehicle, and storage entities, the view uses:
@@ -247,7 +247,7 @@ For mount, vehicle, and storage entities, the view uses:
 2. Contents
    - Containers inline
 
-Containers are displayed inline in the backpack or contents list rather than as a separate top-level layout section.
+Containers are displayed inline in the stowed-container or contents list rather than as a separate top-level layout section.
 
 ## Record Add/Edit Modal
 

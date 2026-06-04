@@ -34,9 +34,9 @@ const topLevelContainerRecord: InventoryRecord = {
   id: "container-top",
   recordType: "equipment",
   name: "Chest",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "equipped",
+    kind: "equipped",
     placement: "loose",
   },
   sortOrder: 0,
@@ -59,10 +59,9 @@ const nestedContainerRecord: InventoryRecord = {
   ...topLevelContainerRecord,
   id: "container-nested",
   name: "Nested pouch",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: topLevelContainerRecord.id,
   },
   sortOrder: 0,
@@ -72,10 +71,9 @@ const nestedContainerChildRecord: InventoryRecord = {
   id: "nested-container-child",
   recordType: "equipment",
   name: "Gem",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: nestedContainerRecord.id,
   },
   sortOrder: 0,
@@ -88,10 +86,9 @@ const crossEntityContainerRecord: InventoryRecord = {
   ...topLevelContainerRecord,
   id: "container-cross-entity",
   name: "Storage crate",
+  entityId: storageEntity.id,
   location: {
-    entityId: storageEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
 };
 
@@ -99,10 +96,9 @@ const childRecord: InventoryRecord = {
   id: "editing-container-child",
   recordType: "equipment",
   name: "Torch",
+  entityId: characterEntity.id,
   location: {
-    entityId: characterEntity.id,
-    locationType: "stowed",
-    placement: "container",
+    kind: "container",
     containerId: editingContainerRecord.id,
   },
   sortOrder: 0,
@@ -115,10 +111,9 @@ const mountContainerRecord: InventoryRecord = {
   id: "mount-container",
   recordType: "equipment",
   name: "Saddlebags",
+  entityId: mountEntity.id,
   location: {
-    entityId: mountEntity.id,
-    locationType: "contents",
-    placement: "contents",
+    kind: "contents",
   },
   sortOrder: 0,
   quantity: 1,
@@ -245,11 +240,11 @@ const updatedNonLightUsesResult = updateInventoryRecordFromInput({
     id: "wand-1",
     recordType: "equipment",
     name: "Wand",
-    location: {
-      entityId: characterEntity.id,
-      locationType: "equipped",
-      placement: "loose",
-    },
+    entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
     sortOrder: 0,
     quantity: 1,
     burden: { kind: "fixed", slotsPerItem: 1 },
@@ -271,11 +266,11 @@ const removedOptionalDataResult = updateInventoryRecordFromInput({
     id: "masked-1",
     recordType: "equipment",
     name: "Masked item",
-    location: {
-      entityId: characterEntity.id,
-      locationType: "equipped",
-      placement: "loose",
-    },
+    entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
     sortOrder: 0,
     quantity: 1,
     burden: { kind: "fixed", slotsPerItem: 1 },
@@ -328,17 +323,13 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
       directLocation: {
         ok: true,
         location: {
-          entityId: mountEntity.id,
-          locationType: "contents",
-          placement: "contents",
+          kind: "contents",
         },
       },
       containedLocation: {
         ok: true,
         location: {
-          entityId: mountEntity.id,
-          locationType: "contents",
-          placement: "container",
+          kind: "container",
           containerId: mountContainerRecord.id,
         },
       },
@@ -360,11 +351,11 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
       record: {
         id: "created-rope",
         name: "Rope",
-        location: {
-          entityId: characterEntity.id,
-          locationType: "equipped",
-          placement: "loose",
-        },
+        entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
         sortOrder: 1000,
         quantity: 1,
         burden: { kind: "fixed", slotsPerItem: 0 },
@@ -381,11 +372,11 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
       record: {
         id: "created-torches",
         name: "Torches",
-        location: {
-          entityId: characterEntity.id,
-          locationType: "equipped",
-          placement: "loose",
-        },
+        entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
         sortOrder: 0,
         quantity: 6,
         burden: { kind: "stacked", itemsPerSlot: 3 },
@@ -402,11 +393,11 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
       record: {
         id: "created-sword",
         name: "True sword",
-        location: {
-          entityId: characterEntity.id,
-          locationType: "equipped",
-          placement: "loose",
-        },
+        entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
         sortOrder: 0,
         quantity: 1,
         burden: { kind: "fixed", slotsPerItem: 1 },
@@ -450,11 +441,11 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
       record: {
         id: "wand-1",
         name: "Wand",
-        location: {
-          entityId: characterEntity.id,
-          locationType: "equipped",
-          placement: "loose",
-        },
+        entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
         sortOrder: 0,
         quantity: 1,
         burden: { kind: "fixed", slotsPerItem: 1 },
@@ -472,11 +463,11 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
       record: {
         id: "masked-1",
         name: "Masked item",
-        location: {
-          entityId: characterEntity.id,
-          locationType: "equipped",
-          placement: "loose",
-        },
+        entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
         sortOrder: 0,
         quantity: 1,
         burden: { kind: "fixed", slotsPerItem: 1 },

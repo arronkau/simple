@@ -109,9 +109,7 @@ export function getContentsSlots(
   return records
     .filter(
       (record) =>
-        record.location.entityId === entity.id &&
-        record.location.locationType === "contents" &&
-        record.location.placement === "contents",
+        record.entityId === entity.id && record.location.kind === "contents",
     )
     .reduce(
       (usedSlots, record) =>
@@ -129,7 +127,7 @@ export function getTotalEntitySlots(
   return records
     .filter(
       (record) =>
-        record.location.entityId === entity.id &&
+        record.entityId === entity.id &&
         !locationHasContainerId(record.location),
     )
     .reduce(
@@ -260,7 +258,7 @@ function getAncestorRecords(
 function isHeldContainer(record: InventoryRecord): boolean {
   return (
     Boolean(record.container) &&
-    record.location.locationType === "equipped" &&
+    record.location.kind === "equipped" &&
     isHandPlacement(record.location.placement)
   );
 }

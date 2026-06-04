@@ -90,7 +90,7 @@ export const PHASE_3_STORE_MANUAL_FIXTURES = [
     actual: {
       storageExists: phase3State.entities.some((entity) => entity.id === storageId),
       storageRecordsExist: phase3State.inventoryRecords.some(
-        (record) => record.location.entityId === storageId,
+        (record) => record.entityId === storageId,
       ),
     },
     expected: {
@@ -171,7 +171,7 @@ const phase5StateAfterDefaults = useAppStore.getState().appState;
 const phase5CoinRecords = phase5StateAfterDefaults.inventoryRecords.filter(
   (record) =>
     record.recordType === "coins" &&
-    record.location.entityId === phase5CharacterId,
+    record.entityId === phase5CharacterId,
 );
 const phase5RopeRecord = phase5StateAfterDefaults.inventoryRecords.find(
   (record) => record.recordType === "equipment" && record.name === "Rope",
@@ -191,6 +191,11 @@ let phase5CrossEntityDescendantEntityId: string | undefined;
 let phase5NestedContainerId: string | undefined;
 
 if (phase5CharacterId) {
+  const phase5BackpackRecord = findBackpackRecords(
+    phase5CharacterId,
+    useAppStore.getState().appState.inventoryRecords,
+  )[0];
+
   const swordResult = useAppStore.getState().createInventoryRecord(
     phase5CharacterId,
     {
@@ -206,7 +211,8 @@ if (phase5CharacterId) {
       .getState()
       .moveInventoryRecord(swordResult.recordId, {
         entityId: phase5CharacterId,
-        placement: "backpack",
+        placement: "container",
+        containerId: phase5BackpackRecord?.id,
       }).ok;
   }
 
@@ -239,7 +245,7 @@ if (phase5CharacterId) {
       .getState()
       .moveInventoryRecord(hammerResult.recordId, {
         entityId: phase5NoBackpackCharacterId,
-        placement: "backpack",
+        placement: "container",
       }).ok;
   }
 
@@ -368,7 +374,7 @@ if (phase5StorageAId && phase5StorageBId) {
           .getState()
           .appState.inventoryRecords.find(
             (record) => record.id === lanternResult.recordId,
-          )?.location.entityId;
+          )?.entityId;
     }
   }
 }
@@ -421,14 +427,11 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       characterEquipmentLocation: {
-        entityId: phase5CharacterId,
-        locationType: "equipped",
+        kind: "equipped",
         placement: "loose",
       },
       nonCharacterTreasureLocation: {
-        entityId: phase5MountId,
-        locationType: "contents",
-        placement: "contents",
+        kind: "contents",
       },
     },
   },

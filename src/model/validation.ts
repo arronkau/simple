@@ -100,12 +100,16 @@ export function getHandOccupancy(
 
   const handRecords = records.filter(
     (record) =>
-      record.location.entityId === entityId &&
-      record.location.locationType === "equipped" &&
+      record.entityId === entityId &&
+      record.location.kind === "equipped" &&
       isHandPlacement(record.location.placement),
   );
 
   for (const record of handRecords) {
+    if (record.location.kind !== "equipped") {
+      continue;
+    }
+
     const placement = record.location.placement as HandPlacement;
     const existingRecordId = occupancy[placement];
 
@@ -134,7 +138,7 @@ export function findBackpackRecords(
 ): InventoryRecord[] {
   return records.filter(
     (record) =>
-      record.location.entityId === entityId &&
+      record.entityId === entityId &&
       record.container?.isBackpack === true,
   );
 }
@@ -152,16 +156,8 @@ export function findTopLevelStowedContainerRecords(
 ): InventoryRecord[] {
   return records.filter(
     (record) =>
-      record.location.entityId === entityId &&
-      isTopLevelStowedContainer(record) &&
-      (record.container?.isBackpack === true ||
-        records.some(
-          (candidateRecord) =>
-            candidateRecord.location.entityId === entityId &&
-            candidateRecord.location.locationType === "stowed" &&
-            candidateRecord.location.placement === "backpack" &&
-            candidateRecord.location.containerId === record.id,
-        )),
+      record.entityId === entityId &&
+      isTopLevelStowedContainer(record),
   );
 }
 
@@ -251,7 +247,7 @@ function validateRecordNames(records: InventoryRecord[]): ValidationIssue[] {
           errorIssue(
             "emptyInventoryRecordName",
             "Non-coin inventory records must have a non-empty name.",
-            { recordId: record.id, entityId: record.location.entityId },
+            { recordId: record.id, entityId: record.entityId },
           ),
         ]
       : [],
@@ -273,7 +269,7 @@ function validateNonCoinQuantityAndBurden(
         errorIssue(
           "invalidInventoryQuantity",
           "Non-coin inventory records must have a positive integer quantity.",
-          { recordId: record.id, entityId: record.location.entityId },
+          { recordId: record.id, entityId: record.entityId },
         ),
       );
     }
@@ -289,7 +285,7 @@ function validateNonCoinQuantityAndBurden(
             errorIssue(
               "invalidInventoryBurden",
               "Fixed inventory burden must have a non-negative slots-per-item value.",
-              { recordId: record.id, entityId: record.location.entityId },
+              { recordId: record.id, entityId: record.entityId },
             ),
           );
         }
@@ -303,7 +299,7 @@ function validateNonCoinQuantityAndBurden(
             errorIssue(
               "invalidInventoryBurden",
               "Stacked inventory burden must have a positive integer items-per-slot value.",
-              { recordId: record.id, entityId: record.location.entityId },
+              { recordId: record.id, entityId: record.entityId },
             ),
           );
         }
@@ -325,34 +321,37 @@ function validateRecordLocations(
   const recordsById = new Map(records.map((record) => [record.id, record]));
 
   for (const record of records) {
-    const entity = entitiesById.get(record.location.entityId);
+    const entity = entitiesById.get(record.entityId);
 
     if (!entity) {
       issues.push(
         errorIssue(
           "missingEntity",
           `Inventory record ${record.id} points to a missing entity.`,
-          { recordId: record.id, entityId: record.location.entityId },
+          { recordId: record.id, entityId: record.entityId },
         ),
       );
       continue;
     }
 
     if (isCharacterLikeEntity(entity)) {
-      if (record.location.locationType === "contents") {
+      if (record.location.kind === "contents") {
         issues.push(
           errorIssue(
             "invalidEntityLocationType",
-            "Character-like entities must use equipped or stowed locations.",
+            "Character-like entities must use equipped, stowed-root, coin-purse, or container locations.",
             { recordId: record.id, entityId: entity.id },
           ),
         );
       }
-    } else if (record.location.locationType !== "contents") {
+    } else if (
+      record.location.kind !== "contents" &&
+      record.location.kind !== "container"
+    ) {
       issues.push(
         errorIssue(
           "invalidEntityLocationType",
-          "Mounts, vehicles, and storage must use contents locations.",
+          "Mounts, vehicles, and storage must use contents or container locations.",
           { recordId: record.id, entityId: entity.id },
         ),
       );
@@ -377,8 +376,7 @@ function validateRecordLocations(
 
     if (
       record.recordType !== "coins" &&
-      record.location.locationType === "stowed" &&
-      record.location.placement === "coinPurse"
+      record.location.kind === "coinPurse"
     ) {
       issues.push(
         errorIssue(
@@ -421,7 +419,7 @@ function validateRecordLocations(
         );
       }
 
-      if (containerRecord.location.entityId !== record.location.entityId) {
+      if (containerRecord.entityId !== record.entityId) {
         issues.push(
           errorIssue(
             "crossEntityContainment",
@@ -434,35 +432,16 @@ function validateRecordLocations(
           ),
         );
       }
-
-      if (
-        record.location.locationType === "stowed" &&
-        record.location.placement === "backpack" &&
-        !isTopLevelStowedContainer(containerRecord)
-      ) {
-        issues.push(
-          errorIssue(
-            "invalidBackpackPlacement",
-            "Backpack placement must point to the entity's top-level stowed container.",
-            {
-              recordId: record.id,
-              entityId: entity.id,
-              relatedRecordId: containerRecord.id,
-            },
-          ),
-        );
-      }
     }
 
     if (
-      record.location.locationType === "stowed" &&
-      record.location.placement === "backpack" &&
-      !hasTopLevelStowedContainer(entity.id, records)
+      record.location.kind === "stowedRoot" &&
+      !record.container
     ) {
       issues.push(
         errorIssue(
           "invalidBackpackPlacement",
-          "Non-coin records cannot use backpack placement unless a top-level stowed container exists.",
+          "Only containers can use stowed-root placement.",
           { recordId: record.id, entityId: entity.id },
         ),
       );
@@ -485,7 +464,7 @@ function validateCoinRules(
       continue;
     }
 
-    const entity = entitiesById.get(record.location.entityId);
+    const entity = entitiesById.get(record.entityId);
 
     if (!entity) {
       continue;
@@ -498,8 +477,7 @@ function validateCoinRules(
       );
 
       if (
-        record.location.locationType !== "stowed" ||
-        record.location.placement !== "coinPurse"
+        record.location.kind !== "coinPurse"
       ) {
         issues.push(
           errorIssue(
@@ -510,9 +488,8 @@ function validateCoinRules(
         );
       }
     } else if (
-      record.location.locationType !== "contents" ||
-      (record.location.placement !== "contents" &&
-        record.location.placement !== "container")
+      record.location.kind !== "contents" &&
+      record.location.kind !== "container"
     ) {
       issues.push(
         errorIssue(
@@ -560,7 +537,7 @@ function validateContainment(records: InventoryRecord[]): ValidationIssue[] {
       issues.push(
         errorIssue("containerCycle", "Container references must not cycle.", {
           recordId: record.id,
-          entityId: record.location.entityId,
+          entityId: record.entityId,
         }),
       );
     }
@@ -576,7 +553,7 @@ function validateContainment(records: InventoryRecord[]): ValidationIssue[] {
         errorIssue(
           "nestedNonEmptyContainer",
           "Non-empty containers cannot be placed inside another container.",
-          { recordId: record.id, entityId: record.location.entityId },
+          { recordId: record.id, entityId: record.entityId },
         ),
       );
     }
@@ -602,7 +579,7 @@ function validateContainment(records: InventoryRecord[]): ValidationIssue[] {
           "A container nested inside another container cannot receive contents.",
           {
             recordId: record.id,
-            entityId: record.location.entityId,
+            entityId: record.entityId,
             relatedRecordId: containerRecord.id,
           },
         ),
@@ -689,16 +666,12 @@ function isHandPlacement(placement: string): placement is HandPlacement {
 
 function isHandLocation(location: InventoryLocation): boolean {
   return (
-    location.locationType === "equipped" && isHandPlacement(location.placement)
+    location.kind === "equipped" && isHandPlacement(location.placement)
   );
 }
 
 function isTopLevelStowedContainer(record: InventoryRecord): boolean {
-  return (
-    Boolean(record.container) &&
-    !locationHasContainerId(record.location) &&
-    !isHandLocation(record.location)
-  );
+  return Boolean(record.container) && record.location.kind === "stowedRoot";
 }
 
 function hasNonEmptyName(value: { name?: unknown }): boolean {

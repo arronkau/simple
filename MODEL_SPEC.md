@@ -151,7 +151,7 @@ Validation hard rule: a character-like entity may not have more than one top-lev
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a top-level stowed container exists. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 ## Non-Character Entities
 
@@ -256,96 +256,64 @@ export type InventoryRecord = {
 
 ## Inventory Location
 
-Character-like entities and non-character entities use different location shapes.
+Inventory records carry entity ownership separately from placement. Containment is structural: a record inside a container has only `location.kind: "container"` plus `containerId`; it does not also encode whether that container is a backpack, stowed, equipped, or contents root.
 
 ```ts
-export type CarryState = "equipped" | "stowed";
-
 export type EquippedPlacement =
   | "leftHand"
   | "rightHand"
   | "bothHands"
   | "loose";
 
-export type CharacterStowedPlacement =
-  | "coinPurse"
-  | "backpack"
-  | "container";
-
-export type ContentsPlacement =
-  | "contents"
-  | "container";
-
 export type InventoryLocation =
   | {
-      entityId: EntityId;
-      locationType: "equipped";
+      kind: "equipped";
       placement: EquippedPlacement;
     }
   | {
-      entityId: EntityId;
-      locationType: "stowed";
-      placement: "coinPurse";
+      kind: "stowedRoot";
     }
   | {
-      entityId: EntityId;
-      locationType: "stowed";
-      placement: "backpack";
-      containerId: InventoryRecordId;
+      kind: "coinPurse";
     }
   | {
-      entityId: EntityId;
-      locationType: "stowed";
-      placement: "container";
-      containerId: InventoryRecordId;
+      kind: "contents";
     }
   | {
-      entityId: EntityId;
-      locationType: "contents";
-      placement: "contents";
-    }
-  | {
-      entityId: EntityId;
-      locationType: "contents";
-      placement: "container";
+      kind: "container";
       containerId: InventoryRecordId;
     };
 ```
 
 ### Location Meaning
 
-- `locationType: "equipped"` means the record is held, worn, actively used, or ready at short notice.
-- `locationType: "stowed"` means the record is packed away and not immediately ready.
-- `locationType: "contents"` means the record belongs directly to a non-character entity's contents.
+- `kind: "equipped"` means the root record is held, worn, actively used, or ready at short notice.
+- `kind: "stowedRoot"` is the character-like entity's one top-level stowed container.
+- `kind: "coinPurse"` is for a character-like entity's coin record.
+- `kind: "contents"` means the root record belongs directly to a non-character entity's contents.
+- `kind: "container"` means the record is inside another inventory record with `container` data.
 - `placement: "leftHand"`, `"rightHand"`, and `"bothHands"` are equipped hand placements.
 - `placement: "loose"` is for equipped items that are not hand-held, such as worn armor, a sheathed weapon, a ring, an amulet, or other ready gear.
-- `placement: "coinPurse"` is for a character-like entity's coin record.
-- `placement: "coinPurse"` is a placement/display concept, not a real container.
-- `placement: "backpack"` is for records directly inside the character-like entity's top-level stowed container, normally a backpack.
-- `placement: "container"` is for records inside a specific container.
-- `placement: "contents"` is for records directly inside a non-character entity.
 
 ### Location Rules
 
+- Every inventory record has a top-level `entityId`.
 - Every inventory record must have a location.
 - Every inventory record must have an owning `entityId`, including records inside containers.
-- `location.entityId` must point to an existing entity.
-- Character-like entities may use `locationType: "equipped"` and `locationType: "stowed"`.
-- Non-character entities must use `locationType: "contents"`.
-- Non-character entities must not use `locationType: "equipped"` or `locationType: "stowed"`.
-- `placement: "container"` must include `containerId`.
-- `placement: "backpack"` must include `containerId` pointing to the character-like entity's top-level stowed container.
+- `record.entityId` must point to an existing entity.
+- Character-like entities may use `equipped`, `stowedRoot`, `coinPurse`, or `container` locations.
+- Non-character entities may use `contents` or `container` locations.
+- `kind: "container"` must include `containerId`.
 - `containerId` must point to an existing `InventoryRecord` with `container` data.
 - A contained record's `entityId` must match the owning entity of its container.
 - Moving a container to another entity must also update all contained descendant records to the new `entityId`.
 - Cross-entity containment is invalid.
-- Character-like coin records must use `locationType: "stowed"` and `placement: "coinPurse"`.
-- Non-character coin records may use `locationType: "contents"` with `placement: "contents"` or `"container"`.
-- Non-coin records must not use `placement: "coinPurse"`.
-- Hand placements must use `locationType: "equipped"`.
-- Character-like backpack and stowed container placements must use `locationType: "stowed"`.
-- Default location for newly created non-coin records on character-like entities is `locationType: "equipped"` and `placement: "loose"` unless the user chooses a valid stowed placement.
-- Default location for newly created records on non-character entities is `locationType: "contents"` and `placement: "contents"`.
+- Character-like coin records must use `kind: "coinPurse"`.
+- Non-character coin records may use `kind: "contents"` or `kind: "container"`.
+- Non-coin records must not use `kind: "coinPurse"`.
+- Hand placements must use `kind: "equipped"`.
+- Default location for newly created non-coin records on character-like entities is `kind: "equipped"` and `placement: "loose"` unless the user chooses another valid root/container location.
+- Default location for newly created records on non-character entities is `kind: "contents"`.
 
 ## Inventory Quantity And Burden
 
@@ -386,7 +354,7 @@ export type CoinData = {
 - Non-character entities may have multiple coin records, as long as each record has a valid contents/container location.
 - Coin denomination fields are required and default to `0`.
 - Coin denomination fields must be non-negative integers.
-- Character-like coin records must use `locationType: "stowed"` and `placement: "coinPurse"`.
+- Character-like coin records must use `kind: "coinPurse"`.
 - Character-like coin records count toward stowed slots.
 - The coin purse is not a real container.
 - Coin records do not require a user-entered name.
@@ -427,8 +395,8 @@ export type WeaponData = {
 
 - New weapon records default to record-level `handsRequired: 1`.
 - Legacy `weapon.hands` may be read only to derive missing record-level `handsRequired`.
-- A sheathed or ready weapon that is not currently held should use `locationType: "equipped"` and `placement: "loose"`.
-- A packed-away weapon on a character-like entity should use a valid stowed backpack or container location.
+- A sheathed or ready weapon that is not currently held should use `kind: "equipped"` and `placement: "loose"`.
+- A packed-away weapon on a character-like entity should use a valid container location.
 
 ## General Hand Requirement
 
@@ -459,7 +427,7 @@ export type ArmorData = {
 
 ### Armor Rules
 
-- Armor is active when `recordType === "armor"`, `location.locationType === "equipped"`, and `location.placement === "loose"`.
+- Armor is active when `recordType === "armor"`, `location.kind === "equipped"`, and `location.placement === "loose"`.
 - There is no separate armor location.
 - Stowed armor is inventory only and should not count as active armor.
 
@@ -504,10 +472,10 @@ export type ContainerData = {
 - On character or retainer creation, create exactly one default backpack record.
 - Validation hard rule: a character-like entity may not have more than one top-level stowed container.
 - Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
-- Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a top-level stowed container exists.
+- Move/add hard rule: non-coin stowed records must be placed inside a valid container.
 - The backpack is represented by an `InventoryRecord` with `recordType: "equipment"` and `container.isBackpack === true`.
 - Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
-- Character-like stowed non-coin records directly in the backpack use `locationType: "stowed"`, `placement: "backpack"`, and `containerId` set to the backpack record ID.
+- Character-like stowed non-coin records directly in the backpack use `kind: "container"` and `containerId` set to the backpack record ID.
 - The UI should offer an action to create a backpack for a character-like entity if missing.
 
 Suggested default backpack factory:
@@ -517,10 +485,9 @@ const createDefaultBackpack = (entityId: EntityId): InventoryRecord => ({
   id: generatedId,
   recordType: "equipment",
   name: "Backpack",
+  entityId,
   location: {
-    entityId,
-    locationType: "equipped",
-    placement: "loose",
+    kind: "stowedRoot",
   },
   sortOrder: 0,
   quantity: 1,
@@ -728,7 +695,7 @@ treasureValue = sum(record.treasure.gpValue for entity treasure records)
 
 ### Hand Occupancy
 
-Derived from records where `location.locationType === "equipped"` and `location.placement` is `leftHand`, `rightHand`, or `bothHands`.
+Derived from records where `location.kind === "equipped"` and `location.placement` is `leftHand`, `rightHand`, or `bothHands`.
 
 A valid character-like entity has either:
 
@@ -795,10 +762,10 @@ The app should prevent state that violates these invariants:
 - Every inventory record has a unique `id`.
 - Every inventory record points to an existing entity.
 - Every inventory record has a valid location for its entity type.
-- Every character-like inventory record has exactly one primary state: `equipped` or `stowed`.
-- Every non-character inventory record uses `locationType: "contents"`.
+- Every inventory record points to an existing entity through `record.entityId`.
+- Every non-character root inventory record uses `kind: "contents"`; non-character contained records use `kind: "container"`.
 - Every contained inventory record points to an existing container.
-- Every backpack placement points to an existing top-level stowed container.
+- Character-like entities have at most one `stowedRoot` container.
 - Every container reference points to a record with `container` data.
 - No container cycles.
 - No cross-entity containment.

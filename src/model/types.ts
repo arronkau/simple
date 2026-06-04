@@ -105,45 +105,22 @@ export type EquippedPlacement =
   | "bothHands"
   | "loose";
 
-export type CharacterStowedPlacement =
-  | "coinPurse"
-  | "backpack"
-  | "container";
-
-export type ContentsPlacement = "contents" | "container";
-
 export type InventoryLocation =
   | {
-      entityId: EntityId;
-      locationType: "equipped";
+      kind: "equipped";
       placement: EquippedPlacement;
     }
   | {
-      entityId: EntityId;
-      locationType: "stowed";
-      placement: "coinPurse";
+      kind: "stowedRoot";
     }
   | {
-      entityId: EntityId;
-      locationType: "stowed";
-      placement: "backpack";
-      containerId: InventoryRecordId;
+      kind: "coinPurse";
     }
   | {
-      entityId: EntityId;
-      locationType: "stowed";
-      placement: "container";
-      containerId: InventoryRecordId;
+      kind: "contents";
     }
   | {
-      entityId: EntityId;
-      locationType: "contents";
-      placement: "contents";
-    }
-  | {
-      entityId: EntityId;
-      locationType: "contents";
-      placement: "container";
+      kind: "container";
       containerId: InventoryRecordId;
     };
 
@@ -240,6 +217,7 @@ export type Modifier = {
 
 type InventoryRecordShared = {
   id: InventoryRecordId;
+  entityId: EntityId;
   description?: string;
   location: InventoryLocation;
   sortOrder: number;
@@ -332,12 +310,11 @@ export function createDefaultBackpack({
 }: CreateDefaultBackpackInput): InventoryRecord {
   return {
     id,
+    entityId,
     recordType: "equipment",
     name: "Backpack",
     location: {
-      entityId,
-      locationType: "equipped",
-      placement: "loose",
+      kind: "stowedRoot",
     },
     sortOrder,
     quantity: 1,
@@ -377,7 +354,7 @@ export function getRecordHandsRequired(record: InventoryRecord): HandsRequired {
 export function getEquippedHandsUsed(
   location: InventoryLocation,
 ): HandsRequired | undefined {
-  if (location.locationType !== "equipped") {
+  if (location.kind !== "equipped") {
     return undefined;
   }
 

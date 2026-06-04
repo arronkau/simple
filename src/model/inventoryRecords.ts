@@ -1,6 +1,6 @@
 import { getDirectChildRecords } from "./calculations";
 import {
-  findBackpackRecords,
+  findTopLevelStowedContainerRecords,
   isCharacterLikeEntity,
 } from "./validation";
 import { getRecordHandsRequired, normalizeHandsRequired } from "./types";
@@ -31,7 +31,7 @@ export type InventoryRecordPlacementKey =
   | "rightHand"
   | "bothHands"
   | "coinPurse"
-  | "backpack"
+  | "stowedRoot"
   | "contents"
   | "container";
 
@@ -78,6 +78,7 @@ export type UpdateInventoryRecordInput = {
 export type MoveInventoryRecordInput = {
   recordId: InventoryRecordId;
   records: InventoryRecord[];
+  entityId: EntityId;
   location: InventoryLocation;
 };
 
@@ -107,6 +108,7 @@ export function createInventoryRecordFromInput({
     recordType: input.recordType,
     records,
     location: input.location,
+    isContainer: Boolean(input.container),
   });
 
   if (!locationResult.ok) {
@@ -115,11 +117,13 @@ export function createInventoryRecordFromInput({
 
   const sortOrder = getNextInventoryRecordSortOrder(
     records,
+    entity.id,
     locationResult.location,
   );
 
   return buildInventoryRecord({
     id,
+    entityId: entity.id,
     input,
     location: locationResult.location,
     sortOrder,
@@ -144,6 +148,7 @@ export function updateInventoryRecordFromInput({
     recordType: input.recordType,
     records,
     location: input.location,
+    isContainer: Boolean(input.container),
     editingRecordId: record.id,
   });
 
@@ -153,6 +158,7 @@ export function updateInventoryRecordFromInput({
 
   return buildInventoryRecord({
     id: record.id,
+    entityId: entity.id,
     input: {
       ...input,
       handsRequired: input.handsRequired ?? getRecordHandsRequired(record),
@@ -167,12 +173,14 @@ export function createInventoryLocation({
   recordType,
   records,
   location,
+  isContainer,
   editingRecordId,
 }: {
   entity: Entity;
   recordType: InventoryRecordType;
   records: InventoryRecord[];
   location?: InventoryRecordLocationInput;
+  isContainer?: boolean;
   editingRecordId?: InventoryRecordId;
 }): InventoryLocationBuildResult {
   const placement = location?.placement ?? "default";
@@ -182,9 +190,7 @@ export function createInventoryLocation({
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "stowed",
-          placement: "coinPurse",
+          kind: "coinPurse",
         },
       };
     }
@@ -204,9 +210,7 @@ export function createInventoryLocation({
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "contents",
-          placement: "container",
+          kind: "container",
           containerId: containerIdResult.containerId,
         },
       };
@@ -215,9 +219,7 @@ export function createInventoryLocation({
     return {
       ok: true,
       location: {
-        entityId: entity.id,
-        locationType: "contents",
-        placement: "contents",
+        kind: "contents",
       },
     };
   }
@@ -238,9 +240,7 @@ export function createInventoryLocation({
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "contents",
-          placement: "container",
+          kind: "container",
           containerId: containerIdResult.containerId,
         },
       };
@@ -249,9 +249,7 @@ export function createInventoryLocation({
     return {
       ok: true,
       location: {
-        entityId: entity.id,
-        locationType: "contents",
-        placement: "contents",
+        kind: "contents",
       },
     };
   }
@@ -263,30 +261,34 @@ export function createInventoryLocation({
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "equipped",
+          kind: "equipped",
           placement,
         },
       };
-    case "backpack": {
-      const backpackRecord = findBackpackRecords(entity.id, records).find(
-        (candidateRecord) => candidateRecord.id !== editingRecordId,
-      );
-
-      if (!backpackRecord) {
+    case "stowedRoot": {
+      if (!isContainer) {
         return {
           ok: false,
-          message: "This entity does not have a backpack.",
+          message: "Only containers can be placed as the stowed root.",
+        };
+      }
+
+      const existingStowedRoot = findTopLevelStowedContainerRecords(
+        entity.id,
+        records,
+      ).find((record) => record.id !== editingRecordId);
+
+      if (existingStowedRoot) {
+        return {
+          ok: false,
+          message: "This entity already has a stowed container.",
         };
       }
 
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "stowed",
-          placement: "backpack",
-          containerId: backpackRecord.id,
+          kind: "stowedRoot",
         },
       };
     }
@@ -305,9 +307,7 @@ export function createInventoryLocation({
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "stowed",
-          placement: "container",
+          kind: "container",
           containerId: containerIdResult.containerId,
         },
       };
@@ -319,8 +319,7 @@ export function createInventoryLocation({
       return {
         ok: true,
         location: {
-          entityId: entity.id,
-          locationType: "equipped",
+          kind: "equipped",
           placement: "loose",
         },
       };
@@ -330,6 +329,7 @@ export function createInventoryLocation({
 export function moveInventoryRecord({
   recordId,
   records,
+  entityId,
   location,
 }: MoveInventoryRecordInput): InventoryRecord[] {
   const record = records.find(
@@ -341,13 +341,13 @@ export function moveInventoryRecord({
   }
 
   const descendantRecordIds = getDescendantRecordIds(recordId, records);
-  const targetEntityId = location.entityId;
-  const sortOrder = getNextInventoryRecordSortOrder(records, location);
+  const sortOrder = getNextInventoryRecordSortOrder(records, entityId, location);
 
   return records.map((candidateRecord) => {
     if (candidateRecord.id === recordId) {
       return {
         ...candidateRecord,
+        entityId,
         location,
         sortOrder,
       };
@@ -356,10 +356,7 @@ export function moveInventoryRecord({
     if (descendantRecordIds.has(candidateRecord.id)) {
       return {
         ...candidateRecord,
-        location: {
-          ...candidateRecord.location,
-          entityId: targetEntityId,
-        } as InventoryLocation,
+        entityId,
       };
     }
 
@@ -388,9 +385,8 @@ export function getCharacterCoinRecord(
   return records.find(
     (record) =>
       record.recordType === "coins" &&
-      record.location.entityId === entityId &&
-      record.location.locationType === "stowed" &&
-      record.location.placement === "coinPurse",
+      record.entityId === entityId &&
+      record.location.kind === "coinPurse",
   );
 }
 
@@ -411,15 +407,11 @@ export function getMoveDescendantRecordIds(
 export function getLocationPlacementKey(
   location: InventoryLocation,
 ): InventoryRecordPlacementKey {
-  if (location.locationType === "equipped") {
+  if (location.kind === "equipped") {
     return location.placement === "loose" ? "equippedLoose" : location.placement;
   }
 
-  if (location.locationType === "stowed") {
-    return location.placement;
-  }
-
-  return location.placement;
+  return location.kind;
 }
 
 export function getUsableContainerRecords({
@@ -448,7 +440,7 @@ export function getUsableContainerRecords({
   return records.filter(
     (record) =>
       record.id !== editingRecordId &&
-      record.location.entityId === entity.id &&
+      record.entityId === entity.id &&
       Boolean(record.container) &&
       !locationHasContainerId(record.location) &&
       !editingDescendantRecordIds.has(record.id),
@@ -457,11 +449,13 @@ export function getUsableContainerRecords({
 
 function buildInventoryRecord({
   id,
+  entityId,
   input,
   location,
   sortOrder,
 }: {
   id: InventoryRecordId;
+  entityId: EntityId;
   input: InventoryRecordFormInput;
   location: InventoryLocation;
   sortOrder: number;
@@ -473,6 +467,7 @@ function buildInventoryRecord({
       ok: true,
       record: {
         id,
+        entityId,
         recordType: "coins",
         location,
         sortOrder,
@@ -502,6 +497,7 @@ function buildInventoryRecord({
   const shared = {
     id,
     name,
+    entityId,
     location,
     sortOrder,
     quantity,
@@ -619,9 +615,11 @@ function getUsableContainerId({
 
 function getNextInventoryRecordSortOrder(
   records: InventoryRecord[],
+  entityId: EntityId,
   location: InventoryLocation,
 ): number {
   const siblingRecords = records.filter((record) =>
+    record.entityId === entityId &&
     areInventoryLocationsSiblings(record.location, location),
   );
 
@@ -644,11 +642,15 @@ function areInventoryLocationsSiblings(
     : undefined;
 
   return (
-    leftLocation.entityId === rightLocation.entityId &&
-    leftLocation.locationType === rightLocation.locationType &&
-    leftLocation.placement === rightLocation.placement &&
+    leftLocation.kind === rightLocation.kind &&
+    getInventoryLocationPlacement(leftLocation) ===
+      getInventoryLocationPlacement(rightLocation) &&
     leftContainerId === rightContainerId
   );
+}
+
+function getInventoryLocationPlacement(location: InventoryLocation): string {
+  return location.kind === "equipped" ? location.placement : location.kind;
 }
 
 function getDescendantRecordIds(

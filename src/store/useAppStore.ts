@@ -288,7 +288,7 @@ export const useAppStore = create<AppStore>((set) => ({
       }
 
       const deletedRecordCount = state.appState.inventoryRecords.filter(
-        (record) => record.location.entityId === entityId,
+        (record) => record.entityId === entityId,
       ).length;
       const nextAppState = {
         ...state.appState,
@@ -296,7 +296,7 @@ export const useAppStore = create<AppStore>((set) => ({
           (candidateEntity) => candidateEntity.id !== entityId,
         ),
         inventoryRecords: state.appState.inventoryRecords.filter(
-          (record) => record.location.entityId !== entityId,
+          (record) => record.entityId !== entityId,
         ),
       };
 
@@ -439,7 +439,7 @@ export const useAppStore = create<AppStore>((set) => ({
           },
           [
             {
-              entityId: buildResult.record.location.entityId,
+              entityId: buildResult.record.entityId,
               eventType: "inventoryRecordCreated",
               recordId,
               summary: `Created ${getInventoryRecordAuditLabel(
@@ -467,7 +467,7 @@ export const useAppStore = create<AppStore>((set) => ({
       const record = state.appState.inventoryRecords.find(
         (candidateRecord) => candidateRecord.id === recordId,
       );
-      const targetEntityId = input.location?.entityId ?? record?.location.entityId;
+      const targetEntityId = input.location?.entityId ?? record?.entityId;
       const entity = state.appState.entities.find(
         (candidateEntity) => candidateEntity.id === targetEntityId,
       );
@@ -498,14 +498,14 @@ export const useAppStore = create<AppStore>((set) => ({
         (candidateRecord) =>
           candidateRecord.id === recordId ? buildResult.record : candidateRecord,
       );
-      const nextInventoryRecords = areInventoryLocationsEqual(
-        record.location,
-        buildResult.record.location,
-      )
+      const nextInventoryRecords =
+        record.entityId === buildResult.record.entityId &&
+        areInventoryLocationsEqual(record.location, buildResult.record.location)
         ? replacedInventoryRecords
         : moveInventoryRecord({
             recordId,
             records: replacedInventoryRecords,
+            entityId: buildResult.record.entityId,
             location: buildResult.record.location,
           }).map((candidateRecord) =>
             candidateRecord.id === recordId
@@ -576,6 +576,7 @@ export const useAppStore = create<AppStore>((set) => ({
         recordType: record.recordType,
         records: state.appState.inventoryRecords,
         location,
+        isContainer: Boolean(record.container),
         editingRecordId: recordId,
       });
 
@@ -587,6 +588,7 @@ export const useAppStore = create<AppStore>((set) => ({
       const nextInventoryRecords = moveInventoryRecord({
         recordId,
         records: state.appState.inventoryRecords,
+        entityId: entity.id,
         location: locationResult.location,
       });
       const validationResult = validateInventoryState(
@@ -614,13 +616,16 @@ export const useAppStore = create<AppStore>((set) => ({
             ...state.appState,
             inventoryRecords: nextInventoryRecords,
           },
+          record.entityId === nextRecord.entityId &&
           areInventoryLocationsEqual(record.location, nextRecord.location)
             ? []
             : [
                 createInventoryMoveAuditEntryInput({
                   record: nextRecord,
                   entities: state.appState.entities,
+                  previousEntityId: record.entityId,
                   previousLocation: record.location,
+                  nextEntityId: nextRecord.entityId,
                   nextLocation: nextRecord.location,
                 }),
               ],
@@ -676,7 +681,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
       result = { ok: true, recordId };
       const entity = state.appState.entities.find(
-        (candidateEntity) => candidateEntity.id === record.location.entityId,
+        (candidateEntity) => candidateEntity.id === record.entityId,
       );
 
       return {
@@ -687,11 +692,11 @@ export const useAppStore = create<AppStore>((set) => ({
           },
           [
             {
-              entityId: record.location.entityId,
+              entityId: record.entityId,
               eventType: "inventoryRecordDeleted",
               recordId,
               summary: `Deleted ${getInventoryRecordAuditLabel(record)} from ${
-                entity ? formatEntityName(entity) : record.location.entityId
+                entity ? formatEntityName(entity) : record.entityId
               }.`,
               details: createInventoryRecordDetails(
                 record,
@@ -809,6 +814,7 @@ function createInventoryUpdateAuditEntries(input: {
   const entries: AuditLogEntryInput[] = [];
 
   if (
+    input.previousRecord.entityId !== input.nextRecord.entityId ||
     !areInventoryLocationsEqual(
       input.previousRecord.location,
       input.nextRecord.location,
@@ -817,7 +823,9 @@ function createInventoryUpdateAuditEntries(input: {
     entries.push(
       createInventoryMoveAuditEntryInput({
         entities: input.entities,
+        nextEntityId: input.nextRecord.entityId,
         nextLocation: input.nextRecord.location,
+        previousEntityId: input.previousRecord.entityId,
         previousLocation: input.previousRecord.location,
         record: input.nextRecord,
       }),
@@ -851,7 +859,7 @@ function createInventoryUpdateAuditEntries(input: {
     input.previousRecord.treasure.gpValue !== input.nextRecord.treasure.gpValue
   ) {
     entries.push({
-      entityId: input.nextRecord.location.entityId,
+      entityId: input.nextRecord.entityId,
       eventType: "treasureValueChanged",
       recordId: input.nextRecord.id,
       summary: `Changed treasure value for ${getInventoryRecordAuditLabel(
@@ -900,25 +908,40 @@ function createCoinChangeAuditEntryInput(input: {
 
 function createInventoryMoveAuditEntryInput(input: {
   entities: Entity[];
+  nextEntityId: EntityId;
   nextLocation: InventoryLocation;
+  previousEntityId: EntityId;
   previousLocation: InventoryLocation;
   record: InventoryRecord;
 }): AuditLogEntryInput {
   return {
-    entityId: input.nextLocation.entityId,
+    entityId: input.nextEntityId,
     eventType: "inventoryRecordMoved",
     recordId: input.record.id,
     summary: `Moved ${getInventoryRecordAuditLabel(
       input.record,
     )} from ${formatInventoryLocation(
+      input.previousEntityId,
       input.previousLocation,
       input.entities,
-    )} to ${formatInventoryLocation(input.nextLocation, input.entities)}.`,
+    )} to ${formatInventoryLocation(
+      input.nextEntityId,
+      input.nextLocation,
+      input.entities,
+    )}.`,
     details: {
-      fromEntityId: input.previousLocation.entityId,
-      toEntityId: input.nextLocation.entityId,
-      fromLocation: formatInventoryLocation(input.previousLocation, input.entities),
-      toLocation: formatInventoryLocation(input.nextLocation, input.entities),
+      fromEntityId: input.previousEntityId,
+      toEntityId: input.nextEntityId,
+      fromLocation: formatInventoryLocation(
+        input.previousEntityId,
+        input.previousLocation,
+        input.entities,
+      ),
+      toLocation: formatInventoryLocation(
+        input.nextEntityId,
+        input.nextLocation,
+        input.entities,
+      ),
     },
   };
 }
@@ -928,7 +951,7 @@ function createInventoryRecordDetails(
   entities: Entity[],
 ): Record<string, string | number | boolean | null> {
   const details: Record<string, string | number | boolean | null> = {
-    location: formatInventoryLocation(record.location, entities),
+    location: formatInventoryLocation(record.entityId, record.location, entities),
     recordType: record.recordType,
   };
 
@@ -956,17 +979,20 @@ function getInventoryRecordAuditLabel(record: InventoryRecord): string {
 }
 
 function formatInventoryLocation(
+  entityId: EntityId,
   location: InventoryLocation,
   entities: Entity[],
 ): string {
   const entity = entities.find(
-    (candidateEntity) => candidateEntity.id === location.entityId,
+    (candidateEntity) => candidateEntity.id === entityId,
   );
-  const entityLabel = entity ? entity.name : location.entityId;
+  const entityLabel = entity ? entity.name : entityId;
   const containerLabel =
     "containerId" in location ? ` in ${location.containerId}` : "";
+  const placement =
+    location.kind === "equipped" ? location.placement : location.kind;
 
-  return `${entityLabel} ${location.placement}${containerLabel}`;
+  return `${entityLabel} ${placement}${containerLabel}`;
 }
 
 function hasCoinDelta(delta: CoinData): boolean {
@@ -983,11 +1009,15 @@ function areInventoryLocationsEqual(
     "containerId" in rightLocation ? rightLocation.containerId : undefined;
 
   return (
-    leftLocation.entityId === rightLocation.entityId &&
-    leftLocation.locationType === rightLocation.locationType &&
-    leftLocation.placement === rightLocation.placement &&
+    leftLocation.kind === rightLocation.kind &&
+    getInventoryLocationPlacement(leftLocation) ===
+      getInventoryLocationPlacement(rightLocation) &&
     leftContainerId === rightContainerId
   );
+}
+
+function getInventoryLocationPlacement(location: InventoryLocation): string {
+  return location.kind === "equipped" ? location.placement : location.kind;
 }
 
 function canStartFirebaseSync(): boolean {

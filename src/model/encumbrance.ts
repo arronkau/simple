@@ -100,12 +100,17 @@ export function getEffectiveCarryState(
     return "excluded";
   }
 
-  switch (record.location.locationType) {
+  const rootRecord = getTopLevelRecord(record, records);
+
+  switch (rootRecord.location.kind) {
     case "equipped":
       return "equipped";
-    case "stowed":
+    case "stowedRoot":
+    case "coinPurse":
       return "stowed";
     case "contents":
+      return "contents";
+    case "container":
       return "contents";
   }
 }
@@ -121,7 +126,7 @@ export function getEquippedSlots(
   return records
     .filter(
       (record) =>
-        record.location.entityId === entity.id &&
+        record.entityId === entity.id &&
         getEffectiveCarryState(record, records) === "equipped",
     )
     .reduce(
@@ -142,7 +147,7 @@ export function getStowedSlots(
   return records
     .filter(
       (record) =>
-        record.location.entityId === entity.id &&
+        record.entityId === entity.id &&
         getEffectiveCarryState(record, records) === "stowed",
     )
     .reduce(
@@ -303,7 +308,7 @@ function getContainerCapacityWarnings(
   records: InventoryRecord[],
 ): EncumbranceWarning[] {
   return records.flatMap((record) => {
-    if (record.location.entityId !== entity.id || !record.container) {
+    if (record.entityId !== entity.id || !record.container) {
       return [];
     }
 
@@ -355,7 +360,7 @@ function getHandsRequiredContainerWarnings(
 ): EncumbranceWarning[] {
   return records.flatMap((record) => {
     if (
-      record.location.entityId !== entity.id ||
+      record.entityId !== entity.id ||
       !record.container ||
       getRecordHandsRequired(record) === 0 ||
       getDirectChildRecords(record.id, records).length === 0 ||
@@ -431,9 +436,39 @@ function getMovementRecordSlotBurden(
 function isHeldContainer(record: InventoryRecord): boolean {
   return (
     Boolean(record.container) &&
-    record.location.locationType === "equipped" &&
+    record.location.kind === "equipped" &&
     isHandPlacement(record.location.placement)
   );
+}
+
+function getTopLevelRecord(
+  record: InventoryRecord,
+  records: InventoryRecord[],
+): InventoryRecord {
+  const visitedRecordIds = new Set<InventoryRecordId>([record.id]);
+  let currentRecord = record;
+
+  while (currentRecord.location.kind === "container") {
+    const containerId = currentRecord.location.containerId;
+
+    if (visitedRecordIds.has(containerId)) {
+      break;
+    }
+
+    visitedRecordIds.add(containerId);
+
+    const parentRecord = records.find(
+      (candidateRecord) => candidateRecord.id === containerId,
+    );
+
+    if (!parentRecord) {
+      break;
+    }
+
+    currentRecord = parentRecord;
+  }
+
+  return currentRecord;
 }
 
 function isHandPlacement(placement: string): boolean {
