@@ -38,7 +38,8 @@ const topLevelContainerRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
   container: {
     capacitySlots: 8,
@@ -76,7 +77,8 @@ const nestedContainerChildRecord: InventoryRecord = {
     containerId: nestedContainerRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
 };
 
@@ -102,7 +104,8 @@ const childRecord: InventoryRecord = {
     containerId: editingContainerRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
 };
 
@@ -116,7 +119,8 @@ const mountContainerRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
   container: {
     capacitySlots: 6,

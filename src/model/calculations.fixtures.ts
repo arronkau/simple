@@ -38,7 +38,6 @@ const coinsRecord: InventoryRecord = {
     placement: "coinPurse",
   },
   sortOrder: 0,
-  slotProfile: { kind: "coins" },
   coins: {
     pp: 0,
     gp: 12,
@@ -57,7 +56,8 @@ const crateRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 2 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
   container: {
     capacitySlots: 8,
     burdenMode: "containerPlusContents",
@@ -75,7 +75,8 @@ const ropeRecord: InventoryRecord = {
     containerId: "crate-1",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const torchRecord: InventoryRecord = {
@@ -89,7 +90,8 @@ const torchRecord: InventoryRecord = {
     containerId: "crate-1",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "stackable", quantity: 6, perSlot: 3 },
+  quantity: 6,
+  burden: { kind: "stacked", itemsPerSlot: 3 },
 };
 
 const contentsOnlyBoxRecord: InventoryRecord = {
@@ -102,7 +104,8 @@ const contentsOnlyBoxRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 2000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   container: {
     capacitySlots: 4,
     burdenMode: "contentsOnlyWhenLoaded",
@@ -120,7 +123,8 @@ const contentsOnlyBoxChildRecord: InventoryRecord = {
     containerId: contentsOnlyBoxRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const sackRecord: InventoryRecord = {
@@ -133,7 +137,8 @@ const sackRecord: InventoryRecord = {
     placement: "rightHand",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   container: {
     capacitySlots: 6,
@@ -151,7 +156,8 @@ const rationsRecord: InventoryRecord = {
     containerId: "sack-1",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 3 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
 const capacityRecords = [crateRecord, ropeRecord, torchRecord];

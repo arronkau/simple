@@ -32,7 +32,8 @@ const legacyWeaponRecord: InventoryRecord = {
     placement: "bothHands",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   weapon: {
     hands: "twoHands",
   },
@@ -47,7 +48,6 @@ const firebaseCoinRecord: InventoryRecord = {
     placement: "coinPurse",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "coins" },
   coins: {
     pp: 0,
     gp: 5,
@@ -73,6 +73,39 @@ const legacyStoredAppState: Omit<AppState, "auditLog"> = {
   schemaVersion: 1,
   entities: [characterEntity],
   inventoryRecords: [legacyWeaponRecord],
+};
+
+const legacySlotProfileAppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [
+    {
+      id: "daggers-1",
+      recordType: "weapon",
+      name: "Daggers",
+      location: {
+        entityId: characterEntity.id,
+        locationType: "equipped",
+        placement: "loose",
+      },
+      sortOrder: 0,
+      slotProfile: { kind: "fixed", slots: 1 },
+      weapon: {},
+    },
+    {
+      id: "rations-1",
+      recordType: "equipment",
+      name: "Rations",
+      location: {
+        entityId: characterEntity.id,
+        locationType: "stowed",
+        placement: "backpack",
+        containerId: "backpack-1",
+      },
+      sortOrder: 1000,
+      slotProfile: { kind: "stackable", quantity: 15, perSlot: 5 },
+    },
+  ],
 };
 
 const storedAppState: AppState = {
@@ -123,6 +156,42 @@ export const APP_STATE_MANUAL_FIXTURES = [
     name: "app state parsing preserves current audit log entries",
     actual: parseAppState(storedAppState)?.auditLog,
     expected: [auditLogEntry],
+  },
+  {
+    name: "app state parsing migrates legacy slot profiles",
+    actual: parseAppState(legacySlotProfileAppState)?.inventoryRecords,
+    expected: [
+      {
+        id: "daggers-1",
+        recordType: "weapon",
+        name: "Daggers",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "equipped",
+          placement: "loose",
+        },
+        sortOrder: 0,
+        weapon: {},
+        quantity: 1,
+        burden: { kind: "fixed", slotsPerItem: 1 },
+        handsRequired: 0,
+      },
+      {
+        id: "rations-1",
+        recordType: "equipment",
+        name: "Rations",
+        location: {
+          entityId: characterEntity.id,
+          locationType: "stowed",
+          placement: "backpack",
+          containerId: "backpack-1",
+        },
+        sortOrder: 1000,
+        quantity: 15,
+        burden: { kind: "stacked", itemsPerSlot: 5 },
+        handsRequired: 0,
+      },
+    ],
   },
   {
     name: "invalid app state values do not parse",

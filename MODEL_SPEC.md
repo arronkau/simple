@@ -216,7 +216,8 @@ export type InventoryRecord = {
 
   location: InventoryLocation;
   sortOrder: number;
-  slotProfile: SlotProfile;
+  quantity?: number;
+  burden?: InventoryBurden;
 
   coins?: CoinData;
   treasure?: TreasureData;
@@ -237,9 +238,10 @@ export type InventoryRecord = {
 
 ### Inventory Record Field Rules
 
-- `id`, `recordType`, `location`, `sortOrder`, and `slotProfile` are required.
+- `id`, `recordType`, `location`, and `sortOrder` are required.
 - `name` is optional only for `recordType: "coins"`.
 - All non-coin records must have a non-empty trimmed `name`.
+- All non-coin records must have `quantity` and `burden`.
 - `coins` is required when `recordType === "coins"` and must be absent otherwise.
 - `treasure` is required when `recordType === "treasure"` and must be absent otherwise.
 - `weapon` is required when `recordType === "weapon"` and must be absent otherwise.
@@ -345,24 +347,26 @@ export type InventoryLocation =
 - Default location for newly created non-coin records on character-like entities is `locationType: "equipped"` and `placement: "loose"` unless the user chooses a valid stowed placement.
 - Default location for newly created records on non-character entities is `locationType: "contents"` and `placement: "contents"`.
 
-## Slot Profile
+## Inventory Quantity And Burden
 
 ```ts
-export type SlotProfile =
-  | { kind: "fixed"; slots: number }
-  | { kind: "stackable"; quantity: number; perSlot: number }
-  | { kind: "coins" };
+export type InventoryBurden =
+  | { kind: "fixed"; slotsPerItem: number }
+  | { kind: "stacked"; itemsPerSlot: number }
+  | { kind: "none" };
 ```
 
-### Slot Profile Rules
+### Quantity And Burden Rules
 
-- A record has exactly one `slotProfile`.
+- Every non-coin record has `quantity` and `burden`.
+- Coin records do not use `quantity` or `burden`.
+- `quantity` is the number of copies represented by the record.
 - Use `fixed` for normal items, armor, weapons, treasure, and containers.
-- Use `stackable` for records such as torches, rations, spikes, or ammunition when multiple units share slots.
-- Use `coins` only for `recordType: "coins"`.
-- `fixed.slots` must be `>= 0`.
-- `stackable.quantity` must be `>= 0`.
-- `stackable.perSlot` must be `> 0`.
+- Use `stacked` for records such as torches, rations, spikes, or ammunition when multiple units share slots.
+- Use `none` for records with no slot burden regardless of quantity, such as zero-burden treasure.
+- `quantity` must be a positive integer.
+- `fixed.slotsPerItem` must be `>= 0`.
+- `stacked.itemsPerSlot` must be a positive integer.
 - Avoid fractional slots for v1 unless a later task explicitly requires them.
 
 ## Coin Data
@@ -382,7 +386,6 @@ export type CoinData = {
 - Non-character entities may have multiple coin records, as long as each record has a valid contents/container location.
 - Coin denomination fields are required and default to `0`.
 - Coin denomination fields must be non-negative integers.
-- Coin records should use `slotProfile: { kind: "coins" }`.
 - Character-like coin records must use `locationType: "stowed"` and `placement: "coinPurse"`.
 - Character-like coin records count toward stowed slots.
 - The coin purse is not a real container.
@@ -406,7 +409,7 @@ export type TreasureData = {
 - `gpValue` must be `>= 0`.
 - Treasure records use normal inventory location and slot rules.
 - Treasure is always identified.
-- Treasure may use `slotProfile.kind: "fixed"` or `"stackable"` depending on the record.
+- Treasure may use `burden.kind: "fixed"`, `"stacked"`, or `"none"` depending on the record.
 
 ## Weapon Data
 
@@ -516,7 +519,8 @@ const createDefaultBackpack = (entityId: EntityId): InventoryRecord => ({
     placement: "loose",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
   container: {
     capacitySlots: 16,
@@ -615,26 +619,28 @@ A coin record with zero total coins uses `0` slots.
 ### Fixed Slots
 
 ```ts
-fixedSlots = slotProfile.slots
+fixedSlots = quantity * burden.slotsPerItem
 ```
 
-### Stackable Slots
+### Stacked Slots
 
 ```ts
-stackableSlots = Math.ceil(quantity / perSlot)
+stackedSlots = Math.ceil(quantity / burden.itemsPerSlot)
 ```
 
-A stackable record with quantity `0` uses `0` slots.
+A record with `burden.kind === "none"` uses `0` slots.
 
 ### Base Record Slots
 
 ```ts
 baseRecordSlots =
-  slotProfile.kind === "fixed"
-    ? slotProfile.slots
-    : slotProfile.kind === "stackable"
-      ? Math.ceil(slotProfile.quantity / slotProfile.perSlot)
-      : Math.ceil(totalCoins(record.coins) / 100)
+  recordType === "coins"
+    ? Math.ceil(totalCoins(record.coins) / 100)
+    : burden.kind === "fixed"
+      ? quantity * burden.slotsPerItem
+      : burden.kind === "stacked"
+        ? Math.ceil(quantity / burden.itemsPerSlot)
+        : 0
 ```
 
 ### Container Used Slots
@@ -808,8 +814,8 @@ The app should prevent state that violates these invariants:
 - No cross-entity containment.
 - Character-like entities have at most one coin record.
 - Non-character entities may have multiple coin records if each has a valid contents/container location.
-- Character-like coins use only `recordType: "coins"`, `coins`, `slotProfile.kind: "coins"`, and stowed coin-purse location.
-- Non-character coins use only `recordType: "coins"`, `coins`, `slotProfile.kind: "coins"`, and contents location.
+- Character-like coins use only `recordType: "coins"`, `coins`, and stowed coin-purse location.
+- Non-character coins use only `recordType: "coins"`, `coins`, and contents location.
 - Treasure records do not use identification data.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.

@@ -16,7 +16,6 @@ const emptyCoinRecord: InventoryRecord = {
     placement: "coinPurse",
   },
   sortOrder: 0,
-  slotProfile: { kind: "coins" },
   coins: {
     pp: 0,
     gp: 0,
@@ -46,7 +45,8 @@ const zeroTreasureRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   treasure: {
     gpValue: 0,
   },
@@ -76,7 +76,8 @@ const emptyContainerRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
   container: {
     capacitySlots: 6,
@@ -99,7 +100,8 @@ const childRecord: InventoryRecord = {
     containerId: nonEmptyContainerRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
 };
 
@@ -113,7 +115,8 @@ const ordinaryRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 0,
 };
 

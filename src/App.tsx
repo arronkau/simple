@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { APP_STATE_STORAGE_KEY } from "./model/appState";
 import {
   AUDIT_EVENT_TYPE_LABELS,
@@ -116,10 +116,10 @@ type RecordFormState = {
   range: string;
   baseArmorClass: string;
   armorBonus: string;
-  slotKind: "fixed" | "stackable";
-  slots: string;
+  burdenKind: "none" | "fixed" | "stacked";
   quantity: string;
-  perSlot: string;
+  slotsPerItem: string;
+  itemsPerSlot: string;
   isContainer: boolean;
   capacitySlots: string;
   handsRequired: "0" | "1" | "2";
@@ -297,6 +297,11 @@ function LocalAppShell() {
           </button>
         </div>
 
+        <nav className="app-nav" aria-label="Primary">
+          <NavLink to="/inventory">Inventory</NavLink>
+          <NavLink to="/characters">Characters</NavLink>
+        </nav>
+
         <dl className="state-summary">
           <div>
             <dt>Schema</dt>
@@ -312,182 +317,48 @@ function LocalAppShell() {
           </div>
         </dl>
 
-        <section className="entity-workspace" aria-labelledby="entities-title">
-          <div className="section-heading">
-            <div>
-              <h2 id="entities-title">Entities</h2>
-              <p>Characters, retainers, mounts, vehicles, and storage.</p>
-            </div>
-          </div>
-
-          <form className="entity-form" onSubmit={handleCreateEntity}>
-            <label>
-              <span>Name</span>
-              <input
-                autoComplete="off"
-                maxLength={80}
-                required
-                type="text"
-                value={formState.name}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    name: event.target.value,
-                  }))
-                }
+        <Routes>
+          <Route index element={<Navigate to="/inventory" replace />} />
+          <Route
+            path="inventory"
+            element={
+              <InventoryPage
+                appState={appState}
+                editingEntityId={editingEntityId}
+                editingName={editingName}
+                formState={formState}
+                recordForm={recordForm}
+                recordFormMessage={recordFormMessage}
+                sortedEntities={sortedEntities}
+                onCancelEditing={cancelEditing}
+                onCancelRecordForm={cancelRecordForm}
+                onChangeEntityForm={setFormState}
+                onChangeEditingName={setEditingName}
+                onChangeRecordForm={setRecordForm}
+                onCreateEntity={handleCreateEntity}
+                onDeleteEntity={deleteEntity}
+                onDeleteRecord={removeInventoryRecord}
+                onEditEntity={startEditing}
+                onEditRecord={startEditingRecord}
+                onSaveEditing={saveEditing}
+                onSaveRecordForm={saveRecordForm}
+                onSetEntityActive={setEntityActive}
+                onStartAddRecord={startAddingRecord}
               />
-            </label>
-
-            <label>
-              <span>Type</span>
-              <select
-                value={formState.entityType}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    entityType: event.target.value as EntityType,
-                  }))
-                }
-              >
-                {ENTITY_TYPES.map((entityType) => (
-                  <option key={entityType} value={entityType}>
-                    {ENTITY_TYPE_LABELS[entityType]}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <button type="submit">Add entity</button>
-          </form>
-
-          {sortedEntities.length === 0 ? (
-            <p className="empty-state">No entities yet.</p>
-          ) : (
-            <ul className="entity-list" aria-label="Entities">
-              {sortedEntities.map((entity) => {
-                const backpackCount = findBackpackRecords(
-                  entity.id,
-                  appState.inventoryRecords,
-                ).length;
-                const isEditing = editingEntityId === entity.id;
-
-                return (
-                  <li
-                    className="entity-row"
-                    data-inactive={!entity.active}
-                    key={entity.id}
-                  >
-                    <div className="entity-main">
-                      {isEditing ? (
-                        <label className="edit-name">
-                          <span>Name</span>
-                          <input
-                            autoComplete="off"
-                            maxLength={80}
-                            required
-                            type="text"
-                            value={editingName}
-                            onChange={(event) =>
-                              setEditingName(event.target.value)
-                            }
-                          />
-                        </label>
-                      ) : (
-                        <div>
-                          <h3>{entity.name}</h3>
-                          <div className="entity-meta">
-                            <span>{ENTITY_TYPE_LABELS[entity.entityType]}</span>
-                            <span>{entity.active ? "Active" : "Inactive"}</span>
-                            <span>Sort {entity.sortOrder}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="entity-inventory-meta">
-                        <span>{getEntityRecordCount(entity.id, appState)}</span>
-                        <span>{getBackpackSummary(entity, backpackCount)}</span>
-                      </div>
-                    </div>
-
-                    <div className="entity-actions">
-                      {isEditing ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => saveEditing(entity.id)}
-                          >
-                            Save
-                          </button>
-                          <button type="button" onClick={cancelEditing}>
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => startEditing(entity)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setEntityActive(entity.id, !entity.active)
-                            }
-                          >
-                            {entity.active ? "Deactivate" : "Reactivate"}
-                          </button>
-                          <button
-                            className="danger-button"
-                            type="button"
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  `Delete ${entity.name} and its inventory records?`,
-                                )
-                              ) {
-                                deleteEntity(entity.id);
-                              }
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-
-                    {isCharacterLikeEntity(entity) ? (
-                      <CharacterSheetPanel
-                        entity={entity}
-                        onSaveCharacterData={updateCharacterData}
-                      />
-                    ) : null}
-
-                    <InventoryDisplay
-                      entity={entity}
-                      appState={appState}
-                      recordForm={
-                        recordForm?.entityId === entity.id ? recordForm : undefined
-                      }
-                      recordFormMessage={
-                        recordForm?.entityId === entity.id
-                          ? recordFormMessage
-                          : undefined
-                      }
-                      onCancelRecordForm={cancelRecordForm}
-                      onChangeRecordForm={setRecordForm}
-                      onDeleteRecord={removeInventoryRecord}
-                      onEditRecord={startEditingRecord}
-                      onSaveRecordForm={saveRecordForm}
-                      onStartAddRecord={startAddingRecord}
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+            }
+          />
+          <Route
+            path="characters"
+            element={
+              <CharactersPage
+                appState={appState}
+                sortedEntities={sortedEntities}
+                onSaveCharacterData={updateCharacterData}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/inventory" replace />} />
+        </Routes>
 
         <AuditLogPanel
           appState={appState}
@@ -509,6 +380,459 @@ function LocalAppShell() {
         </div>
       </section>
     </main>
+  );
+}
+
+function InventoryPage({
+  appState,
+  editingEntityId,
+  editingName,
+  formState,
+  recordForm,
+  recordFormMessage,
+  sortedEntities,
+  onCancelEditing,
+  onCancelRecordForm,
+  onChangeEntityForm,
+  onChangeEditingName,
+  onChangeRecordForm,
+  onCreateEntity,
+  onDeleteEntity,
+  onDeleteRecord,
+  onEditEntity,
+  onEditRecord,
+  onSaveEditing,
+  onSaveRecordForm,
+  onSetEntityActive,
+  onStartAddRecord,
+}: {
+  appState: AppState;
+  editingEntityId?: EntityId;
+  editingName: string;
+  formState: EntityFormState;
+  recordForm?: RecordFormState;
+  recordFormMessage?: string;
+  sortedEntities: Entity[];
+  onCancelEditing: () => void;
+  onCancelRecordForm: () => void;
+  onChangeEntityForm: (formState: EntityFormState) => void;
+  onChangeEditingName: (name: string) => void;
+  onChangeRecordForm: (formState: RecordFormState) => void;
+  onCreateEntity: (event: FormEvent<HTMLFormElement>) => void;
+  onDeleteEntity: (entityId: EntityId) => void;
+  onDeleteRecord: (record: InventoryRecord) => void;
+  onEditEntity: (entity: Entity) => void;
+  onEditRecord: (record: InventoryRecord) => void;
+  onSaveEditing: (entityId: EntityId) => void;
+  onSaveRecordForm: (event: FormEvent<HTMLFormElement>) => void;
+  onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onStartAddRecord: (entity: Entity) => void;
+}) {
+  const recordFormEntity = recordForm
+    ? appState.entities.find((entity) => entity.id === recordForm.entityId)
+    : undefined;
+
+  return (
+    <section className="entity-workspace" aria-labelledby="inventory-title">
+      <div className="section-heading">
+        <div>
+          <h2 id="inventory-title">Inventory</h2>
+          <p>Party entities, inventory contents, and encumbrance summaries.</p>
+        </div>
+      </div>
+
+      <EntityForm
+        formState={formState}
+        onChange={onChangeEntityForm}
+        onSubmit={onCreateEntity}
+      />
+
+      {sortedEntities.length === 0 ? (
+        <p className="empty-state">No entities yet.</p>
+      ) : (
+        <ul className="entity-list" aria-label="Inventory entities">
+          {sortedEntities.map((entity) => (
+            <EntityInventoryRow
+              appState={appState}
+              editingEntityId={editingEntityId}
+              editingName={editingName}
+              entity={entity}
+              key={entity.id}
+              onCancelEditing={onCancelEditing}
+              onChangeEditingName={onChangeEditingName}
+              onDeleteEntity={onDeleteEntity}
+              onDeleteRecord={onDeleteRecord}
+              onEditEntity={onEditEntity}
+              onEditRecord={onEditRecord}
+              onSaveEditing={onSaveEditing}
+              onSetEntityActive={onSetEntityActive}
+              onStartAddRecord={onStartAddRecord}
+            />
+          ))}
+        </ul>
+      )}
+
+      {recordForm && recordFormEntity ? (
+        <InventoryRecordModal
+          appState={appState}
+          entity={recordFormEntity}
+          formState={recordForm}
+          message={recordFormMessage}
+          onCancel={onCancelRecordForm}
+          onChange={onChangeRecordForm}
+          onDeleteRecord={onDeleteRecord}
+          onSubmit={onSaveRecordForm}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function EntityForm({
+  formState,
+  onChange,
+  onSubmit,
+}: {
+  formState: EntityFormState;
+  onChange: (formState: EntityFormState) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <form className="entity-form" onSubmit={onSubmit}>
+      <label>
+        <span>Name</span>
+        <input
+          autoComplete="off"
+          maxLength={80}
+          required
+          type="text"
+          value={formState.name}
+          onChange={(event) =>
+            onChange({
+              ...formState,
+              name: event.target.value,
+            })
+          }
+        />
+      </label>
+
+      <label>
+        <span>Type</span>
+        <select
+          value={formState.entityType}
+          onChange={(event) =>
+            onChange({
+              ...formState,
+              entityType: event.target.value as EntityType,
+            })
+          }
+        >
+          {ENTITY_TYPES.map((entityType) => (
+            <option key={entityType} value={entityType}>
+              {ENTITY_TYPE_LABELS[entityType]}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <button type="submit">Add entity</button>
+    </form>
+  );
+}
+
+function EntityInventoryRow({
+  appState,
+  editingEntityId,
+  editingName,
+  entity,
+  onCancelEditing,
+  onChangeEditingName,
+  onDeleteEntity,
+  onDeleteRecord,
+  onEditEntity,
+  onEditRecord,
+  onSaveEditing,
+  onSetEntityActive,
+  onStartAddRecord,
+}: {
+  appState: AppState;
+  editingEntityId?: EntityId;
+  editingName: string;
+  entity: Entity;
+  onCancelEditing: () => void;
+  onChangeEditingName: (name: string) => void;
+  onDeleteEntity: (entityId: EntityId) => void;
+  onDeleteRecord: (record: InventoryRecord) => void;
+  onEditEntity: (entity: Entity) => void;
+  onEditRecord: (record: InventoryRecord) => void;
+  onSaveEditing: (entityId: EntityId) => void;
+  onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onStartAddRecord: (entity: Entity) => void;
+}) {
+  const backpackCount = findBackpackRecords(
+    entity.id,
+    appState.inventoryRecords,
+  ).length;
+  const isEditing = editingEntityId === entity.id;
+
+  return (
+    <li className="entity-row" data-inactive={!entity.active}>
+      <EntitySummary
+        appState={appState}
+        editingName={editingName}
+        entity={entity}
+        isEditing={isEditing}
+        onChangeEditingName={onChangeEditingName}
+        backpackCount={backpackCount}
+      />
+
+      <div className="entity-actions">
+        {isEditing ? (
+          <>
+            <button type="button" onClick={() => onSaveEditing(entity.id)}>
+              Save
+            </button>
+            <button type="button" onClick={onCancelEditing}>
+              Cancel
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={() => onEditEntity(entity)}>
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetEntityActive(entity.id, !entity.active)}
+            >
+              {entity.active ? "Deactivate" : "Reactivate"}
+            </button>
+            <button
+              className="danger-button"
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Delete ${entity.name} and its inventory records?`,
+                  )
+                ) {
+                  onDeleteEntity(entity.id);
+                }
+              }}
+            >
+              Delete
+            </button>
+          </>
+        )}
+      </div>
+
+      <InventoryDisplay
+        entity={entity}
+        appState={appState}
+        onDeleteRecord={onDeleteRecord}
+        onEditRecord={onEditRecord}
+        onStartAddRecord={onStartAddRecord}
+      />
+    </li>
+  );
+}
+
+function EntitySummary({
+  appState,
+  backpackCount,
+  editingName,
+  entity,
+  isEditing,
+  onChangeEditingName,
+}: {
+  appState: AppState;
+  backpackCount: number;
+  editingName: string;
+  entity: Entity;
+  isEditing: boolean;
+  onChangeEditingName: (name: string) => void;
+}) {
+  return (
+    <div className="entity-main">
+      {isEditing ? (
+        <label className="edit-name">
+          <span>Name</span>
+          <input
+            autoComplete="off"
+            maxLength={80}
+            required
+            type="text"
+            value={editingName}
+            onChange={(event) => onChangeEditingName(event.target.value)}
+          />
+        </label>
+      ) : (
+        <div>
+          <h3>{entity.name}</h3>
+          <div className="entity-meta">
+            <span>{ENTITY_TYPE_LABELS[entity.entityType]}</span>
+            <span>{entity.active ? "Active" : "Inactive"}</span>
+            <span>Sort {entity.sortOrder}</span>
+          </div>
+        </div>
+      )}
+
+      <div className="entity-inventory-meta">
+        <span>{getEntityRecordCount(entity.id, appState)}</span>
+        <span>{getBackpackSummary(entity, backpackCount)}</span>
+      </div>
+    </div>
+  );
+}
+
+function CharactersPage({
+  appState,
+  sortedEntities,
+  onSaveCharacterData,
+}: {
+  appState: AppState;
+  sortedEntities: Entity[];
+  onSaveCharacterData: (
+    entityId: EntityId,
+    characterData: CharacterData,
+  ) => EntityMutationResult;
+}) {
+  const characterEntities = sortedEntities.filter(isCharacterLikeEntity);
+
+  return (
+    <section className="entity-workspace" aria-labelledby="characters-title">
+      <div className="section-heading">
+        <div>
+          <h2 id="characters-title">Characters</h2>
+          <p>Character and retainer sheets with compact inventory status.</p>
+        </div>
+      </div>
+
+      {characterEntities.length === 0 ? (
+        <p className="empty-state">No characters or retainers yet.</p>
+      ) : (
+        <ul className="entity-list" aria-label="Characters">
+          {characterEntities.map((entity) => {
+            const backpackCount = findBackpackRecords(
+              entity.id,
+              appState.inventoryRecords,
+            ).length;
+
+            return (
+              <li
+                className="entity-row character-page-row"
+                data-inactive={!entity.active}
+                key={entity.id}
+              >
+                <EntitySummary
+                  appState={appState}
+                  backpackCount={backpackCount}
+                  editingName=""
+                  entity={entity}
+                  isEditing={false}
+                  onChangeEditingName={() => undefined}
+                />
+                <CharacterInventorySummary
+                  appState={appState}
+                  entity={entity}
+                />
+                <CharacterSheetPanel
+                  entity={entity}
+                  onSaveCharacterData={onSaveCharacterData}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function CharacterInventorySummary({
+  appState,
+  entity,
+}: {
+  appState: AppState;
+  entity: Entity;
+}) {
+  const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
+  const warnings = getEncumbranceWarnings(entity, appState.inventoryRecords);
+  const validationResult = validateInventoryState(
+    appState.entities,
+    appState.inventoryRecords,
+  );
+  const validationIssues = [
+    ...validationResult.errors,
+    ...validationResult.warnings,
+  ].filter(
+    (issue) =>
+      issue.entityId === entity.id ||
+      (issue.recordId !== undefined &&
+        ownedRecords.some((record) => record.id === issue.recordId)),
+  );
+
+  return (
+    <div className="character-inventory-summary">
+      <EntityInventoryHeader
+        entity={entity}
+        records={appState.inventoryRecords}
+        warnings={warnings}
+        validationIssues={validationIssues}
+      />
+    </div>
+  );
+}
+
+function InventoryRecordModal({
+  appState,
+  entity,
+  formState,
+  message,
+  onCancel,
+  onChange,
+  onDeleteRecord,
+  onSubmit,
+}: {
+  appState: AppState;
+  entity: Entity;
+  formState: RecordFormState;
+  message?: string;
+  onCancel: () => void;
+  onChange: (formState: RecordFormState) => void;
+  onDeleteRecord: (record: InventoryRecord) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const editingRecord = formState.recordId
+    ? getRecordById(formState.recordId, appState.inventoryRecords)
+    : undefined;
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-label={formState.mode === "edit" ? "Edit inventory record" : "Add inventory record"}
+        aria-modal="true"
+        className="modal-panel"
+        role="dialog"
+      >
+        <InventoryRecordForm
+          appState={appState}
+          entity={entity}
+          formState={formState}
+          message={message}
+          onCancel={onCancel}
+          onChange={onChange}
+          onDelete={
+            editingRecord
+              ? () => {
+                  onDeleteRecord(editingRecord);
+                }
+              : undefined
+          }
+          onSubmit={onSubmit}
+        />
+      </section>
+    </div>
   );
 }
 
@@ -894,24 +1218,14 @@ function CharacterSheetPanel({
 function InventoryDisplay({
   entity,
   appState,
-  recordForm,
-  recordFormMessage,
-  onCancelRecordForm,
-  onChangeRecordForm,
   onDeleteRecord,
   onEditRecord,
-  onSaveRecordForm,
   onStartAddRecord,
 }: {
   entity: Entity;
   appState: AppState;
-  recordForm?: RecordFormState;
-  recordFormMessage?: string;
-  onCancelRecordForm: () => void;
-  onChangeRecordForm: (formState: RecordFormState) => void;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onSaveRecordForm: (event: FormEvent<HTMLFormElement>) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
   const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
@@ -938,18 +1252,6 @@ function InventoryDisplay({
           Add record
         </button>
       </div>
-
-      {recordForm ? (
-        <InventoryRecordForm
-          appState={appState}
-          entity={entity}
-          formState={recordForm}
-          message={recordFormMessage}
-          onCancel={onCancelRecordForm}
-          onChange={onChangeRecordForm}
-          onSubmit={onSaveRecordForm}
-        />
-      ) : null}
 
       <EntityInventoryHeader
         entity={entity}
@@ -1143,6 +1445,7 @@ function InventoryRecordForm({
   message,
   onCancel,
   onChange,
+  onDelete,
   onSubmit,
 }: {
   appState: AppState;
@@ -1151,6 +1454,7 @@ function InventoryRecordForm({
   message?: string;
   onCancel: () => void;
   onChange: (formState: RecordFormState) => void;
+  onDelete?: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const targetEntity =
@@ -1333,46 +1637,53 @@ function InventoryRecordForm({
             </label>
 
             <label>
-              <span>Slots</span>
+              <span>Burden type</span>
               <select
-                value={formState.slotKind}
+                value={formState.burdenKind}
                 onChange={(event) =>
                   onChange({
                     ...formState,
-                    slotKind: event.target.value as "fixed" | "stackable",
+                    burdenKind: event.target.value as
+                      | "none"
+                      | "fixed"
+                      | "stacked",
                   })
                 }
               >
-                <option value="fixed">Fixed</option>
-                <option value="stackable">Stackable</option>
+                <option value="none">No slots</option>
+                <option value="fixed">Fixed slots per item</option>
+                <option value="stacked">Stackable items per slot</option>
               </select>
             </label>
 
-            {formState.slotKind === "fixed" ? (
+            <NumberField
+              label="Quantity"
+              value={formState.quantity}
+              onChange={(value) =>
+                onChange({ ...formState, quantity: value })
+              }
+            />
+
+            {formState.burdenKind === "fixed" ? (
               <NumberField
-                label="Fixed slots"
+                label="Slots per item"
                 step="0.25"
-                value={formState.slots}
-                onChange={(value) => onChange({ ...formState, slots: value })}
+                value={formState.slotsPerItem}
+                onChange={(value) =>
+                  onChange({ ...formState, slotsPerItem: value })
+                }
               />
-            ) : (
-              <>
-                <NumberField
-                  label="Quantity"
-                  value={formState.quantity}
-                  onChange={(value) =>
-                    onChange({ ...formState, quantity: value })
-                  }
-                />
-                <NumberField
-                  label="Per slot"
-                  value={formState.perSlot}
-                  onChange={(value) =>
-                    onChange({ ...formState, perSlot: value })
-                  }
-                />
-              </>
-            )}
+            ) : null}
+
+            {formState.burdenKind === "stacked" ? (
+              <NumberField
+                label="Items per slot"
+                value={formState.itemsPerSlot}
+                onChange={(value) =>
+                  onChange({ ...formState, itemsPerSlot: value })
+                }
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -1512,6 +1823,11 @@ function InventoryRecordForm({
         <button type="submit">
           {formState.mode === "edit" ? "Save record" : "Create record"}
         </button>
+        {onDelete ? (
+          <button className="danger-button" type="button" onClick={onDelete}>
+            Delete
+          </button>
+        ) : null}
         <button type="button" onClick={onCancel}>
           Cancel
         </button>
@@ -2063,15 +2379,17 @@ function getRecordMetadata(
   const metadata: string[] = [];
   const slots = getRecordSlotBurden(record);
 
-  if (slots > 1) {
-    metadata.push(formatSlots(slots));
-  }
-
   if (record.recordType === "treasure") {
     metadata.push(`${formatGpValue(record.treasure.gpValue)} gp`);
   }
 
   if (record.recordType !== "coins") {
+    if (record.quantity > 1) {
+      metadata.push(`x${record.quantity}`);
+    }
+
+    metadata.push(formatSlots(slots));
+
     const handsRequired = getRecordHandsRequired(record);
 
     if (handsRequired > 0) {
@@ -2401,10 +2719,10 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
     range: "",
     baseArmorClass: "",
     armorBonus: "",
-    slotKind: "fixed",
-    slots: "1",
+    burdenKind: "fixed",
     quantity: "1",
-    perSlot: "1",
+    slotsPerItem: "1",
+    itemsPerSlot: "1",
     isContainer: false,
     capacitySlots: "0",
     handsRequired: "0",
@@ -2489,20 +2807,23 @@ function toInventoryRecordFormInput(
     };
   }
 
-  const slotProfile =
-    formState.slotKind === "stackable"
-      ? {
-          kind: "stackable" as const,
-          quantity: parseNumberInput(formState.quantity, 1),
-          perSlot: parseNumberInput(formState.perSlot, 1),
-        }
-      : {
-          kind: "fixed" as const,
-          slots: parseNumberInput(formState.slots, 1),
-        };
+  const burden =
+    formState.burdenKind === "none"
+      ? { kind: "none" as const }
+      : formState.burdenKind === "stacked"
+        ? {
+            kind: "stacked" as const,
+            itemsPerSlot: parseNumberInput(formState.itemsPerSlot, 1),
+          }
+        : {
+            kind: "fixed" as const,
+            slotsPerItem: parseNumberInput(formState.slotsPerItem, 1),
+          };
   const handsRequired = Number(formState.handsRequired) as HandsRequired;
   const nonCoinSharedInput = {
     ...sharedInput,
+    quantity: parseNumberInput(formState.quantity, 1),
+    burden,
     handsRequired,
   };
   const container =
@@ -2521,7 +2842,6 @@ function toInventoryRecordFormInput(
       recordType: "treasure",
       name: formState.name,
       gpValue: parseNumberInput(formState.gpValue),
-      slotProfile,
     };
   }
 
@@ -2530,7 +2850,6 @@ function toInventoryRecordFormInput(
       ...nonCoinSharedInput,
       recordType: "weapon",
       name: formState.name,
-      slotProfile,
       container,
       weapon: {
         damage: formState.damage,
@@ -2544,7 +2863,6 @@ function toInventoryRecordFormInput(
       ...nonCoinSharedInput,
       recordType: "armor",
       name: formState.name,
-      slotProfile,
       container,
       armor: {
         ...(formState.baseArmorClass
@@ -2561,7 +2879,6 @@ function toInventoryRecordFormInput(
     ...nonCoinSharedInput,
     recordType: "equipment",
     name: formState.name,
-    slotProfile,
     container,
   };
 }
@@ -2626,28 +2943,36 @@ function getPlacementOptions({
 function getRecordFormSlotState(record: InventoryRecord) {
   if (record.recordType === "coins") {
     return {
-      slotKind: "fixed" as const,
-      slots: "1",
+      burdenKind: "fixed" as const,
       quantity: "1",
-      perSlot: "1",
+      slotsPerItem: "1",
+      itemsPerSlot: "1",
     };
   }
 
-  if (record.slotProfile.kind === "fixed") {
-    return {
-      slotKind: "fixed" as const,
-      slots: record.slotProfile.slots.toString(),
-      quantity: "1",
-      perSlot: "1",
-    };
+  switch (record.burden.kind) {
+    case "none":
+      return {
+        burdenKind: "none" as const,
+        quantity: record.quantity.toString(),
+        slotsPerItem: "1",
+        itemsPerSlot: "1",
+      };
+    case "fixed":
+      return {
+        burdenKind: "fixed" as const,
+        quantity: record.quantity.toString(),
+        slotsPerItem: record.burden.slotsPerItem.toString(),
+        itemsPerSlot: "1",
+      };
+    case "stacked":
+      return {
+        burdenKind: "stacked" as const,
+        quantity: record.quantity.toString(),
+        slotsPerItem: "1",
+        itemsPerSlot: record.burden.itemsPerSlot.toString(),
+      };
   }
-
-  return {
-    slotKind: "stackable" as const,
-    slots: "1",
-    quantity: record.slotProfile.quantity.toString(),
-    perSlot: record.slotProfile.perSlot.toString(),
-  };
 }
 
 function parseNumberInput(value: string, fallback = 0) {
@@ -2682,8 +3007,8 @@ type AppStateLike = ReturnType<typeof useAppStore.getState>["appState"];
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<LocalAppShell />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/*" element={<LocalAppShell />} />
+      <Route path="*" element={<Navigate to="/inventory" replace />} />
     </Routes>
   );
 }

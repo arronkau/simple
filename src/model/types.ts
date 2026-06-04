@@ -147,27 +147,24 @@ export type InventoryLocation =
       containerId: InventoryRecordId;
     };
 
-export type FixedSlotProfile = {
+export type FixedInventoryBurden = {
   kind: "fixed";
-  slots: number;
+  slotsPerItem: number;
 };
 
-export type StackableSlotProfile = {
-  kind: "stackable";
-  quantity: number;
-  perSlot: number;
+export type StackedInventoryBurden = {
+  kind: "stacked";
+  itemsPerSlot: number;
 };
 
-export type CoinSlotProfile = {
-  kind: "coins";
+export type NoInventoryBurden = {
+  kind: "none";
 };
 
-export type SlotProfile =
-  | FixedSlotProfile
-  | StackableSlotProfile
-  | CoinSlotProfile;
-
-export type NonCoinSlotProfile = FixedSlotProfile | StackableSlotProfile;
+export type InventoryBurden =
+  | FixedInventoryBurden
+  | StackedInventoryBurden
+  | NoInventoryBurden;
 
 export type CoinData = {
   pp: number;
@@ -254,13 +251,14 @@ type InventoryRecordShared = {
 };
 
 type NonCoinInventoryRecordShared = InventoryRecordShared & {
+  quantity: number;
+  burden: InventoryBurden;
   handsRequired?: HandsRequired;
 };
 
 export type CoinsRecord = InventoryRecordShared & {
   recordType: "coins";
   name?: string;
-  slotProfile: CoinSlotProfile;
   coins: CoinData;
   treasure?: never;
   weapon?: never;
@@ -272,7 +270,6 @@ export type CoinsRecord = InventoryRecordShared & {
 export type TreasureRecord = NonCoinInventoryRecordShared & {
   recordType: "treasure";
   name: string;
-  slotProfile: NonCoinSlotProfile;
   treasure: TreasureData;
   container?: never;
   coins?: never;
@@ -284,7 +281,6 @@ export type TreasureRecord = NonCoinInventoryRecordShared & {
 export type WeaponRecord = NonCoinInventoryRecordShared & {
   recordType: "weapon";
   name: string;
-  slotProfile: NonCoinSlotProfile;
   weapon: WeaponData;
   container?: ContainerData;
   identification?: IdentificationData;
@@ -296,7 +292,6 @@ export type WeaponRecord = NonCoinInventoryRecordShared & {
 export type ArmorRecord = NonCoinInventoryRecordShared & {
   recordType: "armor";
   name: string;
-  slotProfile: NonCoinSlotProfile;
   armor: ArmorData;
   container?: ContainerData;
   identification?: IdentificationData;
@@ -308,7 +303,6 @@ export type ArmorRecord = NonCoinInventoryRecordShared & {
 export type EquipmentRecord = NonCoinInventoryRecordShared & {
   recordType: "equipment";
   name: string;
-  slotProfile: NonCoinSlotProfile;
   container?: ContainerData;
   identification?: IdentificationData;
   coins?: never;
@@ -345,7 +339,8 @@ export function createDefaultBackpack({
       placement: "loose",
     },
     sortOrder,
-    slotProfile: { kind: "fixed", slots: 1 },
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
     handsRequired: 0,
     container: {
       capacitySlots: 16,

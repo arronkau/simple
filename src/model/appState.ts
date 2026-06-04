@@ -1,6 +1,11 @@
 import { getRecordHandsRequired } from "./types";
 import { normalizeEntityCharacterData } from "./characters";
-import type { AuditLogEntry, Entity, InventoryRecord } from "./types";
+import type {
+  AuditLogEntry,
+  Entity,
+  InventoryBurden,
+  InventoryRecord,
+} from "./types";
 
 export type AppState = {
   schemaVersion: 1;
@@ -81,24 +86,105 @@ function normalizeEntities(entities: Entity[]): Entity[] {
   return entities.map(normalizeEntityCharacterData);
 }
 
-function normalizeInventoryRecords(records: InventoryRecord[]): InventoryRecord[] {
-  return records.map((record) => {
-    if (record.recordType === "coins") {
-      return record;
+function normalizeInventoryRecords(records: unknown[]): InventoryRecord[] {
+  return records.flatMap((record) => {
+    if (!isInventoryRecordLike(record)) {
+      return [];
     }
 
-    return {
-      ...record,
-      handsRequired: getRecordHandsRequired(record),
-    };
+    const { slotProfile: legacySlotProfile, ...recordWithoutSlotProfile } =
+      record as InventoryRecord & { slotProfile?: unknown };
+
+    if (record.recordType === "coins") {
+      return [recordWithoutSlotProfile as InventoryRecord];
+    }
+
+    const migratedRecord = {
+      ...recordWithoutSlotProfile,
+      quantity: normalizeInventoryQuantity(record, legacySlotProfile),
+      burden: normalizeInventoryBurden(record, legacySlotProfile),
+    } as InventoryRecord;
+
+    return [
+      {
+        ...migratedRecord,
+        handsRequired: getRecordHandsRequired(migratedRecord),
+      },
+    ];
   });
+}
+
+function normalizeInventoryQuantity(
+  record: Record<string, unknown>,
+  legacySlotProfile: unknown,
+): number {
+  if (isPositiveInteger(record.quantity)) {
+    return record.quantity;
+  }
+
+  if (
+    isRecordLike(legacySlotProfile) &&
+    legacySlotProfile.kind === "stackable" &&
+    isPositiveInteger(legacySlotProfile.quantity)
+  ) {
+    return legacySlotProfile.quantity;
+  }
+
+  return 1;
+}
+
+function normalizeInventoryBurden(
+  record: Record<string, unknown>,
+  legacySlotProfile: unknown,
+): InventoryBurden {
+  if (isRecordLike(record.burden)) {
+    switch (record.burden.kind) {
+      case "none":
+        return { kind: "none" };
+      case "fixed":
+        return {
+          kind: "fixed",
+          slotsPerItem: normalizeNonNegativeNumber(
+            record.burden.slotsPerItem,
+            1,
+          ),
+        };
+      case "stacked":
+        return {
+          kind: "stacked",
+          itemsPerSlot: normalizePositiveInteger(
+            record.burden.itemsPerSlot,
+            1,
+          ),
+        };
+    }
+  }
+
+  if (isRecordLike(legacySlotProfile)) {
+    if (legacySlotProfile.kind === "fixed") {
+      return {
+        kind: "fixed",
+        slotsPerItem: normalizeNonNegativeNumber(legacySlotProfile.slots, 1),
+      };
+    }
+
+    if (legacySlotProfile.kind === "stackable") {
+      return {
+        kind: "stacked",
+        itemsPerSlot: normalizePositiveInteger(legacySlotProfile.perSlot, 1),
+      };
+    }
+  }
+
+  return { kind: "fixed", slotsPerItem: 1 };
 }
 
 function normalizeAuditLog(auditLog: unknown): AuditLogEntry[] {
   return Array.isArray(auditLog) ? auditLog.filter(isAuditLogEntry) : [];
 }
 
-function isAppState(value: unknown): value is Omit<AppState, "auditLog"> & {
+function isAppState(value: unknown): value is Omit<AppState, "auditLog" | "inventoryRecords"> & {
+  inventoryRecords: unknown[];
   auditLog?: unknown;
 } {
   if (!value || typeof value !== "object") {
@@ -112,6 +198,34 @@ function isAppState(value: unknown): value is Omit<AppState, "auditLog"> & {
     Array.isArray(candidate.entities) &&
     Array.isArray(candidate.inventoryRecords)
   );
+}
+
+function isInventoryRecordLike(value: unknown): value is Record<string, unknown> {
+  return (
+    isRecordLike(value) &&
+    typeof value.id === "string" &&
+    typeof value.recordType === "string" &&
+    isRecordLike(value.location) &&
+    typeof value.sortOrder === "number"
+  );
+}
+
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  return isPositiveInteger(value) ? value : fallback;
+}
+
+function normalizeNonNegativeNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : fallback;
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
 function isAuditLogEntry(value: unknown): value is AuditLogEntry {

@@ -152,7 +152,8 @@ if (phase5CharacterId) {
   useAppStore.getState().createInventoryRecord(phase5CharacterId, {
     recordType: "equipment",
     name: "Rope",
-    slotProfile: { kind: "fixed", slots: 1 },
+    quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   });
 }
 
@@ -161,7 +162,8 @@ if (phase5MountId) {
     recordType: "treasure",
     name: "Trade goods",
     gpValue: 45,
-    slotProfile: { kind: "fixed", slots: 2 },
+    quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
   });
 }
 
@@ -194,7 +196,8 @@ if (phase5CharacterId) {
     {
       recordType: "weapon",
       name: "Sword",
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
     },
   );
 
@@ -225,7 +228,8 @@ if (phase5CharacterId) {
         {
           recordType: "weapon",
           name: "Hammer",
-          slotProfile: { kind: "fixed", slots: 1 },
+          quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
         },
       )
     : undefined;
@@ -244,7 +248,8 @@ if (phase5CharacterId) {
     {
       recordType: "equipment",
       name: "Spare Bag",
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
       container: { capacitySlots: 4 },
     },
   );
@@ -255,7 +260,8 @@ if (phase5CharacterId) {
       {
         recordType: "equipment",
         name: "Nested Pouch",
-        slotProfile: { kind: "fixed", slots: 1 },
+        quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
         container: { capacitySlots: 1 },
         location: {
           entityId: phase5CharacterId,
@@ -273,7 +279,8 @@ if (phase5CharacterId) {
   useAppStore.getState().createInventoryRecord(phase5CharacterId, {
     recordType: "weapon",
     name: "Dagger",
-    slotProfile: { kind: "fixed", slots: 1 },
+    quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
     location: { entityId: phase5CharacterId, placement: "leftHand" },
   });
   phase5InvalidHandOk = useAppStore
@@ -281,7 +288,8 @@ if (phase5CharacterId) {
     .createInventoryRecord(phase5CharacterId, {
       recordType: "weapon",
       name: "Axe",
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
       location: { entityId: phase5CharacterId, placement: "leftHand" },
     }).ok;
 
@@ -290,7 +298,8 @@ if (phase5CharacterId) {
     {
       recordType: "equipment",
       name: "Sack",
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
       container: { capacitySlots: 6 },
     },
   );
@@ -299,7 +308,8 @@ if (phase5CharacterId) {
     useAppStore.getState().createInventoryRecord(phase5CharacterId, {
       recordType: "equipment",
       name: "Torch",
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
       location: {
         entityId: phase5CharacterId,
         placement: "container",
@@ -325,7 +335,8 @@ if (phase5StorageAId && phase5StorageBId) {
     {
       recordType: "equipment",
       name: "Crate",
-      slotProfile: { kind: "fixed", slots: 2 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
       container: { capacitySlots: 10 },
     },
   );
@@ -336,7 +347,8 @@ if (phase5StorageAId && phase5StorageBId) {
       {
         recordType: "equipment",
         name: "Lantern",
-        slotProfile: { kind: "fixed", slots: 1 },
+        quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
         location: {
           entityId: phase5StorageAId,
           placement: "container",
@@ -507,7 +519,8 @@ if (phase8CharacterId) {
       recordType: "treasure",
       name: "Ruby",
       gpValue: 10,
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
     },
   );
 
@@ -516,7 +529,8 @@ if (phase8CharacterId) {
       recordType: "treasure",
       name: "Ruby",
       gpValue: 25,
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
     });
   }
 
@@ -525,7 +539,8 @@ if (phase8CharacterId) {
     {
       recordType: "equipment",
       name: "Rope",
-      slotProfile: { kind: "fixed", slots: 1 },
+      quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
     },
   );
 

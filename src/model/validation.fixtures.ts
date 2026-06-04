@@ -60,7 +60,8 @@ const ropeRecord: InventoryRecord = {
     containerId: backpackRecord.id,
   },
   sortOrder: 2000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const characterCoinsRecord: InventoryRecord = {
@@ -72,7 +73,6 @@ const characterCoinsRecord: InventoryRecord = {
     placement: "coinPurse",
   },
   sortOrder: 3000,
-  slotProfile: { kind: "coins" },
   coins: { pp: 0, gp: 1, sp: 0, cp: 0 },
 };
 
@@ -91,7 +91,6 @@ const nonCharacterCoinsRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "coins" },
   coins: { pp: 0, gp: 2, sp: 0, cp: 0 },
 };
 
@@ -112,7 +111,8 @@ const leftHandSword: InventoryRecord = {
     placement: "leftHand",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   weapon: {},
 };
@@ -127,7 +127,8 @@ const leftHandShield: InventoryRecord = {
     placement: "leftHand",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   armor: {},
 };
@@ -142,7 +143,8 @@ const bothHandsBow: InventoryRecord = {
     placement: "bothHands",
   },
   sortOrder: 2000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 2,
   weapon: {},
 };
@@ -168,7 +170,8 @@ const ringInHandRecord: InventoryRecord = {
     placement: "rightHand",
   },
   sortOrder: 5000,
-  slotProfile: { kind: "fixed", slots: 0 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 0 },
   handsRequired: 0,
 };
 
@@ -182,7 +185,8 @@ const looseTorchRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 6000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
 };
 
@@ -206,7 +210,8 @@ const leftHandPoleRecord: InventoryRecord = {
     placement: "leftHand",
   },
   sortOrder: 7000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 2,
 };
 
@@ -230,7 +235,8 @@ const legacyWeaponRecord: InventoryRecord = {
     placement: "bothHands",
   },
   sortOrder: 8000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   weapon: {
     hands: "twoHands",
   },
@@ -246,7 +252,8 @@ const legacyContainerRecord: InventoryRecord = {
     placement: "rightHand",
   },
   sortOrder: 9000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   container: {
     capacitySlots: 6,
     handsRequired: 1,
@@ -269,7 +276,8 @@ const nonCharacterEquippedRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const storageCrateRecord: InventoryRecord = {
@@ -282,7 +290,8 @@ const storageCrateRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 2 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
   container: {
     capacitySlots: 8,
   },
@@ -298,7 +307,8 @@ const nonContainerRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const insideNonContainerRecord: InventoryRecord = {
@@ -323,7 +333,8 @@ const nestedContainerRecord: InventoryRecord = {
     containerId: storageCrateRecord.id,
   },
   sortOrder: 2000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   container: {
     capacitySlots: 4,
   },
@@ -383,7 +394,8 @@ const treasureContainerRecord = {
     placement: "contents",
   },
   sortOrder: 3000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   treasure: {
     gpValue: 100,
   },

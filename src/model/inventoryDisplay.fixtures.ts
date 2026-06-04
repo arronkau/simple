@@ -66,7 +66,8 @@ const swordRecord: InventoryRecord = {
     placement: "rightHand",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   weapon: {
     damage: "1d8",
@@ -83,7 +84,8 @@ const armorRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "fixed", slots: 2 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
   armor: {
     baseArmorClass: 14,
   },
@@ -98,7 +100,6 @@ const coinsRecord: InventoryRecord = {
     placement: "coinPurse",
   },
   sortOrder: 2000,
-  slotProfile: { kind: "coins" },
   coins: {
     pp: 0,
     gp: 125,
@@ -118,7 +119,8 @@ const ropeRecord: InventoryRecord = {
     containerId: characterBackpack.id,
   },
   sortOrder: 3000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const sackRecord: InventoryRecord = {
@@ -132,7 +134,8 @@ const sackRecord: InventoryRecord = {
     containerId: characterBackpack.id,
   },
   sortOrder: 4000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   container: {
     capacitySlots: 6,
@@ -150,7 +153,8 @@ const rationsRecord: InventoryRecord = {
     containerId: sackRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 3 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
 const retainerDagger: InventoryRecord = {
@@ -163,7 +167,8 @@ const retainerDagger: InventoryRecord = {
     placement: "leftHand",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   weapon: {},
 };
@@ -178,7 +183,8 @@ const mountFeedRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 4 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 4 },
 };
 
 const vehicleCrateRecord: InventoryRecord = {
@@ -191,7 +197,8 @@ const vehicleCrateRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 2 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
   container: {
     capacitySlots: 8,
   },
@@ -208,7 +215,8 @@ const vehicleToolsRecord: InventoryRecord = {
     containerId: vehicleCrateRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 3 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
 const storageTreasureRecord: InventoryRecord = {
@@ -221,7 +229,8 @@ const storageTreasureRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 2 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
   treasure: {
     gpValue: 50,
   },

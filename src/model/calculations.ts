@@ -37,11 +37,13 @@ export function getRecordSlotBurden(record: InventoryRecord): number {
     return getCoinSlotBurden(record.coins);
   }
 
-  switch (record.slotProfile.kind) {
+  switch (record.burden.kind) {
     case "fixed":
-      return record.slotProfile.slots;
-    case "stackable":
-      return Math.ceil(record.slotProfile.quantity / record.slotProfile.perSlot);
+      return record.quantity * record.burden.slotsPerItem;
+    case "stacked":
+      return Math.ceil(record.quantity / record.burden.itemsPerSlot);
+    case "none":
+      return 0;
   }
 }
 

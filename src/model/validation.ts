@@ -20,6 +20,8 @@ export type ValidationIssueCode =
   | "invalidEntityLocationType"
   | "invalidCoinLocation"
   | "invalidCoinCount"
+  | "invalidInventoryQuantity"
+  | "invalidInventoryBurden"
   | "invalidCoinPursePlacement"
   | "invalidBackpackPlacement"
   | "invalidTreasureContainer"
@@ -70,6 +72,7 @@ export function validateInventoryState(
     ...validateUniqueRecordIds(records),
     ...validateEntities(entities),
     ...validateRecordNames(records),
+    ...validateNonCoinQuantityAndBurden(records),
     ...validateRecordLocations(entities, records),
     ...validateCoinRules(entities, records),
     ...validateHandOccupancy(entities, records),
@@ -227,6 +230,64 @@ function validateRecordNames(records: InventoryRecord[]): ValidationIssue[] {
         ]
       : [],
   );
+}
+
+function validateNonCoinQuantityAndBurden(
+  records: InventoryRecord[],
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  for (const record of records) {
+    if (record.recordType === "coins") {
+      continue;
+    }
+
+    if (!Number.isInteger(record.quantity) || record.quantity <= 0) {
+      issues.push(
+        errorIssue(
+          "invalidInventoryQuantity",
+          "Non-coin inventory records must have a positive integer quantity.",
+          { recordId: record.id, entityId: record.location.entityId },
+        ),
+      );
+    }
+
+    switch (record.burden.kind) {
+      case "fixed":
+        if (
+          typeof record.burden.slotsPerItem !== "number" ||
+          !Number.isFinite(record.burden.slotsPerItem) ||
+          record.burden.slotsPerItem < 0
+        ) {
+          issues.push(
+            errorIssue(
+              "invalidInventoryBurden",
+              "Fixed inventory burden must have a non-negative slots-per-item value.",
+              { recordId: record.id, entityId: record.location.entityId },
+            ),
+          );
+        }
+        break;
+      case "stacked":
+        if (
+          !Number.isInteger(record.burden.itemsPerSlot) ||
+          record.burden.itemsPerSlot <= 0
+        ) {
+          issues.push(
+            errorIssue(
+              "invalidInventoryBurden",
+              "Stacked inventory burden must have a positive integer items-per-slot value.",
+              { recordId: record.id, entityId: record.location.entityId },
+            ),
+          );
+        }
+        break;
+      case "none":
+        break;
+    }
+  }
+
+  return issues;
 }
 
 function validateRecordLocations(
@@ -402,15 +463,6 @@ function validateCoinRules(
 
     if (!entity) {
       continue;
-    }
-
-    if (record.slotProfile.kind !== "coins") {
-      issues.push(
-        errorIssue("invalidCoinLocation", "Coin records must use coin slots.", {
-          recordId: record.id,
-          entityId: entity.id,
-        }),
-      );
     }
 
     if (isCharacterLikeEntity(entity)) {

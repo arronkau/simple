@@ -45,7 +45,8 @@ const ropeRecord: InventoryRecord = {
     containerId: backpackRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
 const torchesRecord: InventoryRecord = {
@@ -59,7 +60,8 @@ const torchesRecord: InventoryRecord = {
     containerId: backpackRecord.id,
   },
   sortOrder: 1000,
-  slotProfile: { kind: "stackable", quantity: 6, perSlot: 3 },
+  quantity: 6,
+  burden: { kind: "stacked", itemsPerSlot: 3 },
 };
 
 const yostBackpackRecord = createDefaultBackpack({
@@ -78,7 +80,8 @@ const yostBackpackTreasureRecord: InventoryRecord = {
     containerId: yostBackpackRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   treasure: {
     gpValue: 10,
   },
@@ -95,7 +98,8 @@ const yostBackpackSmallSackRecord: InventoryRecord = {
     containerId: yostBackpackRecord.id,
   },
   sortOrder: 1000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   container: {
     capacitySlots: 4,
@@ -129,7 +133,8 @@ const yostHeldSackTreasureRecord: InventoryRecord = {
     containerId: yostHeldLoadedSmallSackRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   treasure: {
     gpValue: 10,
   },
@@ -151,13 +156,15 @@ const equippedSixSlotsRecord: InventoryRecord = {
     placement: "loose",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 6 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 6 },
 };
 
 const equippedTenSlotsRecord: InventoryRecord = {
   ...equippedSixSlotsRecord,
   id: "equipped-ten-1",
-  slotProfile: { kind: "fixed", slots: 10 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 10 },
 };
 
 const fourSlotCoinsRecord: InventoryRecord = {
@@ -169,7 +176,6 @@ const fourSlotCoinsRecord: InventoryRecord = {
     placement: "coinPurse",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "coins" },
   coins: {
     pp: 0,
     gp: 400,
@@ -210,7 +216,8 @@ const heldSackRecord: InventoryRecord = {
     placement: "rightHand",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   handsRequired: 1,
   container: {
     capacitySlots: 6,
@@ -238,7 +245,8 @@ const heldSackRationsRecord: InventoryRecord = {
     containerId: heldSackRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 3 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
 const looseSackRationsRecord: InventoryRecord = {
@@ -262,7 +270,8 @@ const storageLoadRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 5 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 5 },
 };
 
 const smallBoxRecord: InventoryRecord = {
@@ -275,7 +284,8 @@ const smallBoxRecord: InventoryRecord = {
     placement: "contents",
   },
   sortOrder: 1000,
-  slotProfile: { kind: "fixed", slots: 1 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
   container: {
     capacitySlots: 2,
   },
@@ -292,7 +302,8 @@ const overloadedBoxContentsRecord: InventoryRecord = {
     containerId: smallBoxRecord.id,
   },
   sortOrder: 0,
-  slotProfile: { kind: "fixed", slots: 3 },
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
 const emptyBackpackRecords = [backpackRecord];

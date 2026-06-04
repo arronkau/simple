@@ -12,11 +12,11 @@ import type {
   Entity,
   EntityId,
   HandsRequired,
+  InventoryBurden,
   InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
   InventoryRecordType,
-  NonCoinSlotProfile,
   WeaponData,
 } from "./types";
 
@@ -45,7 +45,8 @@ export type InventoryRecordFormInput = {
   gpValue?: number;
   weapon?: Partial<WeaponData>;
   armor?: Partial<ArmorData>;
-  slotProfile?: NonCoinSlotProfile;
+  quantity?: number;
+  burden?: InventoryBurden;
   container?: Partial<ContainerData>;
   handsRequired?: HandsRequired;
   location?: InventoryRecordLocationInput;
@@ -466,7 +467,6 @@ function buildInventoryRecord({
         recordType: "coins",
         location,
         sortOrder,
-        slotProfile: { kind: "coins" },
         coins: normalizeCoins(input.coins),
         ...(description ? { description } : {}),
       },
@@ -482,7 +482,8 @@ function buildInventoryRecord({
     };
   }
 
-  const slotProfile = normalizeSlotProfile(input.slotProfile);
+  const quantity = normalizeQuantity(input.quantity);
+  const burden = normalizeBurden(input.burden);
   const container = normalizeContainer(input.container);
   const handsRequired = getInputHandsRequired(input);
   const shared = {
@@ -490,7 +491,8 @@ function buildInventoryRecord({
     name,
     location,
     sortOrder,
-    slotProfile,
+    quantity,
+    burden,
     handsRequired,
     ...(description ? { description } : {}),
   };
@@ -659,21 +661,26 @@ function normalizeCoins(coins: Partial<CoinData> | undefined): CoinData {
   };
 }
 
-function normalizeSlotProfile(
-  slotProfile: NonCoinSlotProfile | undefined,
-): NonCoinSlotProfile {
-  if (slotProfile?.kind === "stackable") {
-    return {
-      kind: "stackable",
-      quantity: Math.max(0, normalizeInteger(slotProfile.quantity, 1)),
-      perSlot: Math.max(1, normalizeInteger(slotProfile.perSlot, 1)),
-    };
-  }
+function normalizeQuantity(quantity: number | undefined): number {
+  return Math.max(1, normalizeInteger(quantity, 1));
+}
 
-  return {
-    kind: "fixed",
-    slots: Math.max(0, normalizeNumber(slotProfile?.slots, 1)),
-  };
+function normalizeBurden(burden: InventoryBurden | undefined): InventoryBurden {
+  switch (burden?.kind) {
+    case "none":
+      return { kind: "none" };
+    case "stacked":
+      return {
+        kind: "stacked",
+        itemsPerSlot: Math.max(1, normalizeInteger(burden.itemsPerSlot, 1)),
+      };
+    case "fixed":
+    default:
+      return {
+        kind: "fixed",
+        slotsPerItem: Math.max(0, normalizeNumber(burden?.slotsPerItem, 1)),
+      };
+  }
 }
 
 function normalizeContainer(

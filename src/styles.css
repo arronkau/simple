@@ -118,6 +118,39 @@ code {
   font-weight: 700;
 }
 
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border-bottom: 1px solid #e1e5e8;
+  margin-top: 1.25rem;
+  padding-bottom: 1rem;
+}
+
+.app-nav a {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  border: 1px solid #a4b0ba;
+  border-radius: 6px;
+  padding: 0 0.85rem;
+  color: #182129;
+  background: #ffffff;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.app-nav a:hover {
+  border-color: #65727d;
+  background: #eef2f4;
+}
+
+.app-nav a.active {
+  border-color: #4d687c;
+  color: #ffffff;
+  background: #2f4658;
+}
+
 h1 {
   margin: 0;
   color: #151b20;
@@ -259,6 +292,10 @@ h5 {
   background: #f8f9fa;
 }
 
+.character-page-row {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .entity-main {
   display: grid;
   gap: 0.6rem;
@@ -395,6 +432,12 @@ h5 {
   display: grid;
   grid-column: 1 / -1;
   gap: 0.75rem;
+  border-top: 1px solid #e1e5e8;
+  padding-top: 0.9rem;
+}
+
+.character-inventory-summary {
+  grid-column: 1 / -1;
   border-top: 1px solid #e1e5e8;
   padding-top: 0.9rem;
 }
@@ -545,6 +588,28 @@ h5 {
   border-radius: 8px;
   padding: 0.9rem;
   background: #f7fafc;
+}
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  align-items: start;
+  justify-items: center;
+  overflow: auto;
+  padding: 2rem;
+  background: rgb(17 24 30 / 0.48);
+}
+
+.modal-panel {
+  width: min(100%, 880px);
+  margin: auto 0;
+}
+
+.modal-panel .record-form {
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(17 24 30 / 0.24);
 }
 
 .record-form-heading {
@@ -705,6 +770,10 @@ h5 {
   .app-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .modal-backdrop {
+    padding: 1rem;
   }
 
   h1 {
