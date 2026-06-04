@@ -206,8 +206,7 @@ type CharacterSheetFormState = {
 
 type CoinSpendFormState = {
   recordId: InventoryRecordId;
-  denomination: CoinDenomination;
-  amount: string;
+  amounts: Record<CoinDenomination, string>;
   note: string;
 };
 
@@ -363,8 +362,7 @@ function LocalAppShell() {
 
     setCoinSpendForm({
       recordId: record.id,
-      denomination: getFirstAvailableCoinDenomination(record.coins),
-      amount: "",
+      amounts: createEmptyCoinSpendAmounts(),
       note: "",
     });
     setCoinSpendMessage(undefined);
@@ -383,8 +381,7 @@ function LocalAppShell() {
     }
 
     const result = spendCoins(coinSpendForm.recordId, {
-      denomination: coinSpendForm.denomination,
-      amount: Number(coinSpendForm.amount),
+      amounts: toCoinSpendAmounts(coinSpendForm.amounts),
       note: coinSpendForm.note,
     });
 
@@ -2530,6 +2527,11 @@ function CoinSpendModal({
     return null;
   }
 
+  const validationMessage = getCoinSpendValidationMessage(
+    formState.amounts,
+    record.coins,
+  );
+
   return (
     <div className="modal-backdrop" role="presentation">
       <section
@@ -2544,39 +2546,39 @@ function CoinSpendModal({
             {message ? <p className="form-error">{message}</p> : null}
           </div>
 
-          <div className="record-form-grid">
-            <p className="form-help wide-field">
-              Available: {formatCoinDenominations(record)}
-            </p>
+          <div className="coin-spend-layout">
+            <section className="coin-spend-section">
+              <h5>Spend amount</h5>
+              <div className="coin-spend-grid">
+                <div className="coin-spend-heading">Denomination</div>
+                <div className="coin-spend-heading">Available</div>
+                <div className="coin-spend-heading">Spend</div>
+                {COIN_DENOMINATIONS.map((denomination) => (
+                  <CoinSpendRow
+                    available={record.coins[denomination]}
+                    denomination={denomination}
+                    key={denomination}
+                    value={formState.amounts[denomination]}
+                    onChange={(value) =>
+                      onChange({
+                        ...formState,
+                        amounts: {
+                          ...formState.amounts,
+                          [denomination]: value,
+                        },
+                      })
+                    }
+                  />
+                ))}
+              </div>
+              {validationMessage ? (
+                <p className="form-error">{validationMessage}</p>
+              ) : null}
+            </section>
 
             <label>
-              <span>Coin type</span>
-              <select
-                value={formState.denomination}
-                onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    denomination: event.target.value as CoinDenomination,
-                  })
-                }
-              >
-                {COIN_DENOMINATIONS.map((denomination) => (
-                  <option key={denomination} value={denomination}>
-                    {denomination}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <NumberField
-              label="Amount"
-              min="1"
-              value={formState.amount}
-              onChange={(amount) => onChange({ ...formState, amount })}
-            />
-
-            <label className="wide-field">
               <span>Note</span>
+              <span className="field-help">Optional reason for the spend</span>
               <input
                 autoComplete="off"
                 maxLength={160}
@@ -2592,11 +2594,40 @@ function CoinSpendModal({
             <button type="button" onClick={onCancel}>
               Cancel
             </button>
-            <button type="submit">Spend coins</button>
+            <button disabled={validationMessage !== undefined} type="submit">
+              Spend coins
+            </button>
           </div>
         </form>
       </section>
     </div>
+  );
+}
+
+function CoinSpendRow({
+  available,
+  denomination,
+  onChange,
+  value,
+}: {
+  available: number;
+  denomination: CoinDenomination;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <>
+      <div className="coin-spend-denomination">{denomination.toUpperCase()}</div>
+      <div className="coin-spend-available">{available}</div>
+      <input
+        aria-label={`Spend ${denomination}`}
+        min="0"
+        step="1"
+        type="number"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </>
   );
 }
 
@@ -3207,10 +3238,66 @@ function formatCoinDenominations(record: InventoryRecord) {
   return formatCoinDenominationsValue(record.coins);
 }
 
-function getFirstAvailableCoinDenomination(coins: CoinData): CoinDenomination {
-  return (
-    COIN_DENOMINATIONS.find((denomination) => coins[denomination] > 0) ?? "gp"
+function createEmptyCoinSpendAmounts(): Record<CoinDenomination, string> {
+  return {
+    pp: "",
+    gp: "",
+    sp: "",
+    cp: "",
+  };
+}
+
+function toCoinSpendAmounts(
+  amounts: Record<CoinDenomination, string>,
+): Partial<CoinData> {
+  return {
+    pp: toCoinSpendNumber(amounts.pp),
+    gp: toCoinSpendNumber(amounts.gp),
+    sp: toCoinSpendNumber(amounts.sp),
+    cp: toCoinSpendNumber(amounts.cp),
+  };
+}
+
+function getCoinSpendValidationMessage(
+  amounts: Record<CoinDenomination, string>,
+  availableCoins: CoinData,
+): string | undefined {
+  const spendAmounts = toCoinSpendAmounts(amounts);
+  const hasPositiveAmount = COIN_DENOMINATIONS.some(
+    (denomination) => (spendAmounts[denomination] ?? 0) > 0,
   );
+
+  if (!hasPositiveAmount) {
+    return "Enter at least one coin amount to spend.";
+  }
+
+  const invalidDenomination = COIN_DENOMINATIONS.find((denomination) => {
+    const rawValue = amounts[denomination].trim();
+
+    return (
+      rawValue.length > 0 &&
+      (!Number.isInteger(Number(rawValue)) || Number(rawValue) < 0)
+    );
+  });
+
+  if (invalidDenomination) {
+    return "Spend amounts must be non-negative whole numbers.";
+  }
+
+  const overspentDenomination = COIN_DENOMINATIONS.find(
+    (denomination) =>
+      (spendAmounts[denomination] ?? 0) > availableCoins[denomination],
+  );
+
+  if (overspentDenomination) {
+    return `Cannot spend more ${overspentDenomination} than available.`;
+  }
+
+  return undefined;
+}
+
+function toCoinSpendNumber(value: string): number {
+  return value.trim().length === 0 ? 0 : Number(value);
 }
 
 function formatSlots(slots: number) {

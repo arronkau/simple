@@ -100,8 +100,9 @@ type CreateEntityStoreInput = {
 export type CoinDenomination = keyof CoinData;
 
 export type SpendCoinsInput = {
-  denomination: CoinDenomination;
-  amount: number;
+  amounts?: Partial<CoinData>;
+  denomination?: CoinDenomination;
+  amount?: number;
   note?: string;
 };
 
@@ -114,6 +115,8 @@ export type EntityMutationResult =
   | { ok: false; message: string };
 
 type AuditLogEntryInput = Omit<CreateAuditLogEntryInput, "createdAt" | "id">;
+
+const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
 
 const initialAppState = readLocalAppState();
 const firebaseConfig = getRuntimeFirebaseConfig();
@@ -674,34 +677,35 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      if (!isSpendCoinDenomination(input.denomination)) {
+      const spendAmounts = normalizeSpendAmounts(input);
+
+      if (!spendAmounts.ok) {
         result = {
           ok: false,
-          message: "Choose a valid coin type.",
+          message: spendAmounts.message,
         };
         return state;
       }
 
-      if (!Number.isInteger(input.amount) || input.amount <= 0) {
-        result = {
-          ok: false,
-          message: "Spend amount must be a positive whole number.",
-        };
-        return state;
-      }
+      const overspentDenomination = COIN_DENOMINATIONS.find(
+        (denomination) =>
+          record.coins[denomination] < spendAmounts.amounts[denomination],
+      );
 
-      if (record.coins[input.denomination] < input.amount) {
+      if (overspentDenomination) {
         result = {
           ok: false,
-          message: `Cannot spend more ${input.denomination} than available.`,
+          message: `Cannot spend more ${overspentDenomination} than available.`,
         };
         return state;
       }
 
       const previousCoins = record.coins;
       const nextCoins: CoinData = {
-        ...record.coins,
-        [input.denomination]: record.coins[input.denomination] - input.amount,
+        pp: record.coins.pp - spendAmounts.amounts.pp,
+        gp: record.coins.gp - spendAmounts.amounts.gp,
+        sp: record.coins.sp - spendAmounts.amounts.sp,
+        cp: record.coins.cp - spendAmounts.amounts.cp,
       };
       const nextInventoryRecords = state.appState.inventoryRecords.map(
         (candidateRecord) =>
@@ -732,8 +736,7 @@ export const useAppStore = create<AppStore>((set) => ({
           },
           [
             createCoinSpendAuditEntryInput({
-              amount: input.amount,
-              denomination: input.denomination,
+              amounts: spendAmounts.amounts,
               entity,
               nextCoins,
               note: input.note,
@@ -1019,8 +1022,7 @@ function createCoinChangeAuditEntryInput(input: {
 }
 
 function createCoinSpendAuditEntryInput(input: {
-  amount: number;
-  denomination: CoinDenomination;
+  amounts: CoinData;
   entity: Entity;
   nextCoins: CoinData;
   note?: string;
@@ -1033,12 +1035,14 @@ function createCoinSpendAuditEntryInput(input: {
     entityId: input.entity.id,
     eventType: "coinsChanged",
     recordId: input.recordId,
-    summary: `${input.entity.name} spent ${input.amount} ${
-      input.denomination
-    }${note ? ` - ${note}` : ""}.`,
+    summary: `${input.entity.name} spent ${formatCoinSpendAmounts(
+      input.amounts,
+    )}${note ? ` — ${note}` : ""}.`,
     details: {
-      spendAmount: input.amount,
-      spendDenomination: input.denomination,
+      spendPp: input.amounts.pp,
+      spendGp: input.amounts.gp,
+      spendSp: input.amounts.sp,
+      spendCp: input.amounts.cp,
       spendNote: note || undefined,
       previousPp: input.previousCoins.pp,
       previousGp: input.previousCoins.gp,
@@ -1051,6 +1055,66 @@ function createCoinSpendAuditEntryInput(input: {
       ...getCoinDeltaDetails(getCoinDelta(input.previousCoins, input.nextCoins)),
     },
   };
+}
+
+function normalizeSpendAmounts(
+  input: SpendCoinsInput,
+):
+  | { ok: true; amounts: CoinData }
+  | { ok: false; message: string } {
+  const rawAmounts = input.amounts ?? {};
+  const amounts: CoinData = {
+    pp: normalizeSpendAmount(rawAmounts.pp),
+    gp: normalizeSpendAmount(rawAmounts.gp),
+    sp: normalizeSpendAmount(rawAmounts.sp),
+    cp: normalizeSpendAmount(rawAmounts.cp),
+  };
+
+  if (
+    input.amounts === undefined &&
+    input.denomination !== undefined &&
+    input.amount !== undefined
+  ) {
+    if (!isSpendCoinDenomination(input.denomination)) {
+      return { ok: false, message: "Choose a valid coin type." };
+    }
+
+    amounts[input.denomination] = input.amount;
+  }
+
+  if (
+    COIN_DENOMINATIONS.some(
+      (denomination) =>
+        !Number.isInteger(amounts[denomination]) ||
+        amounts[denomination] < 0,
+    )
+  ) {
+    return {
+      ok: false,
+      message: "Spend amounts must be non-negative whole numbers.",
+    };
+  }
+
+  if (
+    !COIN_DENOMINATIONS.some((denomination) => amounts[denomination] > 0)
+  ) {
+    return {
+      ok: false,
+      message: "Enter at least one coin amount to spend.",
+    };
+  }
+
+  return { ok: true, amounts };
+}
+
+function normalizeSpendAmount(value: number | undefined): number {
+  return value ?? 0;
+}
+
+function formatCoinSpendAmounts(amounts: CoinData): string {
+  return COIN_DENOMINATIONS.filter((denomination) => amounts[denomination] > 0)
+    .map((denomination) => `${amounts[denomination]} ${denomination}`)
+    .join(", ");
 }
 
 function createInventoryMoveAuditEntryInput(input: {

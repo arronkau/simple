@@ -722,6 +722,52 @@ h5 {
   font-size: 0.9rem;
 }
 
+.field-help {
+  color: #71808b;
+  font-size: 0.8rem;
+}
+
+.coin-spend-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.coin-spend-section {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.coin-spend-section h5 {
+  margin: 0;
+  color: #24313a;
+  font-size: 1rem;
+}
+
+.coin-spend-grid {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1fr) minmax(5rem, 0.75fr) minmax(7rem, 1fr);
+  gap: 0.45rem 0.75rem;
+  align-items: center;
+}
+
+.coin-spend-heading {
+  color: #5a6974;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.coin-spend-denomination {
+  color: #24313a;
+  font-weight: 800;
+}
+
+.coin-spend-available {
+  color: #24313a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 .record-form-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

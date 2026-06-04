@@ -451,8 +451,10 @@ const phase5SpendCoinRecord = useAppStore
   );
 const phase5SpendWithNoteResult = phase5SpendCoinRecord
   ? useAppStore.getState().spendCoins(phase5SpendCoinRecord.id, {
-      denomination: "gp",
-      amount: 10,
+      amounts: {
+        gp: 10,
+        sp: 2,
+      },
       note: "paid temple donation",
     })
   : { ok: false };
@@ -590,7 +592,7 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
       finalCoins: {
         pp: 0,
         gp: 40,
-        sp: 5,
+        sp: 3,
         cp: 0,
       },
     },
@@ -599,21 +601,21 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     name: "coin spend audit records amount denomination and optional note",
     actual: phase5SpendAuditEntries.map((entry) => ({
       summary: entry.summary,
-      spendAmount: entry.details?.spendAmount,
-      spendDenomination: entry.details?.spendDenomination,
+      spendGp: entry.details?.spendGp,
+      spendSp: entry.details?.spendSp,
       spendNote: entry.details?.spendNote,
     })),
     expected: [
       {
-        summary: "Yost spent 10 gp - paid temple donation.",
-        spendAmount: 10,
-        spendDenomination: "gp",
+        summary: "Yost spent 10 gp, 2 sp — paid temple donation.",
+        spendGp: 10,
+        spendSp: 2,
         spendNote: "paid temple donation",
       },
       {
         summary: "Yost spent 2 sp.",
-        spendAmount: 2,
-        spendDenomination: "sp",
+        spendGp: 0,
+        spendSp: 2,
         spendNote: undefined,
       },
     ],
