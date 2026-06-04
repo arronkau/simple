@@ -61,6 +61,14 @@ button:hover {
   background: #eef2f4;
 }
 
+button:disabled,
+button:disabled:hover {
+  border-color: #cbd3d9;
+  color: #7b8790;
+  background: #f1f3f5;
+  cursor: not-allowed;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
@@ -189,35 +197,6 @@ h4 {
 
 h5 {
   font-size: 0.9rem;
-}
-
-.state-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 1.5rem 0;
-}
-
-.state-summary div {
-  min-width: 0;
-  border: 1px solid #d7dde1;
-  border-radius: 8px;
-  padding: 1rem;
-  background: #f9fafb;
-}
-
-.state-summary dt {
-  margin: 0 0 0.35rem;
-  color: #5a6974;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-
-.state-summary dd {
-  margin: 0;
-  color: #11181d;
-  font-size: 1.75rem;
-  font-weight: 700;
 }
 
 .entity-workspace {
@@ -612,6 +591,88 @@ h5 {
   box-shadow: 0 18px 48px rgb(17 24 30 / 0.24);
 }
 
+.manage-modal {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid #cdd7df;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(17 24 30 / 0.24);
+}
+
+.manage-heading,
+.manage-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.manage-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.manage-heading p,
+.manage-section p {
+  margin-top: 0.25rem;
+  color: #5a6974;
+  font-size: 0.95rem;
+}
+
+.manage-section {
+  border-top: 1px solid #e1e5e8;
+  padding-top: 1rem;
+}
+
+.manage-section label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.manage-section label > span {
+  color: #5a6974;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.file-button {
+  width: fit-content;
+  min-height: 2.5rem;
+  border: 1px solid #a4b0ba;
+  border-radius: 6px;
+  padding: 0 0.85rem;
+  color: #182129;
+  background: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.file-button:hover {
+  border-color: #65727d;
+  background: #eef2f4;
+}
+
+.file-button > span {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+}
+
+.file-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.danger-section {
+  border-top-color: #ead2d2;
+}
+
 .record-form-heading {
   display: flex;
   gap: 1rem;
@@ -772,16 +833,16 @@ h5 {
     flex-direction: column;
   }
 
+  .manage-heading {
+    grid-template-columns: 1fr;
+  }
+
   .modal-backdrop {
     padding: 1rem;
   }
 
   h1 {
     font-size: 2rem;
-  }
-
-  .state-summary {
-    grid-template-columns: 1fr;
   }
 
   .section-heading,

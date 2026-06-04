@@ -1,6 +1,6 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
-import { APP_STATE_STORAGE_KEY } from "./model/appState";
+import { APP_STATE_STORAGE_KEY, parseAppState } from "./model/appState";
 import {
   AUDIT_EVENT_TYPE_LABELS,
   getAuditEventTypeLabel,
@@ -156,6 +156,17 @@ type CharacterSheetFormState = {
   features: CharacterFeatureFormState[];
 };
 
+type ManageMessage = {
+  tone: "error" | "success";
+  text: string;
+};
+
+type AppStateExport = {
+  version: 1;
+  exportedAt: string;
+  data: AppState;
+};
+
 function LocalAppShell() {
   const appState = useAppStore((state) => state.appState);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
@@ -175,6 +186,7 @@ function LocalAppShell() {
   const deleteInventoryRecord = useAppStore(
     (state) => state.deleteInventoryRecord,
   );
+  const replaceAppState = useAppStore((state) => state.replaceAppState);
   const resetLocalState = useAppStore((state) => state.resetLocalState);
   const sortedEntities = useMemo(
     () => getSortedEntities(appState.entities),
@@ -194,6 +206,7 @@ function LocalAppShell() {
   const [auditEventTypeFilter, setAuditEventTypeFilter] = useState<
     AuditEventType | "all"
   >("all");
+  const [manageModalOpen, setManageModalOpen] = useState(false);
 
   function handleCreateEntity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -292,30 +305,16 @@ function LocalAppShell() {
             <h1 id="app-title">Simple Inventory</h1>
             {syncError ? <p className="sync-message">{syncError}</p> : null}
           </div>
-          <button type="button" onClick={resetLocalState}>
-            Reset state
+          <button type="button" onClick={() => setManageModalOpen(true)}>
+            Manage
           </button>
         </div>
 
         <nav className="app-nav" aria-label="Primary">
           <NavLink to="/inventory">Inventory</NavLink>
           <NavLink to="/characters">Characters</NavLink>
+          <NavLink to="/audit">Audit Log</NavLink>
         </nav>
-
-        <dl className="state-summary">
-          <div>
-            <dt>Schema</dt>
-            <dd>v{appState.schemaVersion}</dd>
-          </div>
-          <div>
-            <dt>Entities</dt>
-            <dd>{appState.entities.length}</dd>
-          </div>
-          <div>
-            <dt>Inventory records</dt>
-            <dd>{appState.inventoryRecords.length}</dd>
-          </div>
-        </dl>
 
         <Routes>
           <Route index element={<Navigate to="/inventory" replace />} />
@@ -357,16 +356,20 @@ function LocalAppShell() {
               />
             }
           />
+          <Route
+            path="audit"
+            element={
+              <AuditPage
+                appState={appState}
+                entityFilter={auditEntityFilter}
+                eventTypeFilter={auditEventTypeFilter}
+                onEntityFilterChange={setAuditEntityFilter}
+                onEventTypeFilterChange={setAuditEventTypeFilter}
+              />
+            }
+          />
           <Route path="*" element={<Navigate to="/inventory" replace />} />
         </Routes>
-
-        <AuditLogPanel
-          appState={appState}
-          entityFilter={auditEntityFilter}
-          eventTypeFilter={auditEventTypeFilter}
-          onEntityFilterChange={setAuditEntityFilter}
-          onEventTypeFilterChange={setAuditEventTypeFilter}
-        />
 
         <div className="storage-key">
           <span>
@@ -378,8 +381,188 @@ function LocalAppShell() {
               : APP_STATE_STORAGE_KEY}
           </code>
         </div>
+
+        {manageModalOpen ? (
+          <ManageDataModal
+            appState={appState}
+            onClose={() => setManageModalOpen(false)}
+            onImportAppState={replaceAppState}
+            onReset={() => {
+              resetLocalState();
+              setManageModalOpen(false);
+            }}
+          />
+        ) : null}
       </section>
     </main>
+  );
+}
+
+function ManageDataModal({
+  appState,
+  onClose,
+  onImportAppState,
+  onReset,
+}: {
+  appState: AppState;
+  onClose: () => void;
+  onImportAppState: (appState: AppState) => void;
+  onReset: () => void;
+}) {
+  const [importMessage, setImportMessage] = useState<ManageMessage | undefined>();
+  const [resetConfirmation, setResetConfirmation] = useState("");
+  const resetEnabled = resetConfirmation === "delete";
+
+  function exportAppData() {
+    const exportData: AppStateExport = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: appState,
+    };
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `simple-export-${formatExportDate(new Date())}.json`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  async function importAppData(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsedValue: unknown = JSON.parse(await file.text());
+      const importedAppState = parseImportedAppState(parsedValue);
+
+      if (!importedAppState) {
+        setImportMessage({
+          tone: "error",
+          text: "Import failed. Choose a JSON export with a valid app state.",
+        });
+        return;
+      }
+
+      onImportAppState(importedAppState);
+      setImportMessage({ tone: "success", text: "Import complete." });
+    } catch {
+      setImportMessage({
+        tone: "error",
+        text: "Import failed. The selected file is not valid JSON.",
+      });
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-label="Manage data"
+        aria-modal="true"
+        className="modal-panel manage-modal"
+        role="dialog"
+      >
+        <div className="manage-heading">
+          <div>
+            <h2>Manage Data</h2>
+            <p>Export, import, or reset the current app data.</p>
+          </div>
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+
+        <section className="manage-section">
+          <div>
+            <h3>Export</h3>
+            <p>Download a JSON file that can be imported later.</p>
+          </div>
+          <button type="button" onClick={exportAppData}>
+            Export JSON
+          </button>
+        </section>
+
+        <section className="manage-section">
+          <div>
+            <h3>Import</h3>
+            <p>Choose a JSON export to replace the current app data.</p>
+          </div>
+          <label className="file-button">
+            <span>Import JSON</span>
+            <input accept="application/json,.json" type="file" onChange={importAppData} />
+          </label>
+          {importMessage ? (
+            <p
+              className={
+                importMessage.tone === "error" ? "form-error" : "form-success"
+              }
+            >
+              {importMessage.text}
+            </p>
+          ) : null}
+        </section>
+
+        <section className="manage-section danger-section">
+          <div>
+            <h3>Reset Data</h3>
+            <p>Delete all current app data and return to the default empty state.</p>
+          </div>
+          <label>
+            <span>Type delete to confirm</span>
+            <input
+              autoComplete="off"
+              value={resetConfirmation}
+              onChange={(event) => setResetConfirmation(event.target.value)}
+            />
+          </label>
+          <button
+            className="danger-button"
+            disabled={!resetEnabled}
+            type="button"
+            onClick={onReset}
+          >
+            Reset data
+          </button>
+        </section>
+      </section>
+    </div>
+  );
+}
+
+function AuditPage({
+  appState,
+  entityFilter,
+  eventTypeFilter,
+  onEntityFilterChange,
+  onEventTypeFilterChange,
+}: {
+  appState: AppState;
+  entityFilter: EntityId | "all";
+  eventTypeFilter: AuditEventType | "all";
+  onEntityFilterChange: (entityId: EntityId | "all") => void;
+  onEventTypeFilterChange: (eventType: AuditEventType | "all") => void;
+}) {
+  return (
+    <section className="entity-workspace" aria-labelledby="audit-page-title">
+      <AuditLogPanel
+        appState={appState}
+        entityFilter={entityFilter}
+        eventTypeFilter={eventTypeFilter}
+        onEntityFilterChange={onEntityFilterChange}
+        onEventTypeFilterChange={onEventTypeFilterChange}
+        titleId="audit-page-title"
+      />
+    </section>
   );
 }
 
@@ -2154,12 +2337,14 @@ function AuditLogPanel({
   eventTypeFilter,
   onEntityFilterChange,
   onEventTypeFilterChange,
+  titleId = "audit-title",
 }: {
   appState: AppState;
   entityFilter: EntityId | "all";
   eventTypeFilter: AuditEventType | "all";
   onEntityFilterChange: (entityId: EntityId | "all") => void;
   onEventTypeFilterChange: (eventType: AuditEventType | "all") => void;
+  titleId?: string;
 }) {
   const filteredEntries = getFilteredAuditLogEntries(
     appState.auditLog,
@@ -2168,10 +2353,10 @@ function AuditLogPanel({
   );
 
   return (
-    <section className="audit-panel" aria-labelledby="audit-title">
+    <section className="audit-panel" aria-labelledby={titleId}>
       <div className="section-heading">
         <div>
-          <h2 id="audit-title">Audit Log</h2>
+          <h2 id={titleId}>Audit Log</h2>
           <p>{formatAuditEntryCount(appState.auditLog.length)}</p>
         </div>
       </div>
@@ -2263,6 +2448,30 @@ export function getFilteredAuditLogEntries(
 
     return eventTypeFilter === "all" || entry.eventType === eventTypeFilter;
   });
+}
+
+function parseImportedAppState(value: unknown): AppState | undefined {
+  const directAppState = parseAppState(value);
+
+  if (directAppState) {
+    return directAppState;
+  }
+
+  if (!value || typeof value !== "object") {
+    return undefined;
+  }
+
+  const candidateExport = value as Partial<AppStateExport>;
+
+  if (candidateExport.version !== 1 || !("data" in candidateExport)) {
+    return undefined;
+  }
+
+  return parseAppState(candidateExport.data);
+}
+
+function formatExportDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 export function getAuditEntityFilterOptions(

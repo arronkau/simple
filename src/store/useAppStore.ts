@@ -84,6 +84,7 @@ type AppStore = {
   deleteInventoryRecord: (
     recordId: InventoryRecordId,
   ) => InventoryMutationResult;
+  replaceAppState: (appState: AppState) => void;
   resetLocalState: () => void;
 };
 
@@ -703,6 +704,9 @@ export const useAppStore = create<AppStore>((set) => ({
     });
 
     return result;
+  },
+  replaceAppState: (appState) => {
+    set({ appState });
   },
   resetLocalState: () => {
     set({ appState: createEmptyAppState() });
