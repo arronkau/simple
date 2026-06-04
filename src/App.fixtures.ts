@@ -2,9 +2,11 @@ import {
   getAuditEntityFilterOptions,
   getDeleteConfirmationMessage,
   getFilteredAuditLogEntries,
+  parseImportedAppState,
   getRecordDisplayName,
 } from "./App";
 import type { AppState } from "./model/appState";
+import { createEmptyCharacterData } from "./model/characters";
 import { createDefaultBackpack, type InventoryRecord } from "./model/types";
 
 const emptyCoinRecord: InventoryRecord = {
@@ -157,6 +159,12 @@ const auditFilterAppState: AppState = {
   ],
 };
 
+const exportedAppState = {
+  version: 1,
+  exportedAt: "2026-06-04T12:00:00.000Z",
+  data: auditFilterAppState,
+};
+
 export const APP_MANUAL_FIXTURES = [
   {
     name: "coin display is safe for unnamed coin records",
@@ -222,5 +230,39 @@ export const APP_MANUAL_FIXTURES = [
       "coinsChanged",
     ).map((entry) => entry.id),
     expected: ["audit-3"],
+  },
+  {
+    name: "import parser accepts current export wrapper",
+    actual: parseImportedAppState(exportedAppState),
+    expected: {
+      ...auditFilterAppState,
+      entities: [
+        {
+          ...auditFilterAppState.entities[0],
+          character: createEmptyCharacterData(),
+        },
+      ],
+    },
+  },
+  {
+    name: "import parser rejects malformed export data",
+    actual: parseImportedAppState({
+      ...exportedAppState,
+      data: {
+        ...auditFilterAppState,
+        inventoryRecords: [
+          {
+            id: "bad-record",
+            recordType: "equipment",
+            entityId: "entity-active",
+            location: {
+              kind: "container",
+            },
+            sortOrder: 0,
+          },
+        ],
+      },
+    }),
+    expected: undefined,
   },
 ];

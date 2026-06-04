@@ -454,7 +454,13 @@ function ManageDataModal({
   onReset: () => void;
 }) {
   const [importMessage, setImportMessage] = useState<ManageMessage | undefined>();
+  const [pendingImportAppState, setPendingImportAppState] = useState<
+    AppState | undefined
+  >();
+  const [importConfirmation, setImportConfirmation] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
+  const importEnabled =
+    pendingImportAppState !== undefined && importConfirmation === "import";
   const resetEnabled = resetConfirmation === "delete";
 
   function exportAppData() {
@@ -491,6 +497,8 @@ function ManageDataModal({
       const importedAppState = parseImportedAppState(parsedValue);
 
       if (!importedAppState) {
+        setPendingImportAppState(undefined);
+        setImportConfirmation("");
         setImportMessage({
           tone: "error",
           text: "Import failed. Choose a JSON export with a valid app state.",
@@ -498,14 +506,31 @@ function ManageDataModal({
         return;
       }
 
-      onImportAppState(importedAppState);
-      setImportMessage({ tone: "success", text: "Import complete." });
+      setPendingImportAppState(importedAppState);
+      setImportConfirmation("");
+      setImportMessage({
+        tone: "success",
+        text: "Import file is valid. Type import to replace current data.",
+      });
     } catch {
+      setPendingImportAppState(undefined);
+      setImportConfirmation("");
       setImportMessage({
         tone: "error",
         text: "Import failed. The selected file is not valid JSON.",
       });
     }
+  }
+
+  function confirmImport() {
+    if (!pendingImportAppState || !importEnabled) {
+      return;
+    }
+
+    onImportAppState(pendingImportAppState);
+    setPendingImportAppState(undefined);
+    setImportConfirmation("");
+    setImportMessage({ tone: "success", text: "Import complete." });
   }
 
   return (
@@ -539,12 +564,37 @@ function ManageDataModal({
         <section className="manage-section">
           <div>
             <h3>Import</h3>
-            <p>Choose a JSON export to replace the current app data.</p>
+            <p>
+              Import replaces all current app data. Export a backup first. Type
+              import to continue.
+            </p>
           </div>
           <label className="file-button">
             <span>Import JSON</span>
             <input accept="application/json,.json" type="file" onChange={importAppData} />
           </label>
+          {pendingImportAppState ? (
+            <>
+              <label>
+                <span>Type import to confirm</span>
+                <input
+                  autoComplete="off"
+                  value={importConfirmation}
+                  onChange={(event) =>
+                    setImportConfirmation(event.target.value)
+                  }
+                />
+              </label>
+              <button
+                className="danger-button"
+                disabled={!importEnabled}
+                type="button"
+                onClick={confirmImport}
+              >
+                Replace data
+              </button>
+            </>
+          ) : null}
           {importMessage ? (
             <p
               className={
@@ -2813,7 +2863,7 @@ export function getFilteredAuditLogEntries(
   });
 }
 
-function parseImportedAppState(value: unknown): AppState | undefined {
+export function parseImportedAppState(value: unknown): AppState | undefined {
   const directAppState = parseAppState(value);
 
   if (directAppState) {

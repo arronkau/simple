@@ -1,10 +1,20 @@
 import { getRecordHandsRequired } from "./types";
-import { normalizeEntityCharacterData } from "./characters";
+import {
+  normalizeEntityCharacterData,
+  validateCharacterData,
+} from "./characters";
 import type {
   AuditLogEntry,
+  AuditEventType,
+  CharacterData,
   Entity,
+  EntityType,
+  EquippedPlacement,
   InventoryBurden,
+  InventoryLocation,
   InventoryRecord,
+  InventoryRecordType,
+  KnownModifierTarget,
 } from "./types";
 
 export type AppState = {
@@ -22,6 +32,54 @@ export const EMPTY_APP_STATE: AppState = {
   inventoryRecords: [],
   auditLog: [],
 };
+
+const AUDIT_EVENT_TYPES: AuditEventType[] = [
+  "entityCreated",
+  "entityDeleted",
+  "entityActivated",
+  "entityDeactivated",
+  "inventoryRecordCreated",
+  "inventoryRecordDeleted",
+  "inventoryRecordMoved",
+  "coinsChanged",
+  "treasureValueChanged",
+];
+
+const ENTITY_TYPES: EntityType[] = [
+  "character",
+  "retainer",
+  "mount",
+  "vehicle",
+  "storage",
+];
+
+const EQUIPPED_PLACEMENTS: EquippedPlacement[] = [
+  "leftHand",
+  "rightHand",
+  "bothHands",
+  "loose",
+];
+
+const INVENTORY_RECORD_TYPES: InventoryRecordType[] = [
+  "coins",
+  "treasure",
+  "weapon",
+  "armor",
+  "equipment",
+];
+
+const KNOWN_MODIFIER_TARGETS: KnownModifierTarget[] = [
+  "armorClass",
+  "attack",
+  "damage",
+  "savingThrow",
+  "ability",
+  "skill",
+  "movement",
+];
+
+const ABILITY_SCORE_KEYS = ["str", "int", "wis", "dex", "con", "cha"] as const;
+const CHARACTER_ALIGNMENTS = ["Law", "Neutrality", "Chaos", ""] as const;
 
 export function createEmptyAppState(): AppState {
   return {
@@ -193,25 +251,325 @@ function isAppState(value: unknown): value is Omit<AppState, "auditLog" | "inven
 
   const candidate = value as Partial<AppState>;
 
+  if (
+    candidate.schemaVersion !== 1 ||
+    !Array.isArray(candidate.entities) ||
+    !Array.isArray(candidate.inventoryRecords)
+  ) {
+    return false;
+  }
+
   return (
-    candidate.schemaVersion === 1 &&
-    Array.isArray(candidate.entities) &&
-    Array.isArray(candidate.inventoryRecords)
+    candidate.entities.every(isEntity) &&
+    candidate.inventoryRecords.every(isInventoryRecordLike) &&
+    (candidate.auditLog === undefined ||
+      (Array.isArray(candidate.auditLog) &&
+        candidate.auditLog.every(isAuditLogEntry)))
+  );
+}
+
+function isEntity(value: unknown): value is Entity {
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    ENTITY_TYPES.includes(value.entityType as EntityType) &&
+    typeof value.active === "boolean" &&
+    typeof value.sortOrder === "number" &&
+    isOptionalNonNegativeNumber(value.capacitySlots) &&
+    isOptionalNonNegativeNumber(value.baseMovementFeet) &&
+    isOptionalCharacterData(value.character) &&
+    (value.notes === undefined || typeof value.notes === "string") &&
+    (value.createdAt === undefined || typeof value.createdAt === "string") &&
+    (value.updatedAt === undefined || typeof value.updatedAt === "string")
   );
 }
 
 function isInventoryRecordLike(value: unknown): value is Record<string, unknown> {
-  return (
-    isRecordLike(value) &&
-    typeof value.id === "string" &&
-    typeof value.recordType === "string" &&
-    isRecordLike(value.location) &&
-    typeof value.sortOrder === "number"
-  );
+  if (
+    !isRecordLike(value) ||
+    typeof value.id !== "string" ||
+    typeof value.entityId !== "string" ||
+    !INVENTORY_RECORD_TYPES.includes(value.recordType as InventoryRecordType) ||
+    !isInventoryLocation(value.location) ||
+    typeof value.sortOrder !== "number" ||
+    (value.description !== undefined && typeof value.description !== "string") ||
+    (value.notes !== undefined && typeof value.notes !== "string") ||
+    (value.createdAt !== undefined && typeof value.createdAt !== "string") ||
+    (value.updatedAt !== undefined && typeof value.updatedAt !== "string") ||
+    !isOptionalUsesData(value.uses) ||
+    !isOptionalLightData(value.light) ||
+    !isOptionalModifierArray(value.modifiers)
+  ) {
+    return false;
+  }
+
+  if (value.recordType === "coins") {
+    return isCoinData(value.coins);
+  }
+
+  const hasCurrentBurden =
+    isPositiveInteger(value.quantity) && isInventoryBurden(value.burden);
+  const hasLegacySlotProfile = isLegacySlotProfile(value.slotProfile);
+
+  if (
+    typeof value.name !== "string" ||
+    (!hasCurrentBurden && !hasLegacySlotProfile) ||
+    !isOptionalHandsRequired(value.handsRequired) ||
+    !isOptionalContainerData(value.container) ||
+    !isOptionalIdentificationData(value.identification)
+  ) {
+    return false;
+  }
+
+  switch (value.recordType) {
+    case "treasure":
+      return isTreasureData(value.treasure);
+    case "weapon":
+      return isOptionalRecordData(value.weapon);
+    case "armor":
+      return isOptionalRecordData(value.armor);
+    case "equipment":
+      return true;
+  }
+
+  return false;
 }
 
 function isRecordLike(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object";
+}
+
+function isInventoryLocation(value: unknown): value is InventoryLocation {
+  if (!isRecordLike(value) || typeof value.kind !== "string") {
+    return false;
+  }
+
+  switch (value.kind) {
+    case "equipped":
+      return EQUIPPED_PLACEMENTS.includes(value.placement as EquippedPlacement);
+    case "stowedRoot":
+    case "coinPurse":
+    case "contents":
+      return true;
+    case "container":
+      return typeof value.containerId === "string";
+    default:
+      return false;
+  }
+}
+
+function isInventoryBurden(value: unknown): value is InventoryBurden {
+  if (!isRecordLike(value) || typeof value.kind !== "string") {
+    return false;
+  }
+
+  switch (value.kind) {
+    case "none":
+      return true;
+    case "fixed":
+      return isNonNegativeNumber(value.slotsPerItem);
+    case "stacked":
+      return isPositiveInteger(value.itemsPerSlot);
+    default:
+      return false;
+  }
+}
+
+function isLegacySlotProfile(value: unknown): boolean {
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  if (value.kind === "fixed") {
+    return isNonNegativeNumber(value.slots);
+  }
+
+  if (value.kind === "stackable") {
+    return isPositiveInteger(value.quantity) && isPositiveInteger(value.perSlot);
+  }
+
+  return false;
+}
+
+function isCoinData(value: unknown): boolean {
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return (
+    isNonNegativeInteger(value.pp) &&
+    isNonNegativeInteger(value.gp) &&
+    isNonNegativeInteger(value.sp) &&
+    isNonNegativeInteger(value.cp)
+  );
+}
+
+function isTreasureData(value: unknown): boolean {
+  return isRecordLike(value) && isNonNegativeNumber(value.gpValue);
+}
+
+function isOptionalRecordData(value: unknown): boolean {
+  return value === undefined || isRecordLike(value);
+}
+
+function isOptionalContainerData(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return (
+    isNonNegativeNumber(value.capacitySlots) &&
+    (value.isBackpack === undefined || typeof value.isBackpack === "boolean")
+  );
+}
+
+function isOptionalIdentificationData(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.identified === "boolean" &&
+    (value.unidentifiedName === undefined ||
+      typeof value.unidentifiedName === "string") &&
+    (value.unidentifiedDescription === undefined ||
+      typeof value.unidentifiedDescription === "string")
+  );
+}
+
+function isOptionalUsesData(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  return (
+    isRecordLike(value) &&
+    isNonNegativeInteger(value.current) &&
+    (value.max === undefined || isNonNegativeInteger(value.max))
+  );
+}
+
+function isOptionalLightData(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  return (
+    isRecordLike(value) &&
+    typeof value.isLit === "boolean" &&
+    (value.lightDescription === undefined ||
+      typeof value.lightDescription === "string")
+  );
+}
+
+function isOptionalModifierArray(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (modifier) =>
+        isRecordLike(modifier) &&
+        (KNOWN_MODIFIER_TARGETS.includes(
+          modifier.target as KnownModifierTarget,
+        ) ||
+          typeof modifier.target === "string") &&
+        typeof modifier.value === "number" &&
+        Number.isFinite(modifier.value) &&
+        (modifier.label === undefined || typeof modifier.label === "string"),
+    )
+  );
+}
+
+function isOptionalHandsRequired(value: unknown): boolean {
+  return value === undefined || value === 0 || value === 1 || value === 2;
+}
+
+function isOptionalCharacterData(value: unknown): boolean {
+  return (
+    value === undefined ||
+    (isCharacterData(value) && validateCharacterData(value).valid)
+  );
+}
+
+function isCharacterData(value: unknown): value is CharacterData {
+  if (!isRecordLike(value) || !isRecordLike(value.hp)) {
+    return false;
+  }
+
+  return (
+    typeof value.className === "string" &&
+    (value.level === null || isNonNegativeInteger(value.level)) &&
+    CHARACTER_ALIGNMENTS.includes(
+      value.alignment as (typeof CHARACTER_ALIGNMENTS)[number],
+    ) &&
+    (value.xp === null || isNonNegativeInteger(value.xp)) &&
+    (value.hp.current === null || isNonNegativeInteger(value.hp.current)) &&
+    (value.hp.max === null || isNonNegativeInteger(value.hp.max)) &&
+    isAbilityScores(value.abilityScores) &&
+    isCharacterSkills(value.skills) &&
+    Array.isArray(value.languages) &&
+    value.languages.every((language) => typeof language === "string") &&
+    typeof value.description === "string" &&
+    isCharacterFeatures(value.features)
+  );
+}
+
+function isAbilityScores(value: unknown): boolean {
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return ABILITY_SCORE_KEYS.every(
+    (key) => value[key] === null || isPositiveInteger(value[key]),
+  );
+}
+
+function isCharacterSkills(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (skill) =>
+        isRecordLike(skill) &&
+        typeof skill.id === "string" &&
+        typeof skill.name === "string" &&
+        isPositiveInteger(skill.chanceInSix) &&
+        skill.chanceInSix <= 6 &&
+        (skill.description === undefined ||
+          typeof skill.description === "string"),
+    )
+  );
+}
+
+function isCharacterFeatures(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (feature) =>
+        isRecordLike(feature) &&
+        typeof feature.id === "string" &&
+        typeof feature.title === "string" &&
+        typeof feature.description === "string",
+    )
+  );
+}
+
+function isOptionalNonNegativeNumber(value: unknown): boolean {
+  return value === undefined || isNonNegativeNumber(value);
 }
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {
@@ -222,6 +580,14 @@ function normalizeNonNegativeNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? value
     : fallback;
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 function isPositiveInteger(value: unknown): value is number {
@@ -239,8 +605,25 @@ function isAuditLogEntry(value: unknown): value is AuditLogEntry {
     typeof candidate.id === "string" &&
     typeof candidate.createdAt === "string" &&
     typeof candidate.actorLabel === "string" &&
-    typeof candidate.eventType === "string" &&
-    typeof candidate.summary === "string"
+    AUDIT_EVENT_TYPES.includes(candidate.eventType as AuditEventType) &&
+    typeof candidate.summary === "string" &&
+    (candidate.entityId === undefined || typeof candidate.entityId === "string") &&
+    (candidate.recordId === undefined || typeof candidate.recordId === "string") &&
+    (candidate.details === undefined || isAuditLogDetails(candidate.details))
+  );
+}
+
+function isAuditLogDetails(value: unknown): boolean {
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return Object.values(value).every(
+    (detailValue) =>
+      detailValue === null ||
+      typeof detailValue === "string" ||
+      typeof detailValue === "number" ||
+      typeof detailValue === "boolean",
   );
 }
 

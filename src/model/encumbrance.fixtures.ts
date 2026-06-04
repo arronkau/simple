@@ -199,6 +199,20 @@ const seventeenSlotCoinsRecord: InventoryRecord = {
   },
 };
 
+const heavyBackpackContentsRecord: InventoryRecord = {
+  id: "heavy-backpack-load-1",
+  recordType: "equipment",
+  name: "Heavy backpack load",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: backpackRecord.id,
+  },
+  sortOrder: 2000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 17 },
+};
+
 const heldSackRecord: InventoryRecord = {
   id: "sack-held-1",
   recordType: "equipment",
@@ -294,6 +308,74 @@ const overloadedBoxContentsRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 3 },
 };
 
+const storageHandsRequiredSackRecord: InventoryRecord = {
+  id: "storage-sack-1",
+  recordType: "equipment",
+  name: "Storage Sack",
+  entityId: cappedStorageEntity.id,
+  location: {
+    kind: "contents",
+  },
+  sortOrder: 2000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  container: {
+    capacitySlots: 6,
+  },
+};
+
+const storageSackContentsRecord: InventoryRecord = {
+  id: "storage-sack-contents-1",
+  recordType: "equipment",
+  name: "Stored Rations",
+  entityId: cappedStorageEntity.id,
+  location: {
+    kind: "container",
+    containerId: storageHandsRequiredSackRecord.id,
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+};
+
+const litLanternRecord: InventoryRecord = {
+  id: "lit-lantern-1",
+  recordType: "equipment",
+  name: "Lantern",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: backpackRecord.id,
+  },
+  sortOrder: 3000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  light: {
+    isLit: true,
+    lightDescription: "Bright light.",
+  },
+};
+
+const unidentifiedWandRecord: InventoryRecord = {
+  id: "unidentified-wand-1",
+  recordType: "equipment",
+  name: "Wand of Secrets",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: backpackRecord.id,
+  },
+  sortOrder: 4000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  identification: {
+    identified: false,
+    unidentifiedName: "Carved wand",
+    unidentifiedDescription: "A polished wand with faint markings.",
+  },
+};
+
 const emptyBackpackRecords = [backpackRecord];
 const literalBackpackRecords = [backpackRecord, ropeRecord, torchesRecord];
 const yostLoadedBackpackRecords = [
@@ -320,6 +402,22 @@ const cappedStorageRecords = [
   storageLoadRecord,
   smallBoxRecord,
   overloadedBoxContentsRecord,
+];
+const storageHandsRequiredSackRecords = [
+  storageHandsRequiredSackRecord,
+  storageSackContentsRecord,
+];
+const overfilledBackpackRecords = [backpackRecord, heavyBackpackContentsRecord];
+const overloadedCharacterRecords = [backpackRecord, seventeenSlotCoinsRecord];
+const movementReducedRecords = [
+  backpackRecord,
+  equippedSixSlotsRecord,
+  fourSlotCoinsRecord,
+];
+const itemStatusRecords = [
+  backpackRecord,
+  litLanternRecord,
+  unidentifiedWandRecord,
 ];
 
 const emptyBackpackEncumbrance = getCharacterEncumbrance(
@@ -546,7 +644,73 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       warnings: {
         handsRequiredContainerNotHeld: 1,
         missingBackpack: 1,
+        movementReduced: 1,
       },
+    },
+  },
+  {
+    name: "overfilled backpack creates a container warning",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, overfilledBackpackRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        containerOverCapacity: 1,
+        entityOverloaded: 1,
+      },
+    },
+  },
+  {
+    name: "overloaded character creates a movement warning",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, overloadedCharacterRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        entityOverloaded: 1,
+      },
+    },
+  },
+  {
+    name: "movement reduction creates a character warning",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, movementReducedRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        movementReduced: 1,
+      },
+    },
+  },
+  {
+    name: "lit and unidentified item status warnings are exposed",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, itemStatusRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        litItem: 1,
+        unidentifiedItem: 1,
+      },
+    },
+  },
+  {
+    name: "non-character loaded hands-required containers do not require held warnings",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(cappedStorageEntity, storageHandsRequiredSackRecords),
+      ),
+    },
+    expected: {
+      warnings: {},
     },
   },
   {

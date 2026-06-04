@@ -243,6 +243,45 @@ export const APP_STATE_MANUAL_FIXTURES = [
     expected: undefined,
   },
   {
+    name: "malformed inventory records reject the whole app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [
+        legacyWeaponRecord,
+        {
+          id: "bad-record",
+          recordType: "equipment",
+          entityId: characterEntity.id,
+          location: {
+            kind: "container",
+          },
+          sortOrder: 1,
+        },
+      ],
+      auditLog: [],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "malformed audit entries reject the whole app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [],
+      auditLog: [
+        {
+          id: "audit-bad",
+          createdAt: "2026-06-03T12:00:00.000Z",
+          actorLabel: "Local user",
+          eventType: "not-real",
+          summary: "Invalid event.",
+        },
+      ],
+    }),
+    expected: undefined,
+  },
+  {
     name: "Firebase document data preserves the same logical AppState shape",
     actual: parseAppState(firebaseDocumentAppState),
     expected: firebaseDocumentAppState,
