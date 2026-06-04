@@ -428,6 +428,56 @@ const phase5SackMoveContainerOptionIds =
       }).map((record) => record.id)
     : [];
 
+useAppStore.getState().resetLocalState();
+
+const phase5SpendCharacterId = useAppStore.getState().createEntity({
+  name: "Yost",
+  entityType: "character",
+});
+
+if (phase5SpendCharacterId) {
+  useAppStore.getState().createInventoryRecord(phase5SpendCharacterId, {
+    recordType: "coins",
+    coins: { gp: 50, sp: 7 },
+  });
+}
+
+const phase5SpendCoinRecord = useAppStore
+  .getState()
+  .appState.inventoryRecords.find(
+    (record) =>
+      record.recordType === "coins" &&
+      record.entityId === phase5SpendCharacterId,
+  );
+const phase5SpendWithNoteResult = phase5SpendCoinRecord
+  ? useAppStore.getState().spendCoins(phase5SpendCoinRecord.id, {
+      denomination: "gp",
+      amount: 10,
+      note: "paid temple donation",
+    })
+  : { ok: false };
+const phase5OverspendResult = phase5SpendCoinRecord
+  ? useAppStore.getState().spendCoins(phase5SpendCoinRecord.id, {
+      denomination: "sp",
+      amount: 20,
+    })
+  : { ok: false };
+const phase5SpendWithoutNoteResult = phase5SpendCoinRecord
+  ? useAppStore.getState().spendCoins(phase5SpendCoinRecord.id, {
+      denomination: "sp",
+      amount: 2,
+    })
+  : { ok: false };
+const phase5SpendState = useAppStore.getState().appState;
+const phase5SpendFinalCoinRecord = phase5SpendState.inventoryRecords.find(
+  (record) => record.id === phase5SpendCoinRecord?.id,
+);
+const phase5SpendAuditEntries = phase5SpendState.auditLog.filter(
+  (entry) =>
+    entry.eventType === "coinsChanged" &&
+    entry.recordId === phase5SpendCoinRecord?.id,
+);
+
 export const PHASE_5_STORE_MANUAL_FIXTURES = [
   {
     name: "character coin creation merges into a single coin-purse record",
@@ -521,6 +571,52 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     expected: {
       descendantEntityId: phase5StorageBId,
     },
+  },
+  {
+    name: "coin spend reduces selected denomination and blocks overdrafts",
+    actual: {
+      spendWithNoteOk: phase5SpendWithNoteResult.ok,
+      overspendOk: phase5OverspendResult.ok,
+      spendWithoutNoteOk: phase5SpendWithoutNoteResult.ok,
+      finalCoins:
+        phase5SpendFinalCoinRecord?.recordType === "coins"
+          ? phase5SpendFinalCoinRecord.coins
+          : undefined,
+    },
+    expected: {
+      spendWithNoteOk: true,
+      overspendOk: false,
+      spendWithoutNoteOk: true,
+      finalCoins: {
+        pp: 0,
+        gp: 40,
+        sp: 5,
+        cp: 0,
+      },
+    },
+  },
+  {
+    name: "coin spend audit records amount denomination and optional note",
+    actual: phase5SpendAuditEntries.map((entry) => ({
+      summary: entry.summary,
+      spendAmount: entry.details?.spendAmount,
+      spendDenomination: entry.details?.spendDenomination,
+      spendNote: entry.details?.spendNote,
+    })),
+    expected: [
+      {
+        summary: "Yost spent 10 gp - paid temple donation.",
+        spendAmount: 10,
+        spendDenomination: "gp",
+        spendNote: "paid temple donation",
+      },
+      {
+        summary: "Yost spent 2 sp.",
+        spendAmount: 2,
+        spendDenomination: "sp",
+        spendNote: undefined,
+      },
+    ],
   },
 ];
 

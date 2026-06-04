@@ -81,6 +81,10 @@ type AppStore = {
     recordId: InventoryRecordId,
     location: InventoryRecordLocationInput,
   ) => InventoryMutationResult;
+  spendCoins: (
+    recordId: InventoryRecordId,
+    input: SpendCoinsInput,
+  ) => InventoryMutationResult;
   deleteInventoryRecord: (
     recordId: InventoryRecordId,
   ) => InventoryMutationResult;
@@ -91,6 +95,14 @@ type AppStore = {
 type CreateEntityStoreInput = {
   name: string;
   entityType: EntityType;
+};
+
+export type CoinDenomination = keyof CoinData;
+
+export type SpendCoinsInput = {
+  denomination: CoinDenomination;
+  amount: number;
+  note?: string;
 };
 
 export type InventoryMutationResult =
@@ -635,6 +647,106 @@ export const useAppStore = create<AppStore>((set) => ({
 
     return result;
   },
+  spendCoins: (recordId, input) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Coin record was not found.",
+    };
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+
+      if (!record || record.recordType !== "coins") {
+        return state;
+      }
+
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === record.entityId,
+      );
+
+      if (!entity) {
+        result = {
+          ok: false,
+          message: "Entity was not found.",
+        };
+        return state;
+      }
+
+      if (!isSpendCoinDenomination(input.denomination)) {
+        result = {
+          ok: false,
+          message: "Choose a valid coin type.",
+        };
+        return state;
+      }
+
+      if (!Number.isInteger(input.amount) || input.amount <= 0) {
+        result = {
+          ok: false,
+          message: "Spend amount must be a positive whole number.",
+        };
+        return state;
+      }
+
+      if (record.coins[input.denomination] < input.amount) {
+        result = {
+          ok: false,
+          message: `Cannot spend more ${input.denomination} than available.`,
+        };
+        return state;
+      }
+
+      const previousCoins = record.coins;
+      const nextCoins: CoinData = {
+        ...record.coins,
+        [input.denomination]: record.coins[input.denomination] - input.amount,
+      };
+      const nextInventoryRecords = state.appState.inventoryRecords.map(
+        (candidateRecord) =>
+          candidateRecord.id === record.id && candidateRecord.recordType === "coins"
+            ? { ...candidateRecord, coins: nextCoins }
+            : candidateRecord,
+      );
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid spend.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: nextInventoryRecords,
+          },
+          [
+            createCoinSpendAuditEntryInput({
+              amount: input.amount,
+              denomination: input.denomination,
+              entity,
+              nextCoins,
+              note: input.note,
+              previousCoins,
+              recordId,
+            }),
+          ],
+        ),
+      };
+    });
+
+    return result;
+  },
   deleteInventoryRecord: (recordId) => {
     let result: InventoryMutationResult = {
       ok: false,
@@ -906,6 +1018,41 @@ function createCoinChangeAuditEntryInput(input: {
   };
 }
 
+function createCoinSpendAuditEntryInput(input: {
+  amount: number;
+  denomination: CoinDenomination;
+  entity: Entity;
+  nextCoins: CoinData;
+  note?: string;
+  previousCoins: CoinData;
+  recordId: InventoryRecordId;
+}): AuditLogEntryInput {
+  const note = input.note?.trim();
+
+  return {
+    entityId: input.entity.id,
+    eventType: "coinsChanged",
+    recordId: input.recordId,
+    summary: `${input.entity.name} spent ${input.amount} ${
+      input.denomination
+    }${note ? ` - ${note}` : ""}.`,
+    details: {
+      spendAmount: input.amount,
+      spendDenomination: input.denomination,
+      spendNote: note || undefined,
+      previousPp: input.previousCoins.pp,
+      previousGp: input.previousCoins.gp,
+      previousSp: input.previousCoins.sp,
+      previousCp: input.previousCoins.cp,
+      nextPp: input.nextCoins.pp,
+      nextGp: input.nextCoins.gp,
+      nextSp: input.nextCoins.sp,
+      nextCp: input.nextCoins.cp,
+      ...getCoinDeltaDetails(getCoinDelta(input.previousCoins, input.nextCoins)),
+    },
+  };
+}
+
 function createInventoryMoveAuditEntryInput(input: {
   entities: Entity[];
   nextEntityId: EntityId;
@@ -997,6 +1144,12 @@ function formatInventoryLocation(
 
 function hasCoinDelta(delta: CoinData): boolean {
   return delta.pp !== 0 || delta.gp !== 0 || delta.sp !== 0 || delta.cp !== 0;
+}
+
+function isSpendCoinDenomination(
+  value: string,
+): value is CoinDenomination {
+  return value === "pp" || value === "gp" || value === "sp" || value === "cp";
 }
 
 function areInventoryLocationsEqual(

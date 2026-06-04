@@ -717,6 +717,11 @@ h5 {
   font-weight: 700;
 }
 
+.form-help {
+  color: #5a6974;
+  font-size: 0.9rem;
+}
+
 .record-form-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

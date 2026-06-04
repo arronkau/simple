@@ -57,6 +57,7 @@ import type {
   AuditLogEntry,
   CharacterAlignment,
   CharacterData,
+  CoinData,
   Entity,
   EntityId,
   EntityType,
@@ -74,6 +75,7 @@ import {
   type ValidationIssue,
 } from "./model/validation";
 import { useAppStore, type EntityMutationResult } from "./store/useAppStore";
+import type { CoinDenomination } from "./store/useAppStore";
 
 type EntityFormState = {
   name: string;
@@ -100,6 +102,8 @@ const RECORD_TYPES: InventoryRecordType[] = [
   "armor",
   "equipment",
 ];
+
+const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
 
 const MODIFIER_TARGET_OPTIONS: Array<{
   label: string;
@@ -200,6 +204,13 @@ type CharacterSheetFormState = {
   features: CharacterFeatureFormState[];
 };
 
+type CoinSpendFormState = {
+  recordId: InventoryRecordId;
+  denomination: CoinDenomination;
+  amount: string;
+  note: string;
+};
+
 type ManageMessage = {
   tone: "error" | "success";
   text: string;
@@ -227,6 +238,7 @@ function LocalAppShell() {
   const updateInventoryRecord = useAppStore(
     (state) => state.updateInventoryRecord,
   );
+  const spendCoins = useAppStore((state) => state.spendCoins);
   const deleteInventoryRecord = useAppStore(
     (state) => state.deleteInventoryRecord,
   );
@@ -241,7 +253,13 @@ function LocalAppShell() {
   const [editingEntityId, setEditingEntityId] = useState<EntityId | undefined>();
   const [editingName, setEditingName] = useState("");
   const [recordForm, setRecordForm] = useState<RecordFormState | undefined>();
+  const [coinSpendForm, setCoinSpendForm] = useState<
+    CoinSpendFormState | undefined
+  >();
   const [recordFormMessage, setRecordFormMessage] = useState<
+    string | undefined
+  >();
+  const [coinSpendMessage, setCoinSpendMessage] = useState<
     string | undefined
   >();
   const [auditEntityFilter, setAuditEntityFilter] = useState<
@@ -338,6 +356,47 @@ function LocalAppShell() {
     setRecordFormMessage(undefined);
   }
 
+  function startSpendingCoins(record: InventoryRecord) {
+    if (record.recordType !== "coins") {
+      return;
+    }
+
+    setCoinSpendForm({
+      recordId: record.id,
+      denomination: getFirstAvailableCoinDenomination(record.coins),
+      amount: "",
+      note: "",
+    });
+    setCoinSpendMessage(undefined);
+  }
+
+  function cancelSpendingCoins() {
+    setCoinSpendForm(undefined);
+    setCoinSpendMessage(undefined);
+  }
+
+  function saveCoinSpendForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!coinSpendForm) {
+      return;
+    }
+
+    const result = spendCoins(coinSpendForm.recordId, {
+      denomination: coinSpendForm.denomination,
+      amount: Number(coinSpendForm.amount),
+      note: coinSpendForm.note,
+    });
+
+    if (!result.ok) {
+      setCoinSpendMessage(result.message);
+      return;
+    }
+
+    setCoinSpendForm(undefined);
+    setCoinSpendMessage(undefined);
+  }
+
   return (
     <main className="app-shell">
       <section className="workspace-panel" aria-labelledby="app-title">
@@ -386,6 +445,7 @@ function LocalAppShell() {
                 onSaveEditing={saveEditing}
                 onSaveRecordForm={saveRecordForm}
                 onSetEntityActive={setEntityActive}
+                onSpendCoins={startSpendingCoins}
                 onStartAddRecord={startAddingRecord}
               />
             }
@@ -435,6 +495,17 @@ function LocalAppShell() {
               resetLocalState();
               setManageModalOpen(false);
             }}
+          />
+        ) : null}
+
+        {coinSpendForm ? (
+          <CoinSpendModal
+            formState={coinSpendForm}
+            message={coinSpendMessage}
+            record={getRecordById(coinSpendForm.recordId, appState.inventoryRecords)}
+            onCancel={cancelSpendingCoins}
+            onChange={setCoinSpendForm}
+            onSubmit={saveCoinSpendForm}
           />
         ) : null}
       </section>
@@ -681,6 +752,7 @@ function InventoryPage({
   onSaveEditing,
   onSaveRecordForm,
   onSetEntityActive,
+  onSpendCoins,
   onStartAddRecord,
 }: {
   appState: AppState;
@@ -703,6 +775,7 @@ function InventoryPage({
   onSaveEditing: (entityId: EntityId) => void;
   onSaveRecordForm: (event: FormEvent<HTMLFormElement>) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
   const recordFormEntity = recordForm
@@ -743,6 +816,7 @@ function InventoryPage({
               onEditRecord={onEditRecord}
               onSaveEditing={onSaveEditing}
               onSetEntityActive={onSetEntityActive}
+              onSpendCoins={onSpendCoins}
               onStartAddRecord={onStartAddRecord}
             />
           ))}
@@ -830,6 +904,7 @@ function EntityInventoryRow({
   onEditRecord,
   onSaveEditing,
   onSetEntityActive,
+  onSpendCoins,
   onStartAddRecord,
 }: {
   appState: AppState;
@@ -844,6 +919,7 @@ function EntityInventoryRow({
   onEditRecord: (record: InventoryRecord) => void;
   onSaveEditing: (entityId: EntityId) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
   const backpackCount = findTopLevelStowedContainerRecords(
@@ -908,6 +984,7 @@ function EntityInventoryRow({
         appState={appState}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onSpendCoins={onSpendCoins}
         onStartAddRecord={onStartAddRecord}
       />
     </li>
@@ -1497,12 +1574,14 @@ function InventoryDisplay({
   appState,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
   onStartAddRecord,
 }: {
   entity: Entity;
   appState: AppState;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
   const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
@@ -1547,6 +1626,7 @@ function InventoryDisplay({
           records={appState.inventoryRecords}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onSpendCoins={onSpendCoins}
         />
       ) : (
         <ContentsInventoryDisplay
@@ -1554,6 +1634,7 @@ function InventoryDisplay({
           records={appState.inventoryRecords}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onSpendCoins={onSpendCoins}
         />
       )}
     </section>
@@ -1606,11 +1687,13 @@ function CharacterInventoryDisplay({
   records,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
   records: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
   const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
@@ -1627,6 +1710,7 @@ function CharacterInventoryDisplay({
               records={records}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
+              onSpendCoins={onSpendCoins}
             />
           ) : (
             <div className="hand-grid">
@@ -1636,6 +1720,7 @@ function CharacterInventoryDisplay({
                 records={records}
                 onDeleteRecord={onDeleteRecord}
                 onEditRecord={onEditRecord}
+                onSpendCoins={onSpendCoins}
               />
               <HandSlot
                 label="Right hand"
@@ -1643,6 +1728,7 @@ function CharacterInventoryDisplay({
                 records={records}
                 onDeleteRecord={onDeleteRecord}
                 onEditRecord={onEditRecord}
+                onSpendCoins={onSpendCoins}
               />
             </div>
           )}
@@ -1654,6 +1740,7 @@ function CharacterInventoryDisplay({
             allRecords={records}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}
+            onSpendCoins={onSpendCoins}
           />
         </InventorySubsection>
       </InventorySection>
@@ -1665,6 +1752,7 @@ function CharacterInventoryDisplay({
               record={sections.coinRecord}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
+              onSpendCoins={onSpendCoins}
             />
           ) : (
             <p className="empty-state compact">No coins</p>
@@ -1679,6 +1767,7 @@ function CharacterInventoryDisplay({
               nestedRecords={sections.backpackContents}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
+              onSpendCoins={onSpendCoins}
             />
           ) : (
             <p className="empty-state compact">Missing stowed container</p>
@@ -1694,11 +1783,13 @@ function ContentsInventoryDisplay({
   records,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   contents: InventoryRecord[];
   records: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   return (
     <div className="inventory-sections">
@@ -1708,6 +1799,7 @@ function ContentsInventoryDisplay({
           allRecords={records}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onSpendCoins={onSpendCoins}
         />
       </InventorySection>
     </div>
@@ -2419,6 +2511,95 @@ function InventoryRecordForm({
   );
 }
 
+function CoinSpendModal({
+  formState,
+  message,
+  record,
+  onCancel,
+  onChange,
+  onSubmit,
+}: {
+  formState: CoinSpendFormState;
+  message?: string;
+  record: InventoryRecord | undefined;
+  onCancel: () => void;
+  onChange: (formState: CoinSpendFormState) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  if (!record || record.recordType !== "coins") {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-label="Spend coins"
+        aria-modal="true"
+        className="modal-panel record-modal"
+        role="dialog"
+      >
+        <form className="record-form" onSubmit={onSubmit}>
+          <div className="record-form-heading">
+            <h4>Spend Coins</h4>
+            {message ? <p className="form-error">{message}</p> : null}
+          </div>
+
+          <div className="record-form-grid">
+            <p className="form-help wide-field">
+              Available: {formatCoinDenominations(record)}
+            </p>
+
+            <label>
+              <span>Coin type</span>
+              <select
+                value={formState.denomination}
+                onChange={(event) =>
+                  onChange({
+                    ...formState,
+                    denomination: event.target.value as CoinDenomination,
+                  })
+                }
+              >
+                {COIN_DENOMINATIONS.map((denomination) => (
+                  <option key={denomination} value={denomination}>
+                    {denomination}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <NumberField
+              label="Amount"
+              min="1"
+              value={formState.amount}
+              onChange={(amount) => onChange({ ...formState, amount })}
+            />
+
+            <label className="wide-field">
+              <span>Note</span>
+              <input
+                autoComplete="off"
+                maxLength={160}
+                value={formState.note}
+                onChange={(event) =>
+                  onChange({ ...formState, note: event.target.value })
+                }
+              />
+            </label>
+          </div>
+
+          <div className="record-form-actions">
+            <button type="button" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="submit">Spend coins</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function NumberField({
   label,
   min = "0",
@@ -2482,12 +2663,14 @@ function HandSlot({
   records,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   label: string;
   record?: InventoryRecord;
   records: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   return (
     <div className="hand-slot">
@@ -2498,6 +2681,7 @@ function HandSlot({
           allRecords={records}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onSpendCoins={onSpendCoins}
         />
       ) : (
         <p className="empty-state compact">Empty hand</p>
@@ -2511,11 +2695,13 @@ function RecordList({
   allRecords,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   records: InventoryRecord[];
   allRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (records.length === 0) {
     return <p className="empty-state compact">Empty</p>;
@@ -2530,6 +2716,7 @@ function RecordList({
             allRecords={allRecords}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}
+            onSpendCoins={onSpendCoins}
           />
         </li>
       ))}
@@ -2542,11 +2729,13 @@ function RecordRow({
   allRecords,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (record.recordType === "coins") {
     return (
@@ -2554,6 +2743,7 @@ function RecordRow({
         record={record}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onSpendCoins={onSpendCoins}
       />
     );
   }
@@ -2566,6 +2756,7 @@ function RecordRow({
         nestedRecords={getContainerContents(record, allRecords)}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onSpendCoins={onSpendCoins}
       />
     );
   }
@@ -2588,12 +2779,14 @@ function ContainerBlock({
   nestedRecords,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   containerRecord: InventoryRecord;
   records: InventoryRecord[];
   nestedRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   return (
     <div className="container-block">
@@ -2610,6 +2803,7 @@ function ContainerBlock({
         allRecords={records}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onSpendCoins={onSpendCoins}
       />
     </div>
   );
@@ -2619,10 +2813,12 @@ function CoinRecordRow({
   record,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   record: InventoryRecord;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (record.recordType !== "coins") {
     return null;
@@ -2635,6 +2831,7 @@ function CoinRecordRow({
         record={record}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onSpendCoins={onSpendCoins}
       />
     </div>
   );
@@ -2644,16 +2841,23 @@ function RecordActions({
   record,
   onDeleteRecord,
   onEditRecord,
+  onSpendCoins,
 }: {
   record: InventoryRecord;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onSpendCoins?: (record: InventoryRecord) => void;
 }) {
   return (
     <div className="record-actions">
       <button type="button" onClick={() => onEditRecord(record)}>
         Edit
       </button>
+      {record.recordType === "coins" && onSpendCoins ? (
+        <button type="button" onClick={() => onSpendCoins(record)}>
+          Spend
+        </button>
+      ) : null}
       <button
         className="danger-button"
         type="button"
@@ -3001,6 +3205,12 @@ function formatCoinDenominations(record: InventoryRecord) {
   }
 
   return formatCoinDenominationsValue(record.coins);
+}
+
+function getFirstAvailableCoinDenomination(coins: CoinData): CoinDenomination {
+  return (
+    COIN_DENOMINATIONS.find((denomination) => coins[denomination] > 0) ?? "gp"
+  );
 }
 
 function formatSlots(slots: number) {
