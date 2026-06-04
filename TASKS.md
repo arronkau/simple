@@ -1,296 +1,700 @@
-# TASKS
+# TASKS.md
+
+## 0.1 Launch Standard
+
+The 0.1 launch target is **usable and helpful in actual table play**, not feature complete.
+
+The app should support a referee running a real session with enough confidence that:
+
+- imports and exports are safe enough for real campaign data;
+- encumbrance, containers, hands, coins, and warnings are trustworthy;
+- party state can be inspected quickly during play;
+- standard inventory can be added without tedious manual entry;
+- common table actions like spending coins and identifying magic items are supported.
+
+0.1 is explicitly **single-user / referee-facing**. It does not need player accounts, role management, drag-and-drop, or final visual design.
+
+---
+
+## 0.1 Scope Summary
+
+### 0.1 Blockers
+
+1. Import/export safety and hard rejection of malformed imports.
+2. Warning correctness pass.
+3. Core calculation regression test review/fill-in.
+4. One-level nested containers.
+5. Coin spend action with audit note.
+6. Unidentified item workflow with audit log.
+7. Standard item autofill.
+8. Compact party view.
+9. Focused 0.1 UI cleanup.
+
+### Deferred Post-0.1
+
+The following are explicitly out of scope for 0.1:
+
+- GM vs player roles.
+- Role management.
+- Player permissions.
+- Role-gated secret fields.
+- Drag-and-drop.
+- Full audit log beyond required 0.1 events.
+- Shopping page.
+- Prepared treasure hoards.
+- Full referee operations dashboard beyond the compact party view.
+- Full visual design pass.
+- Mobile/tablet-specific design work.
+- Automatic backup/recovery beyond import/export.
+- Demo party/fixture polish unless needed for tests.
+
+---
+
+# Phase 0 — Lock 0.1 Scope
 
 ## Goal
 
-Continue the app after Firebase mode with a regression-hardening pass and then table-facing campaign workflow features. Keep the implementation simple, local-first, Firebase-compatible, and aligned with the existing inventory model.
+Make the 0.1 launch scope explicit so implementation does not drift into deferred features.
 
-This file controls implementation sequencing. Earlier phases 1-6 are considered complete and should not be reimplemented except where regression hardening identifies a specific bug.
+## Requirements
 
-## Current Priority
+- Treat 0.1 as referee-facing, single-user table support.
+- Keep the launch standard focused on actual table usefulness, not completeness.
+- Do not add dependencies on multiplayer, player accounts, role management, or drag-and-drop.
+- Import/export is sufficient as the 0.1 data recovery path.
+- Demo fixture work is not required for 0.1 unless needed for tests.
 
-Run Phase 7B before adding new features. The app now needs post-Firebase correctness coverage so later feature work does not build on unstable inventory, persistence, or sync behavior.
+## Non-goals
 
-## Global Guardrails
+- No GM/player role system.
+- No permission model.
+- No role-gated data visibility.
+- No drag-and-drop.
+- No full design pass.
+- No automatic backup history.
 
-- Favor minimal diffs.
-- Do not add unrelated refactors.
-- Do not add a separate item-definition layer unless a later phase explicitly requires a narrow reusable catalog.
-- Preserve localStorage mode when Firebase env vars are absent.
-- Preserve Firebase mode when Firebase env vars are present.
-- Do not change the canonical inventory model casually.
-- Keep character-like inventory distinct from non-character entity inventory.
-- Character-like entities use equipped/stowed placement, hands, coin purse display, and one top-level stowed container, normally a backpack.
-- Mounts, vehicles, and storage use simple contents inventory, not equipped/stowed placement.
-- Coin purse remains a placement/display concept, not a real container.
-- Prepared treasure hoards and shopping data should create normal inventory records when awarded or purchased.
-- Drag-and-drop remains optional and last.
+## Acceptance Criteria
 
-## Standard Validation Commands
-
-Run these after each phase unless a phase gives more specific validation:
-
-```bash
-npm install
-npm run typecheck
-npm run test
-npm run build
-```
-
-Also manually verify both modes when persistence or state shape changes:
-
-- Run with Firebase env vars missing and confirm localStorage mode still works.
-- Run with Firebase env vars configured and confirm Firestore sync still works.
+- 0.1 tasks can be completed without adding auth, permissions, or drag/drop.
+- Deferred work is clearly separated from launch blockers.
+- Future Codex tasks can refer to this file as the source of truth for 0.1 scope.
 
 ---
 
-## Phase 7B — Post-Firebase Regression Hardening
+# Phase 1 — Import/Export Safety
 
-### Task
+## Goal
 
-Stabilize the completed local/Firebase app before adding new features. Fix spec drift, invalid UI affordances, inventory edge cases, and missing regression coverage.
+Make import/export safe enough for real use without building a larger recovery system.
 
-### Context
+## Requirements
 
-Phases 1-6 are complete. Firebase has been added after local behavior stabilized. The next risk is subtle breakage in inventory invariants, Firestore persistence, local fallback, and UI workflows.
+### Export
 
-### Scope
+- Export current app state as JSON.
+- Export should include all data needed to restore the current campaign state.
+- Export format should remain compatible with current import expectations.
 
-- Audit the current implementation against `MODEL_SPEC.md`, `APP_SPEC.md`, and `ENCUMBRANCE_SPEC.md`.
-- Update specs only where they contradict the implemented and intended model.
-- Add regression fixtures/tests for high-risk inventory behavior.
-- Fix broken or misleading UI affordances that cannot work safely.
+### Import
 
-### Requirements
+- Import is destructive.
+- Show a clear warning before import.
+- Require explicit confirmation before replacing current state.
+- Hard reject malformed imports.
+- Do not partially import invalid data.
+- On failure, preserve existing app state.
 
-- Tighten delete confirmation for valuable records:
-  - Require explicit confirmation for non-empty containers, coin records, treasure, and records with `gpValue` or meaningful coin value.
-  - Continue blocking deletion of non-empty containers unless the existing model already supports safe recursive deletion.
-- Make coin display safe when coin records lack names.
-  - Coin rows should not require `name` for display.
-  - Coin labels should derive from denomination counts when needed.
-- Filter obviously invalid container destinations before submit where practical.
-  - Hide or disable the current record, descendants, cross-entity invalid containers, non-empty nested containers, and destinations that violate entity location rules.
-  - Keep validation helpers authoritative; UI filtering is a convenience, not the only defense.
-- Add regression tests/fixtures for:
-  - default backpack creation
-  - missing backpack warning
-  - duplicate top-level stowed container prevention
-  - coin purse placement and stowed burden
-  - non-character coin records in contents or containers
-  - container movement across entities
-  - descendant entityId updates after container moves
-  - held-container descendant exclusion from movement burden
-  - non-empty hands-required container warning when not held
-  - sibling sort ordering
-  - invalid container destination rejection
-  - valuable-record delete confirmation behavior where testable
-- Ensure localStorage and Firebase modes preserve the same logical `AppState` shape.
+Suggested confirmation text:
 
-### Non-goals
-
-- Do not add new feature surfaces beyond hardening existing behavior.
-- Do not implement audit log yet.
-- Do not implement party summary yet.
-- Do not redesign visual layout.
-- Do not add drag-and-drop.
-
-### Likely Files
-
-- `TASKS.md`
-- `MODEL_SPEC.md`
-- `APP_SPEC.md`
-- `ENCUMBRANCE_SPEC.md`
-- `src/App.tsx`
-- `src/model/types.ts`
-- `src/model/calculations.ts`
-- `src/model/encumbrance.ts`
-- `src/model/validation.ts`
-- `src/model/inventoryDisplay.ts`
-- `src/model/*fixtures.ts`
-- `src/store/useAppStore.ts`
-- `src/store/useAppStore.fixtures.ts`
-- Firebase/local persistence files if separate from the store
-
-### Validation
-
-```bash
-npm run typecheck
-npm run test
-npm run build
+```text
+Import replaces all current app data. Export a backup first. Type "import" to continue.
 ```
 
-Manual checks:
+### Reset
 
-- Add/edit/move/delete each record type in local mode.
-- Repeat representative add/edit/move/delete flows in Firebase mode.
-- Confirm invalid moves are blocked before persistence.
-- Confirm UI no longer offers record-type edits that cannot safely work.
-- Confirm valuable records require stronger confirmation before deletion.
+- Reset data remains destructive.
+- Require typing `delete` before reset proceeds.
 
-### Stop Condition
+## Non-goals
 
-Stop when regression tests cover the listed edge cases, all validation commands pass, and no new feature work has been added.
+- No automatic backup system.
+- No backup history.
+- No partial import recovery.
+- No migration UI beyond hard rejecting invalid data.
+- No import preview unless already trivial.
+
+## Acceptance Criteria
+
+- Malformed JSON cannot overwrite current data.
+- Invalid import shape cannot partially overwrite current data.
+- User must explicitly confirm destructive import.
+- User must explicitly confirm reset.
+- Exported JSON can be re-imported successfully.
+
+## Validation
+
+Run the existing test suite and add targeted import/export tests where practical.
+
+Suggested commands:
+
+```bash
+npm test
+npm run build
+```
 
 ---
 
-## Phase 8 — Audit Log
+# Phase 2 — Warning Correctness Pass
 
-### Task
+## Goal
 
-Add an audit log for significant campaign and inventory edits.
+Make warnings accurate enough that users can trust them during play.
 
-### Context
+## Requirements
 
-The app is now Firebase-capable, which makes shared edits more likely. The referee needs visibility into major changes without logging every harmless keystroke.
+### Remove inappropriate warnings
 
-### Scope
+- Remove warnings about non-held containers from non-character entities.
+- Non-character entities include storage, mounts, vehicles, banks, and similar inventory holders.
+- These entities should not use character-style equipped/stowed/held assumptions unless explicitly modeled.
 
-- Add an append-only audit log to app state.
-- Record significant events from inventory/entity workflows.
-- Display a readable audit log view.
-- Keep logging compatible with localStorage and Firebase modes.
+### Keep character-like warnings
 
-### Requirements
+For characters and retainers, keep or add warnings for:
 
-- Add an `AuditLogEntry` model with at least:
-  - `id`
-  - `createdAt`
-  - `actorId` or actor label when available
-  - `eventType`
-  - `entityId` when applicable
-  - `recordId` when applicable
-  - short human-readable `summary`
-  - structured `details` for before/after values where useful
-- Log significant inventory edits:
-  - create/delete entity
-  - create/delete inventory record
-  - move record between entities
-  - change coin totals, storing denomination deltas where practical
-  - edit treasure value
-  - mark entity active/inactive
-- Avoid logging trivial UI-only state.
-- Add an audit log screen or panel reachable from the app.
-- Show newest entries first by default.
-- Allow basic filtering by entity and event type if simple.
-- Keep the audit log append-only in normal UI.
-- Add a reasonable retention strategy only if needed for state size; otherwise defer pruning.
+- Missing backpack where backpack is required.
+- More than one backpack, if still forbidden by the model.
+- Stowed non-coin item with no valid backpack destination.
+- Invalid item location.
+- Overfilled hands.
+- Overfilled container.
+- Overloaded entity.
+- Movement reduced by encumbrance.
+- Hands-required non-empty container not held, if this remains a rule.
+- Lit items where light status affects display.
+- Unidentified items with secret fields.
 
-### Non-goals
+### Warning structure
 
-- Do not build role-based permissions yet.
-- Do not build a full undo system.
-- Do not log every field blur or temporary form edit.
-- Do not make audit entries editable.
+- Warnings should be generated generically enough that the UI can later show them behind an icon.
+- For now, correctness matters more than compact presentation.
 
-### Likely Files
+## Non-goals
 
-- `src/model/types.ts`
-- `src/model/appState.ts`
-- `src/store/useAppStore.ts`
-- `src/App.tsx`
-- `src/styles.css`
-- `src/model/*fixtures.ts`
-- Persistence/sync files if separate
+- No full warning redesign yet.
+- No hover-only warning system.
+- No mobile/touch warning interaction work.
+- No role-specific warning visibility.
 
-### Validation
+## Acceptance Criteria
+
+- Storage, mount, bank, and similar non-character containers do not warn merely because they are not held.
+- Character/retainer warning cases remain covered.
+- Warning tests cover at least:
+  - character with missing backpack;
+  - overfilled backpack;
+  - non-character entity with non-held container;
+  - overloaded character;
+  - invalid hand state.
+
+## Validation
 
 ```bash
-npm run typecheck
-npm run test
+npm test
 npm run build
 ```
-
-Manual checks:
-
-- Create, edit, move, and delete records; confirm expected audit entries appear.
-- Change coins; confirm delta is readable.
-- Move an item between two entities; confirm source and destination are clear.
-- Confirm local mode persists audit entries.
-- Confirm Firebase mode syncs audit entries without duplicating them.
-
-### Stop Condition
-
-Stop when significant edits produce stable, readable audit entries in both local and Firebase modes without adding permissions or undo behavior.
 
 ---
 
-## Phase 9 — Party Summary
+# Phase 3 — One-Level Nested Containers
 
-### Task
+## Goal
 
-Add a referee-facing party summary view for quick table use.
+Allow ordinary table-use cases like a scroll case, pouch, or small sack inside a backpack without allowing unlimited recursive complexity.
 
-### Context
+## Intended Behavior
 
-The inventory view is detailed. The referee also needs a compact overview of the party’s operational state: HP, AC, movement, encumbrance, coin/treasure, warnings, and relevant notes.
+Allow this:
 
-### Scope
+```text
+Character
+  Backpack
+    Scroll case
+      Scroll
+```
 
-- Add a party summary route/view.
-- Summarize active character-like entities first.
-- Include non-character entities in a separate support/storage section.
+Allow this:
 
-### Requirements
+```text
+Storage
+  Chest
+    Pouch
+      Gems
+```
 
-- Add navigation to the summary view.
-- For each active character/retainer, show:
-  - name
-  - type/class/level if present
-  - HP current/max if present
-  - AC if present
-  - movement derived from encumbrance
-  - equipped slots
-  - stowed slots
-  - total carried slots
-  - coin totals and GP value
-  - treasure GP value
-  - warning count with expandable warning text
-  - short notes if present
-- For mounts, vehicles, and storage, show:
-  - name
-  - type
-  - used/capacity slots when capacity exists
-  - contents summary
-  - coin/treasure value
-  - warnings
-- Include party totals:
-  - total coin value
-  - total treasure value
-  - total combined value
-  - total warnings
-- Keep the view read-only except links/buttons to open the relevant entity in existing edit/detail flows.
+Do not allow this:
 
-### Non-goals
+```text
+Character
+  Backpack
+    Sack
+      Scroll case
+        Scroll
+```
 
-- Do not replace the detailed inventory view.
-- Do not implement permissions.
-- Do not add drag-and-drop.
-- Do not create separate character-sheet automation.
+## Requirements
 
-### Likely Files
+- Containers may be nested one level deep inside another container.
+- The UI should display one nested container level clearly.
+- Destination validation must prevent deeper nesting.
+- Encumbrance calculations must count nested container contents correctly.
+- Container capacity calculations must include nested contents correctly.
+- Non-character entities may contain containers without held-container warnings.
+- Character/retainer stowed inventory should still respect backpack rules.
 
-- `src/App.tsx`
-- `src/styles.css`
-- `src/model/calculations.ts`
-- `src/model/encumbrance.ts`
-- `src/model/inventoryDisplay.ts`
-- `src/model/types.ts`
+## Rule Notes
 
-### Validation
+- A character-like entity’s stowed non-coin items should still normally be in the backpack.
+- The backpack may contain items and one level of containers.
+- Nested containers may contain items.
+- Nested containers may not contain additional containers.
+- The held-container exception still applies only where relevant to character-like entities.
+
+## Non-goals
+
+- No arbitrary recursive nesting.
+- No drag-and-drop support.
+- No visual redesign of the inventory tree.
+- No complex container-type-specific nesting rules unless already present.
+
+## Acceptance Criteria
+
+- User can place a scroll case inside a backpack.
+- User can place a scroll inside that scroll case.
+- User cannot place another container inside the scroll case.
+- Nested contents count toward capacity and encumbrance as intended.
+- Non-character entities can contain nested containers without irrelevant held warnings.
+- Regression tests cover allowed and disallowed nesting.
+
+## Validation
 
 ```bash
-npm run typecheck
-npm run test
+npm test
 npm run build
 ```
 
-Manual checks:
+---
 
-- Confirm active characters/retainers appear before inactive entities.
-- Confirm movement matches inventory view calculations.
-- Confirm coin/treasure totals match underlying records.
-- Confirm warnings match existing validation/encumbrance helpers.
+# Phase 4 — Core Calculation Regression Tests
 
-### Stop Condition
+## Goal
 
-Stop when the party summary gives a correct read-only operational overview without changing inventory behavior.
+Ensure the app’s rule calculations are trustworthy before adding more UI.
+
+This may already be mostly done. The task is to review existing coverage and fill gaps.
+
+## Required Test Coverage
+
+### Missing or insufficient test coverage
+
+- Direct global 16-slot overload test where equipped + stowed > 16 but neither side individually overloads.
+- Mirror slower-of test where stowed burden is slower than equipped burden.
+- Explicit coin boundary tests at 99/100/101 coins and mixed denominations.
+- Explicit stackable equipment burden tests.
+- Exact-at-capacity and over-capacity container slot usage tests.
+- Store/action-level invalid destination tests, not just validation-state tests.
+- Held overfilled container test: contents excluded from movement but still over-capacity warning.
+- Clean held-container test with backpack present, avoiding unrelated missing-backpack warning.
+
+## Non-goals
+
+- No exhaustive property-based testing.
+- No full fixture overhaul unless needed.
+- No demo party requirement for 0.1.
+
+## Acceptance Criteria
+
+- Existing tests are reviewed for the required cases.
+- Missing coverage is added.
+- Test names clearly describe the rule being protected.
+- All tests pass.
+
+## Validation
+
+```bash
+npm test
+npm run build
+```
+
+
+---
+
+# Phase 5 — Coin Spend Action with Audit Note
+
+## Goal
+
+Support a common table action: spending coins and recording why.
+
+## Requirements
+
+- Add a **Spend** action for coin records.
+- User can choose coin type and amount.
+- User can add an optional note.
+- Spending reduces the coin amount.
+- Spending cannot reduce a coin type below zero.
+- Spending writes to the audit log.
+- Audit log should include:
+  - entity name;
+  - amount spent;
+  - coin type;
+  - optional note.
+
+Example audit log entry:
+
+```text
+Yost spent 25 gp — paid temple donation.
+```
+
+## Non-goals
+
+- No full accounting ledger.
+- No vendor/shop integration.
+- No automatic currency conversion.
+- No mixed-coin spend UI unless already trivial.
+- No role-gated audit log.
+
+## Acceptance Criteria
+
+- Spending 10 gp from 50 gp leaves 40 gp.
+- Spending more coins than available is blocked.
+- Spending with a note records the note in the audit log.
+- Spending without a note still records the spend.
+- Coin spending is covered by tests where practical.
+
+## Validation
+
+```bash
+npm test
+npm run build
+```
+
+---
+
+# Phase 6 — Unidentified Item Workflow with Audit Log
+
+## Goal
+
+Support unidentified magic or special items without exposing referee information in public fields.
+
+## Data Model
+
+Use or add fields equivalent to:
+
+```ts
+name: string;
+description?: string;
+secretName?: string;
+secretDescription?: string;
+isIdentified?: boolean;
+```
+
+## Intended Behavior
+
+Before identification:
+
+- Public display uses `name`.
+- Public display uses `description`.
+- Referee/edit UI can see and edit `secretName`.
+- Referee/edit UI can see and edit `secretDescription`.
+- Item is marked unidentified if `isIdentified` is false and secret fields exist.
+
+On identification:
+
+- The Identify action copies `secretName` into `name`.
+- The Identify action copies `secretDescription` into `description`.
+- The item becomes identified.
+- The action writes to the audit log.
+
+Example audit log entry:
+
+```text
+Identified rusty sword as Sword of Sundering +2.
+```
+
+## Requirements
+
+- Rename/adjust extra fields to:
+  - `secretName`
+  - `secretDescription`
+- Add an **Identify** button where appropriate.
+- Identify button should be available only when there is something to identify.
+- Identifying should update public fields.
+- Identifying should write a clear audit log entry.
+- If either secret field is missing, identify should still behave sensibly:
+  - secret name only: update name;
+  - secret description only: update description;
+  - neither: no-op or disabled.
+- Preserve the old public name for the audit message before overwriting it.
+
+## Non-goals
+
+- No GM/player role visibility yet.
+- No partial reveal system.
+- No identify permissions.
+- No complex history of prior public names/descriptions beyond the audit log.
+- No automatic magic item rules.
+
+## Acceptance Criteria
+
+- An item named `rusty sword` with `secretName: Sword of Sundering +2` identifies into public name `Sword of Sundering +2`.
+- Audit log records: `Identified rusty sword as Sword of Sundering +2.`
+- Secret description copies into public description when present.
+- Identify button is disabled or hidden when no secret fields are present.
+- Identification behavior is covered by tests where practical.
+
+## Validation
+
+```bash
+npm test
+npm run build
+```
+
+---
+
+# Phase 7 — Standard Item Autofill
+
+## Goal
+
+Make adding common inventory fast enough for table use.
+
+## Requirements
+
+Add or expand an item catalog for common OSE/Dolmenwood-style inventory:
+
+- Standard adventuring equipment.
+- Weapons.
+- Armor.
+- Containers.
+- Light sources.
+- Rations.
+- Tools.
+- Treasure placeholders if useful.
+- Common stackables such as torches, iron spikes, rations, oil, arrows/bolts if modeled.
+
+Autofill should populate relevant fields:
+
+- Name.
+- Record type.
+- Quantity.
+- Slots per item or items per slot.
+- Stackable flag.
+- Hands required.
+- Container capacity.
+- Light-related fields.
+- Weapon/armor metadata where already supported.
+
+## UI Requirements
+
+- Add/edit modal should support selecting from standard items.
+- Custom item creation must remain possible.
+- Autofill should not prevent editing fields after selection.
+- Search/filter is preferred if the list is long.
+
+## Non-goals
+
+- No complete sourcebook database.
+- No pricing/shop system.
+- No automatic equipment packs.
+- No import from external equipment compendia.
+- No new item taxonomy unless required by existing model.
+
+## Acceptance Criteria
+
+- User can quickly add:
+  - torch;
+  - lantern;
+  - rations;
+  - rope;
+  - backpack;
+  - sack;
+  - scroll case;
+  - sword;
+  - dagger;
+  - bow;
+  - shield;
+  - leather armor;
+  - chain mail.
+- Autofilled items can still be edited before creation.
+- Autofill does not break custom item creation.
+- Standard item data matches current model field names.
+
+## Validation
+
+```bash
+npm test
+npm run build
+```
+
+---
+
+# Phase 8 — Compact Party View
+
+## Goal
+
+Give the referee a table-facing party overview that avoids opening every character sheet during play.
+
+## Scope
+
+Show compact cards for:
+
+- characters;
+- retainers.
+
+Mounts/storage do not need full cards in this view unless already easy. They may be linked or summarized separately.
+
+## Card Requirements
+
+Each card should show:
+
+- Name.
+- Class/level.
+- Current/max HP.
+- Movement.
+- Languages.
+- Hands contents.
+- Warning icon or concise warning summary.
+- Light source indicator.
+
+Optional if already easy:
+
+- AC.
+- Equipped/stowed slot totals.
+- Link/button to open full inventory or character detail.
+
+## Layout Requirements
+
+- Cards should be more compact than the current full-width character inventory display.
+- Use columns or wrapping layout where practical.
+- Keep text scannable.
+- Do not surface nonessential metadata.
+
+## Non-goals
+
+- No full redesign.
+- No drag/drop.
+- No role-specific visibility.
+- No mobile-specific design work.
+- No advanced party analytics yet.
+
+## Acceptance Criteria
+
+- Referee can see all characters and retainers in one overview.
+- Referee can quickly see who is hurt, slow, holding light, or has warnings.
+- Hands contents are visible without opening each character.
+- Movement is visible without expanding inventory details.
+- Party view links to the existing detailed view where needed.
+
+## Validation
+
+```bash
+npm test
+npm run build
+```
+
+---
+
+# Phase 9 — Focused 0.1 UI Cleanup
+
+## Goal
+
+Reduce friction in actual table use without doing the full post-0.1 design pass.
+
+## Requirements
+
+Prioritize these small cleanups:
+
+1. Improve light display.
+2. Improve hand item layout.
+3. Allow containers to collapse.
+4. Show only essential info on item/container headings.
+5. Move warning details behind a generic warning icon using click/tap, not hover only.
+6. Use character columns where this is straightforward.
+
+## Essential Heading Info
+
+Inventory item headings should generally show only:
+
+- Name.
+- Quantity, when relevant.
+- Slot usage.
+- Status icons, such as lit/unidentified/warning.
+- Value only for treasure/coins.
+
+Avoid showing in normal compact headings:
+
+- Internal location.
+- Hands required.
+- Damage die.
+- Modifiers.
+- Long descriptions.
+- IDs.
+- Debug metadata.
+
+## Non-goals
+
+- No final visual design pass.
+- No mobile/tablet optimization beyond avoiding obvious breakage.
+- No drag/drop.
+- No icon perfection.
+- No animation work.
+
+## Acceptance Criteria
+
+- Lit items are easy to spot.
+- Held items are easy to understand.
+- Containers can be collapsed.
+- Warning details are available by click/tap.
+- Item rows/headings are less cluttered.
+- Existing edit flows still work.
+
+## Validation
+
+```bash
+npm test
+npm run build
+```
+
+---
+
+# Final 0.1 Checklist
+
+0.1 is ready when:
+
+- Import/export works.
+- Bad imports do not corrupt state.
+- Destructive actions require confirmation.
+- Warnings are accurate and not noisy.
+- Non-character entities do not receive character-only held-container warnings.
+- Encumbrance and movement tests pass.
+- One-level nested containers work.
+- Coin spending works and logs notes.
+- Identifying an item copies secret fields into public fields and logs the event.
+- Standard items can be added quickly.
+- Party view gives a useful table overview.
+- UI is compact enough for live play.
+- Deferred features are clearly not required for 0.1.
+
+---
+
+# Suggested Build Order
+
+1. Update scope and confirm deferred work is excluded.
+2. Import/export safety and hard import rejection.
+3. Warning correctness pass.
+4. Core calculation regression test review/fill-in.
+5. One-level nested containers.
+6. Coin spend action with audit note.
+7. Unidentified item workflow with audit log.
+8. Standard item autofill.
+9. Compact party view.
+10. Focused 0.1 UI cleanup.
