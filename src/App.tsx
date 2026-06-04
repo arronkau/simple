@@ -9,9 +9,7 @@ import {
 import {
   getCoinCount,
   getCoinGpValue,
-  getContainerSlotUsage,
   getDirectChildRecords,
-  getRecordSlotBurden,
 } from "./model/calculations";
 import {
   getCharacterEncumbrance,
@@ -42,6 +40,11 @@ import {
   getOwnedRecords,
   getRecordById,
 } from "./model/inventoryDisplay";
+import {
+  getInventoryRowDisplay,
+  formatCoinDenominations as formatCoinDenominationsValue,
+  type InventoryRowStatus,
+} from "./model/inventoryRowDisplay";
 import type { AppState } from "./model/appState";
 import { getRecordHandsRequired } from "./model/types";
 import {
@@ -1585,7 +1588,6 @@ function CharacterInventoryDisplay({
               nestedRecords={sections.backpackContents}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
-              titleSuffix="backpack"
             />
           ) : (
             <p className="empty-state compact">Missing backpack</p>
@@ -2172,10 +2174,7 @@ function RecordRow({
 
   return (
     <div className="record-row">
-      <div>
-        <strong>{getRecordDisplayName(record)}</strong>
-        <RecordMeta record={record} allRecords={allRecords} />
-      </div>
+      <InventoryRowSummary record={record} allRecords={allRecords} />
       <RecordActions
         record={record}
         onDeleteRecord={onDeleteRecord}
@@ -2191,28 +2190,17 @@ function ContainerBlock({
   nestedRecords,
   onDeleteRecord,
   onEditRecord,
-  titleSuffix,
 }: {
   containerRecord: InventoryRecord;
   records: InventoryRecord[];
   nestedRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  titleSuffix?: string;
 }) {
-  const slotUsage = getContainerSlotUsage(containerRecord, records);
-
   return (
     <div className="container-block">
       <div className="record-row">
-        <div>
-          <strong>{getRecordDisplayName(containerRecord)}</strong>
-          {titleSuffix ? <span className="quiet-label"> {titleSuffix}</span> : null}
-          <div className="record-meta">
-            <span>{formatCapacity(slotUsage.usedSlots, slotUsage.capacitySlots)}</span>
-            <span>{formatContainerHeldState(containerRecord)}</span>
-          </div>
-        </div>
+        <InventoryRowSummary record={containerRecord} allRecords={records} />
         <RecordActions
           record={containerRecord}
           onDeleteRecord={onDeleteRecord}
@@ -2244,14 +2232,7 @@ function CoinRecordRow({
 
   return (
     <div className="record-row">
-      <div>
-        <strong>Coins</strong>
-        <div className="record-meta">
-          <span>{formatCoinDenominations(record)}</span>
-          <span>{formatGpValue(getCoinGpValue(record.coins))} gp</span>
-          <span>{formatSlots(getRecordSlotBurden(record))}</span>
-        </div>
-      </div>
+      <InventoryRowSummary record={record} allRecords={[record]} />
       <RecordActions
         record={record}
         onDeleteRecord={onDeleteRecord}
@@ -2286,26 +2267,61 @@ function RecordActions({
   );
 }
 
-function RecordMeta({
+function InventoryRowSummary({
   record,
   allRecords,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
 }) {
-  const metadata = getRecordMetadata(record, allRecords);
-
-  if (metadata.length === 0) {
-    return null;
-  }
+  const display = getInventoryRowDisplay(record, allRecords);
 
   return (
-    <div className="record-meta">
-      {metadata.map((metadataItem) => (
-        <span key={metadataItem}>{metadataItem}</span>
-      ))}
+    <div className="record-summary">
+      <div className="record-summary-main">
+        <strong>{display.primaryText}</strong>
+        {display.statusIcons.map((status) => (
+          <span
+            className="record-status"
+            key={status}
+            title={getInventoryRowStatusTitle(status)}
+          >
+            [{getInventoryRowStatusLabel(status)}]
+          </span>
+        ))}
+        {display.secondaryText ? (
+          <span className="record-secondary">· {display.secondaryText}</span>
+        ) : null}
+      </div>
+      <span className="record-right-meta">{display.rightText}</span>
     </div>
   );
+}
+
+function getInventoryRowStatusLabel(status: InventoryRowStatus): string {
+  switch (status) {
+    case "lit":
+      return "lit";
+    case "unlit":
+      return "unlit";
+    case "unidentified":
+      return "?";
+    case "warning":
+      return "warning";
+  }
+}
+
+function getInventoryRowStatusTitle(status: InventoryRowStatus): string {
+  switch (status) {
+    case "lit":
+      return "Light source is lit";
+    case "unlit":
+      return "Light source is unlit";
+    case "unidentified":
+      return "Unidentified item";
+    case "warning":
+      return "Container is over capacity";
+  }
 }
 
 function WarningList({
@@ -2581,92 +2597,12 @@ export function getDeleteConfirmationMessage(
   return `Confirm delete "${displayName}"?`;
 }
 
-function getRecordMetadata(
-  record: InventoryRecord,
-  allRecords: InventoryRecord[],
-): string[] {
-  const metadata: string[] = [];
-  const slots = getRecordSlotBurden(record);
-
-  if (record.recordType === "treasure") {
-    metadata.push(`${formatGpValue(record.treasure.gpValue)} gp`);
-  }
-
-  if (record.recordType !== "coins") {
-    if (record.quantity > 1) {
-      metadata.push(`x${record.quantity}`);
-    }
-
-    metadata.push(formatSlots(slots));
-
-    const handsRequired = getRecordHandsRequired(record);
-
-    if (handsRequired > 0) {
-      metadata.push(formatHandsRequired(handsRequired));
-    }
-  }
-
-  if (record.recordType === "weapon") {
-    if (record.weapon.damage) {
-      metadata.push(record.weapon.damage);
-    }
-
-    if (record.weapon.range) {
-      metadata.push(record.weapon.range);
-    }
-  }
-
-  if (record.recordType === "armor") {
-    if (record.armor.baseArmorClass !== undefined) {
-      metadata.push(`AC ${record.armor.baseArmorClass}`);
-    }
-
-    if (record.armor.armorBonus !== undefined) {
-      metadata.push(`+${record.armor.armorBonus} AC`);
-    }
-
-    if (
-      record.location.locationType === "equipped" &&
-      record.location.placement === "loose"
-    ) {
-      metadata.push("Active");
-    }
-  }
-
-  if (record.uses) {
-    metadata.push(
-      record.uses.max === undefined
-        ? `${record.uses.current} uses`
-        : `${record.uses.current}/${record.uses.max} uses`,
-    );
-  }
-
-  if (record.light) {
-    metadata.push(record.light.isLit ? "Lit" : "Unlit");
-  }
-
-  if (record.container) {
-    const slotUsage = getContainerSlotUsage(record, allRecords);
-    metadata.push(formatCapacity(slotUsage.usedSlots, slotUsage.capacitySlots));
-  }
-
-  return metadata;
-}
-
 function formatCoinDenominations(record: InventoryRecord) {
-  if (record.recordType !== "coins" || getCoinCount(record.coins) === 0) {
-    return "No coins";
+  if (record.recordType !== "coins") {
+    return "Coins";
   }
 
-  const allDenominations: Array<[string, number]> = [
-    ["pp", record.coins.pp],
-    ["gp", record.coins.gp],
-    ["sp", record.coins.sp],
-    ["cp", record.coins.cp],
-  ];
-  const denominations = allDenominations.filter(([, count]) => count > 0);
-
-  return denominations.map(([label, count]) => `${count} ${label}`).join(", ");
+  return formatCoinDenominationsValue(record.coins);
 }
 
 function formatSlots(slots: number) {
@@ -2687,10 +2623,6 @@ function formatGpValue(value: number) {
     : Number(value.toFixed(2)).toString();
 }
 
-function formatHandsRequired(handsRequired: HandsRequired) {
-  return handsRequired === 1 ? "One hand" : "Two hands";
-}
-
 function formatWarningState(
   warnings: EncumbranceWarning[],
   validationIssues: ValidationIssue[],
@@ -2702,25 +2634,6 @@ function formatWarningState(
   }
 
   return count === 1 ? "1 warning" : `${count} warnings`;
-}
-
-function formatContainerHeldState(record: InventoryRecord) {
-  const handsRequired = getRecordHandsRequired(record);
-
-  if (!record.container || handsRequired === 0) {
-    return "No hands required";
-  }
-
-  if (
-    record.location.locationType === "equipped" &&
-    (record.location.placement === "leftHand" ||
-      record.location.placement === "rightHand" ||
-      record.location.placement === "bothHands")
-  ) {
-    return `Held in ${record.location.placement}`;
-  }
-
-  return handsRequired === 1 ? "1 hand required" : "2 hands required";
 }
 
 function getAuditEntityLabel(entry: AuditLogEntry, entities: Entity[]): string {

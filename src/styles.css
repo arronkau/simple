@@ -516,6 +516,37 @@ h5 {
   background: #ffffff;
 }
 
+.record-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.record-summary-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.35rem;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.record-secondary,
+.record-status {
+  color: #52616c;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.record-right-meta {
+  justify-self: end;
+  white-space: nowrap;
+  color: #52616c;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
 .record-actions,
 .record-form-actions {
   display: flex;
