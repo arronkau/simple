@@ -200,6 +200,7 @@ export function createInventoryLocation({
         entity,
         records,
         containerId: location?.containerId,
+        isContainer: false,
         editingRecordId,
       });
 
@@ -230,6 +231,7 @@ export function createInventoryLocation({
         entity,
         records,
         containerId: location?.containerId,
+        isContainer,
         editingRecordId,
       });
 
@@ -297,6 +299,7 @@ export function createInventoryLocation({
         entity,
         records,
         containerId: location?.containerId,
+        isContainer,
         editingRecordId,
       });
 
@@ -417,32 +420,24 @@ export function getLocationPlacementKey(
 export function getUsableContainerRecords({
   editingRecordId,
   entity,
+  isContainer = false,
   records,
 }: {
   editingRecordId?: InventoryRecordId;
   entity: Entity;
+  isContainer?: boolean;
   records: InventoryRecord[];
 }): InventoryRecord[] {
-  const editingRecord = editingRecordId
-    ? records.find((record) => record.id === editingRecordId)
-    : undefined;
   const editingDescendantRecordIds = editingRecordId
     ? getDescendantRecordIds(editingRecordId, records)
     : new Set<InventoryRecordId>();
-
-  if (
-    editingRecord?.container &&
-    getDirectChildRecords(editingRecord.id, records).length > 0
-  ) {
-    return [];
-  }
 
   return records.filter(
     (record) =>
       record.id !== editingRecordId &&
       record.entityId === entity.id &&
       Boolean(record.container) &&
-      !locationHasContainerId(record.location) &&
+      isUsableContainerDepth(record, isContainer) &&
       !editingDescendantRecordIds.has(record.id),
   );
 }
@@ -579,11 +574,13 @@ function getUsableContainerId({
   entity,
   records,
   containerId,
+  isContainer,
   editingRecordId,
 }: {
   entity: Entity;
   records: InventoryRecord[];
   containerId: InventoryRecordId | undefined;
+  isContainer: boolean | undefined;
   editingRecordId: InventoryRecordId | undefined;
 }): { ok: true; containerId: InventoryRecordId } | { ok: false; message: string } {
   if (!containerId) {
@@ -597,9 +594,12 @@ function getUsableContainerId({
 
   if (
     !containerRecord ||
-    !getUsableContainerRecords({ entity, records, editingRecordId }).some(
-      (record) => record.id === containerRecord.id,
-    )
+    !getUsableContainerRecords({
+      entity,
+      records,
+      isContainer,
+      editingRecordId,
+    }).some((record) => record.id === containerRecord.id)
   ) {
     return {
       ok: false,
@@ -611,6 +611,17 @@ function getUsableContainerId({
     ok: true,
     containerId: containerRecord.id,
   };
+}
+
+function isUsableContainerDepth(
+  containerRecord: InventoryRecord,
+  placingContainer: boolean,
+): boolean {
+  if (!locationHasContainerId(containerRecord.location)) {
+    return true;
+  }
+
+  return !placingContainer;
 }
 
 function getNextInventoryRecordSortOrder(

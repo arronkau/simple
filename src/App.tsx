@@ -1739,6 +1739,7 @@ function InventoryRecordForm({
     ) ?? entity;
   const containerOptions = getContainerOptions({
     entity: targetEntity,
+    isContainer: formState.isContainer,
     records: appState.inventoryRecords,
     editingRecordId: formState.recordId,
   });
@@ -3483,13 +3484,20 @@ function getDefaultHandsRequired(recordType: InventoryRecordType): HandsRequired
 function getContainerOptions({
   editingRecordId,
   entity,
+  isContainer,
   records,
 }: {
   editingRecordId?: InventoryRecordId;
   entity: Entity;
+  isContainer: boolean;
   records: InventoryRecord[];
 }) {
-  return getUsableContainerRecords({ editingRecordId, entity, records });
+  return getUsableContainerRecords({
+    editingRecordId,
+    entity,
+    isContainer,
+    records,
+  });
 }
 
 function getPlacementOptions({

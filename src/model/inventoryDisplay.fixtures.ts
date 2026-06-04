@@ -1,5 +1,5 @@
 import { createDefaultBackpack, type Entity, type InventoryRecord } from "./types";
-import { getInventorySections } from "./inventoryDisplay";
+import { getContainerContents, getInventorySections } from "./inventoryDisplay";
 import { getCharacterEncumbrance, getContentsCapacity } from "./encumbrance";
 import { getContainerSlotUsage, getRecordSlotBurden } from "./calculations";
 
@@ -271,7 +271,11 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         characterSections.mode === "characterLike"
           ? characterSections.backpackContents.map((record) => record.id)
           : [],
+      sackContents: getContainerContents(sackRecord, sampleRecords).map(
+        (record) => record.id,
+      ),
       encumbrance: getCharacterEncumbrance(characterEntity, sampleRecords),
+      backpackUsage: getContainerSlotUsage(characterBackpack, sampleRecords),
       sackUsage: getContainerSlotUsage(sackRecord, sampleRecords),
       coinSlots: getRecordSlotBurden(coinsRecord),
     },
@@ -281,6 +285,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
       otherEquipped: ["armor-1"],
       coinRecord: "coins-1",
       backpackContents: ["rope-1", "sack-1"],
+      sackContents: ["rations-1"],
       encumbrance: {
         equippedItems: 3,
         stowedItems: 8,
@@ -289,6 +294,10 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         movement: { explorationFeet: 120, encounterFeet: 40 },
         overloaded: false,
         band: "normal",
+      },
+      backpackUsage: {
+        usedSlots: 5,
+        capacitySlots: 16,
       },
       sackUsage: {
         usedSlots: 3,

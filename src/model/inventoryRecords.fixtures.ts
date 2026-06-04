@@ -169,6 +169,30 @@ const invalidCrossEntityContainerLocation = createInventoryLocation({
   },
 });
 
+const itemIntoNestedContainerLocation = createInventoryLocation({
+  entity: characterEntity,
+  recordType: "equipment",
+  records: containerFilterRecords,
+  location: {
+    entityId: characterEntity.id,
+    placement: "container",
+    containerId: nestedContainerRecord.id,
+  },
+  isContainer: false,
+});
+
+const containerIntoNestedContainerLocation = createInventoryLocation({
+  entity: characterEntity,
+  recordType: "equipment",
+  records: containerFilterRecords,
+  location: {
+    entityId: characterEntity.id,
+    placement: "container",
+    containerId: nestedContainerRecord.id,
+  },
+  isContainer: true,
+});
+
 const defaultCharacterEquipmentResult = createInventoryRecordFromInput({
   entity: characterEntity,
   id: "created-rope",
@@ -292,25 +316,54 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
   {
     name: "container options filter invalid destinations before submit",
     actual: {
-      newRecordOptions: getUsableContainerRecords({
+      newItemOptions: getUsableContainerRecords({
         entity: characterEntity,
+        isContainer: false,
         records: containerFilterRecords,
       }).map((record) => record.id),
-      editingRecordOptions: getUsableContainerRecords({
+      newContainerOptions: getUsableContainerRecords({
         entity: characterEntity,
+        isContainer: true,
+        records: containerFilterRecords,
+      }).map((record) => record.id),
+      editingContainerOptions: getUsableContainerRecords({
+        entity: characterEntity,
+        isContainer: true,
         records: containerFilterRecords,
         editingRecordId: editingContainerRecord.id,
       }).map((record) => record.id),
       nonEmptyEditingOptions: getUsableContainerRecords({
         entity: characterEntity,
+        isContainer: true,
         records: nonEmptyEditingContainerRecords,
         editingRecordId: editingContainerRecord.id,
       }).map((record) => record.id),
     },
     expected: {
-      newRecordOptions: ["container-top", "container-editing"],
-      editingRecordOptions: ["container-top"],
-      nonEmptyEditingOptions: [],
+      newItemOptions: ["container-top", "container-editing", "container-nested"],
+      newContainerOptions: ["container-top", "container-editing"],
+      editingContainerOptions: ["container-top"],
+      nonEmptyEditingOptions: ["container-top"],
+    },
+  },
+  {
+    name: "one-level nested container destinations are enforced",
+    actual: {
+      itemIntoNestedContainerLocation,
+      containerIntoNestedContainerLocation,
+    },
+    expected: {
+      itemIntoNestedContainerLocation: {
+        ok: true,
+        location: {
+          kind: "container",
+          containerId: nestedContainerRecord.id,
+        },
+      },
+      containerIntoNestedContainerLocation: {
+        ok: false,
+        message: "Selected container is not available.",
+      },
     },
   },
   {

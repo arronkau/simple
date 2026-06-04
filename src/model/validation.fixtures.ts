@@ -406,6 +406,37 @@ const insideNestedContainerRecord: InventoryRecord = {
   },
 };
 
+const nestedScrollCaseRecord: InventoryRecord = {
+  id: "scroll-case-1",
+  recordType: "equipment",
+  name: "Scroll case",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: backpackRecord.id,
+  },
+  sortOrder: 3000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  container: {
+    capacitySlots: 2,
+  },
+};
+
+const scrollInsideCaseRecord: InventoryRecord = {
+  id: "scroll-1",
+  recordType: "equipment",
+  name: "Scroll",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: nestedScrollCaseRecord.id,
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 0 },
+};
+
 const crossEntityContainedRecord: InventoryRecord = {
   ...ropeRecord,
   id: "cross-entity-1",
@@ -523,6 +554,18 @@ const invalidContainmentResult = validateInventoryState(
     cycleARecord,
     cycleBRecord,
     treasureContainerRecord,
+  ],
+);
+
+const validNestedContainmentResult = validateInventoryState(
+  [characterEntity, storageEntity],
+  [
+    backpackRecord,
+    nestedScrollCaseRecord,
+    scrollInsideCaseRecord,
+    storageCrateRecord,
+    nestedContainerRecord,
+    insideNestedContainerRecord,
   ],
 );
 
@@ -688,9 +731,22 @@ export const VALIDATION_MANUAL_FIXTURES = [
         crossEntityContainment: 1,
         invalidContainerReference: 1,
         invalidTreasureContainer: 1,
-        nestedContainerReceivingContents: 3,
-        nestedNonEmptyContainer: 3,
+        nestedContainerReceivingContents: 2,
+        nestedNonEmptyContainer: 2,
       },
+      warnings: {},
+    },
+  },
+  {
+    name: "one-level nested containers may contain non-container records",
+    actual: {
+      valid: validNestedContainmentResult.valid,
+      errors: summarizeIssues(validNestedContainmentResult.errors),
+      warnings: summarizeIssues(validNestedContainmentResult.warnings),
+    },
+    expected: {
+      valid: true,
+      errors: {},
       warnings: {},
     },
   },

@@ -186,9 +186,11 @@ let phase5BackpackMoveOk = false;
 let phase5MissingBackpackMoveOk = true;
 let phase5InvalidHandOk = true;
 let phase5NestedContainerMoveOk = true;
+let phase5DeepContainerMoveOk = true;
 let phase5DeleteNonEmptyContainerOk = true;
 let phase5CrossEntityDescendantEntityId: string | undefined;
 let phase5NestedContainerId: string | undefined;
+let phase5SpareBagId: string | undefined;
 
 if (phase5CharacterId) {
   const phase5BackpackRecord = findBackpackRecords(
@@ -261,6 +263,8 @@ if (phase5CharacterId) {
   );
 
   if (spareBagResult.ok && spareBagResult.recordId) {
+    phase5SpareBagId = spareBagResult.recordId;
+
     const nestedPouchResult = useAppStore.getState().createInventoryRecord(
       phase5CharacterId,
       {
@@ -333,6 +337,16 @@ if (phase5CharacterId) {
       .getState()
       .deleteInventoryRecord(sackResult.recordId).ok;
   }
+
+  if (phase5SpareBagId) {
+    phase5DeepContainerMoveOk = useAppStore
+      .getState()
+      .moveInventoryRecord(phase5SpareBagId, {
+        entityId: phase5CharacterId,
+        placement: "container",
+        containerId: phase5BackpackRecord?.id,
+      }).ok;
+  }
 }
 
 if (phase5StorageAId && phase5StorageBId) {
@@ -392,6 +406,7 @@ const phase5CharacterEntity = phase5FinalState.entities.find(
 const phase5NewRecordContainerOptionIds = phase5CharacterEntity
   ? getUsableContainerRecords({
       entity: phase5CharacterEntity,
+      isContainer: false,
       records: phase5FinalState.inventoryRecords,
     }).map((record) => record.id)
   : [];
@@ -399,6 +414,7 @@ const phase5SackMoveContainerOptionIds =
   phase5CharacterEntity && phase5SackRecord
     ? getUsableContainerRecords({
         entity: phase5CharacterEntity,
+        isContainer: true,
         records: phase5FinalState.inventoryRecords,
         editingRecordId: phase5SackRecord.id,
       }).map((record) => record.id)
@@ -458,13 +474,15 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "non-empty containers cannot nest or delete",
+    name: "one-level non-empty containers can nest but deeper container nesting is blocked",
     actual: {
       nestedContainerMoveOk: phase5NestedContainerMoveOk,
+      deepContainerMoveOk: phase5DeepContainerMoveOk,
       deleteNonEmptyContainerOk: phase5DeleteNonEmptyContainerOk,
     },
     expected: {
-      nestedContainerMoveOk: false,
+      nestedContainerMoveOk: true,
+      deepContainerMoveOk: false,
       deleteNonEmptyContainerOk: false,
     },
   },
@@ -474,11 +492,15 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
       nestedContainerOffered:
         phase5NestedContainerId !== undefined &&
         phase5NewRecordContainerOptionIds.includes(phase5NestedContainerId),
-      nonEmptyContainerMoveOptions: phase5SackMoveContainerOptionIds.length,
+      nestedContainerOfferedForContainerMove:
+        phase5NestedContainerId !== undefined &&
+        phase5SackMoveContainerOptionIds.includes(phase5NestedContainerId),
+      containerMoveOptions: phase5SackMoveContainerOptionIds.length,
     },
     expected: {
-      nestedContainerOffered: false,
-      nonEmptyContainerMoveOptions: 0,
+      nestedContainerOffered: true,
+      nestedContainerOfferedForContainerMove: false,
+      containerMoveOptions: 2,
     },
   },
   {

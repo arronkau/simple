@@ -547,12 +547,15 @@ function validateContainment(records: InventoryRecord[]): ValidationIssue[] {
     }
 
     const childRecords = getDirectChildRecords(record.id, records);
+    const childContainerRecords = childRecords.filter(
+      (childRecord) => Boolean(childRecord.container),
+    );
 
-    if (childRecords.length > 0) {
+    if (childContainerRecords.length > 0) {
       issues.push(
         errorIssue(
           "nestedNonEmptyContainer",
-          "Non-empty containers cannot be placed inside another container.",
+          "Nested containers cannot contain other containers.",
           { recordId: record.id, entityId: record.entityId },
         ),
       );
@@ -570,13 +573,14 @@ function validateContainment(records: InventoryRecord[]): ValidationIssue[] {
     );
 
     if (
+      record.container &&
       containerRecord?.container &&
       locationHasContainerId(containerRecord.location)
     ) {
       issues.push(
         errorIssue(
           "nestedContainerReceivingContents",
-          "A container nested inside another container cannot receive contents.",
+          "Containers cannot be nested more than one level deep.",
           {
             recordId: record.id,
             entityId: record.entityId,
