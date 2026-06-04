@@ -49,6 +49,72 @@ const duplicateBackpackRecord = createDefaultBackpack({
   sortOrder: 1000,
 });
 
+const stowedRootChestRecord: InventoryRecord = {
+  id: "stowed-root-chest-1",
+  recordType: "equipment",
+  name: "Stowed Root Chest",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 1000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
+  container: {
+    capacitySlots: 8,
+  },
+};
+
+const stowedRootChestContentsRecord: InventoryRecord = {
+  id: "stowed-root-chest-contents-1",
+  recordType: "equipment",
+  name: "Chest gear",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "backpack",
+    containerId: stowedRootChestRecord.id,
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+};
+
+const carriedBackpackRecord: InventoryRecord = {
+  id: "carried-backpack-1",
+  recordType: "equipment",
+  name: "Carried Backpack",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "equipped",
+    placement: "bothHands",
+  },
+  sortOrder: 1000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 2,
+  container: {
+    capacitySlots: 16,
+    isBackpack: true,
+  },
+};
+
+const carriedBackpackContentsRecord: InventoryRecord = {
+  id: "carried-backpack-contents-1",
+  recordType: "equipment",
+  name: "Packed gear",
+  location: {
+    entityId: characterEntity.id,
+    locationType: "stowed",
+    placement: "container",
+    containerId: carriedBackpackRecord.id,
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 2 },
+};
+
 const ropeRecord: InventoryRecord = {
   id: "rope-1",
   recordType: "equipment",
@@ -419,6 +485,21 @@ const duplicateBackpackResult = validateInventoryState(
   [backpackRecord, duplicateBackpackRecord],
 );
 
+const duplicateStowedRootResult = validateInventoryState(
+  [characterEntity],
+  [backpackRecord, stowedRootChestRecord, stowedRootChestContentsRecord],
+);
+
+const carriedBackpackResult = validateInventoryState(
+  [characterEntity],
+  [
+    backpackRecord,
+    ropeRecord,
+    carriedBackpackRecord,
+    carriedBackpackContentsRecord,
+  ],
+);
+
 const nonCharacterCoinsResult = validateInventoryState(
   [mountEntity],
   [nonCharacterCoinsRecord, secondNonCharacterCoinsRecord],
@@ -500,17 +581,46 @@ export const VALIDATION_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "duplicate backpack is a hard error",
+    name: "two top-level stowed containers are a hard error",
     actual: {
-      valid: duplicateBackpackResult.valid,
-      errors: summarizeIssues(duplicateBackpackResult.errors),
-      warnings: summarizeIssues(duplicateBackpackResult.warnings),
+      duplicateBackpacks: {
+        valid: duplicateBackpackResult.valid,
+        errors: summarizeIssues(duplicateBackpackResult.errors),
+        warnings: summarizeIssues(duplicateBackpackResult.warnings),
+      },
+      duplicateStowedRoots: {
+        valid: duplicateStowedRootResult.valid,
+        errors: summarizeIssues(duplicateStowedRootResult.errors),
+        warnings: summarizeIssues(duplicateStowedRootResult.warnings),
+      },
     },
     expected: {
-      valid: false,
-      errors: {
-        duplicateBackpack: 1,
+      duplicateBackpacks: {
+        valid: false,
+        errors: {
+          duplicateTopLevelStowedContainer: 1,
+        },
+        warnings: {},
       },
+      duplicateStowedRoots: {
+        valid: false,
+        errors: {
+          duplicateTopLevelStowedContainer: 1,
+        },
+        warnings: {},
+      },
+    },
+  },
+  {
+    name: "second backpack is valid when carried in both hands",
+    actual: {
+      valid: carriedBackpackResult.valid,
+      errors: summarizeIssues(carriedBackpackResult.errors),
+      warnings: summarizeIssues(carriedBackpackResult.warnings),
+    },
+    expected: {
+      valid: true,
+      errors: {},
       warnings: {},
     },
   },

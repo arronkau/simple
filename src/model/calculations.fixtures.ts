@@ -60,7 +60,6 @@ const crateRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 2 },
   container: {
     capacitySlots: 8,
-    burdenMode: "containerPlusContents",
   },
 };
 
@@ -108,7 +107,6 @@ const contentsOnlyBoxRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 1 },
   container: {
     capacitySlots: 4,
-    burdenMode: "contentsOnlyWhenLoaded",
   },
 };
 
@@ -183,7 +181,7 @@ export const CALCULATION_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "containerPlusContents includes container base and descendants",
+    name: "container includes own slots and descendants",
     actual: {
       crateBaseSlots: getRecordSlotBurden(crateRecord),
       crateUsedSlots: getContainerSlotUsage(crateRecord, capacityRecords),
@@ -206,7 +204,7 @@ export const CALCULATION_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "contentsOnlyWhenLoaded counts own slots only while empty",
+    name: "containers always count own slots plus contents",
     actual: {
       emptyOwnSlots: getEffectiveRecordSlotBurden(
         contentsOnlyBoxRecord,
@@ -231,17 +229,17 @@ export const CALCULATION_MANUAL_FIXTURES = [
     },
     expected: {
       emptyOwnSlots: 1,
-      loadedOwnSlots: 0,
+      loadedOwnSlots: 1,
       loadedContainerUsage: {
         usedSlots: 1,
         capacitySlots: 4,
       },
-      loadedTotalSlots: 1,
-      loadedEntitySlots: 1,
+      loadedTotalSlots: 2,
+      loadedEntitySlots: 2,
     },
   },
   {
-    name: "held hands-required container remains visible but excludes movement burden",
+    name: "held container counts own slots but excludes contents from movement burden",
     actual: {
       visibleContainerUsage: getContainerSlotUsage(
         sackRecord,
@@ -262,8 +260,8 @@ export const CALCULATION_MANUAL_FIXTURES = [
         usedSlots: 3,
         capacitySlots: 6,
       },
-      normalTotalEntitySlots: 3,
-      movementTotalEntitySlots: 0,
+      normalTotalEntitySlots: 4,
+      movementTotalEntitySlots: 1,
     },
   },
 ];

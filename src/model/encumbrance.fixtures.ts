@@ -103,7 +103,6 @@ const yostBackpackSmallSackRecord: InventoryRecord = {
   handsRequired: 1,
   container: {
     capacitySlots: 4,
-    burdenMode: "contentsOnlyWhenLoaded",
   },
 };
 
@@ -423,7 +422,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "loaded contents-only backpack counts contents but not own slots",
+    name: "loaded backpack counts own slots plus contents",
     actual: {
       equippedItems: loadedLiteralBackpackEncumbrance.equippedItems,
       stowedItems: loadedLiteralBackpackEncumbrance.stowedItems,
@@ -431,14 +430,14 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       band: loadedLiteralBackpackEncumbrance.band,
     },
     expected: {
-      equippedItems: 0,
+      equippedItems: 1,
       stowedItems: 3,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       band: "normal",
     },
   },
   {
-    name: "Yost contents-only container examples match equipped and stowed totals",
+    name: "Yost container examples match equipped and stowed totals",
     actual: {
       loadedBackpack: summarizeEncumbrance(yostLoadedBackpackEncumbrance),
       loadedBackpackUsage: getContainerSlotUsage(
@@ -456,22 +455,22 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       ),
     },
     expected: {
-      loadedBackpack: { equippedItems: 0, stowedItems: 1, totalItems: 1 },
+      loadedBackpack: { equippedItems: 1, stowedItems: 1, totalItems: 2 },
       loadedBackpackUsage: { usedSlots: 1, capacitySlots: 16 },
       loadedBackpackWithEmptySack: {
-        equippedItems: 0,
+        equippedItems: 1,
         stowedItems: 2,
-        totalItems: 2,
+        totalItems: 3,
       },
       loadedBackpackWithHeldEmptySack: {
-        equippedItems: 1,
+        equippedItems: 2,
         stowedItems: 1,
-        totalItems: 2,
+        totalItems: 3,
       },
       loadedBackpackWithHeldLoadedSack: {
-        equippedItems: 0,
+        equippedItems: 2,
         stowedItems: 1,
-        totalItems: 1,
+        totalItems: 3,
       },
     },
   },
@@ -521,7 +520,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "held hands-required containers and contents are excluded from movement burden",
+    name: "held containers count own slots and exclude contents from movement burden",
     actual: {
       containerState: getEffectiveCarryState(heldSackRecord, heldSackRecords),
       contentsState: getEffectiveCarryState(
@@ -539,9 +538,9 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       ),
     },
     expected: {
-      containerState: "excluded",
+      containerState: "equipped",
       contentsState: "excluded",
-      equippedItems: 0,
+      equippedItems: 1,
       stowedItems: 0,
       visibleContainerUsage: { usedSlots: 3, capacitySlots: 6 },
       warnings: { missingBackpack: 1 },
@@ -571,7 +570,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       capacity: {
-        usedSlots: 8,
+        usedSlots: 9,
         capacitySlots: 4,
         overloaded: true,
       },

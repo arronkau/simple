@@ -1,4 +1,3 @@
-import { getRecordHandsRequired } from "./types";
 import type {
   CoinData,
   Entity,
@@ -9,6 +8,7 @@ import type {
 
 export type SlotBurdenOptions = {
   excludeHeldHandsRequiredContainers?: boolean;
+  excludeHeldContainerContents?: boolean;
 };
 
 export type SlotUsage = {
@@ -17,7 +17,7 @@ export type SlotUsage = {
 };
 
 export const MOVEMENT_SLOT_BURDEN_OPTIONS: SlotBurdenOptions = {
-  excludeHeldHandsRequiredContainers: true,
+  excludeHeldContainerContents: true,
 };
 
 export function getCoinCount(coins: CoinData): number {
@@ -52,33 +52,11 @@ export function getEffectiveRecordSlotBurden(
   records: InventoryRecord[],
   options: SlotBurdenOptions = {},
 ): number {
-  if (isExcludedByAncestor(record, records, options)) {
+  if (isInsideHeldContainer(record, records, options)) {
     return 0;
   }
 
-  const childRecords = getDirectChildRecords(record.id, records);
-
-  if (
-    options.excludeHeldHandsRequiredContainers &&
-    isHeldHandsRequiredContainer(record, childRecords)
-  ) {
-    return 0;
-  }
-
-  if (!record.container || childRecords.length === 0) {
-    return getRecordSlotBurden(record);
-  }
-
-  const burdenMode = record.container.burdenMode ?? "contentsOnlyWhenLoaded";
-
-  if (
-    burdenMode === "containerPlusContents" ||
-    burdenMode === "fixedOnly"
-  ) {
-    return getRecordSlotBurden(record);
-  }
-
-  return 0;
+  return getRecordSlotBurden(record);
 }
 
 export function getEffectiveRecordAndContentsSlotBurden(
@@ -206,24 +184,6 @@ function getEffectiveRecordAndContentsSlotBurdenInner(
   }
 
   const childRecords = getDirectChildRecords(record.id, records);
-
-  if (
-    options.excludeHeldHandsRequiredContainers &&
-    isHeldHandsRequiredContainer(record, childRecords)
-  ) {
-    return 0;
-  }
-
-  if (!record.container || childRecords.length === 0) {
-    return getRecordSlotBurden(record);
-  }
-
-  const burdenMode = record.container.burdenMode ?? "contentsOnlyWhenLoaded";
-
-  if (burdenMode === "fixedOnly") {
-    return getRecordSlotBurden(record);
-  }
-
   const childSlots = childRecords.reduce(
     (usedSlots, childRecord) =>
       usedSlots +
@@ -236,11 +196,7 @@ function getEffectiveRecordAndContentsSlotBurdenInner(
     0,
   );
 
-  if (burdenMode === "containerPlusContents") {
-    return getRecordSlotBurden(record) + childSlots;
-  }
-
-  return childSlots;
+  return getRecordSlotBurden(record) + childSlots;
 }
 
 function isExcludedByAncestor(
@@ -249,19 +205,24 @@ function isExcludedByAncestor(
   options: SlotBurdenOptions,
 ): boolean {
   return getAncestorRecords(record, records).some((ancestor) => {
-    if (ancestor.container?.burdenMode === "fixedOnly") {
-      return true;
-    }
-
-    if (!options.excludeHeldHandsRequiredContainers) {
+    if (!shouldExcludeHeldContainerContents(options)) {
       return false;
     }
 
-    return isHeldHandsRequiredContainer(
-      ancestor,
-      getDirectChildRecords(ancestor.id, records),
-    );
+    return isHeldContainer(ancestor);
   });
+}
+
+export function isInsideHeldContainer(
+  record: InventoryRecord,
+  records: InventoryRecord[],
+  options: SlotBurdenOptions = MOVEMENT_SLOT_BURDEN_OPTIONS,
+): boolean {
+  if (!shouldExcludeHeldContainerContents(options)) {
+    return false;
+  }
+
+  return getAncestorRecords(record, records).some(isHeldContainer);
 }
 
 function getAncestorRecords(
@@ -296,15 +257,20 @@ function getAncestorRecords(
   return ancestors;
 }
 
-function isHeldHandsRequiredContainer(
-  record: InventoryRecord,
-  childRecords: InventoryRecord[],
-): boolean {
+function isHeldContainer(record: InventoryRecord): boolean {
   return (
-    Boolean(record.container && getRecordHandsRequired(record) > 0) &&
-    childRecords.length > 0 &&
+    Boolean(record.container) &&
     record.location.locationType === "equipped" &&
     isHandPlacement(record.location.placement)
+  );
+}
+
+function shouldExcludeHeldContainerContents(
+  options: SlotBurdenOptions,
+): boolean {
+  return Boolean(
+    options.excludeHeldContainerContents ||
+      options.excludeHeldHandsRequiredContainers,
   );
 }
 

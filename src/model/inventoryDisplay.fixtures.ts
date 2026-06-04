@@ -290,13 +290,13 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
       coinRecord: "coins-1",
       backpackContents: ["rope-1", "sack-1"],
       encumbrance: {
-        equippedItems: 3,
-        stowedItems: 6,
-        equippedRate: { explorationFeet: 120, encounterFeet: 40 },
+        equippedItems: 4,
+        stowedItems: 7,
+        equippedRate: { explorationFeet: 90, encounterFeet: 30 },
         stowedRate: { explorationFeet: 120, encounterFeet: 40 },
-        movement: { explorationFeet: 120, encounterFeet: 40 },
+        movement: { explorationFeet: 90, encounterFeet: 30 },
         overloaded: false,
-        band: "normal",
+        band: "lightlyEncumbered",
       },
       sackUsage: {
         usedSlots: 3,
@@ -353,7 +353,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         overloaded: false,
       },
       vehicleCapacity: {
-        usedSlots: 3,
+        usedSlots: 5,
         capacitySlots: 20,
         overloaded: false,
       },

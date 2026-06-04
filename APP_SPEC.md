@@ -12,7 +12,7 @@ The app should support:
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
 - Character-like inventory with a clear distinction between equipped and stowed carried items.
-- Literal backpack containers for character-like stowed non-coin inventory.
+- A top-level stowed container, normally a backpack, for character-like stowed non-coin inventory.
 - Character coin purse display for coin records.
 - Simple contents inventory for mounts, vehicles, and storage.
 - Coins, treasure, weapons, armor, and equipment as inventory records.
@@ -138,17 +138,17 @@ Stowed items are packed away and not ready at short notice.
 For character-like entities, stowed inventory is allowed only in:
 
 - Coin purse placement for coin records.
-- The character's literal backpack container.
-- A valid container inside the backpack.
-- A valid hands-required container currently held in hand.
+- The character's top-level stowed container, normally a backpack.
+- A valid container inside the top-level stowed container.
+- A valid container currently held in hand.
 
 On character or retainer creation, create exactly one default backpack record.
 
-Validation hard rule: a character-like entity may not have more than one backpack container.
+Validation hard rule: a character-like entity may not have more than one top-level stowed container.
 
-Soft warning: an existing character-like entity with zero backpack containers should warn.
+Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a backpack record exists. Those records must be equipped unless placed into another valid existing container.
+Move/add hard rule: non-coin records cannot be moved to stowed backpack placement unless a top-level stowed container exists. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 #### Coin Purse
 

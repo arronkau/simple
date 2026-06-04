@@ -16,7 +16,7 @@ Spec-first repository. Implementation should follow:
 1. Local mode must work without Firebase.
 2. Inventory model must stay simple.
 3. Character-like inventory must distinguish equipped and stowed records.
-4. Stowed non-coin character inventory requires a literal backpack container.
+4. Stowed non-coin character inventory requires one top-level stowed container, normally a backpack.
 5. Character coin purse is a placement/display concept, not a real container.
 6. Mounts, vehicles, and storage use simple contents inventory, not equipped/stowed.
 7. No drag-and-drop in the initial implementation.
@@ -31,4 +31,4 @@ Spec-first repository. Implementation should follow:
 - Do not implement drag-and-drop in the first pass.
 - Do not create a separate armor location.
 - Do not create a real coin-purse container.
-- Do not allow character stowed non-coin records outside the character's backpack container or another valid container.
+- Do not allow character stowed non-coin records outside the character's top-level stowed container or another valid container.

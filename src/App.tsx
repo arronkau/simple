@@ -57,7 +57,6 @@ import type {
   AuditLogEntry,
   CharacterAlignment,
   CharacterData,
-  ContainerBurdenMode,
   Entity,
   EntityId,
   EntityType,
@@ -155,7 +154,6 @@ type RecordFormState = {
   capacitySlots: string;
   handsRequired: "0" | "1" | "2";
   isBackpack: boolean;
-  burdenMode: ContainerBurdenMode;
   isUnidentified: boolean;
   unidentifiedName: string;
   unidentifiedDescription: string;
@@ -2115,22 +2113,6 @@ function InventoryRecordForm({
                 <option value="2">Two</option>
               </select>
             </label>
-            <label>
-              <span>Burden mode</span>
-              <select
-                value={formState.burdenMode}
-                onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    burdenMode: event.target.value as ContainerBurdenMode,
-                  })
-                }
-              >
-                <option value="contentsOnlyWhenLoaded">Contents only</option>
-                <option value="containerPlusContents">Container plus contents</option>
-                <option value="fixedOnly">Fixed only</option>
-              </select>
-            </label>
             <label className="checkbox-field">
               <input
                 checked={formState.isBackpack}
@@ -3214,7 +3196,6 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
     capacitySlots: "0",
     handsRequired: "0",
     isBackpack: false,
-    burdenMode: "contentsOnlyWhenLoaded",
     isUnidentified: false,
     unidentifiedName: "",
     unidentifiedDescription: "",
@@ -3279,7 +3260,6 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
       | "1"
       | "2",
     isBackpack: record.container?.isBackpack === true,
-    burdenMode: record.container?.burdenMode ?? "contentsOnlyWhenLoaded",
     isUnidentified: record.identification?.identified === false,
     unidentifiedName: record.identification?.unidentifiedName ?? "",
     unidentifiedDescription:
@@ -3380,7 +3360,6 @@ function toInventoryRecordFormInput(
           capacitySlots: parseNumberInput(formState.capacitySlots),
           handsRequired,
           isBackpack: formState.isBackpack,
-          burdenMode: formState.burdenMode,
         }
       : undefined;
   const identification =

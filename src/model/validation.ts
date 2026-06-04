@@ -31,7 +31,7 @@ export type ValidationIssueCode =
   | "nestedNonEmptyContainer"
   | "nestedContainerReceivingContents"
   | "handCollision"
-  | "duplicateBackpack"
+  | "duplicateTopLevelStowedContainer"
   | "missingBackpack";
 
 export type ValidationIssue = {
@@ -144,6 +144,32 @@ export function hasBackpack(
   records: InventoryRecord[],
 ): boolean {
   return findBackpackRecords(entityId, records).length > 0;
+}
+
+export function findTopLevelStowedContainerRecords(
+  entityId: EntityId,
+  records: InventoryRecord[],
+): InventoryRecord[] {
+  return records.filter(
+    (record) =>
+      record.location.entityId === entityId &&
+      isTopLevelStowedContainer(record) &&
+      (record.container?.isBackpack === true ||
+        records.some(
+          (candidateRecord) =>
+            candidateRecord.location.entityId === entityId &&
+            candidateRecord.location.locationType === "stowed" &&
+            candidateRecord.location.placement === "backpack" &&
+            candidateRecord.location.containerId === record.id,
+        )),
+  );
+}
+
+export function hasTopLevelStowedContainer(
+  entityId: EntityId,
+  records: InventoryRecord[],
+): boolean {
+  return findTopLevelStowedContainerRecords(entityId, records).length > 0;
 }
 
 export function createInitialInventoryRecordsForEntity({
@@ -412,12 +438,12 @@ function validateRecordLocations(
       if (
         record.location.locationType === "stowed" &&
         record.location.placement === "backpack" &&
-        containerRecord.container?.isBackpack !== true
+        !isTopLevelStowedContainer(containerRecord)
       ) {
         issues.push(
           errorIssue(
             "invalidBackpackPlacement",
-            "Backpack placement must point to the entity's backpack container.",
+            "Backpack placement must point to the entity's top-level stowed container.",
             {
               recordId: record.id,
               entityId: entity.id,
@@ -431,12 +457,12 @@ function validateRecordLocations(
     if (
       record.location.locationType === "stowed" &&
       record.location.placement === "backpack" &&
-      !hasBackpack(entity.id, records)
+      !hasTopLevelStowedContainer(entity.id, records)
     ) {
       issues.push(
         errorIssue(
           "invalidBackpackPlacement",
-          "Non-coin records cannot use backpack placement unless a backpack exists.",
+          "Non-coin records cannot use backpack placement unless a top-level stowed container exists.",
           { recordId: record.id, entityId: entity.id },
         ),
       );
@@ -594,23 +620,26 @@ function validateBackpackRules(
   const issues: ValidationIssue[] = [];
 
   for (const entity of entities.filter(isCharacterLikeEntity)) {
-    const backpacks = findBackpackRecords(entity.id, records);
+    const topLevelStowedContainers = findTopLevelStowedContainerRecords(
+      entity.id,
+      records,
+    );
 
-    if (backpacks.length === 0) {
+    if (topLevelStowedContainers.length === 0) {
       issues.push(
         warningIssue(
           "missingBackpack",
-          "Character-like entities should have one backpack container.",
+          "Character-like entities should have one top-level stowed container.",
           { entityId: entity.id },
         ),
       );
     }
 
-    if (backpacks.length > 1) {
+    if (topLevelStowedContainers.length > 1) {
       issues.push(
         errorIssue(
-          "duplicateBackpack",
-          "Character-like entities may not have more than one backpack container.",
+          "duplicateTopLevelStowedContainer",
+          "Character-like entities may not have more than one top-level stowed container.",
           { entityId: entity.id },
         ),
       );
@@ -655,6 +684,20 @@ function isHandPlacement(placement: string): placement is HandPlacement {
     placement === "leftHand" ||
     placement === "rightHand" ||
     placement === "bothHands"
+  );
+}
+
+function isHandLocation(location: InventoryLocation): boolean {
+  return (
+    location.locationType === "equipped" && isHandPlacement(location.placement)
+  );
+}
+
+function isTopLevelStowedContainer(record: InventoryRecord): boolean {
+  return (
+    Boolean(record.container) &&
+    !locationHasContainerId(record.location) &&
+    !isHandLocation(record.location)
   );
 }
 

@@ -203,6 +203,7 @@ export type ContainerData = {
   /** @deprecated Use the record-level handsRequired field. */
   handsRequired?: 0 | 1 | 2;
   isBackpack?: boolean;
+  /** @deprecated Containers always count own slots plus contents. */
   burdenMode?: ContainerBurdenMode;
 };
 
@@ -345,7 +346,6 @@ export function createDefaultBackpack({
     container: {
       capacitySlots: 16,
       isBackpack: true,
-      burdenMode: "contentsOnlyWhenLoaded",
     },
   };
 }

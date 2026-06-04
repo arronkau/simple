@@ -3,16 +3,19 @@ import {
   getContentsSlots,
   getDirectChildRecords,
   getEffectiveRecordSlotBurden,
+  isInsideHeldContainer,
 } from "./calculations";
 import type {
   Entity,
   EntityId,
-  InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
 } from "./types";
 import { getRecordHandsRequired } from "./types";
-import { findBackpackRecords, isCharacterLikeEntity } from "./validation";
+import {
+  findTopLevelStowedContainerRecords,
+  isCharacterLikeEntity,
+} from "./validation";
 
 export type MovementRate = {
   explorationFeet: number;
@@ -332,7 +335,7 @@ function getBackpackWarnings(
 ): EncumbranceWarning[] {
   if (
     !isCharacterLikeEntity(entity) ||
-    findBackpackRecords(entity.id, records).length > 0
+    findTopLevelStowedContainerRecords(entity.id, records).length > 0
   ) {
     return [];
   }
@@ -340,7 +343,7 @@ function getBackpackWarnings(
   return [
     {
       code: "missingBackpack",
-      message: `${entity.name} is missing a backpack container.`,
+      message: `${entity.name} is missing a top-level stowed container.`,
       entityId: entity.id,
     },
   ];
@@ -356,7 +359,7 @@ function getHandsRequiredContainerWarnings(
       !record.container ||
       getRecordHandsRequired(record) === 0 ||
       getDirectChildRecords(record.id, records).length === 0 ||
-      isHeldHandsRequiredContainer(record, records)
+      isHeldContainer(record)
     ) {
       return [];
     }
@@ -415,15 +418,7 @@ function isExcludedFromMovementBurden(
   record: InventoryRecord,
   records: InventoryRecord[],
 ): boolean {
-  if (isHeldHandsRequiredContainer(record, records)) {
-    return true;
-  }
-
-  return getAncestorRecords(record, records).some(
-    (ancestorRecord) =>
-      ancestorRecord.container?.burdenMode === "fixedOnly" ||
-      isHeldHandsRequiredContainer(ancestorRecord, records),
-  );
+  return isInsideHeldContainer(record, records);
 }
 
 function getMovementRecordSlotBurden(
@@ -433,48 +428,12 @@ function getMovementRecordSlotBurden(
   return getEffectiveRecordSlotBurden(record, records);
 }
 
-function isHeldHandsRequiredContainer(
-  record: InventoryRecord,
-  records: InventoryRecord[],
-): boolean {
+function isHeldContainer(record: InventoryRecord): boolean {
   return (
-    Boolean(record.container && getRecordHandsRequired(record) > 0) &&
-    getDirectChildRecords(record.id, records).length > 0 &&
+    Boolean(record.container) &&
     record.location.locationType === "equipped" &&
     isHandPlacement(record.location.placement)
   );
-}
-
-function getAncestorRecords(
-  record: InventoryRecord,
-  records: InventoryRecord[],
-): InventoryRecord[] {
-  const ancestors: InventoryRecord[] = [];
-  const visitedRecordIds = new Set<InventoryRecordId>([record.id]);
-  let currentRecord = record;
-
-  while (locationHasContainerId(currentRecord.location)) {
-    const containerId = currentRecord.location.containerId;
-
-    if (visitedRecordIds.has(containerId)) {
-      break;
-    }
-
-    visitedRecordIds.add(containerId);
-
-    const parentRecord = records.find(
-      (candidateRecord) => candidateRecord.id === containerId,
-    );
-
-    if (!parentRecord) {
-      break;
-    }
-
-    ancestors.push(parentRecord);
-    currentRecord = parentRecord;
-  }
-
-  return ancestors;
 }
 
 function isHandPlacement(placement: string): boolean {
@@ -483,10 +442,4 @@ function isHandPlacement(placement: string): boolean {
     placement === "rightHand" ||
     placement === "bothHands"
   );
-}
-
-function locationHasContainerId(
-  location: InventoryLocation,
-): location is InventoryLocation & { containerId: InventoryRecordId } {
-  return "containerId" in location;
 }

@@ -19,7 +19,7 @@ Run Phase 7B before adding new features. The app now needs post-Firebase correct
 - Preserve Firebase mode when Firebase env vars are present.
 - Do not change the canonical inventory model casually.
 - Keep character-like inventory distinct from non-character entity inventory.
-- Character-like entities use equipped/stowed placement, hands, coin purse display, and a literal backpack container.
+- Character-like entities use equipped/stowed placement, hands, coin purse display, and one top-level stowed container, normally a backpack.
 - Mounts, vehicles, and storage use simple contents inventory, not equipped/stowed placement.
 - Coin purse remains a placement/display concept, not a real container.
 - Prepared treasure hoards and shopping data should create normal inventory records when awarded or purchased.
@@ -74,12 +74,12 @@ Phases 1-6 are complete. Firebase has been added after local behavior stabilized
 - Add regression tests/fixtures for:
   - default backpack creation
   - missing backpack warning
-  - duplicate backpack prevention
+  - duplicate top-level stowed container prevention
   - coin purse placement and stowed burden
   - non-character coin records in contents or containers
   - container movement across entities
   - descendant entityId updates after container moves
-  - held hands-required container exclusion from movement burden
+  - held-container descendant exclusion from movement burden
   - non-empty hands-required container warning when not held
   - sibling sort ordering
   - invalid container destination rejection
