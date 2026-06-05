@@ -3,6 +3,7 @@ import {
   getAuditEntryDisplay,
   getDeleteConfirmationMessage,
   getFilteredAuditLogEntries,
+  getPartyOverviewCards,
   parseImportedAppState,
   getRecordDisplayName,
 } from "./App";
@@ -179,6 +180,95 @@ const auditDisplayEntry: AuditLogEntry = {
   summary: "Yost spent 20 gp — bought some nice cheese",
 };
 
+const partyCharacterId = "party-character";
+const partyRetainerId = "party-retainer";
+const partyStorageId = "party-storage";
+const partyBackpackRecord = createDefaultBackpack({
+  entityId: partyCharacterId,
+  id: "party-backpack",
+});
+const partyTorchRecord: InventoryRecord = {
+  id: "party-torch",
+  recordType: "equipment",
+  name: "Torch",
+  entityId: partyCharacterId,
+  location: {
+    kind: "equipped",
+    placement: "leftHand",
+  },
+  sortOrder: 1,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  light: {
+    isLit: true,
+    lightDescription: "30' radius",
+  },
+};
+const partyShieldRecord: InventoryRecord = {
+  id: "party-shield",
+  recordType: "armor",
+  name: "Shield",
+  entityId: partyCharacterId,
+  location: {
+    kind: "equipped",
+    placement: "rightHand",
+  },
+  sortOrder: 2,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  armor: {
+    armorBonus: 1,
+  },
+};
+const partyOverviewAppState: AppState = {
+  schemaVersion: 1,
+  entities: [
+    {
+      id: partyCharacterId,
+      active: true,
+      entityType: "character",
+      name: "Yost",
+      sortOrder: 0,
+      character: {
+        ...createEmptyCharacterData(),
+        className: "Fighter",
+        level: 2,
+        hp: {
+          current: 5,
+          max: 8,
+        },
+        languages: ["Common", "Elvish"],
+      },
+    },
+    {
+      id: partyRetainerId,
+      active: true,
+      entityType: "retainer",
+      name: "Nessa",
+      sortOrder: 1,
+      character: {
+        ...createEmptyCharacterData(),
+        className: "Torchbearer",
+      },
+    },
+    {
+      id: partyStorageId,
+      active: true,
+      entityType: "storage",
+      name: "Camp chest",
+      sortOrder: 2,
+    },
+  ],
+  inventoryRecords: [
+    partyBackpackRecord,
+    partyTorchRecord,
+    partyShieldRecord,
+  ],
+  auditLog: [],
+};
+
 export const APP_MANUAL_FIXTURES = [
   {
     name: "coin display is safe for unnamed coin records",
@@ -259,6 +349,50 @@ export const APP_MANUAL_FIXTURES = [
       ),
       metaLabels: ["Coins changed", "Yost"],
     },
+  },
+  {
+    name: "party overview cards summarize characters and retainers",
+    actual: getPartyOverviewCards(partyOverviewAppState).map((card) => ({
+      name: card.name,
+      entityType: card.entityType,
+      classLevel: card.classLevel,
+      hp: card.hp,
+      hurt: card.hurt,
+      movement: card.movement,
+      languages: card.languages,
+      hands: card.hands,
+      warningSummary: card.warningSummary,
+      lightSummary: card.lightSummary,
+      slots: card.slots,
+    })),
+    expected: [
+      {
+        name: "Yost",
+        entityType: "character",
+        classLevel: "Fighter 2",
+        hp: "5/8",
+        hurt: true,
+        movement: "120'/40'",
+        languages: "Common, Elvish",
+        hands: ["L: Torch", "R: Shield"],
+        warningSummary: "No warnings",
+        lightSummary: "Torch lit",
+        slots: "Slots 3 slots",
+      },
+      {
+        name: "Nessa",
+        entityType: "retainer",
+        classLevel: "Torchbearer",
+        hp: "—/—",
+        hurt: false,
+        movement: "120'/40'",
+        languages: "None",
+        hands: ["L: Empty", "R: Empty"],
+        warningSummary: "2 warnings",
+        lightSummary: "None",
+        slots: "Slots 0 slots",
+      },
+    ],
   },
   {
     name: "import parser accepts current export wrapper",

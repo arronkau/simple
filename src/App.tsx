@@ -36,6 +36,10 @@ import {
   type InventoryRecordPlacementKey,
 } from "./model/inventoryRecords";
 import {
+  createInventoryRecordInputFromStandardItem,
+  filterStandardItems,
+} from "./model/standardItems";
+import {
   getContainerContents,
   getInventorySections,
   getOwnedRecords,
@@ -419,13 +423,23 @@ function LocalAppShell() {
         </div>
 
         <nav className="app-nav" aria-label="Primary">
+          <NavLink to="/party">Party</NavLink>
           <NavLink to="/inventory">Inventory</NavLink>
           <NavLink to="/characters">Characters</NavLink>
           <NavLink to="/audit">Audit Log</NavLink>
         </nav>
 
         <Routes>
-          <Route index element={<Navigate to="/inventory" replace />} />
+          <Route index element={<Navigate to="/party" replace />} />
+          <Route
+            path="party"
+            element={
+              <PartyPage
+                appState={appState}
+                sortedEntities={sortedEntities}
+              />
+            }
+          />
           <Route
             path="inventory"
             element={
@@ -1049,6 +1063,208 @@ function EntitySummary({
       </div>
     </div>
   );
+}
+
+type PartyOverviewCard = {
+  id: EntityId;
+  name: string;
+  entityType: EntityType;
+  classLevel: string;
+  hp: string;
+  hurt: boolean;
+  movement: string;
+  languages: string;
+  hands: string[];
+  warningSummary: string;
+  lightSummary: string;
+  slots: string;
+};
+
+function PartyPage({
+  appState,
+  sortedEntities,
+}: {
+  appState: AppState;
+  sortedEntities: Entity[];
+}) {
+  const cards = getPartyOverviewCards(appState, sortedEntities);
+
+  return (
+    <section className="entity-workspace" aria-labelledby="party-title">
+      <div className="section-heading">
+        <div>
+          <h2 id="party-title">Party</h2>
+          <p>Table-facing character and retainer status.</p>
+        </div>
+        <NavLink className="text-link-button" to="/inventory">
+          Inventory
+        </NavLink>
+      </div>
+
+      {cards.length === 0 ? (
+        <p className="empty-state">No characters or retainers yet.</p>
+      ) : (
+        <ul className="party-card-grid" aria-label="Party overview">
+          {cards.map((card) => (
+            <li className="party-card" data-hurt={card.hurt} key={card.id}>
+              <div className="party-card-heading">
+                <div>
+                  <h3>{card.name}</h3>
+                  <p>{card.classLevel}</p>
+                </div>
+                <span>{ENTITY_TYPE_LABELS[card.entityType]}</span>
+              </div>
+
+              <div className="party-stat-grid">
+                <span>HP {card.hp}</span>
+                <span>Move {card.movement}</span>
+                <span>{card.slots}</span>
+                <span>{card.warningSummary}</span>
+              </div>
+
+              <div className="party-card-section">
+                <span>Hands</span>
+                <p>{card.hands.join(" · ")}</p>
+              </div>
+              <div className="party-card-section">
+                <span>Light</span>
+                <p>{card.lightSummary}</p>
+              </div>
+              <div className="party-card-section">
+                <span>Languages</span>
+                <p>{card.languages}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function getPartyOverviewCards(
+  appState: AppState,
+  sortedEntities: Entity[] = getSortedEntities(appState.entities),
+): PartyOverviewCard[] {
+  const validationResult = validateInventoryState(
+    appState.entities,
+    appState.inventoryRecords,
+  );
+
+  return sortedEntities.filter(isCharacterLikeEntity).map((entity) => {
+    const character = normalizeCharacterData(entity.character);
+    const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
+    const sections = getInventorySections(entity, appState.inventoryRecords);
+    const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
+    const warnings = getEncumbranceWarnings(entity, appState.inventoryRecords);
+    const validationIssues = [
+      ...validationResult.errors,
+      ...validationResult.warnings,
+    ].filter(
+      (issue) =>
+        issue.entityId === entity.id ||
+        (issue.recordId !== undefined &&
+          ownedRecords.some((record) => record.id === issue.recordId)),
+    );
+
+    return {
+      id: entity.id,
+      name: entity.name,
+      entityType: entity.entityType,
+      classLevel: formatPartyClassLevel(character),
+      hp: formatPartyHp(character),
+      hurt: isPartyMemberHurt(character),
+      movement: `${encumbrance.movement.explorationFeet}'/${encumbrance.movement.encounterFeet}'`,
+      languages: formatPartyLanguages(character),
+      hands:
+        sections.mode === "characterLike"
+          ? formatPartyHands(sections, appState.inventoryRecords)
+          : [],
+      warningSummary: formatWarningState(warnings, validationIssues),
+      lightSummary: formatPartyLightSummary(ownedRecords),
+      slots: `Slots ${formatSlots(
+        encumbrance.equippedItems + encumbrance.stowedItems,
+      )}`,
+    };
+  });
+}
+
+function formatPartyClassLevel(character: CharacterData): string {
+  const className = character.className.trim() || "No class";
+
+  if (character.level === null) {
+    return className;
+  }
+
+  return `${className} ${character.level}`;
+}
+
+function formatPartyHp(character: CharacterData): string {
+  return `${formatNullablePartyNumber(character.hp.current)}/${formatNullablePartyNumber(
+    character.hp.max,
+  )}`;
+}
+
+function isPartyMemberHurt(character: CharacterData): boolean {
+  return (
+    character.hp.current !== null &&
+    character.hp.max !== null &&
+    character.hp.current < character.hp.max
+  );
+}
+
+function formatPartyLanguages(character: CharacterData): string {
+  return character.languages.length > 0 ? character.languages.join(", ") : "None";
+}
+
+function formatPartyHands(
+  sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
+  records: InventoryRecord[],
+): string[] {
+  const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
+
+  if (bothHandsRecord) {
+    return [`Both: ${getPartyRecordLabel(bothHandsRecord, records)}`];
+  }
+
+  const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
+  const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
+
+  return [
+    `L: ${leftHandRecord ? getPartyRecordLabel(leftHandRecord, records) : "Empty"}`,
+    `R: ${rightHandRecord ? getPartyRecordLabel(rightHandRecord, records) : "Empty"}`,
+  ];
+}
+
+function formatPartyLightSummary(records: InventoryRecord[]): string {
+  const lightRecords = records.filter(
+    (record) => record.recordType !== "coins" && Boolean(record.light),
+  );
+
+  if (lightRecords.length === 0) {
+    return "None";
+  }
+
+  return lightRecords
+    .map((record) =>
+      record.recordType === "coins"
+        ? "Coins"
+        : `${getPartyRecordLabel(record, records)} ${
+            record.light?.isLit ? "lit" : "unlit"
+          }`,
+    )
+    .join(", ");
+}
+
+function getPartyRecordLabel(
+  record: InventoryRecord,
+  records: InventoryRecord[],
+): string {
+  return getInventoryRowDisplay(record, records).primaryText;
+}
+
+function formatNullablePartyNumber(value: number | null): string {
+  return value === null ? "—" : value.toString();
 }
 
 function CharactersPage({
@@ -1880,6 +2096,7 @@ function InventoryRecordForm({
     formState.recordType === "weapon" ||
     formState.recordType === "armor" ||
     formState.recordType === "equipment";
+  const standardItemSuggestions = getStandardItemSuggestions(formState);
 
   return (
     <form className="record-form" onSubmit={onSubmit}>
@@ -2016,19 +2233,47 @@ function InventoryRecordForm({
 
         {showNonCoinFields ? (
           <>
-            <label className="wide-field">
-              <span>Name</span>
-              <input
-                autoComplete="off"
-                maxLength={100}
-                required
-                type="text"
-                value={formState.name}
-                onChange={(event) =>
-                  onChange({ ...formState, name: event.target.value })
-                }
-              />
-            </label>
+            <div className="wide-field autocomplete-field">
+              <label>
+                <span>Name</span>
+                <input
+                  autoComplete="off"
+                  maxLength={100}
+                  required
+                  type="text"
+                  value={formState.name}
+                  onChange={(event) =>
+                    onChange({ ...formState, name: event.target.value })
+                  }
+                />
+              </label>
+              {standardItemSuggestions.length > 0 ? (
+                <div
+                  className="autocomplete-suggestions"
+                  aria-label="Standard item suggestions"
+                >
+                  {standardItemSuggestions.map((item) => (
+                    <button
+                      key={item.slug}
+                      type="button"
+                      onClick={() => {
+                        const input = createInventoryRecordInputFromStandardItem(
+                          item.slug,
+                        );
+
+                        if (input) {
+                          onChange(
+                            applyInventoryRecordInputToFormState(formState, input),
+                          );
+                        }
+                      }}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
 
             <NumberField
               label="Quantity"
@@ -3676,6 +3921,90 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
   };
 }
 
+function getStandardItemSuggestions(formState: RecordFormState) {
+  const query = formState.name.trim();
+
+  if (
+    formState.mode !== "create" ||
+    formState.recordType === "coins" ||
+    formState.recordType === "treasure" ||
+    query.length < 2
+  ) {
+    return [];
+  }
+
+  const normalizedQuery = normalizeAutocompleteText(query);
+  const exactMatch = filterStandardItems(query).some(
+    (item) => normalizeAutocompleteText(item.name) === normalizedQuery,
+  );
+
+  if (exactMatch) {
+    return [];
+  }
+
+  return filterStandardItems(query).slice(0, 8);
+}
+
+function applyInventoryRecordInputToFormState(
+  formState: RecordFormState,
+  input: InventoryRecordFormInput,
+): RecordFormState {
+  const burden = input.burden ?? { kind: "fixed", slotsPerItem: 1 };
+  const isStackable = burden.kind === "stacked";
+  const slotsPerItem = burden.kind === "fixed" ? burden.slotsPerItem : 0;
+  const itemsPerSlot = burden.kind === "stacked" ? burden.itemsPerSlot : 1;
+  const uses = input.uses;
+  const handsRequired = (input.handsRequired ?? getDefaultHandsRequired(
+    input.recordType,
+  )).toString() as "0" | "1" | "2";
+
+  return {
+    ...formState,
+    recordType: input.recordType,
+    name: input.name ?? "",
+    description: input.description ?? "",
+    gpValue: "0",
+    damage: input.recordType === "weapon" ? input.weapon?.damage ?? "" : "",
+    range: input.recordType === "weapon" ? input.weapon?.range ?? "" : "",
+    baseArmorClass:
+      input.recordType === "armor" && input.armor?.baseArmorClass !== undefined
+        ? input.armor.baseArmorClass.toString()
+        : "",
+    armorBonus:
+      input.recordType === "armor" && input.armor?.armorBonus !== undefined
+        ? input.armor.armorBonus.toString()
+        : "",
+    stackable: isStackable,
+    quantity: (input.quantity ?? 1).toString(),
+    slotsPerItem: slotsPerItem.toString(),
+    itemsPerSlot: itemsPerSlot.toString(),
+    isContainer: Boolean(input.container),
+    capacitySlots: (input.container?.capacitySlots ?? 0).toString(),
+    handsRequired,
+    isBackpack: input.container?.isBackpack === true,
+    isUnidentified: false,
+    secretName: "",
+    secretDescription: "",
+    isLight: Boolean(input.light),
+    lightDescription: input.light?.lightDescription ?? "",
+    isLit: input.light?.isLit === true,
+    trackUses: Boolean(uses),
+    usesCurrent: (uses?.current ?? 0).toString(),
+    usesMax: uses?.max?.toString() ?? "",
+    addModifiers: false,
+    modifiers: [createEmptyModifierFormRow()],
+    notesEnabled: false,
+    notes: "",
+    addWeaponQualities:
+      input.recordType === "weapon" &&
+      Boolean(input.weapon?.qualities && input.weapon.qualities.length > 0),
+    qualities:
+      input.recordType === "weapon"
+        ? input.weapon?.qualities?.join(", ") ?? ""
+        : "",
+  };
+}
+
 function toInventoryRecordFormInput(
   formState: RecordFormState,
 ): InventoryRecordFormInput {
@@ -3818,6 +4147,10 @@ function toInventoryRecordFormInput(
 
 function getDefaultHandsRequired(recordType: InventoryRecordType): HandsRequired {
   return recordType === "weapon" ? 1 : 0;
+}
+
+function normalizeAutocompleteText(value: string): string {
+  return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 function getContainerOptions({

@@ -1,0 +1,1648 @@
+{
+  "schema": "simple-standard-item-catalog-v1",
+  "intendedUse": "Autofill source data for Phase 7 Standard Item Autofill. Entries are catalog templates, not complete InventoryRecord instances; Codex should add id, entityId, location, sortOrder, timestamps, and any UI defaults at creation time.",
+  "modelCompatibility": {
+    "checkedAgainst": "arronkau/simple main src/model/types.ts as of 2026-06-04",
+    "recordFieldsUsed": [
+      "name",
+      "recordType",
+      "quantity",
+      "burden",
+      "handsRequired",
+      "description",
+      "container",
+      "uses",
+      "light",
+      "weapon",
+      "armor"
+    ],
+    "catalogMetadataFields": [
+      "slug",
+      "source",
+      "gpValue",
+      "aliases",
+      "catalogNotes"
+    ],
+    "notes": [
+      "gpValue is included as catalog metadata for future price/shop use. Current InventoryRecord types only define gpValue under treasure; do not blindly persist gpValue onto non-treasure InventoryRecord objects unless the app model is extended."
+    ]
+  },
+  "normalizationRules": {
+    "weaponsAndArmor": "Use only house-rules armor and weapon entries. Do not import OSE weapon or armor rows. Torch is not a weapon entry.",
+    "nonWeaponsAndNonArmor": "Use OSE standard and expanded equipment sources.",
+    "burdenDefaults": "0 slots for tiny items; 1 slot for ordinary carried items; 2 slots for substantially large/heavy items; 3 slots for very bulky items; 5 slots for large iron box per user instruction.",
+    "containerCapacity": "Coin capacity converted at 50 coins = 1 slot; no fractional capacities. Liquid capacities are recorded only in descriptions.",
+    "stackables": "Purchase bundles are modeled as stackable entries with default quantity equal to bundle size and itemsPerSlot equal to bundle size.",
+    "weaponDamage": "Omitted because house rules make weapon damage class-based.",
+    "weaponRange": "Missile ranges are parsed into weapon.range without the word Missile.",
+    "omissions": [
+      "Belt pouch omitted because app handles coin purse/display separately.",
+      "Treasure placeholders omitted per user instruction.",
+      "House-rules ammunition rows omitted; ammunition comes from non-weapon equipment sources when present."
+    ]
+  },
+  "items": [
+    {
+      "slug": "backpack",
+      "name": "Backpack",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 2,
+      "gpValue": 5,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Has two straps and can be worn on the back, keeping the hands free. Holds up to 16 slots.",
+      "container": {
+        "capacitySlots": 16
+      }
+    },
+    {
+      "slug": "crowbar",
+      "name": "Crowbar",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 1,
+      "gpValue": 10,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "2–3' long and made of solid iron. Can be used for forcing doors and other objects open."
+    },
+    {
+      "slug": "garlic",
+      "name": "Garlic",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear"
+    },
+    {
+      "slug": "grappling-hook",
+      "name": "Grappling hook",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 25,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Has 3 or 4 prongs. Can be used for anchoring a rope."
+    },
+    {
+      "slug": "hammer-small",
+      "name": "Hammer (small)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 2,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Can be used for construction or as a mallet with iron or wooden spikes."
+    },
+    {
+      "slug": "holy-symbol",
+      "name": "Holy symbol",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 25,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "A divine spell caster is required to own a holy symbol of their deity, often worn as a necklace."
+    },
+    {
+      "slug": "holy-water-vial",
+      "name": "Holy water (vial)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 25,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Blessed water kept in its special vial; used in religious rituals and against undead."
+    },
+    {
+      "slug": "iron-spikes-12",
+      "name": "Iron spikes",
+      "recordType": "equipment",
+      "quantity": 12,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 12
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "May be used for wedging doors, anchoring rope, and other dungeon uses."
+    },
+    {
+      "slug": "lantern",
+      "name": "Lantern",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 10,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Burns one oil flask every four hours (24 turns). Casts light in a 30' radius.",
+      "light": {
+        "isLit": false,
+        "lightDescription": "30' radius; burns one oil flask every 4 hours / 24 turns."
+      },
+      "uses": {
+        "current": 24,
+        "max": 24
+      }
+    },
+    {
+      "slug": "oil-flask",
+      "name": "Oil flask",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 2,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Flask of oil. Fuels a lantern for 4 hours / 24 turns."
+    },
+    {
+      "slug": "mirror-hand-sized-steel",
+      "name": "Steel hand mirror",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Useful for looking around corners or reflecting a gaze attack."
+    },
+    {
+      "slug": "pole-10-long-wooden",
+      "name": "Ten foot pole",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 2,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "A 2-inch thick wooden pole useful for poking and prodding suspicious items in a dungeon."
+    },
+    {
+      "slug": "rations-iron",
+      "name": "Rations (iron)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 3
+      },
+      "handsRequired": 0,
+      "gpValue": 3,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Dried and preserved food for long voyages."
+    },
+    {
+      "slug": "rations-standard",
+      "name": "Rations (standard)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 3
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Fresh, unpreserved food."
+    },
+    {
+      "slug": "rope-50",
+      "name": "Rope (50’)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Can hold the weight of approximately three human-sized beings."
+    },
+    {
+      "slug": "sack-large",
+      "name": "Sack (large)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 2,
+      "gpValue": 2,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Can hold 16 slots.",
+      "container": {
+        "capacitySlots": 16
+      }
+    },
+    {
+      "slug": "sack-small",
+      "name": "Sack (small)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Can hold 8 slots.",
+      "container": {
+        "capacitySlots": 8
+      }
+    },
+    {
+      "slug": "stakes-and-mallet",
+      "name": "Mallet and 3 Stakes",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 3,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "A wooden mallet and three 18-inch stakes. Valuable when confronting vampires."
+    },
+    {
+      "slug": "thieves-tools",
+      "name": "Thieves’ tools",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 25,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Kit containing tools needed to pick locks."
+    },
+    {
+      "slug": "tinder-box-flint-steel",
+      "name": "Tinder box",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 3,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Used to light fires, including torches. Using it takes one round; 2-in-6 chance of success per round."
+    },
+    {
+      "slug": "torches-3",
+      "name": "Torch",
+      "recordType": "equipment",
+      "quantity": 3,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 3
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Each torch burns for 1 hour (6 turns), clearly illuminating a 30' radius.",
+      "light": {
+        "isLit": false,
+        "lightDescription": "30' radius; one torch burns 1 hour / 6 turns."
+      },
+      "uses": {
+        "current": 6,
+        "max": 6
+      }
+    },
+    {
+      "slug": "waterskin",
+      "name": "Waterskin",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Hide container that holds 2 pints / 1 quart of fluid."
+    },
+    {
+      "slug": "wine-2-pints",
+      "name": "Bottle of wine",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Two pints of wine."
+    },
+    {
+      "slug": "wolfsbane-1-bunch",
+      "name": "Wolfsbane (1 bunch)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 10,
+      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "description": "Herb used to repel lycanthropes; the creature must be hit with the herb in melee combat."
+    },
+    {
+      "slug": "barrel",
+      "name": "Barrel (empty)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 6
+      },
+      "handsRequired": 2,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Wooden barrel that holds 40 gallons / 320 pints of liquid."
+    },
+    {
+      "slug": "bedroll",
+      "name": "Bedroll",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 2,
+      "source": "OSE Expanded Equipment",
+      "description": "Heavy woollen blanket with a small pillow."
+    },
+    {
+      "slug": "bell-miniature",
+      "name": "Bell (miniature)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "A 1\" brass bell."
+    },
+    {
+      "slug": "block-and-tackle",
+      "name": "Block and tackle",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "OSE Expanded Equipment",
+      "description": "Used for hauling or lifting heavy objects. Reduces effective weight by 75%; requires 4 times as much rope."
+    },
+    {
+      "slug": "box-iron-large",
+      "name": "Box (iron, large)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 5
+      },
+      "handsRequired": 2,
+      "gpValue": 30,
+      "source": "OSE Expanded Equipment",
+      "description": "Solid iron casket. Holds 10 slots.",
+      "container": {
+        "capacitySlots": 10
+      }
+    },
+    {
+      "slug": "box-iron-small",
+      "name": "Box (iron, small)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 10,
+      "source": "OSE Expanded Equipment",
+      "description": "Solid iron casket. Holds 5 slots.",
+      "container": {
+        "capacitySlots": 5
+      }
+    },
+    {
+      "slug": "bucket",
+      "name": "Bucket",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Holds 5 gallons / 40 pints."
+    },
+    {
+      "slug": "caltrops-bag-of-20",
+      "name": "Caltrops",
+      "recordType": "equipment",
+      "quantity": 20,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 20
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Small metal spikes sufficient to cover a 5' × 5' area."
+    },
+    {
+      "slug": "candles-10",
+      "name": "Candles",
+      "recordType": "equipment",
+      "quantity": 10,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 10
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Each candle casts dim light in a 5' radius and burns for 1 hour.",
+      "light": {
+        "isLit": false,
+        "lightDescription": "Dim 5' radius; one candle burns 1 hour."
+      },
+      "uses": {
+        "current": 6,
+        "max": 6
+      }
+    },
+    {
+      "slug": "chain-10",
+      "name": "Chain (10’)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 0,
+      "gpValue": 30,
+      "source": "OSE Expanded Equipment",
+      "description": "A 10' length of heavy iron chain."
+    },
+    {
+      "slug": "chalk-10-sticks",
+      "name": "Chalk",
+      "recordType": "equipment",
+      "quantity": 10,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 10
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Useful for making markings on stone."
+    },
+    {
+      "slug": "chest-wooden-large",
+      "name": "Chest (wooden, large)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 2,
+      "gpValue": 5,
+      "source": "OSE Expanded Equipment",
+      "description": "Large wooden chest. Holds 16 slots.",
+      "container": {
+        "capacitySlots": 16
+      }
+    },
+    {
+      "slug": "chest-wooden-small",
+      "name": "Chest (wooden, small)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Small wooden chest. Holds 6 slots.",
+      "container": {
+        "capacitySlots": 6
+      }
+    },
+    {
+      "slug": "chisel",
+      "name": "Chisel",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 2,
+      "source": "OSE Expanded Equipment",
+      "description": "Used with a hammer for chipping away stone."
+    },
+    {
+      "slug": "cooking-pots",
+      "name": "Cooking pots",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 0,
+      "gpValue": 3,
+      "source": "OSE Expanded Equipment",
+      "description": "Pots and pans for campfire cooking."
+    },
+    {
+      "slug": "firewood-bundle",
+      "name": "Firewood (bundle)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Bundle of dry wood. Burns for 8 hours."
+    },
+    {
+      "slug": "fishing-rod-and-tackle",
+      "name": "Fishing rod and tackle",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 0,
+      "gpValue": 4,
+      "source": "OSE Expanded Equipment",
+      "description": "Rod, line, hook, and bait box."
+    },
+    {
+      "slug": "holy-symbol-gold",
+      "name": "Holy symbol (gold)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 100,
+      "source": "OSE Expanded Equipment",
+      "description": "Gold holy symbol; grants +1 to the 2d6 undead turning affected-HD roll."
+    },
+    {
+      "slug": "holy-symbol-wooden",
+      "name": "Holy symbol (wooden)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "OSE Expanded Equipment",
+      "description": "Wooden holy symbol; incurs -1 to the 2d6 undead turning success roll."
+    },
+    {
+      "slug": "ink-vial",
+      "name": "Ink (vial)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Vial of black ink, sufficient for about 50 pages of writing. Coloured ink costs double."
+    },
+    {
+      "slug": "ladder-wooden-10",
+      "name": "10' Ladder",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 4
+      },
+      "handsRequired": 2,
+      "gpValue": 5,
+      "source": "OSE Expanded Equipment",
+      "description": "Simple wooden construction. Very encumbering."
+    },
+    {
+      "slug": "lantern-bullseye",
+      "name": "Lantern, bullseye",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 20,
+      "source": "OSE Expanded Equipment",
+      "description": "Casts light in a narrow beam, 60' long and 20' wide at the end. Can be closed to hide the light. Burns one oil flask every four hours (24 turns).",
+      "light": {
+        "isLit": false,
+        "lightDescription": "Narrow beam 60' long and 20' wide at the end; burns one oil flask every 4 hours / 24 turns."
+      },
+      "uses": {
+        "current": 24,
+        "max": 24
+      }
+    },
+    {
+      "slug": "lantern-hooded",
+      "name": "Lantern, hooded",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 10,
+      "source": "User added",
+      "description": "Hooded lantern. Can be rapidly closed to hide light without extinguishing.",
+      "light": {
+        "isLit": false,
+        "lightDescription": "30' radius; burns one oil flask every 4 hours / 24 turns."
+      },
+      "uses": {
+        "current": 24,
+        "max": 24
+      }
+    },
+    {
+      "slug": "lock",
+      "name": "Lock",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 20,
+      "source": "OSE Expanded Equipment",
+      "description": "Basic iron lock with a key."
+    },
+    {
+      "slug": "magnifying-glass",
+      "name": "Magnifying glass",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 3,
+      "source": "OSE Expanded Equipment",
+      "description": "Used for studying fine details."
+    },
+    {
+      "slug": "manacles",
+      "name": "Manacles",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 15,
+      "source": "OSE Expanded Equipment",
+      "description": "Iron manacles with a chain, used for binding hands or feet."
+    },
+    {
+      "slug": "marbles-bag-of-20",
+      "name": "Marbles",
+      "recordType": "equipment",
+      "quantity": 20,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 20
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Bag of colourful glass beads."
+    },
+    {
+      "slug": "mining-pick",
+      "name": "Mining pick",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 3,
+      "source": "OSE Expanded Equipment",
+      "description": "For breaking rock."
+    },
+    {
+      "slug": "musical-instrument-string",
+      "name": "Musical instrument (string)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 20,
+      "source": "OSE Expanded Equipment",
+      "description": "Basic-quality stringed instrument such as a lute or mandolin."
+    },
+    {
+      "slug": "musical-instrument-wind",
+      "name": "Musical instrument (wind)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "OSE Expanded Equipment",
+      "description": "Basic-quality wind instrument such as a flute or pipe."
+    },
+    {
+      "slug": "paper-parchment",
+      "name": "Paper/parchment",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Approximately 1' square sheets. Likely to be damaged if carried outside a scroll case"
+    },
+    {
+      "slug": "quill",
+      "name": "Quill",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Large feather sharpened into a writing point."
+    },
+    {
+      "slug": "saw",
+      "name": "Saw",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Hand saw for cutting wood."
+    },
+    {
+      "slug": "scroll-case",
+      "name": "Scroll case",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Oiled leather tube with a cap. Not completely watertight.",
+      "container": {
+        "capacitySlots": 1
+      }
+    },
+    {
+      "slug": "sledgehammer",
+      "name": "Sledgehammer",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 2,
+      "gpValue": 5,
+      "source": "OSE Expanded Equipment",
+      "description": "Big heavy hammer for breaking rock."
+    },
+    {
+      "slug": "spade-or-shovel",
+      "name": "Spade or shovel",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 2,
+      "gpValue": 2,
+      "source": "OSE Expanded Equipment",
+      "description": "For excavating earth."
+    },
+    {
+      "slug": "tent",
+      "name": "Tent",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 2,
+      "gpValue": 20,
+      "source": "OSE Expanded Equipment",
+      "description": "Large enough for 2 adult humans."
+    },
+    {
+      "slug": "twine-100-ball",
+      "name": "Twine (100’ ball)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Wound ball of thin cord/string. Can support up to 300 coins of weight."
+    },
+    {
+      "slug": "vial-glass",
+      "name": "Vial (glass)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Glass vial that can hold up to half a pint of liquid."
+    },
+    {
+      "slug": "whistle",
+      "name": "Whistle",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "OSE Expanded Equipment",
+      "description": "Useful for signalling or faking bird calls."
+    },
+    {
+      "slug": "padded",
+      "name": "Padded",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 11
+      }
+    },
+    {
+      "slug": "furs",
+      "name": "Furs",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 10,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 12
+      }
+    },
+    {
+      "slug": "leather",
+      "name": "Leather",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 20,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 12
+      }
+    },
+    {
+      "slug": "studded-leather",
+      "name": "Studded leather",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 25,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 13
+      }
+    },
+    {
+      "slug": "lorica-hamata",
+      "name": "Lorica Hamata",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 0,
+      "gpValue": 100,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 14
+      }
+    },
+    {
+      "slug": "chainmail",
+      "name": "Chainmail",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 0,
+      "gpValue": 40,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 14
+      }
+    },
+    {
+      "slug": "lorica-segmentata",
+      "name": "Lorica Segmentata",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 0,
+      "gpValue": 400,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 15
+      }
+    },
+    {
+      "slug": "archontean-lamellar",
+      "name": "Archontean Lamellar",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 0,
+      "gpValue": 600,
+      "source": "House rules armor and weapons",
+      "armor": {
+        "baseArmorClass": 16
+      }
+    },
+    {
+      "slug": "shield",
+      "name": "Shield",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 10,
+      "source": "House rules armor and weapons",
+      "description": "A shield grants +1 AC and can absorb damage from a single successful attack, then is rendered useless.",
+      "armor": {
+        "armorBonus": 1
+      }
+    },
+    {
+      "slug": "helmet",
+      "name": "Helmet",
+      "recordType": "armor",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "description": "A helmet can absorb damage from a single successful critical hit, then is rendered useless. It imposes -1 to Surprise.",
+      "armor": {
+        "armorBonus": 0
+      }
+    },
+    {
+      "slug": "battle-axe",
+      "name": "Battle axe",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 7,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Deadly",
+          "Melee",
+          "Shield Grappler"
+        ]
+      }
+    },
+    {
+      "slug": "blackjack",
+      "name": "Blackjack",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Knock-out",
+          "Melee",
+          "Stealth"
+        ]
+      }
+    },
+    {
+      "slug": "blowgun",
+      "name": "Blowgun",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 3,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Poison"
+        ],
+        "range": "10/20/30"
+      }
+    },
+    {
+      "slug": "bolas",
+      "name": "Bolas",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Entangle"
+        ],
+        "range": "20/40/60"
+      }
+    },
+    {
+      "slug": "club",
+      "name": "Club",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 3,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Knock-out",
+          "Melee"
+        ]
+      }
+    },
+    {
+      "slug": "crossbow",
+      "name": "Crossbow",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 30,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Deadly",
+          "Slow"
+        ],
+        "range": "80/160/240"
+      }
+    },
+    {
+      "slug": "dagger",
+      "name": "Dagger",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 3,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Light",
+          "Melee",
+          "Quick draw"
+        ],
+        "range": "10/20/30"
+      }
+    },
+    {
+      "slug": "flail",
+      "name": "Flail",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 10,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Deadly",
+          "Melee",
+          "Shield Grappler"
+        ]
+      }
+    },
+    {
+      "slug": "garotte",
+      "name": "Garotte",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 2,
+      "gpValue": 1,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Melee",
+          "Stealth",
+          "Strangle"
+        ]
+      }
+    },
+    {
+      "slug": "hand-axe",
+      "name": "Hand axe",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 4,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Light",
+          "Melee",
+          "Shield Grappler"
+        ],
+        "range": "10/20/30"
+      }
+    },
+    {
+      "slug": "javelin",
+      "name": "Javelin",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [],
+        "range": "30/60/90"
+      }
+    },
+    {
+      "slug": "lance",
+      "name": "Lance",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 1,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Charge",
+          "Melee",
+          "Specialized"
+        ]
+      }
+    },
+    {
+      "slug": "long-bow",
+      "name": "Long bow",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 40,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Deadly",
+          "Specialized"
+        ],
+        "range": "70/140/210"
+      }
+    },
+    {
+      "slug": "mace",
+      "name": "Mace",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Knock-out",
+          "Melee"
+        ]
+      }
+    },
+    {
+      "slug": "net",
+      "name": "Net",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Entangle"
+        ],
+        "range": "10/20/30"
+      }
+    },
+    {
+      "slug": "polearm",
+      "name": "Polearm",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 7,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Brace",
+          "Deadly",
+          "Melee",
+          "Specialized"
+        ]
+      }
+    },
+    {
+      "slug": "short-bow",
+      "name": "Short bow",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 25,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [],
+        "range": "50/100/150"
+      }
+    },
+    {
+      "slug": "short-sword",
+      "name": "Short sword",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 7,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Light",
+          "Melee",
+          "Quick draw"
+        ]
+      }
+    },
+    {
+      "slug": "sling",
+      "name": "Sling",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 2,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt"
+        ],
+        "range": "40/80/160"
+      }
+    },
+    {
+      "slug": "spear",
+      "name": "Spear",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 4,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Brace",
+          "Melee"
+        ],
+        "range": "20/40/60"
+      }
+    },
+    {
+      "slug": "staff",
+      "name": "Staff",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 2,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Melee"
+        ]
+      }
+    },
+    {
+      "slug": "sword",
+      "name": "Sword",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 10,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Melee",
+          "Quick draw",
+          "Versatile"
+        ]
+      }
+    },
+    {
+      "slug": "two-handed-sword",
+      "name": "Two-handed sword",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 2,
+      "gpValue": 15,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Brutal",
+          "Deadly",
+          "Melee",
+          "Slow"
+        ]
+      }
+    },
+    {
+      "slug": "war-hammer",
+      "name": "War hammer",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 5,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Blunt",
+          "Crushing",
+          "Melee"
+        ]
+      }
+    },
+    {
+      "slug": "whip",
+      "name": "Whip",
+      "recordType": "weapon",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 1,
+      "gpValue": 10,
+      "source": "House rules armor and weapons",
+      "weapon": {
+        "qualities": [
+          "Entangle",
+          "Melee"
+        ]
+      }
+    }
+  ]
+}
