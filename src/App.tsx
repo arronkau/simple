@@ -5,6 +5,7 @@ import {
   ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
@@ -4439,6 +4440,34 @@ function WarningDetailsButton({
   warnings: EncumbranceWarning[];
 }) {
   const warningCount = validationIssues.length + warnings.length;
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!detailsRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
 
   if (warningCount === 0) {
     return null;
@@ -4451,7 +4480,13 @@ function WarningDetailsButton({
   const warningIcon = getWarningDetailsIcon(validationIssues, warnings);
 
   return (
-    <details className="warning-details" data-severity={severity}>
+    <details
+      ref={detailsRef}
+      className="warning-details"
+      data-severity={severity}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary
         title={messages.join("\n")}
         aria-label={`${formatWarningState(warnings, validationIssues)}: ${messages.join(
