@@ -593,16 +593,26 @@ h5 {
 }
 
 .hand-rows {
+  --hand-row-gap: 0.35rem;
+  --hand-row-min-height: 2.35rem;
   display: grid;
-  gap: 0.35rem;
+  gap: var(--hand-row-gap);
 }
 
 .hand-row {
   display: grid;
-  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  grid-template-columns: 3.25rem minmax(0, 1fr);
   gap: 0.45rem;
   align-items: center;
-  min-height: 2.35rem;
+  min-height: var(--hand-row-min-height);
+}
+
+.hand-row[data-double-height="true"] {
+  min-height: calc(var(--hand-row-min-height) * 2 + var(--hand-row-gap));
+}
+
+.hand-row[data-double-height="true"] .hand-record-card {
+  align-self: stretch;
 }
 
 .hand-row-label,
@@ -615,6 +625,14 @@ h5 {
 .hand-row-empty {
   min-height: 1.8rem;
   align-content: center;
+  border: 1px dashed #d7dde1;
+  border-radius: 8px;
+  padding: 0 0.55rem;
+  background: #fbfcfd;
+}
+
+.hand-record-card {
+  min-height: var(--hand-row-min-height);
 }
 
 .record-list {
@@ -717,7 +735,7 @@ h5 {
   gap: 0.5rem;
 }
 
-.container-block > .record-list {
+.container-contents {
   border-left: 2px solid #d7dde1;
   margin-left: 0.5rem;
   padding-left: 0.65rem;

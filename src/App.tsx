@@ -2964,11 +2964,11 @@ function HandRows({
           label="Both"
           record={bothHandsRecord}
           records={records}
+          doubleHeight
           onEditRecord={onEditRecord}
           onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
         />
-        <HandRow label="-" records={records} />
       </div>
     );
   }
@@ -2996,6 +2996,7 @@ function HandRows({
 }
 
 function HandRow({
+  doubleHeight = false,
   label,
   record,
   records,
@@ -3003,6 +3004,7 @@ function HandRow({
   onIdentifyRecord,
   onSpendCoins,
 }: {
+  doubleHeight?: boolean;
   label: string;
   record?: InventoryRecord;
   records: InventoryRecord[];
@@ -3011,10 +3013,10 @@ function HandRow({
   onSpendCoins?: (record: InventoryRecord) => void;
 }) {
   return (
-    <div className="hand-row">
+    <div className="hand-row" data-double-height={doubleHeight}>
       <span className="hand-row-label">{label}</span>
       {record ? (
-        <>
+        <div className="record-row hand-record-card">
           <InventoryRowSummary
             record={record}
             allRecords={records}
@@ -3038,7 +3040,7 @@ function HandRow({
               Identify
             </button>
           ) : null}
-        </>
+        </div>
       ) : (
         <span className="hand-row-empty">Empty</span>
       )}
@@ -3177,14 +3179,16 @@ function ContainerBlock({
           </button>
         ) : null}
       </div>
-      <RecordList
-        records={nestedRecords}
-        allRecords={records}
-        onDeleteRecord={onDeleteRecord}
-        onEditRecord={onEditRecord}
-        onIdentifyRecord={onIdentifyRecord}
-        onSpendCoins={onSpendCoins}
-      />
+      <div className="container-contents">
+        <RecordList
+          records={nestedRecords}
+          allRecords={records}
+          onDeleteRecord={onDeleteRecord}
+          onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
+          onSpendCoins={onSpendCoins}
+        />
+      </div>
     </div>
   );
 }
