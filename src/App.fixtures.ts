@@ -1,5 +1,6 @@
 import {
   getAuditEntityFilterOptions,
+  getAuditEntryDisplay,
   getDeleteConfirmationMessage,
   getFilteredAuditLogEntries,
   parseImportedAppState,
@@ -7,7 +8,11 @@ import {
 } from "./App";
 import type { AppState } from "./model/appState";
 import { createEmptyCharacterData } from "./model/characters";
-import { createDefaultBackpack, type InventoryRecord } from "./model/types";
+import {
+  createDefaultBackpack,
+  type AuditLogEntry,
+  type InventoryRecord,
+} from "./model/types";
 
 const emptyCoinRecord: InventoryRecord = {
   id: "coins-empty",
@@ -165,6 +170,15 @@ const exportedAppState = {
   data: auditFilterAppState,
 };
 
+const auditDisplayEntry: AuditLogEntry = {
+  id: "audit-display-1",
+  actorLabel: "Yost",
+  createdAt: "2026-06-03T16:32:00.000Z",
+  entityId: "entity-active",
+  eventType: "coinsChanged",
+  summary: "Yost spent 20 gp — bought some nice cheese",
+};
+
 export const APP_MANUAL_FIXTURES = [
   {
     name: "coin display is safe for unnamed coin records",
@@ -230,6 +244,21 @@ export const APP_MANUAL_FIXTURES = [
       "coinsChanged",
     ).map((entry) => entry.id),
     expected: ["audit-3"],
+  },
+  {
+    name: "audit log display is concise and human readable",
+    actual: getAuditEntryDisplay(auditDisplayEntry),
+    expected: {
+      summary: "Yost spent 20 gp — bought some nice cheese",
+      timestamp: new Date(auditDisplayEntry.createdAt).toLocaleTimeString(
+        "en-US",
+        {
+          hour: "numeric",
+          minute: "2-digit",
+        },
+      ),
+      metaLabels: ["Coins changed", "Yost"],
+    },
   },
   {
     name: "import parser accepts current export wrapper",

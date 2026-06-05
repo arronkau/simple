@@ -871,59 +871,43 @@ h5 {
 
 .audit-entry {
   display: grid;
-  gap: 0.45rem;
   border: 1px solid #d7dde1;
   border-radius: 8px;
   padding: 0.8rem;
   background: #fbfcfd;
 }
 
-.audit-entry-heading {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  justify-content: space-between;
+.audit-entry-body {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
-.audit-entry-heading strong {
+.audit-entry-summary {
   overflow-wrap: anywhere;
+  color: #17212a;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
-.audit-entry-heading time {
-  flex: 0 0 auto;
+.audit-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   color: #5a6974;
   font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1.4;
 }
 
-.audit-details {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 0;
+.audit-entry-meta time {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
 }
 
-.audit-details div {
-  display: inline-flex;
-  min-height: 1.5rem;
-  align-items: center;
-  border: 1px solid #d7dde1;
-  border-radius: 6px;
-  padding: 0 0.55rem;
-  color: #52616c;
-  background: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.audit-details dt,
-.audit-details dd {
-  margin: 0;
-}
-
-.audit-details dt::after {
-  content: ":";
-  margin-right: 0.25rem;
+.audit-entry-meta span {
+  overflow-wrap: anywhere;
 }
 
 .storage-key {
@@ -1005,7 +989,4 @@ h5 {
     grid-template-columns: 1fr;
   }
 
-  .audit-entry-heading {
-    flex-direction: column;
-  }
 }

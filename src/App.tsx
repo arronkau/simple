@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { APP_STATE_STORAGE_KEY, parseAppState } from "./model/appState";
 import {
+  DEFAULT_AUDIT_ACTOR_LABEL,
   AUDIT_EVENT_TYPE_LABELS,
   getAuditEventTypeLabel,
   getNewestAuditLogEntries,
@@ -3053,35 +3054,32 @@ function AuditLogPanel({
       ) : (
         <ul className="audit-list" aria-label="Audit entries">
           {filteredEntries.map((entry) => (
-            <li className="audit-entry" key={entry.id}>
-              <div className="audit-entry-heading">
-                <strong>{entry.summary}</strong>
-                <time dateTime={entry.createdAt}>
-                  {formatAuditTimestamp(entry.createdAt)}
-                </time>
-              </div>
-              <div className="record-meta">
-                <span>{getAuditEventTypeLabel(entry.eventType)}</span>
-                <span>{entry.actorLabel}</span>
-                {entry.entityId ? (
-                  <span>{getAuditEntityLabel(entry, appState.entities)}</span>
-                ) : null}
-              </div>
-              {entry.details && Object.keys(entry.details).length > 0 ? (
-                <dl className="audit-details">
-                  {Object.entries(entry.details).map(([key, value]) => (
-                    <div key={key}>
-                      <dt>{formatAuditDetailLabel(key)}</dt>
-                      <dd>{formatAuditDetailValue(value)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-            </li>
+            <AuditLogRow key={entry.id} entry={entry} />
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
+  const display = getAuditEntryDisplay(entry);
+
+  return (
+    <li className="audit-entry">
+      <div className="audit-entry-body">
+        <p className="audit-entry-summary">{display.summary}</p>
+        <p className="audit-entry-meta">
+          <time dateTime={entry.createdAt}>{display.timestamp}</time>
+          {display.metaLabels.length > 0 ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{display.metaLabels.join(" · ")}</span>
+            </>
+          ) : null}
+        </p>
+      </div>
+    </li>
   );
 }
 
@@ -3331,15 +3329,18 @@ function formatWarningState(
   return count === 1 ? "1 warning" : `${count} warnings`;
 }
 
-function getAuditEntityLabel(entry: AuditLogEntry, entities: Entity[]): string {
-  if (!entry.entityId) {
-    return "No entity";
+export function getAuditEntryDisplay(entry: AuditLogEntry) {
+  const metaLabels = [getAuditEventTypeLabel(entry.eventType)];
+
+  if (entry.actorLabel !== DEFAULT_AUDIT_ACTOR_LABEL) {
+    metaLabels.push(entry.actorLabel);
   }
 
-  return (
-    entities.find((entity) => entity.id === entry.entityId)?.name ??
-    entry.entityId
-  );
+  return {
+    summary: entry.summary,
+    timestamp: formatAuditTimestamp(entry.createdAt),
+    metaLabels,
+  };
 }
 
 function formatAuditTimestamp(createdAt: string): string {
@@ -3349,30 +3350,10 @@ function formatAuditTimestamp(createdAt: string): string {
     return createdAt;
   }
 
-  return date.toLocaleString();
-}
-
-function formatAuditDetailLabel(key: string): string {
-  return key
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .replace(/^./, (letter) => letter.toUpperCase())
-    .replace(/\bGp\b/g, "GP")
-    .replace(/\bPp\b/g, "PP")
-    .replace(/\bSp\b/g, "SP")
-    .replace(/\bCp\b/g, "CP")
-    .replace(/\bId\b/g, "ID");
-}
-
-function formatAuditDetailValue(value: string | number | boolean | null): string {
-  if (value === null) {
-    return "None";
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
-  }
-
-  return value.toString();
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function createCharacterSheetFormState(
