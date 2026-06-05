@@ -858,6 +858,40 @@ const phase8DeleteRecordEntry = phase8AuditEntries.find(
   (entry) => entry.eventType === "inventoryRecordDeleted",
 );
 
+useAppStore.getState().resetLocalState();
+
+const phase8SameEntityCharacterId = useAppStore.getState().createEntity({
+  name: "Quiet Mover",
+  entityType: "character",
+});
+const phase8SameEntityRecordResult = phase8SameEntityCharacterId
+  ? useAppStore.getState().createInventoryRecord(phase8SameEntityCharacterId, {
+      recordType: "equipment",
+      name: "Crowbar",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 1,
+    })
+  : { ok: false };
+const phase8SameEntityRecordId =
+  phase8SameEntityRecordResult.ok && "recordId" in phase8SameEntityRecordResult
+    ? phase8SameEntityRecordResult.recordId
+    : undefined;
+const phase8SameEntityMoveResult =
+  phase8SameEntityCharacterId && phase8SameEntityRecordId
+    ? useAppStore
+        .getState()
+        .moveInventoryRecord(phase8SameEntityRecordId, {
+          entityId: phase8SameEntityCharacterId,
+          placement: "leftHand",
+        })
+    : { ok: false };
+const phase8SameEntityMoveAuditCount = useAppStore
+  .getState()
+  .appState.auditLog.filter(
+    (entry) => entry.eventType === "inventoryRecordMoved",
+  ).length;
+
 export const PHASE_8_STORE_MANUAL_FIXTURES = [
   {
     name: "store audit log captures significant entity and inventory mutations",
@@ -927,6 +961,17 @@ export const PHASE_8_STORE_MANUAL_FIXTURES = [
       deletedRecordType: "equipment",
       fromEntityId: phase8CharacterId,
       toEntityId: phase8StorageId,
+    },
+  },
+  {
+    name: "store audit log suppresses same-entity inventory movement",
+    actual: {
+      moveOk: phase8SameEntityMoveResult.ok,
+      moveAuditCount: phase8SameEntityMoveAuditCount,
+    },
+    expected: {
+      moveOk: true,
+      moveAuditCount: 0,
     },
   },
 ];

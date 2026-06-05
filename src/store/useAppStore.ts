@@ -641,8 +641,7 @@ export const useAppStore = create<AppStore>((set) => ({
             ...state.appState,
             inventoryRecords: nextInventoryRecords,
           },
-          record.entityId === nextRecord.entityId &&
-          areInventoryLocationsEqual(record.location, nextRecord.location)
+          record.entityId === nextRecord.entityId
             ? []
             : [
                 createInventoryMoveAuditEntryInput({
@@ -765,8 +764,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
       for (const { record, nextEntityId, nextLocation } of swapPairs) {
         if (
-          record.entityId !== nextEntityId ||
-          !areInventoryLocationsEqual(record.location, nextLocation)
+          record.entityId !== nextEntityId
         ) {
           swapAuditEntries.push(
             createInventoryMoveAuditEntryInput({
