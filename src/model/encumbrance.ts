@@ -405,7 +405,7 @@ function getCharacterMovementWarnings(
     return [
       {
         code: "entityOverloaded",
-        message: `${entity.name} is overloaded and cannot move.`,
+        message: `${entity.name} is overloaded: capacity (${totalSlots}/16 slots).`,
         entityId: entity.id,
         usedSlots: encumbrance.equippedItems + encumbrance.stowedItems,
       },
