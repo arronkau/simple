@@ -118,8 +118,9 @@
       "name": "Holy symbol",
       "recordType": "equipment",
       "quantity": 1,
-      "burden": {
-        "kind": "none"
+     "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 25,
@@ -659,7 +660,8 @@
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
-        "kind": "none"
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 100,
@@ -672,7 +674,8 @@
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
-        "kind": "none"
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 5,
@@ -900,7 +903,7 @@
       "source": "OSE Expanded Equipment",
       "description": "Oiled leather tube with a cap. Not completely watertight.",
       "container": {
-        "capacitySlots": 1
+        "capacitySlots": 0
       }
     },
     {

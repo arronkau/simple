@@ -1,5 +1,12 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import {
+  ChangeEvent,
+  FormEvent,
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { APP_STATE_STORAGE_KEY, parseAppState } from "./model/appState";
 import {
   DEFAULT_AUDIT_ACTOR_LABEL,
@@ -231,6 +238,7 @@ type AppStateExport = {
 };
 
 function LocalAppShell() {
+  const location = useLocation();
   const appState = useAppStore((state) => state.appState);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
   const syncError = useAppStore((state) => state.syncError);
@@ -280,6 +288,23 @@ function LocalAppShell() {
     AuditEventType | "all"
   >("all");
   const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [collapsedContainerIds, setCollapsedContainerIds] = useState<
+    Set<InventoryRecordId>
+  >(() => new Set());
+
+  function toggleContainerCollapsed(recordId: InventoryRecordId) {
+    setCollapsedContainerIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+
+      if (nextIds.has(recordId)) {
+        nextIds.delete(recordId);
+      } else {
+        nextIds.add(recordId);
+      }
+
+      return nextIds;
+    });
+  }
 
   function handleCreateEntity(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -406,9 +431,14 @@ function LocalAppShell() {
     setCoinSpendMessage(undefined);
   }
 
+  const isInventoryRoute = location.pathname.startsWith("/inventory");
+  const workspaceClassName = `workspace-panel${
+    isInventoryRoute ? " inventory-workspace-panel" : ""
+  }`;
+
   return (
     <main className="app-shell">
-      <section className="workspace-panel" aria-labelledby="app-title">
+      <section className={workspaceClassName} aria-labelledby="app-title">
         <div className="app-header">
           <div>
             <p className="eyebrow">
@@ -445,6 +475,7 @@ function LocalAppShell() {
             element={
               <InventoryPage
                 appState={appState}
+                collapsedContainerIds={collapsedContainerIds}
                 editingEntityId={editingEntityId}
                 editingName={editingName}
                 formState={formState}
@@ -467,6 +498,7 @@ function LocalAppShell() {
                 onSetEntityActive={setEntityActive}
                 onSpendCoins={startSpendingCoins}
                 onStartAddRecord={startAddingRecord}
+                onToggleContainerCollapsed={toggleContainerCollapsed}
               />
             }
           />
@@ -753,6 +785,7 @@ function AuditPage({
 
 function InventoryPage({
   appState,
+  collapsedContainerIds,
   editingEntityId,
   editingName,
   formState,
@@ -775,8 +808,10 @@ function InventoryPage({
   onSetEntityActive,
   onSpendCoins,
   onStartAddRecord,
+  onToggleContainerCollapsed,
 }: {
   appState: AppState;
+  collapsedContainerIds: Set<InventoryRecordId>;
   editingEntityId?: EntityId;
   editingName: string;
   formState: EntityFormState;
@@ -799,6 +834,7 @@ function InventoryPage({
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
   onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   const recordFormEntity = recordForm
     ? appState.entities.find((entity) => entity.id === recordForm.entityId)
@@ -826,6 +862,7 @@ function InventoryPage({
           {sortedEntities.map((entity) => (
             <EntityInventoryRow
               appState={appState}
+              collapsedContainerIds={collapsedContainerIds}
               editingEntityId={editingEntityId}
               editingName={editingName}
               entity={entity}
@@ -841,6 +878,7 @@ function InventoryPage({
               onSetEntityActive={onSetEntityActive}
               onSpendCoins={onSpendCoins}
               onStartAddRecord={onStartAddRecord}
+              onToggleContainerCollapsed={onToggleContainerCollapsed}
             />
           ))}
         </ul>
@@ -916,6 +954,7 @@ function EntityForm({
 
 function EntityInventoryRow({
   appState,
+  collapsedContainerIds,
   editingEntityId,
   editingName,
   entity,
@@ -930,8 +969,10 @@ function EntityInventoryRow({
   onSetEntityActive,
   onSpendCoins,
   onStartAddRecord,
+  onToggleContainerCollapsed,
 }: {
   appState: AppState;
+  collapsedContainerIds: Set<InventoryRecordId>;
   editingEntityId?: EntityId;
   editingName: string;
   entity: Entity;
@@ -946,6 +987,7 @@ function EntityInventoryRow({
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
   onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   const isEditing = editingEntityId === entity.id;
 
@@ -1002,11 +1044,13 @@ function EntityInventoryRow({
       <InventoryDisplay
         entity={entity}
         appState={appState}
+        collapsedContainerIds={collapsedContainerIds}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
         onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
         onStartAddRecord={onStartAddRecord}
+        onToggleContainerCollapsed={onToggleContainerCollapsed}
       />
     </li>
   );
@@ -1817,19 +1861,23 @@ function CharacterSheetPanel({
 function InventoryDisplay({
   entity,
   appState,
+  collapsedContainerIds,
   onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
   onStartAddRecord,
+  onToggleContainerCollapsed,
 }: {
   entity: Entity;
   appState: AppState;
+  collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
   const sections = getInventorySections(entity, appState.inventoryRecords);
@@ -1864,19 +1912,23 @@ function InventoryDisplay({
         <CharacterInventoryDisplay
           sections={sections}
           records={appState.inventoryRecords}
+          collapsedContainerIds={collapsedContainerIds}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
           onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
+          onToggleContainerCollapsed={onToggleContainerCollapsed}
         />
       ) : (
         <ContentsInventoryDisplay
           contents={sections.contents}
           records={appState.inventoryRecords}
+          collapsedContainerIds={collapsedContainerIds}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
           onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
+          onToggleContainerCollapsed={onToggleContainerCollapsed}
         />
       )}
     </section>
@@ -1927,17 +1979,21 @@ function EntityInventoryHeader({
 function CharacterInventoryDisplay({
   sections,
   records,
+  collapsedContainerIds,
   onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
+  onToggleContainerCollapsed,
 }: {
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
   records: InventoryRecord[];
+  collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   return (
     <div className="inventory-sections">
@@ -1956,10 +2012,12 @@ function CharacterInventoryDisplay({
           <RecordList
             records={sections.otherEquipped}
             allRecords={records}
+            collapsedContainerIds={collapsedContainerIds}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}
             onIdentifyRecord={onIdentifyRecord}
             onSpendCoins={onSpendCoins}
+            onToggleContainerCollapsed={onToggleContainerCollapsed}
           />
         </InventorySubsection>
       </InventorySection>
@@ -1983,10 +2041,12 @@ function CharacterInventoryDisplay({
               containerRecord={sections.backpackRecord}
               records={records}
               nestedRecords={sections.backpackContents}
+              collapsedContainerIds={collapsedContainerIds}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
               onIdentifyRecord={onIdentifyRecord}
               onSpendCoins={onSpendCoins}
+              onToggleContainerCollapsed={onToggleContainerCollapsed}
             />
           ) : (
             <p className="empty-state compact">Missing stowed container</p>
@@ -2000,17 +2060,21 @@ function CharacterInventoryDisplay({
 function ContentsInventoryDisplay({
   contents,
   records,
+  collapsedContainerIds,
   onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
+  onToggleContainerCollapsed,
 }: {
   contents: InventoryRecord[];
   records: InventoryRecord[];
+  collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   return (
     <div className="inventory-sections">
@@ -2018,10 +2082,12 @@ function ContentsInventoryDisplay({
         <RecordList
           records={contents}
           allRecords={records}
+          collapsedContainerIds={collapsedContainerIds}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
           onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
+          onToggleContainerCollapsed={onToggleContainerCollapsed}
         />
       </InventorySection>
     </div>
@@ -3013,10 +3079,18 @@ function HandRow({
   onSpendCoins?: (record: InventoryRecord) => void;
 }) {
   return (
-    <div className="hand-row" data-double-height={doubleHeight}>
+    <div
+      className="hand-row"
+      data-double-height={doubleHeight}
+      data-drop-target="hand-slot"
+      data-hand-label={label}
+    >
       <span className="hand-row-label">{label}</span>
       {record ? (
-        <div className="record-row hand-record-card">
+        <div
+          className="record-row record-drop-surface hand-record-card"
+          data-record-id={record.id}
+        >
           <InventoryRowSummary
             record={record}
             allRecords={records}
@@ -3042,7 +3116,9 @@ function HandRow({
           ) : null}
         </div>
       ) : (
-        <span className="hand-row-empty">Empty</span>
+        <span className="hand-row-empty" data-drop-target="empty-hand">
+          Empty
+        </span>
       )}
     </div>
   );
@@ -3051,35 +3127,58 @@ function HandRow({
 function RecordList({
   records,
   allRecords,
+  collapsedContainerIds,
   onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
+  onToggleContainerCollapsed,
 }: {
   records: InventoryRecord[];
   allRecords: InventoryRecord[];
+  collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   if (records.length === 0) {
-    return <p className="empty-state compact">Empty</p>;
+    return (
+      <div className="record-list-empty-drop-target" data-drop-zone="empty-list">
+        <p className="empty-state compact">Empty</p>
+      </div>
+    );
   }
 
   return (
-    <ul className="record-list">
+    <ul className="record-list" data-drop-zone="record-list">
+      <li
+        className="record-drop-zone"
+        aria-hidden="true"
+        data-drop-zone="before-first"
+      />
       {records.map((record) => (
-        <li key={record.id}>
-          <RecordRow
-            record={record}
-            allRecords={allRecords}
-            onDeleteRecord={onDeleteRecord}
-            onEditRecord={onEditRecord}
-            onIdentifyRecord={onIdentifyRecord}
-            onSpendCoins={onSpendCoins}
+        <Fragment key={record.id}>
+          <li className="record-list-item" data-record-id={record.id}>
+            <RecordRow
+              record={record}
+              allRecords={allRecords}
+              collapsedContainerIds={collapsedContainerIds}
+              onDeleteRecord={onDeleteRecord}
+              onEditRecord={onEditRecord}
+              onIdentifyRecord={onIdentifyRecord}
+              onSpendCoins={onSpendCoins}
+              onToggleContainerCollapsed={onToggleContainerCollapsed}
+            />
+          </li>
+          <li
+            className="record-drop-zone"
+            aria-hidden="true"
+            data-after-record-id={record.id}
+            data-drop-zone="after-record"
           />
-        </li>
+        </Fragment>
       ))}
     </ul>
   );
@@ -3088,17 +3187,21 @@ function RecordList({
 function RecordRow({
   record,
   allRecords,
+  collapsedContainerIds,
   onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
+  onToggleContainerCollapsed,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
+  collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   if (record.recordType === "coins") {
     return (
@@ -3116,16 +3219,21 @@ function RecordRow({
         containerRecord={record}
         records={allRecords}
         nestedRecords={getContainerContents(record, allRecords)}
+        collapsedContainerIds={collapsedContainerIds}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
         onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
+        onToggleContainerCollapsed={onToggleContainerCollapsed}
       />
     );
   }
 
   return (
-    <div className="record-row">
+    <div
+      className="record-row record-drop-surface"
+      data-record-id={record.id}
+    >
       <InventoryRowSummary
         record={record}
         allRecords={allRecords}
@@ -3148,25 +3256,50 @@ function ContainerBlock({
   containerRecord,
   records,
   nestedRecords,
+  collapsedContainerIds,
   onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
+  onToggleContainerCollapsed,
 }: {
   containerRecord: InventoryRecord;
   records: InventoryRecord[];
   nestedRecords: InventoryRecord[];
+  collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
+  const isCollapsed = collapsedContainerIds.has(containerRecord.id);
+  const collapseLabel = isCollapsed ? "Expand" : "Collapse";
+
   return (
-    <div className="container-block">
-      <div className="record-row">
+    <div className="container-block" data-container-record-id={containerRecord.id}>
+      <div
+        className="record-row record-drop-surface container-header-row"
+        data-drop-target="container"
+        data-record-id={containerRecord.id}
+      >
+        <button
+          className="container-toggle"
+          type="button"
+          aria-label={`${collapseLabel} ${getRecordDisplayName(containerRecord)}`}
+          aria-expanded={!isCollapsed}
+          onClick={() => onToggleContainerCollapsed(containerRecord.id)}
+        >
+          {isCollapsed ? "+" : "-"}
+        </button>
         <InventoryRowSummary
           record={containerRecord}
           allRecords={records}
+          extraStatusIcons={
+            isCollapsed
+              ? getCollapsedContainerStatusIcons(containerRecord, records)
+              : undefined
+          }
           onOpenRecord={onEditRecord}
         />
         {canIdentifyRecord(containerRecord) ? (
@@ -3179,16 +3312,20 @@ function ContainerBlock({
           </button>
         ) : null}
       </div>
-      <div className="container-contents">
-        <RecordList
-          records={nestedRecords}
-          allRecords={records}
-          onDeleteRecord={onDeleteRecord}
-          onEditRecord={onEditRecord}
-          onIdentifyRecord={onIdentifyRecord}
-          onSpendCoins={onSpendCoins}
-        />
-      </div>
+      {isCollapsed ? null : (
+        <div className="container-contents">
+          <RecordList
+            records={nestedRecords}
+            allRecords={records}
+            collapsedContainerIds={collapsedContainerIds}
+            onDeleteRecord={onDeleteRecord}
+            onEditRecord={onEditRecord}
+            onIdentifyRecord={onIdentifyRecord}
+            onSpendCoins={onSpendCoins}
+            onToggleContainerCollapsed={onToggleContainerCollapsed}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -3207,7 +3344,10 @@ function CoinRecordRow({
   }
 
   return (
-    <div className="record-row">
+    <div
+      className="record-row record-drop-surface"
+      data-record-id={record.id}
+    >
       <InventoryRowSummary
         record={record}
         allRecords={[record]}
@@ -3227,13 +3367,19 @@ function CoinRecordRow({
 function InventoryRowSummary({
   record,
   allRecords,
+  extraStatusIcons,
   onOpenRecord,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
+  extraStatusIcons?: InventoryRowStatus[];
   onOpenRecord?: (record: InventoryRecord) => void;
 }) {
   const display = getInventoryRowDisplay(record, allRecords);
+  const statusIcons = getUniqueInventoryRowStatuses([
+    ...display.statusIcons,
+    ...(extraStatusIcons ?? []),
+  ]);
 
   return (
     <div className="record-summary">
@@ -3249,7 +3395,7 @@ function InventoryRowSummary({
         ) : (
           <strong>{display.primaryText}</strong>
         )}
-        {display.statusIcons.map((status) => (
+        {statusIcons.map((status) => (
           <span
             className="record-status"
             key={status}
@@ -3265,6 +3411,52 @@ function InventoryRowSummary({
       <span className="record-right-meta">{display.rightText}</span>
     </div>
   );
+}
+
+const INVENTORY_ROW_STATUS_ORDER: InventoryRowStatus[] = [
+  "warning",
+  "lit",
+  "unlit",
+  "unidentified",
+];
+
+function getCollapsedContainerStatusIcons(
+  containerRecord: InventoryRecord,
+  records: InventoryRecord[],
+): InventoryRowStatus[] {
+  const descendantStatuses = getContainerDescendantRecords(
+    containerRecord,
+    records,
+  ).flatMap((record) => getInventoryRowDisplay(record, records).statusIcons);
+
+  return getUniqueInventoryRowStatuses(descendantStatuses);
+}
+
+function getContainerDescendantRecords(
+  containerRecord: InventoryRecord,
+  records: InventoryRecord[],
+  visitedContainerIds = new Set<InventoryRecordId>(),
+): InventoryRecord[] {
+  if (visitedContainerIds.has(containerRecord.id)) {
+    return [];
+  }
+
+  visitedContainerIds.add(containerRecord.id);
+
+  return getContainerContents(containerRecord, records).flatMap((record) => [
+    record,
+    ...(record.container
+      ? getContainerDescendantRecords(record, records, visitedContainerIds)
+      : []),
+  ]);
+}
+
+function getUniqueInventoryRowStatuses(
+  statuses: InventoryRowStatus[],
+): InventoryRowStatus[] {
+  const statusSet = new Set(statuses);
+
+  return INVENTORY_ROW_STATUS_ORDER.filter((status) => statusSet.has(status));
 }
 
 function getInventoryRowStatusLabel(status: InventoryRowStatus): string {
