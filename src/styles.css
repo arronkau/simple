@@ -304,6 +304,51 @@ h5 {
   min-width: 0;
 }
 
+.entity-card-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.entity-title-button {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: #151b20;
+  background: transparent;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.entity-title-button:hover {
+  color: #2f4658;
+  background: transparent;
+  text-decoration: underline;
+}
+
+.entity-subtle-status {
+  margin-top: 0.2rem;
+  color: #6b7780;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.entity-status-summary {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+  align-items: center;
+  color: #52616c;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .entity-meta {
   display: flex;
   flex-wrap: wrap;
@@ -380,7 +425,7 @@ h5 {
   background: #ffffff;
 }
 
-.party-card[data-hurt="true"] {
+.party-card[data-warning-state="true"] {
   border-color: #d8a0a0;
   background: #fffafa;
 }
@@ -406,6 +451,17 @@ h5 {
   font-weight: 700;
 }
 
+.party-card-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.35rem;
+  align-items: center;
+  color: #52616c;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .party-stat-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -423,6 +479,37 @@ h5 {
   background: #f9fafb;
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.party-ability-row {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+  border: 1px solid #d7dde1;
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  color: #25313a;
+  background: #f9fafb;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.party-ability-row span {
+  min-width: 0;
+  text-align: center;
+}
+
+.party-ability-row strong {
+  font-weight: 900;
+}
+
+.party-hands-list {
+  display: grid;
+  gap: 0.15rem;
+  color: #25313a;
+  font-size: 0.92rem;
+  line-height: 1.35;
 }
 
 .party-card-section {
@@ -573,15 +660,61 @@ h5 {
   font-weight: 600;
 }
 
-.warning-list {
-  display: grid;
-  gap: 0.35rem;
-  margin: 0;
-  border: 1px solid #dfb36c;
-  border-radius: 8px;
-  padding: 0.75rem 0.9rem 0.75rem 1.8rem;
+.warning-details {
+  position: relative;
+  display: inline-grid;
+}
+
+.warning-details summary {
+  display: inline-flex;
+  width: 1.65rem;
+  min-height: 1.65rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d79a42;
+  border-radius: 999px;
   color: #65420b;
-  background: #fff8eb;
+  background: #fff3dc;
+  font-size: 0.86rem;
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+}
+
+.warning-details[data-severity="error"] summary {
+  border-color: #c78383;
+  color: #7d2222;
+  background: #fff0f0;
+}
+
+.warning-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.warning-details-panel {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: min(18rem, calc(100vw - 2rem));
+  border: 1px solid #d7a2a2;
+  border-radius: 8px;
+  padding: 0.65rem 0.75rem;
+  color: #5d1f1f;
+  background: #fffafa;
+  box-shadow: 0 10px 24px rgb(17 24 30 / 0.16);
+  white-space: normal;
+}
+
+.warning-details-panel ul {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.warning-details:not([open]) .warning-details-panel {
+  display: none;
 }
 
 .inventory-sections {
@@ -596,6 +729,20 @@ h5 {
   border-radius: 8px;
   padding: 0.9rem;
   background: #fbfcfd;
+}
+
+.inventory-section-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.inventory-section-heading span {
+  color: #52616c;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .inventory-subsection {
@@ -736,6 +883,14 @@ h5 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.record-form-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
   justify-content: flex-end;
 }
 
@@ -835,6 +990,35 @@ h5 {
   box-shadow: 0 18px 48px rgb(17 24 30 / 0.24);
 }
 
+.entity-modal {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid #cdd7df;
+  border-radius: 8px;
+  padding: 1rem;
+  background: #ffffff;
+  box-shadow: 0 18px 48px rgb(17 24 30 / 0.24);
+}
+
+.entity-modal-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.entity-modal-summary span {
+  display: inline-flex;
+  min-height: 1.65rem;
+  align-items: center;
+  border: 1px solid #d7dde1;
+  border-radius: 6px;
+  padding: 0 0.55rem;
+  color: #52616c;
+  background: #f9fafb;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
 .manage-modal {
   display: grid;
   gap: 1rem;
@@ -924,6 +1108,29 @@ h5 {
   justify-content: space-between;
 }
 
+.record-form-heading h4 {
+  margin: 0;
+}
+
+.record-type-badge {
+  display: inline-flex;
+  min-height: 1.8rem;
+  align-items: center;
+  border: 1px solid #d7dde1;
+  border-radius: 6px;
+  padding: 0 0.6rem;
+  color: #52616c;
+  background: #f8fafb;
+  font-size: 0.85rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.record-type-select {
+  grid-template-columns: auto minmax(9rem, 12rem);
+  align-items: center;
+}
+
 .form-error {
   color: #842525;
   font-size: 0.9rem;
@@ -981,11 +1188,31 @@ h5 {
   font-weight: 700;
 }
 
-.record-form-grid {
+.record-form-body {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.record-form-grid,
+.record-detail-grid,
+.record-location-controls {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   align-items: end;
+}
+
+.record-detail-grid.two-column {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.record-detail-grid.three-column,
+.record-location-controls {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.record-detail-grid.four-column {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .record-form label {
@@ -1026,34 +1253,71 @@ h5 {
   grid-column: span 2;
 }
 
-.record-form-section-title,
 .record-form-section {
-  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.65rem;
+  border-top: 1px solid #e1e5e8;
+  padding-top: 0.8rem;
 }
 
-.record-form-section-title {
-  margin: 0.35rem 0 0;
+.record-form-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.record-form-section h5 {
+  margin: 0;
   color: #2f3a42;
   font-size: 0.95rem;
 }
 
-.record-form-section {
+.record-basic-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(6rem, 9rem);
   gap: 0.75rem;
   align-items: end;
-  border-top: 1px solid #e1e5e8;
-  padding-top: 0.75rem;
 }
 
-.record-form-section > span {
-  color: #5a6974;
+.record-slots-grid {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.record-traits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.75rem;
+}
+
+.description-field {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.record-location-heading {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.record-location-heading h5,
+.record-location-heading p {
+  margin: 0;
+}
+
+.record-location-heading p {
+  margin-top: 0.2rem;
+  color: #71808b;
   font-size: 0.85rem;
   font-weight: 700;
 }
 
-.record-form-section textarea {
-  grid-column: 1 / -1;
+.modifier-list {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .modifier-row {
@@ -1174,7 +1438,9 @@ h5 {
   }
 
   .record-form-grid,
-  .record-form-section,
+  .record-detail-grid.four-column,
+  .record-detail-grid.three-column,
+  .record-location-controls,
   .character-sheet-grid,
   .ability-score-grid,
   .modifier-row,
@@ -1230,7 +1496,14 @@ h5 {
 
   .record-row,
   .record-form-grid,
-  .record-form-section,
+  .record-detail-grid,
+  .record-detail-grid.two-column,
+  .record-detail-grid.three-column,
+  .record-detail-grid.four-column,
+  .record-location-controls,
+  .record-basic-grid,
+  .record-slots-grid,
+  .record-traits-grid,
   .character-sheet-grid,
   .character-sheet-grid.compact-grid,
   .modifier-row,
