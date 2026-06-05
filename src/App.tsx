@@ -2,8 +2,10 @@ import {
   ChangeEvent,
   FormEvent,
   Fragment,
+  KeyboardEvent as ReactKeyboardEvent,
   ReactNode,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -87,6 +89,7 @@ import {
 import {
   createInventoryRecordInputFromStandardItem,
   filterStandardItems,
+  type StandardItemCatalogEntry,
 } from "./model/standardItems";
 import {
   getContainerContents,
@@ -2842,12 +2845,111 @@ function InventoryRecordForm({
     formState.recordType === "armor" ||
     formState.recordType === "equipment";
   const standardItemSuggestions = getStandardItemSuggestions(formState);
+  const [itemSuggestionsOpen, setItemSuggestionsOpen] = useState(false);
+  const [highlightedItemSuggestionIndex, setHighlightedItemSuggestionIndex] =
+    useState(0);
+  const autocompleteRef = useRef<HTMLDivElement | null>(null);
+  const autocompleteListboxId = useId();
+  const highlightedItemSuggestion =
+    itemSuggestionsOpen && standardItemSuggestions.length > 0
+      ? standardItemSuggestions[highlightedItemSuggestionIndex]
+      : undefined;
+  const highlightedItemSuggestionId = highlightedItemSuggestion
+    ? `${autocompleteListboxId}-${highlightedItemSuggestion.slug}`
+    : undefined;
+  const showItemSuggestions =
+    itemSuggestionsOpen && standardItemSuggestions.length > 0;
   const locationSummary = formatRecordFormLocationSummary({
     containerOptions,
     formState,
     placementOptions,
     targetEntity,
   });
+
+  useEffect(() => {
+    if (standardItemSuggestions.length === 0) {
+      setItemSuggestionsOpen(false);
+      setHighlightedItemSuggestionIndex(0);
+      return;
+    }
+
+    setHighlightedItemSuggestionIndex((currentIndex) =>
+      Math.min(currentIndex, standardItemSuggestions.length - 1),
+    );
+  }, [standardItemSuggestions.length]);
+
+  useEffect(() => {
+    function closeSuggestionsOnOutsidePointerDown(event: PointerEvent) {
+      if (
+        autocompleteRef.current &&
+        event.target instanceof Node &&
+        !autocompleteRef.current.contains(event.target)
+      ) {
+        setItemSuggestionsOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeSuggestionsOnOutsidePointerDown);
+
+    return () => {
+      document.removeEventListener(
+        "pointerdown",
+        closeSuggestionsOnOutsidePointerDown,
+      );
+    };
+  }, []);
+
+  function selectStandardItemSuggestion(item: StandardItemCatalogEntry) {
+    const input = createInventoryRecordInputFromStandardItem(item.slug);
+
+    if (input) {
+      onChange(applyInventoryRecordInputToFormState(formState, input));
+    }
+
+    setItemSuggestionsOpen(false);
+  }
+
+  function handleItemNameKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
+    if (standardItemSuggestions.length === 0) {
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setItemSuggestionsOpen(true);
+      setHighlightedItemSuggestionIndex((currentIndex) =>
+        itemSuggestionsOpen
+          ? (currentIndex + 1) % standardItemSuggestions.length
+          : 0,
+      );
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setItemSuggestionsOpen(true);
+      setHighlightedItemSuggestionIndex((currentIndex) =>
+        itemSuggestionsOpen
+          ? (currentIndex - 1 + standardItemSuggestions.length) %
+            standardItemSuggestions.length
+          : standardItemSuggestions.length - 1,
+      );
+      return;
+    }
+
+    if (event.key === "Enter" && itemSuggestionsOpen) {
+      event.preventDefault();
+      selectStandardItemSuggestion(
+        standardItemSuggestions[highlightedItemSuggestionIndex],
+      );
+      return;
+    }
+
+    if (event.key === "Escape" && itemSuggestionsOpen) {
+      event.preventDefault();
+      setItemSuggestionsOpen(false);
+    }
+  }
 
   return (
     <form className="record-form" onSubmit={onSubmit}>
@@ -2924,43 +3026,64 @@ function InventoryRecordForm({
             <section className="record-form-section">
               <h5>Basic</h5>
               <div className="record-basic-grid">
-                <div className="autocomplete-field">
+                <div className="autocomplete-field" ref={autocompleteRef}>
                   <label>
                     <span>Name</span>
                     <input
+                      aria-activedescendant={highlightedItemSuggestionId}
+                      aria-autocomplete="list"
+                      aria-controls={
+                        showItemSuggestions ? autocompleteListboxId : undefined
+                      }
+                      aria-expanded={showItemSuggestions}
+                      aria-haspopup="listbox"
                       autoComplete="off"
                       maxLength={100}
                       required
+                      role="combobox"
                       type="text"
                       value={formState.name}
-                      onChange={(event) =>
-                        onChange({ ...formState, name: event.target.value })
-                      }
+                      onChange={(event) => {
+                        onChange({ ...formState, name: event.target.value });
+                        setItemSuggestionsOpen(true);
+                        setHighlightedItemSuggestionIndex(0);
+                      }}
+                      onFocus={() => {
+                        if (standardItemSuggestions.length > 0) {
+                          setItemSuggestionsOpen(true);
+                          setHighlightedItemSuggestionIndex(0);
+                        }
+                      }}
+                      onKeyDown={handleItemNameKeyDown}
                     />
                   </label>
-                  {standardItemSuggestions.length > 0 ? (
+                  {showItemSuggestions ? (
                     <div
+                      id={autocompleteListboxId}
                       className="autocomplete-suggestions"
                       aria-label="Standard item suggestions"
+                      role="listbox"
                     >
-                      {standardItemSuggestions.map((item) => (
+                      {standardItemSuggestions.map((item, itemIndex) => (
                         <button
+                          id={`${autocompleteListboxId}-${item.slug}`}
+                          aria-selected={
+                            itemIndex === highlightedItemSuggestionIndex
+                          }
+                          className={
+                            itemIndex === highlightedItemSuggestionIndex
+                              ? "highlighted"
+                              : undefined
+                          }
                           key={item.slug}
+                          role="option"
                           type="button"
-                          onClick={() => {
-                            const input =
-                              createInventoryRecordInputFromStandardItem(
-                                item.slug,
-                              );
-
-                            if (input) {
-                              onChange(
-                                applyInventoryRecordInputToFormState(
-                                  formState,
-                                  input,
-                                ),
-                              );
-                            }
+                          onClick={() => selectStandardItemSuggestion(item)}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                          }}
+                          onMouseEnter={() => {
+                            setHighlightedItemSuggestionIndex(itemIndex);
                           }}
                         >
                           {item.name}
@@ -3835,7 +3958,7 @@ function HandRows({
         <HandRow
           entityId={entityId}
           placement="bothHands"
-          label="Both"
+          label="Hands"
           record={bothHandsRecord}
           records={records}
           doubleHeight
@@ -5182,15 +5305,6 @@ function getStandardItemSuggestions(formState: RecordFormState) {
     return [];
   }
 
-  const normalizedQuery = normalizeAutocompleteText(query);
-  const exactMatch = filterStandardItems(query).some(
-    (item) => normalizeAutocompleteText(item.name) === normalizedQuery,
-  );
-
-  if (exactMatch) {
-    return [];
-  }
-
   return filterStandardItems(query).slice(0, 8);
 }
 
@@ -5423,10 +5537,6 @@ function toInventoryRecordFormInput(
 
 function getDefaultHandsRequired(recordType: InventoryRecordType): HandsRequired {
   return recordType === "weapon" ? 1 : 0;
-}
-
-function normalizeAutocompleteText(value: string): string {
-  return value.toLocaleLowerCase().replace(/[^a-z0-9]+/g, "");
 }
 
 function getContainerOptions({

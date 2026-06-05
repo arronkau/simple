@@ -1290,25 +1290,45 @@ h5 {
 }
 
 .autocomplete-field {
+  position: relative;
   display: grid;
   gap: 0.4rem;
 }
 
 .autocomplete-suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  left: 0;
+  display: grid;
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid #c9d1d7;
+  border-radius: 6px;
+  padding: 0.25rem;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgb(17 24 30 / 0.14);
 }
 
 .autocomplete-suggestions button {
-  min-height: 1.85rem;
-  border-color: #c9d1d7;
-  padding: 0 0.55rem;
-  color: #374650;
-  background: #f8fafb;
-  font-size: 0.85rem;
-  font-weight: 700;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 2rem;
+  border: 0;
+  border-radius: 4px;
+  padding: 0.35rem 0.55rem;
+  color: #24313a;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.autocomplete-suggestions button:hover,
+.autocomplete-suggestions button.highlighted {
+  background: #e8f1f8;
+  color: #17242d;
 }
 
 .wide-field {
@@ -1756,8 +1776,13 @@ h5 {
   min-height: calc(var(--hand-row-min-height) * 2 + var(--hand-row-gap));
 }
 
+.hand-row-double .record-draggable {
+  align-self: stretch;
+}
+
 .hand-row-double .hand-record-card {
   align-self: stretch;
+  min-height: 100%;
 }
 
 .hand-row .record-draggable {
