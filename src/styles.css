@@ -281,8 +281,7 @@ h5 {
   min-width: 0;
 }
 
-.entity-meta,
-.entity-inventory-meta {
+.entity-meta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
@@ -291,8 +290,7 @@ h5 {
   font-size: 0.9rem;
 }
 
-.entity-meta span,
-.entity-inventory-meta span {
+.entity-meta span {
   display: inline-flex;
   min-height: 1.6rem;
   align-items: center;
@@ -608,12 +606,12 @@ h5 {
 .record-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.4rem;
-  align-items: start;
+  gap: 0.5rem;
+  align-items: center;
   min-width: 0;
   border: 1px solid #d7dde1;
   border-radius: 8px;
-  padding: 0.7rem;
+  padding: 0.5rem 0.6rem;
   background: #ffffff;
 }
 
@@ -648,7 +646,6 @@ h5 {
   font-weight: 700;
 }
 
-.record-actions,
 .record-form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -656,17 +653,34 @@ h5 {
   justify-content: flex-end;
 }
 
-.record-actions button {
-  min-height: 2rem;
-  padding: 0 0.6rem;
-  font-size: 0.9rem;
+.record-title-button {
+  min-height: 0;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  color: #151b20;
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
 }
 
-.record-row strong {
+.record-title-button:hover {
+  color: #2f4658;
+  background: transparent;
+  text-decoration: underline;
+}
+
+.compact-row-action {
+  min-height: 1.85rem;
+  padding: 0 0.55rem;
+  font-size: 0.85rem;
+}
+
+.record-row strong,
+.record-title-button {
   display: inline-block;
   max-width: 100%;
   overflow-wrap: anywhere;
-  color: #151b20;
 }
 
 .record-meta {

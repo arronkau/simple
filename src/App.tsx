@@ -947,21 +947,15 @@ function EntityInventoryRow({
   onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
-  const backpackCount = findTopLevelStowedContainerRecords(
-    entity.id,
-    appState.inventoryRecords,
-  ).length;
   const isEditing = editingEntityId === entity.id;
 
   return (
     <li className="entity-row" data-inactive={!entity.active}>
       <EntitySummary
-        appState={appState}
         editingName={editingName}
         entity={entity}
         isEditing={isEditing}
         onChangeEditingName={onChangeEditingName}
-        backpackCount={backpackCount}
       />
 
       <div className="entity-actions">
@@ -1018,15 +1012,11 @@ function EntityInventoryRow({
 }
 
 function EntitySummary({
-  appState,
-  backpackCount,
   editingName,
   entity,
   isEditing,
   onChangeEditingName,
 }: {
-  appState: AppState;
-  backpackCount: number;
   editingName: string;
   entity: Entity;
   isEditing: boolean;
@@ -1051,16 +1041,10 @@ function EntitySummary({
           <h3>{entity.name}</h3>
           <div className="entity-meta">
             <span>{ENTITY_TYPE_LABELS[entity.entityType]}</span>
-            <span>{entity.active ? "Active" : "Inactive"}</span>
-            <span>Sort {entity.sortOrder}</span>
+            {!entity.active ? <span>Inactive</span> : null}
           </div>
         </div>
       )}
-
-      <div className="entity-inventory-meta">
-        <span>{getEntityRecordCount(entity.id, appState)}</span>
-        <span>{getBackpackSummary(entity, backpackCount)}</span>
-      </div>
     </div>
   );
 }
@@ -1294,21 +1278,13 @@ function CharactersPage({
         <p className="empty-state">No characters or retainers yet.</p>
       ) : (
         <ul className="entity-list" aria-label="Characters">
-          {characterEntities.map((entity) => {
-            const backpackCount = findTopLevelStowedContainerRecords(
-              entity.id,
-              appState.inventoryRecords,
-            ).length;
-
-            return (
+          {characterEntities.map((entity) => (
               <li
                 className="entity-row character-page-row"
                 data-inactive={!entity.active}
                 key={entity.id}
               >
                 <EntitySummary
-                  appState={appState}
-                  backpackCount={backpackCount}
                   editingName=""
                   entity={entity}
                   isEditing={false}
@@ -1322,9 +1298,8 @@ function CharactersPage({
                   entity={entity}
                   onSaveCharacterData={onSaveCharacterData}
                 />
-              </li>
-            );
-          })}
+            </li>
+          ))}
         </ul>
       )}
     </section>
@@ -1988,9 +1963,7 @@ function CharacterInventoryDisplay({
           {sections.coinRecord ? (
             <CoinRecordRow
               record={sections.coinRecord}
-              onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
-              onIdentifyRecord={onIdentifyRecord}
               onSpendCoins={onSpendCoins}
             />
           ) : (
@@ -3055,9 +3028,7 @@ function RecordRow({
     return (
       <CoinRecordRow
         record={record}
-        onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
-        onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
       />
     );
@@ -3079,13 +3050,20 @@ function RecordRow({
 
   return (
     <div className="record-row">
-      <InventoryRowSummary record={record} allRecords={allRecords} />
-      <RecordActions
+      <InventoryRowSummary
         record={record}
-        onDeleteRecord={onDeleteRecord}
-        onEditRecord={onEditRecord}
-        onIdentifyRecord={onIdentifyRecord}
+        allRecords={allRecords}
+        onOpenRecord={onEditRecord}
       />
+      {canIdentifyRecord(record) ? (
+        <button
+          className="compact-row-action"
+          type="button"
+          onClick={() => onIdentifyRecord(record.id)}
+        >
+          Identify
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -3110,13 +3088,20 @@ function ContainerBlock({
   return (
     <div className="container-block">
       <div className="record-row">
-        <InventoryRowSummary record={containerRecord} allRecords={records} />
-        <RecordActions
+        <InventoryRowSummary
           record={containerRecord}
-          onDeleteRecord={onDeleteRecord}
-          onEditRecord={onEditRecord}
-          onIdentifyRecord={onIdentifyRecord}
+          allRecords={records}
+          onOpenRecord={onEditRecord}
         />
+        {canIdentifyRecord(containerRecord) ? (
+          <button
+            className="compact-row-action"
+            type="button"
+            onClick={() => onIdentifyRecord(containerRecord.id)}
+          >
+            Identify
+          </button>
+        ) : null}
       </div>
       <RecordList
         records={nestedRecords}
@@ -3132,15 +3117,11 @@ function ContainerBlock({
 
 function CoinRecordRow({
   record,
-  onDeleteRecord,
   onEditRecord,
-  onIdentifyRecord,
   onSpendCoins,
 }: {
   record: InventoryRecord;
-  onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (record.recordType !== "coins") {
@@ -3149,52 +3130,17 @@ function CoinRecordRow({
 
   return (
     <div className="record-row">
-      <InventoryRowSummary record={record} allRecords={[record]} />
-      <RecordActions
+      <InventoryRowSummary
         record={record}
-        onDeleteRecord={onDeleteRecord}
-        onEditRecord={onEditRecord}
-        onIdentifyRecord={onIdentifyRecord}
-        onSpendCoins={onSpendCoins}
+        allRecords={[record]}
+        onOpenRecord={onEditRecord}
       />
-    </div>
-  );
-}
-
-function RecordActions({
-  record,
-  onDeleteRecord,
-  onEditRecord,
-  onIdentifyRecord,
-  onSpendCoins,
-}: {
-  record: InventoryRecord;
-  onDeleteRecord: (record: InventoryRecord) => void;
-  onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
-  onSpendCoins?: (record: InventoryRecord) => void;
-}) {
-  return (
-    <div className="record-actions">
-      <button type="button" onClick={() => onEditRecord(record)}>
-        Edit
-      </button>
-      {record.recordType === "coins" && onSpendCoins ? (
-        <button type="button" onClick={() => onSpendCoins(record)}>
-          Spend
-        </button>
-      ) : null}
-      {onIdentifyRecord && canIdentifyRecord(record) ? (
-        <button type="button" onClick={() => onIdentifyRecord(record.id)}>
-          Identify
-        </button>
-      ) : null}
       <button
-        className="danger-button"
+        className="compact-row-action"
         type="button"
-        onClick={() => onDeleteRecord(record)}
+        onClick={() => onSpendCoins(record)}
       >
-        Delete
+        Spend
       </button>
     </div>
   );
@@ -3203,16 +3149,28 @@ function RecordActions({
 function InventoryRowSummary({
   record,
   allRecords,
+  onOpenRecord,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
+  onOpenRecord?: (record: InventoryRecord) => void;
 }) {
   const display = getInventoryRowDisplay(record, allRecords);
 
   return (
     <div className="record-summary">
       <div className="record-summary-main">
-        <strong>{display.primaryText}</strong>
+        {onOpenRecord ? (
+          <button
+            className="record-title-button"
+            type="button"
+            onClick={() => onOpenRecord(record)}
+          >
+            {display.primaryText}
+          </button>
+        ) : (
+          <strong>{display.primaryText}</strong>
+        )}
         {display.statusIcons.map((status) => (
           <span
             className="record-status"
@@ -3438,32 +3396,12 @@ export function getAuditEntityFilterOptions(
   return [...optionsById.entries()].map(([value, label]) => ({ label, value }));
 }
 
-function getEntityRecordCount(entityId: EntityId, appState: AppStateLike) {
-  const count = appState.inventoryRecords.filter(
-    (record) => record.entityId === entityId,
-  ).length;
-
-  return formatRecordCount(count);
-}
-
 function formatRecordCount(count: number) {
   return count === 1 ? "1 record" : `${count} records`;
 }
 
 function formatAuditEntryCount(count: number) {
   return count === 1 ? "1 entry" : `${count} entries`;
-}
-
-function getBackpackSummary(entity: Entity, backpackCount: number) {
-  if (entity.entityType !== "character" && entity.entityType !== "retainer") {
-    return "No stowed container required";
-  }
-
-  if (backpackCount === 1) {
-    return "1 stowed container";
-  }
-
-  return `${backpackCount} stowed containers`;
 }
 
 export function getRecordDisplayName(record: InventoryRecord) {
@@ -4313,8 +4251,6 @@ const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
   synced: "Synced",
   syncing: "Syncing",
 };
-
-type AppStateLike = ReturnType<typeof useAppStore.getState>["appState"];
 
 export default function App() {
   return (

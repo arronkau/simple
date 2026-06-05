@@ -96,7 +96,7 @@ export function formatCapacity(
 }
 
 function formatItemQuantity(name: string, quantity: number): string {
-  return quantity > 1 ? `${name} ×${formatNumber(quantity)}` : name;
+  return quantity > 1 ? `${name} (${formatNumber(quantity)})` : name;
 }
 
 function getInventoryRowStatusIcons(

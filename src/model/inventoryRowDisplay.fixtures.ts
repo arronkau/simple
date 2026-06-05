@@ -229,7 +229,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     name: "stackable equipment row shows quantity and right slot burden",
     actual: getInventoryRowDisplay(rationsRecord, allRecords),
     expected: {
-      primaryText: "Rations ×15",
+      primaryText: "Rations (15)",
       statusIcons: [],
       rightText: "3 slots",
     },
@@ -247,7 +247,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     name: "unlit torch stack row shows quantity and unlit status",
     actual: getInventoryRowDisplay(unlitTorchStackRecord, allRecords),
     expected: {
-      primaryText: "Torch ×2",
+      primaryText: "Torch (2)",
       statusIcons: ["unlit"],
       rightText: "1 slot",
     },
@@ -283,7 +283,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     name: "treasure row shows gp value before right slot burden and no status",
     actual: getInventoryRowDisplay(gemsRecord, allRecords),
     expected: {
-      primaryText: "Gems ×10",
+      primaryText: "Gems (10)",
       statusIcons: [],
       secondaryText: "500 gp",
       rightText: "0 slots",
