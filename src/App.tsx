@@ -1460,7 +1460,7 @@ function getEntityInventoryStatus(
     const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
 
     return {
-      movement: `${encumbrance.movement.explorationFeet}'/${encumbrance.movement.encounterFeet}'`,
+      movement: formatMovementFeet(encumbrance.movement.explorationFeet),
       validationIssues: displayValidationIssues,
       warningCount,
       warnings,
@@ -1503,6 +1503,7 @@ type PartyOverviewCard = {
   hp: string;
   hurt: boolean;
   movement: string;
+  movementFeet: number;
   languages: string;
   hands: string[];
   validationIssues: ValidationIssue[];
@@ -1524,12 +1525,18 @@ function PartyPage({
   sortedEntities: Entity[];
 }) {
   const cards = getPartyOverviewCards(appState, sortedEntities);
+  const movementFeet = cards.reduce(
+    (slowestMovement, card) => Math.min(slowestMovement, card.movementFeet),
+    Number.POSITIVE_INFINITY,
+  );
 
   return (
     <section className="entity-workspace" aria-labelledby="party-title">
       <div className="section-heading">
         <div>
-          <h2 id="party-title">Party</h2>
+          <h2 id="party-title">
+            Party {cards.length > 0 ? `(${formatMovementFeet(movementFeet)})` : ""}
+          </h2>
           <p>Table-facing character and retainer status.</p>
         </div>
         <NavLink className="text-link-button" to="/inventory">
@@ -1578,8 +1585,8 @@ function PartyPage({
               <div className="party-card-section">
                 <span>Hands</span>
                 <div className="party-hands-list">
-                  {card.hands.map((hand) => (
-                    <span key={hand}>{hand}</span>
+                  {[0, 1].map((index) => (
+                    <span key={index}>{card.hands[index] ?? "\u00a0"}</span>
                   ))}
                 </div>
               </div>
@@ -1627,7 +1634,8 @@ export function getPartyOverviewCards(
       classLevel: formatPartyClassLevel(character),
       hp: formatPartyHp(character),
       hurt: isPartyMemberHurt(character),
-      movement: `${encumbrance.movement.explorationFeet}'/${encumbrance.movement.encounterFeet}'`,
+      movement: formatMovementFeet(encumbrance.movement.explorationFeet),
+      movementFeet: encumbrance.movement.explorationFeet,
       languages: formatPartyLanguages(character),
       hands:
         sections.mode === "characterLike"
@@ -1741,6 +1749,10 @@ function getPartyRecordLabel(
 
 function formatNullablePartyNumber(value: number | null): string {
   return value === null ? "—" : value.toString();
+}
+
+function formatMovementFeet(feet: number): string {
+  return `${feet}'`;
 }
 
 function CharactersPage({
