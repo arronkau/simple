@@ -400,6 +400,7 @@ function getCharacterMovementWarnings(
   }
 
   const encumbrance = getCharacterEncumbrance(entity, records);
+  const totalSlots = encumbrance.equippedItems + encumbrance.stowedItems;
 
   if (encumbrance.overloaded) {
     return [
@@ -407,7 +408,7 @@ function getCharacterMovementWarnings(
         code: "entityOverloaded",
         message: `${entity.name} is overloaded: capacity (${totalSlots}/16 slots).`,
         entityId: entity.id,
-        usedSlots: encumbrance.equippedItems + encumbrance.stowedItems,
+        usedSlots: totalSlots,
       },
     ];
   }
