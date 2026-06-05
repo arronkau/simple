@@ -107,7 +107,7 @@ Suggested helper:
 getEffectiveCarryState(record, allRecords): "equipped" | "stowed" | "contents" | "excluded"
 ```
 
-A contained record is excluded when any containing ancestor is a container record equipped in `leftHand`, `rightHand`, or `bothHands`.
+A contained record is excluded when any containing ancestor is a container record equipped in `leftHand`, `rightHand`, or `bothHands`. This is allowed even though the contained record itself has `location.kind === "container"`; effective movement status is derived from the ancestor chain.
 
 ## Character-Like Stowed Count
 
@@ -116,6 +116,7 @@ For characters and retainers, stowed item count includes:
 - records inside the top-level stowed container, normally named Backpack;
 - records inside ordinary containers that are themselves stowed in the top-level stowed container;
 - the character-like entity's coin record in coin-purse placement;
+- records inside any valid same-entity container whose ancestor chain makes them effectively stowed;
 - other records that are effectively stowed by helper logic.
 
 A record inside a hand-held container should not be counted as stowed for movement if the helper classifies it as excluded.

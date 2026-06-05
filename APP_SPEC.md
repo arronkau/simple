@@ -9,6 +9,7 @@ Favor practical, table-usable behavior over heavy abstractions. Local responsive
 The app should support:
 
 - Character and party inventory tracking.
+- Lightweight character-sheet fields for class, level, HP, XP, alignment, ability scores, skills, languages, features, and notes.
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
 - Character-like inventory with a clear distinction between equipped and stowed carried items.
@@ -91,7 +92,7 @@ Local mode should:
 
 - Prefer minimal, understandable data models.
 - Avoid a generic rules engine.
-- Avoid separate item-definition and inventory-instance layers for v1.
+- Avoid separate item-definition and inventory-instance layers for user inventory state in v1. A bundled/imported standard item catalog is allowed for autocomplete, defaults, and reference lookup as long as inventory records remain self-contained.
 - Keep inventory records self-contained enough to be edited directly.
 - Use derived calculations for slots, equipped burden, stowed burden, coin value, encumbrance state, movement state, and display summaries.
 - Store derived values only if there is a clear performance need.
@@ -272,7 +273,7 @@ The app should eventually include:
 ## Non-Goals
 
 - No full automation of all OSE rules.
-- No separate item-definition database for v1 unless imported reference data already exists.
+- No user-managed separate item-definition database for v1. A bundled/imported standard item catalog is allowed for autocomplete, defaults, and reference lookup.
 - No exhaustive magic-item rules engine.
 - No strict enforcement of every encumbrance edge case unless it prevents invalid state.
 - Drag-and-drop must not bypass validated move/swap behavior.

@@ -67,7 +67,7 @@ export type AuditEventType =
   | "treasureValueChanged"
   | "inventoryRecordIdentified";
 
-export type AuditLogDetailValue = string | number | boolean | null;
+export type AuditLogDetailValue = string | number | boolean | null | undefined;
 
 export type AuditLogEntry = {
   id: AuditLogEntryId;
@@ -90,6 +90,7 @@ Audit log rules:
 - Log record moves only when the owning entity changes. Do not log reordering or movement within the same entity.
 - Log character coin merges with denomination deltas where practical.
 - Log treasure value edits when the value changes.
+- Detail values may be omitted or set to `undefined` when a field is optional and not meaningful for that event.
 - Use `actorLabel: "Local user"` until app-level actor identity exists.
 - Keep audit entries in `AppState.auditLog`; do not split them into a separate Firestore collection for v1.
 
@@ -152,7 +153,7 @@ Validation hard rule: a character-like entity may not have more than one top-lev
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add rule: non-coin stowed records should be placed inside a valid same-entity container. That container may be the top-level stowed container, a valid nested container, or a valid container currently carried in hand. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 ## Non-Character Entities
 
@@ -180,23 +181,52 @@ Mounts, vehicles, and storage may contain coin records directly in contents or i
 ## Character Data
 
 ```ts
+export type CharacterAlignment = "Law" | "Neutrality" | "Chaos" | "";
+
+export type AbilityScoreKey =
+  | "strength"
+  | "intelligence"
+  | "wisdom"
+  | "dexterity"
+  | "constitution"
+  | "charisma";
+
+export type AbilityScores = Record<AbilityScoreKey, number | null>;
+
+export type CharacterSkill = {
+  id: string;
+  name: string;
+  value: number | null;
+};
+
+export type CharacterFeature = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 export type CharacterData = {
-  className?: string;
-  level?: number;
-  hpCurrent?: number;
-  hpMax?: number;
-  armorClass?: number;
-  xp?: number;
-  alignment?: string;
-  languages?: string[];
+  className: string;
+  level: number | null;
+  alignment: CharacterAlignment;
+  xp: number | null;
+  hp: {
+    current: number | null;
+    max: number | null;
+  };
+  abilityScores: AbilityScores;
+  skills: CharacterSkill[];
+  languages: string[];
+  description: string;
+  features: CharacterFeature[];
 };
 ```
 
-Character data is intentionally minimal for the inventory-focused v1 model.
+Character data supports a lightweight character-sheet layer in addition to inventory ownership. It is still not a full OSE automation engine.
 
-`alignment` is an arbitrary string.
+`alignment` is intentionally limited to the OSE-style options used by the app: `"Law"`, `"Neutrality"`, `"Chaos"`, or an empty string when unset.
 
-Expanded character-sheet rules may be added later without changing inventory ownership semantics.
+Character-sheet fields may be displayed, edited, and validated, but inventory ownership and encumbrance semantics must not depend on ability scores, skills, features, description, or languages unless a later task explicitly adds that behavior.
 
 ## Inventory Record
 
@@ -243,14 +273,15 @@ export type InventoryRecord = {
 - `name` is optional only for `recordType: "coins"`.
 - All non-coin records must have a non-empty trimmed `name`.
 - All non-coin records must have `quantity` and `burden`.
-- `coins` is required when `recordType === "coins"` and must be absent otherwise.
-- `treasure` is required when `recordType === "treasure"` and must be absent otherwise.
-- `weapon` is required when `recordType === "weapon"` and must be absent otherwise.
-- `armor` is required when `recordType === "armor"` and must be absent otherwise.
+- `coins` is required when `recordType === "coins"` and is ignored on other record types.
+- `treasure` is required when `recordType === "treasure"` and is ignored on other record types.
+- `weapon` is optional detail data for `recordType === "weapon"`; a weapon record may exist without a populated `weapon` object.
+- `armor` is optional detail data for `recordType === "armor"`; an armor record may exist without a populated `armor` object.
+- Type-specific data from the wrong record type should not be used by calculations or display. Parsers may tolerate excess fields from older or hand-edited data, but new write paths should avoid creating irrelevant type-specific fields.
 - `container` may appear on weapon, armor, or equipment records if that record can contain other records; treasure records do not use container data.
-- `identification` may appear only on `weapon`, `armor`, or `equipment` records.
-- Treasure is always identified. Do not use identification fields for treasure.
-- Coins are always identified. Do not use identification fields for coins.
+- `identification` may appear on `weapon`, `armor`, or `equipment` records. It may also be tolerated on imported or legacy records, but coins and treasure are treated as identified for normal display.
+- Treasure is always identified in normal inventory display.
+- Coins are always identified in normal inventory display.
 - `modifiers` are optional and descriptive for v1.
 - For v1, modifiers are edit/display-only. Do not apply them automatically to AC, attack, saves, movement, or character sheet fields.
 - When creating a record, assign `sortOrder` as max existing sibling sort order + 1000.
@@ -306,6 +337,7 @@ export type InventoryLocation =
 - Non-character entities may use `contents` or `container` locations.
 - `kind: "container"` must include `containerId`.
 - `containerId` must point to an existing `InventoryRecord` with `container` data.
+- For character-like entities, a contained record may be inside any valid same-entity container, including the top-level stowed container, a valid nested container, or a valid hand-held/equipped container. Effective equipped/stowed/excluded status is derived from the containing ancestor chain.
 - A contained record's `entityId` must match the owning entity of its container.
 - Moving a container to another entity must also update all contained descendant records to the new `entityId`.
 - Cross-entity containment is invalid.
@@ -428,7 +460,7 @@ export type ArmorData = {
 
 ### Armor Rules
 
-- Armor is active when `recordType === "armor"`, `location.kind === "equipped"`, and `location.placement === "loose"`.
+- Armor is active when `recordType === "armor"` and `location.kind === "equipped"`.
 - There is no separate armor location.
 - Stowed armor is inventory only and should not count as active armor.
 
@@ -449,6 +481,7 @@ export type ContainerData = {
 - A container is any non-coin `InventoryRecord` with `container` data.
 - `capacitySlots` is required and must be `>= 0`.
 - Legacy `container.handsRequired` may be read only to derive missing record-level `handsRequired`.
+- Legacy `container.isBackpack` may be tolerated while reading older stored data, but it must not determine current top-level stowed-container behavior and should not be written by new code.
 - Legacy `burdenMode` may exist in saved data but must not change slot accounting.
 - On character or retainer creation, create exactly one default top-level stowed container record, normally named Backpack.
 - A character-like entity may not have more than one top-level stowed container.
@@ -472,9 +505,9 @@ export type ContainerData = {
 - On character or retainer creation, create exactly one default top-level stowed container record.
 - Validation hard rule: a character-like entity may not have more than one top-level stowed container.
 - Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
-- Move/add hard rule: non-coin stowed records must be placed inside a valid container.
+- Move/add rule: non-coin stowed records should be placed inside a valid same-entity container.
 - The top-level stowed container is represented by an `InventoryRecord` with `recordType: "equipment"`, `container` data, and `location.kind === "stowedRoot"`.
-- Do not use `container.isBackpack` or any replacement special-case flag. The stowed-root role is location-derived.
+- Do not use `container.isBackpack` or any replacement special-case flag in current-state creation, updates, or calculations. The stowed-root role is location-derived. Parsers may tolerate and discard old `container.isBackpack` values during migration.
 - Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 - Character-like stowed non-coin records directly in the top-level stowed container use `kind: "container"` and `containerId` set to the stowed-root record ID.
 - The UI should offer an action to create a top-level stowed container for a character-like entity if missing.
@@ -505,8 +538,8 @@ const createDefaultTopLevelStowedContainer = (entityId: EntityId): InventoryReco
 ```ts
 export type IdentificationData = {
   identified: boolean;
-  unidentifiedName?: string;
-  unidentifiedDescription?: string;
+  secretName?: string;
+  secretDescription?: string;
 };
 ```
 
@@ -514,9 +547,10 @@ export type IdentificationData = {
 
 - Identification data is optional.
 - If absent, the record is treated as identified.
-- Identification data may only appear on `weapon`, `armor`, or `equipment` records.
-- When `identified === false`, display `unidentifiedName` if present; otherwise display `Unidentified Item`.
-- When `identified === false`, hide or collapse the true `name` and `description` in normal inventory display.
+- Identification data may appear on `weapon`, `armor`, or `equipment` records. Imported or legacy identification data on other record types may be tolerated, but coins and treasure are treated as identified in normal display.
+- When `identified === false`, normal inventory display should use the public `name` and `description` fields and hide/collapse `secretName` and `secretDescription`.
+- When an item is identified, copy `secretName` to `name` when present, copy `secretDescription` to `description` when present, then remove the `identification` data.
+- Legacy `unidentifiedName` / `unidentifiedDescription` fields may be read as aliases for `secretName` / `secretDescription` during migration, but new writes should use `secretName` / `secretDescription`.
 
 ## Uses and Light Data
 
