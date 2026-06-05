@@ -822,7 +822,7 @@ function InventoryPage({
       {sortedEntities.length === 0 ? (
         <p className="empty-state">No entities yet.</p>
       ) : (
-        <ul className="entity-list" aria-label="Inventory entities">
+        <ul className="entity-list inventory-entity-grid" aria-label="Inventory entities">
           {sortedEntities.map((entity) => (
             <EntityInventoryRow
               appState={appState}
@@ -952,6 +952,7 @@ function EntityInventoryRow({
   return (
     <li className="entity-row" data-inactive={!entity.active}>
       <EntitySummary
+        appState={appState}
         editingName={editingName}
         entity={entity}
         isEditing={isEditing}
@@ -1012,11 +1013,13 @@ function EntityInventoryRow({
 }
 
 function EntitySummary({
+  appState,
   editingName,
   entity,
   isEditing,
   onChangeEditingName,
 }: {
+  appState: AppState;
   editingName: string;
   entity: Entity;
   isEditing: boolean;
@@ -1042,11 +1045,49 @@ function EntitySummary({
           <div className="entity-meta">
             <span>{ENTITY_TYPE_LABELS[entity.entityType]}</span>
             {!entity.active ? <span>Inactive</span> : null}
+            {getEntityHeaderBadges(entity, appState).map((badge) => (
+              <span key={badge}>{badge}</span>
+            ))}
           </div>
         </div>
       )}
     </div>
   );
+}
+
+function getEntityHeaderBadges(entity: Entity, appState: AppState): string[] {
+  const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
+  const warnings = getEncumbranceWarnings(entity, appState.inventoryRecords);
+  const validationResult = validateInventoryState(
+    appState.entities,
+    appState.inventoryRecords,
+  );
+  const validationIssues = [
+    ...validationResult.errors,
+    ...validationResult.warnings,
+  ].filter(
+    (issue) =>
+      issue.entityId === entity.id ||
+      (issue.recordId !== undefined &&
+        ownedRecords.some((record) => record.id === issue.recordId)),
+  );
+
+  if (isCharacterLikeEntity(entity)) {
+    const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
+
+    return [
+      `Move ${encumbrance.movement.explorationFeet}'/${encumbrance.movement.encounterFeet}'`,
+      `Slots ${formatSlots(encumbrance.equippedItems + encumbrance.stowedItems)}`,
+      formatWarningState(warnings, validationIssues),
+    ];
+  }
+
+  const capacity = getContentsCapacity(entity, appState.inventoryRecords);
+
+  return [
+    formatCapacity(capacity.usedSlots, capacity.capacitySlots),
+    formatWarningState(warnings, validationIssues),
+  ];
 }
 
 type PartyOverviewCard = {
@@ -1279,25 +1320,26 @@ function CharactersPage({
       ) : (
         <ul className="entity-list" aria-label="Characters">
           {characterEntities.map((entity) => (
-              <li
-                className="entity-row character-page-row"
-                data-inactive={!entity.active}
-                key={entity.id}
-              >
-                <EntitySummary
-                  editingName=""
-                  entity={entity}
-                  isEditing={false}
-                  onChangeEditingName={() => undefined}
-                />
-                <CharacterInventorySummary
-                  appState={appState}
-                  entity={entity}
-                />
-                <CharacterSheetPanel
-                  entity={entity}
-                  onSaveCharacterData={onSaveCharacterData}
-                />
+            <li
+              className="entity-row character-page-row"
+              data-inactive={!entity.active}
+              key={entity.id}
+            >
+              <EntitySummary
+                appState={appState}
+                editingName=""
+                entity={entity}
+                isEditing={false}
+                onChangeEditingName={() => undefined}
+              />
+              <CharacterInventorySummary
+                appState={appState}
+                entity={entity}
+              />
+              <CharacterSheetPanel
+                entity={entity}
+                onSaveCharacterData={onSaveCharacterData}
+              />
             </li>
           ))}
         </ul>
@@ -1814,13 +1856,6 @@ function InventoryDisplay({
         </button>
       </div>
 
-      <EntityInventoryHeader
-        entity={entity}
-        records={appState.inventoryRecords}
-        warnings={warnings}
-        validationIssues={entityValidationIssues}
-      />
-
       {entityValidationIssues.length > 0 || warnings.length > 0 ? (
         <WarningList validationIssues={entityValidationIssues} warnings={warnings} />
       ) : null}
@@ -1904,46 +1939,17 @@ function CharacterInventoryDisplay({
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
-  const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
-  const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
-  const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
-
   return (
     <div className="inventory-sections">
       <InventorySection title="Equipped">
         <InventorySubsection title="Hands">
-          {bothHandsRecord ? (
-            <HandSlot
-              label="Both hands"
-              record={bothHandsRecord}
-              records={records}
-              onDeleteRecord={onDeleteRecord}
-              onEditRecord={onEditRecord}
-              onIdentifyRecord={onIdentifyRecord}
-              onSpendCoins={onSpendCoins}
-            />
-          ) : (
-            <div className="hand-grid">
-              <HandSlot
-                label="Left hand"
-                record={leftHandRecord}
-                records={records}
-                onDeleteRecord={onDeleteRecord}
-                onEditRecord={onEditRecord}
-                onIdentifyRecord={onIdentifyRecord}
-                onSpendCoins={onSpendCoins}
-              />
-              <HandSlot
-                label="Right hand"
-                record={rightHandRecord}
-                records={records}
-                onDeleteRecord={onDeleteRecord}
-                onEditRecord={onEditRecord}
-                onIdentifyRecord={onIdentifyRecord}
-                onSpendCoins={onSpendCoins}
-              />
-            </div>
-          )}
+          <HandRows
+            sections={sections}
+            records={records}
+            onEditRecord={onEditRecord}
+            onIdentifyRecord={onIdentifyRecord}
+            onSpendCoins={onSpendCoins}
+          />
         </InventorySubsection>
 
         <InventorySubsection title="Other equipped">
@@ -2936,11 +2942,63 @@ function InventorySubsection({
   );
 }
 
-function HandSlot({
+function HandRows({
+  sections,
+  records,
+  onEditRecord,
+  onIdentifyRecord,
+  onSpendCoins,
+}: {
+  sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
+  records: InventoryRecord[];
+  onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onSpendCoins: (record: InventoryRecord) => void;
+}) {
+  const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
+
+  if (bothHandsRecord) {
+    return (
+      <div className="hand-rows">
+        <HandRow
+          label="Both"
+          record={bothHandsRecord}
+          records={records}
+          onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
+          onSpendCoins={onSpendCoins}
+        />
+        <HandRow label="-" records={records} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="hand-rows">
+      <HandRow
+        label="Left"
+        record={getRecordById(sections.handRecordIds.leftHand, records)}
+        records={records}
+        onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
+        onSpendCoins={onSpendCoins}
+      />
+      <HandRow
+        label="Right"
+        record={getRecordById(sections.handRecordIds.rightHand, records)}
+        records={records}
+        onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
+        onSpendCoins={onSpendCoins}
+      />
+    </div>
+  );
+}
+
+function HandRow({
   label,
   record,
   records,
-  onDeleteRecord,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
@@ -2948,25 +3006,41 @@ function HandSlot({
   label: string;
   record?: InventoryRecord;
   records: InventoryRecord[];
-  onDeleteRecord: (record: InventoryRecord) => void;
-  onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
-  onSpendCoins: (record: InventoryRecord) => void;
+  onEditRecord?: (record: InventoryRecord) => void;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onSpendCoins?: (record: InventoryRecord) => void;
 }) {
   return (
-    <div className="hand-slot">
-      <span>{label}</span>
+    <div className="hand-row">
+      <span className="hand-row-label">{label}</span>
       {record ? (
-        <RecordRow
-          record={record}
-          allRecords={records}
-          onDeleteRecord={onDeleteRecord}
-          onEditRecord={onEditRecord}
-          onIdentifyRecord={onIdentifyRecord}
-          onSpendCoins={onSpendCoins}
-        />
+        <>
+          <InventoryRowSummary
+            record={record}
+            allRecords={records}
+            onOpenRecord={onEditRecord}
+          />
+          {onSpendCoins && record.recordType === "coins" ? (
+            <button
+              className="compact-row-action"
+              type="button"
+              onClick={() => onSpendCoins(record)}
+            >
+              Spend
+            </button>
+          ) : null}
+          {onIdentifyRecord && canIdentifyRecord(record) ? (
+            <button
+              className="compact-row-action"
+              type="button"
+              onClick={() => onIdentifyRecord(record.id)}
+            >
+              Identify
+            </button>
+          ) : null}
+        </>
       ) : (
-        <p className="empty-state compact">Empty hand</p>
+        <span className="hand-row-empty">Empty</span>
       )}
     </div>
   );

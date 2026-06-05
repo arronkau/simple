@@ -256,6 +256,11 @@ h5 {
   list-style: none;
 }
 
+.inventory-entity-grid {
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  align-items: start;
+}
+
 .entity-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -265,6 +270,12 @@ h5 {
   border-radius: 8px;
   padding: 1rem;
   background: #ffffff;
+}
+
+.inventory-entity-grid .entity-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  padding: 0.8rem;
 }
 
 .entity-row[data-inactive="true"] {
@@ -305,6 +316,10 @@ h5 {
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+.inventory-entity-grid .entity-actions {
+  justify-content: flex-start;
 }
 
 .danger-button {
@@ -577,22 +592,29 @@ h5 {
   min-width: 0;
 }
 
-.hand-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.6rem;
-}
-
-.hand-slot {
+.hand-rows {
   display: grid;
   gap: 0.35rem;
-  min-width: 0;
 }
 
-.hand-slot > span {
+.hand-row {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: center;
+  min-height: 2.35rem;
+}
+
+.hand-row-label,
+.hand-row-empty {
   color: #5a6974;
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.hand-row-empty {
+  min-height: 1.8rem;
+  align-content: center;
 }
 
 .record-list {
@@ -1120,10 +1142,6 @@ h5 {
 
   .entity-actions button {
     flex: 1 1 10rem;
-  }
-
-  .hand-grid {
-    grid-template-columns: 1fr;
   }
 
 }
