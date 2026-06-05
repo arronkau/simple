@@ -1,4 +1,5 @@
 import { getDirectChildRecords } from "./calculations";
+import { sortInventoryRecordsBySortOrder } from "./inventoryRecords";
 import type { Entity, EntityId, InventoryRecord } from "./types";
 import {
   findBackpackRecords,
@@ -39,8 +40,8 @@ export function getInventorySections(
   if (!isCharacterLikeEntity(entity)) {
     return {
       mode: "contentsOnly",
-      contents: ownedRecords.filter(
-        (record) => record.location.kind === "contents",
+      contents: sortInventoryRecordsBySortOrder(
+        ownedRecords.filter((record) => record.location.kind === "contents"),
       ),
     };
   }
@@ -57,11 +58,13 @@ export function getInventorySections(
   return {
     mode: "characterLike",
     handRecordIds: getHandOccupancy(entity.id, ownedRecords),
-    otherEquipped: ownedRecords.filter(
-      (record) =>
-        record.location.kind === "equipped" &&
-        record.location.placement === "loose" &&
-        !backpackRecordIds.has(record.id),
+    otherEquipped: sortInventoryRecordsBySortOrder(
+      ownedRecords.filter(
+        (record) =>
+          record.location.kind === "equipped" &&
+          record.location.placement === "loose" &&
+          !backpackRecordIds.has(record.id),
+      ),
     ),
     coinRecord: ownedRecords.find(
       (record) =>
@@ -71,7 +74,9 @@ export function getInventorySections(
     backpackRecord,
     backpackRecords,
     backpackContents: backpackRecord
-      ? getDirectChildRecords(backpackRecord.id, ownedRecords)
+      ? sortInventoryRecordsBySortOrder(
+          getDirectChildRecords(backpackRecord.id, ownedRecords),
+        )
       : [],
   };
 }
@@ -98,5 +103,7 @@ export function getContainerContents(
   containerRecord: InventoryRecord,
   records: InventoryRecord[],
 ): InventoryRecord[] {
-  return getDirectChildRecords(containerRecord.id, records);
+  return sortInventoryRecordsBySortOrder(
+    getDirectChildRecords(containerRecord.id, records),
+  );
 }

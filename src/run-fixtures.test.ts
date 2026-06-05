@@ -5,6 +5,7 @@ import { CHARACTER_MANUAL_FIXTURES } from "./model/characters.fixtures";
 import { ENCUMBRANCE_MANUAL_FIXTURES } from "./model/encumbrance.fixtures";
 import { APP_STATE_MANUAL_FIXTURES } from "./model/appState.fixtures";
 import { INVENTORY_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryDisplay.fixtures";
+import { INVENTORY_DND_MANUAL_FIXTURES } from "./model/inventoryDnd.fixtures";
 import { INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryRowDisplay.fixtures";
 import { INVENTORY_RECORDS_MANUAL_FIXTURES } from "./model/inventoryRecords.fixtures";
 import { STANDARD_ITEMS_MANUAL_FIXTURES } from "./model/standardItems.fixtures";
@@ -15,6 +16,7 @@ import {
   PHASE_5_STORE_MANUAL_FIXTURES,
   PHASE_6_STORE_MANUAL_FIXTURES,
   PHASE_8B_STORE_MANUAL_FIXTURES,
+  PHASE_DND_STORE_MANUAL_FIXTURES,
   PHASE_8_STORE_MANUAL_FIXTURES,
 } from "./store/useAppStore.fixtures";
 
@@ -33,6 +35,7 @@ const manualFixtures: ManualFixture[] = [
   ...ENCUMBRANCE_MANUAL_FIXTURES,
   ...FIREBASE_CONFIG_MANUAL_FIXTURES,
   ...INVENTORY_DISPLAY_MANUAL_FIXTURES,
+  ...INVENTORY_DND_MANUAL_FIXTURES,
   ...INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_RECORDS_MANUAL_FIXTURES,
   ...STANDARD_ITEMS_MANUAL_FIXTURES,
@@ -42,6 +45,7 @@ const manualFixtures: ManualFixture[] = [
   ...PHASE_6_STORE_MANUAL_FIXTURES,
   ...PHASE_8_STORE_MANUAL_FIXTURES,
   ...PHASE_8B_STORE_MANUAL_FIXTURES,
+  ...PHASE_DND_STORE_MANUAL_FIXTURES,
 ];
 
 for (const fixture of manualFixtures) {

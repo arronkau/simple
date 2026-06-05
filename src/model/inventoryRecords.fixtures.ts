@@ -1,6 +1,7 @@
 import {
   createInventoryRecordFromInput,
   createInventoryLocation,
+  moveInventoryRecord,
   updateInventoryRecordFromInput,
   getUsableContainerRecords,
 } from "./inventoryRecords";
@@ -312,6 +313,51 @@ const removedOptionalDataResult = updateInventoryRecordFromInput({
   },
 });
 
+const reorderRecordA: InventoryRecord = {
+  id: "reorder-a",
+  recordType: "equipment",
+  name: "A",
+  entityId: characterEntity.id,
+  location: { kind: "equipped", placement: "loose" },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 0,
+};
+const reorderRecordB: InventoryRecord = {
+  ...reorderRecordA,
+  id: "reorder-b",
+  name: "B",
+  sortOrder: 1000,
+};
+const reorderRecordC: InventoryRecord = {
+  ...reorderRecordA,
+  id: "reorder-c",
+  name: "C",
+  sortOrder: 2000,
+};
+const reorderRecordD: InventoryRecord = {
+  ...reorderRecordA,
+  id: "reorder-d",
+  name: "D",
+  location: { kind: "contents" },
+  sortOrder: 0,
+};
+const sameZoneReorderedRecords = moveInventoryRecord({
+  recordId: reorderRecordA.id,
+  records: [reorderRecordA, reorderRecordB, reorderRecordC, reorderRecordD],
+  entityId: characterEntity.id,
+  location: reorderRecordA.location,
+  targetIndex: 2,
+});
+const crossZoneReorderedRecords = moveInventoryRecord({
+  recordId: reorderRecordB.id,
+  records: [reorderRecordA, reorderRecordB, reorderRecordC, reorderRecordD],
+  entityId: characterEntity.id,
+  location: reorderRecordD.location,
+  targetIndex: 0,
+});
+
 export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
   {
     name: "container options filter invalid destinations before submit",
@@ -386,6 +432,27 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
           containerId: mountContainerRecord.id,
         },
       },
+    },
+  },
+  {
+    name: "inventory record move targetIndex reindexes same and cross-zone siblings",
+    actual: {
+      sameZoneLoose: sameZoneReorderedRecords
+        .filter((record) => record.location.kind === "equipped")
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .map((record) => `${record.id}:${record.sortOrder}`),
+      crossZoneContents: crossZoneReorderedRecords
+        .filter((record) => record.location.kind === "contents")
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .map((record) => `${record.id}:${record.sortOrder}`),
+    },
+    expected: {
+      sameZoneLoose: [
+        "reorder-b:0",
+        "reorder-c:1000",
+        "reorder-a:2000",
+      ],
+      crossZoneContents: ["reorder-b:0", "reorder-d:1000"],
     },
   },
   {

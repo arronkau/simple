@@ -250,6 +250,53 @@ const mountSections = getInventorySections(mountEntity, sampleRecords);
 const vehicleSections = getInventorySections(vehicleEntity, sampleRecords);
 const storageSections = getInventorySections(storageEntity, sampleRecords);
 
+const unsortedContentsRecords: InventoryRecord[] = [
+  {
+    id: "contents-late",
+    recordType: "equipment",
+    name: "Late",
+    entityId: storageEntity.id,
+    location: { kind: "contents" },
+    sortOrder: 2000,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+  },
+  {
+    id: "contents-early",
+    recordType: "equipment",
+    name: "Early",
+    entityId: storageEntity.id,
+    location: { kind: "contents" },
+    sortOrder: 0,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+  },
+  {
+    id: "container-late",
+    recordType: "equipment",
+    name: "Nested late",
+    entityId: storageEntity.id,
+    location: { kind: "container", containerId: "contents-late" },
+    sortOrder: 1000,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+  },
+  {
+    id: "container-early",
+    recordType: "equipment",
+    name: "Nested early",
+    entityId: storageEntity.id,
+    location: { kind: "container", containerId: "contents-late" },
+    sortOrder: 0,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+  },
+];
+const unsortedContentsSections = getInventorySections(
+  storageEntity,
+  unsortedContentsRecords,
+);
+
 export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
   {
     name: "character inventory sections include hands, other equipped, coin purse, and backpack",
@@ -363,6 +410,23 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         capacitySlots: 10,
         overloaded: false,
       },
+    },
+  },
+  {
+    name: "inventory display sorts contents and container children by sortOrder",
+    actual: {
+      contents:
+        unsortedContentsSections.mode === "contentsOnly"
+          ? unsortedContentsSections.contents.map((record) => record.id)
+          : [],
+      nested: getContainerContents(
+        unsortedContentsRecords[0],
+        unsortedContentsRecords,
+      ).map((record) => record.id),
+    },
+    expected: {
+      contents: ["contents-early", "contents-late"],
+      nested: ["container-early", "container-late"],
     },
   },
 ];

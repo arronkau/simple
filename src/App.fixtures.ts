@@ -373,7 +373,7 @@ export const APP_MANUAL_FIXTURES = [
         classLevel: "Fighter 2",
         hp: "5/8",
         hurt: true,
-        movement: "120'/40'",
+        movement: "120'",
         ac: "AC 10",
         abilityScores: [
           { label: "S", value: "—" },
@@ -394,7 +394,7 @@ export const APP_MANUAL_FIXTURES = [
         classLevel: "Torchbearer",
         hp: "—/—",
         hurt: false,
-        movement: "120'/40'",
+        movement: "120'",
         ac: "AC 10",
         abilityScores: [
           { label: "S", value: "—" },

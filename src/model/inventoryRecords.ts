@@ -39,6 +39,8 @@ export type InventoryRecordLocationInput = {
   entityId: EntityId;
   placement: InventoryRecordPlacementKey;
   containerId?: InventoryRecordId;
+  /** Optional position within the destination sibling group (see moveInventoryRecord). */
+  targetIndex?: number;
 };
 
 export type InventoryRecordFormInput = {
@@ -80,6 +82,12 @@ export type MoveInventoryRecordInput = {
   records: InventoryRecord[];
   entityId: EntityId;
   location: InventoryLocation;
+  /**
+   * Position within the destination sibling group (0-based, in sortOrder order,
+   * counting only the other siblings). When omitted the record is appended,
+   * preserving the historical behavior.
+   */
+  targetIndex?: number;
 };
 
 export type InventoryRecordBuildResult =
@@ -334,6 +342,7 @@ export function moveInventoryRecord({
   records,
   entityId,
   location,
+  targetIndex,
 }: MoveInventoryRecordInput): InventoryRecord[] {
   const record = records.find(
     (candidateRecord) => candidateRecord.id === recordId,
@@ -345,8 +354,7 @@ export function moveInventoryRecord({
 
   const descendantRecordIds = getDescendantRecordIds(recordId, records);
   const sortOrder = getNextInventoryRecordSortOrder(records, entityId, location);
-
-  return records.map((candidateRecord) => {
+  const relocatedRecords = records.map((candidateRecord) => {
     if (candidateRecord.id === recordId) {
       return {
         ...candidateRecord,
@@ -364,6 +372,80 @@ export function moveInventoryRecord({
     }
 
     return candidateRecord;
+  });
+
+  if (targetIndex === undefined) {
+    return relocatedRecords;
+  }
+
+  return reindexSiblingGroup({
+    records: relocatedRecords,
+    movedRecordId: recordId,
+    entityId,
+    location,
+    targetIndex,
+  });
+}
+
+/**
+ * Stable sort for rendering a sibling group: ascending sortOrder, with the
+ * record id as a deterministic tiebreaker.
+ */
+export function sortInventoryRecordsBySortOrder(
+  records: InventoryRecord[],
+): InventoryRecord[] {
+  return [...records].sort((leftRecord, rightRecord) => {
+    if (leftRecord.sortOrder !== rightRecord.sortOrder) {
+      return leftRecord.sortOrder - rightRecord.sortOrder;
+    }
+
+    return leftRecord.id < rightRecord.id ? -1 : leftRecord.id > rightRecord.id ? 1 : 0;
+  });
+}
+
+function reindexSiblingGroup({
+  records,
+  movedRecordId,
+  entityId,
+  location,
+  targetIndex,
+}: {
+  records: InventoryRecord[];
+  movedRecordId: InventoryRecordId;
+  entityId: EntityId;
+  location: InventoryLocation;
+  targetIndex: number;
+}): InventoryRecord[] {
+  const movedRecord = records.find((record) => record.id === movedRecordId);
+
+  if (!movedRecord) {
+    return records;
+  }
+
+  const otherSiblings = sortInventoryRecordsBySortOrder(
+    records.filter(
+      (record) =>
+        record.id !== movedRecordId &&
+        record.entityId === entityId &&
+        areInventoryLocationsSiblings(record.location, location),
+    ),
+  );
+  const insertIndex = Math.max(0, Math.min(targetIndex, otherSiblings.length));
+  const orderedSiblings = [
+    ...otherSiblings.slice(0, insertIndex),
+    movedRecord,
+    ...otherSiblings.slice(insertIndex),
+  ];
+  const sortOrderByRecordId = new Map(
+    orderedSiblings.map((record, index) => [record.id, index * 1000]),
+  );
+
+  return records.map((record) => {
+    const nextSortOrder = sortOrderByRecordId.get(record.id);
+
+    return nextSortOrder === undefined
+      ? record
+      : { ...record, sortOrder: nextSortOrder };
   });
 }
 
