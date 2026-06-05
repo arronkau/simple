@@ -766,14 +766,6 @@ h5 {
   min-height: var(--hand-row-min-height);
 }
 
-.hand-row[data-double-height="true"] {
-  min-height: calc(var(--hand-row-min-height) * 2 + var(--hand-row-gap));
-}
-
-.hand-row[data-double-height="true"] .hand-record-card {
-  align-self: stretch;
-}
-
 .hand-row-label,
 .hand-row-empty {
   color: #5a6974;
@@ -1594,10 +1586,6 @@ h5 {
   cursor: grabbing;
 }
 
-.entity-drag-handle {
-  min-height: 2.5rem;
-}
-
 .entity-card-title {
   display: flex;
   align-items: center;
@@ -1611,18 +1599,17 @@ h5 {
 
 /* Source element while it is being dragged */
 .record-list-item.dragging,
-.record-draggable.dragging,
-.entity-row.dragging {
+.record-draggable.dragging {
   opacity: 0.45;
 }
 
-.entity-row.dragging {
-  z-index: 2;
+/* Gap between items: the active insertion line */
+.record-drop-zone {
+  min-height: 0.65rem;
 }
 
-/* Gap between items: the active insertion line */
 .record-drop-zone.drop-over {
-  min-height: 0.6rem;
+  min-height: 0.8rem;
 }
 
 .record-drop-zone.drop-over::before {
@@ -1640,27 +1627,38 @@ h5 {
 }
 
 /* Item swap target: ring/halo */
-.record-list-item > .record-row.record-drop-surface {
+.record-list-item .record-row.record-drop-surface,
+.record-draggable .record-row.record-drop-surface {
   position: relative;
 }
 
-.record-list-item:has(> .record-row.record-drop-surface):focus-within {
+.record-list-item:has(.record-row.record-drop-surface):focus-within {
   outline: none;
 }
 
-/* dnd-kit marks the hovered droppable; for item rows we highlight the row */
-[data-record-id].drop-over,
-.record-row.drop-over {
+.record-list-item.drop-over > .record-row.record-drop-surface,
+.record-list-item.drop-over > .container-block > .container-header-drop > .record-row.record-drop-surface {
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
 
-/* Container header / slot / entity-title fill highlight */
+/* Container header / entity-title fill highlight */
 .container-header-drop.drop-over,
-.coin-purse-slot.drop-over,
-.hand-row.drop-over,
 .entity-default-drop.drop-over {
   border-radius: 8px;
+  box-shadow: inset 0 0 0 2px #3b82f6;
+  background: #eff5ff;
+}
+
+.container-header-drop.drop-over .record-row.record-drop-surface {
+  background: transparent;
+}
+
+.coin-purse-slot[data-drop-over="true"] > .empty-state,
+.coin-purse-slot[data-drop-over="true"] .record-row.record-drop-surface,
+.hand-row[data-drop-over="true"] .hand-row-empty,
+.hand-row[data-drop-over="true"] .hand-record-card {
+  border-color: #3b82f6;
   box-shadow: inset 0 0 0 2px #3b82f6;
   background: #eff5ff;
 }
@@ -1694,15 +1692,6 @@ h5 {
   border-color: #3b82f6;
 }
 
-.drag-overlay-entity {
-  padding: 0.6rem 0.85rem;
-  border: 1px solid #3b82f6;
-  border-radius: 10px;
-  background: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
-}
-
 /* Drag status / live region (also a small visible toast) */
 .drag-live-region {
   margin-top: 0.5rem;
@@ -1719,8 +1708,7 @@ h5 {
 
 @media (prefers-reduced-motion: reduce) {
   .record-list-item,
-  .record-draggable,
-  .entity-row {
+  .record-draggable {
     transition: none !important;
   }
 }

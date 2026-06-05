@@ -1061,3 +1061,134 @@ export const PHASE_8B_STORE_MANUAL_FIXTURES = [
     },
   },
 ];
+
+useAppStore.getState().resetLocalState();
+
+const dndFirstEntityId = useAppStore.getState().createEntity({
+  name: "First",
+  entityType: "storage",
+});
+const dndSecondEntityId = useAppStore.getState().createEntity({
+  name: "Second",
+  entityType: "storage",
+});
+const dndThirdEntityId = useAppStore.getState().createEntity({
+  name: "Third",
+  entityType: "storage",
+});
+
+if (dndFirstEntityId) {
+  useAppStore.getState().reorderEntity(dndFirstEntityId, 2);
+}
+
+const dndReorderedEntityNames = getSortedEntities(
+  useAppStore.getState().appState.entities,
+).map((entity) => entity.name);
+
+useAppStore.getState().resetLocalState();
+
+const dndStorageId = useAppStore.getState().createEntity({
+  name: "Dnd Vault",
+  entityType: "storage",
+});
+const dndSwapRecordA = dndStorageId
+  ? useAppStore.getState().createInventoryRecord(dndStorageId, {
+      recordType: "equipment",
+      name: "Alpha",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+    })
+  : { ok: false };
+const dndSwapRecordB = dndStorageId
+  ? useAppStore.getState().createInventoryRecord(dndStorageId, {
+      recordType: "equipment",
+      name: "Beta",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+    })
+  : { ok: false };
+const dndSwapRecordAId =
+  dndSwapRecordA.ok && "recordId" in dndSwapRecordA
+    ? dndSwapRecordA.recordId
+    : undefined;
+const dndSwapRecordBId =
+  dndSwapRecordB.ok && "recordId" in dndSwapRecordB
+    ? dndSwapRecordB.recordId
+    : undefined;
+const dndSwapResult =
+  dndSwapRecordAId && dndSwapRecordBId
+    ? useAppStore
+        .getState()
+        .swapInventoryRecords(dndSwapRecordAId, dndSwapRecordBId)
+    : { ok: false, message: "Swap records were not created." };
+const dndSwapOrder = useAppStore
+  .getState()
+  .appState.inventoryRecords.filter(
+    (record) =>
+      record.entityId === dndStorageId && record.location.kind === "contents",
+  )
+  .sort((left, right) => left.sortOrder - right.sortOrder)
+  .map((record) => record.name);
+
+const dndContainerResult = dndStorageId
+  ? useAppStore.getState().createInventoryRecord(dndStorageId, {
+      recordType: "equipment",
+      name: "Box",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      container: { capacitySlots: 4 },
+    })
+  : { ok: false };
+const dndContainerRecordId =
+  dndContainerResult.ok && "recordId" in dndContainerResult
+    ? dndContainerResult.recordId
+    : undefined;
+const dndChildResult =
+  dndStorageId && dndContainerRecordId
+    ? useAppStore.getState().createInventoryRecord(dndStorageId, {
+        recordType: "equipment",
+        name: "Inside Box",
+        quantity: 1,
+        burden: { kind: "fixed", slotsPerItem: 1 },
+        location: {
+          entityId: dndStorageId,
+          placement: "container",
+          containerId: dndContainerRecordId,
+        },
+      })
+    : { ok: false };
+const dndChildRecordId =
+  dndChildResult.ok && "recordId" in dndChildResult
+    ? dndChildResult.recordId
+    : undefined;
+const dndInvalidSwapResult =
+  dndContainerRecordId && dndChildRecordId
+    ? useAppStore
+        .getState()
+        .swapInventoryRecords(dndContainerRecordId, dndChildRecordId)
+    : { ok: false, message: "Invalid swap records were not created." };
+
+export const PHASE_DND_STORE_MANUAL_FIXTURES = [
+  {
+    name: "store hidden reorderEntity reassigns entity sort order",
+    actual: dndReorderedEntityNames,
+    expected: ["Second", "Third", "First"],
+  },
+  {
+    name: "store swaps inventory records and rejects container-descendant swaps",
+    actual: {
+      swapOk: dndSwapResult.ok,
+      swapOrder: dndSwapOrder,
+      invalidSwapOk: dndInvalidSwapResult.ok,
+      invalidSwapMessage: dndInvalidSwapResult.ok
+        ? undefined
+        : dndInvalidSwapResult.message,
+    },
+    expected: {
+      swapOk: true,
+      swapOrder: ["Beta", "Alpha"],
+      invalidSwapOk: false,
+      invalidSwapMessage: "Cannot swap a container with its own contents.",
+    },
+  },
+];

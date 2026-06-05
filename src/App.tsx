@@ -26,7 +26,6 @@ import {
 } from "@dnd-kit/core";
 import type { KeyboardCoordinateGetter } from "@dnd-kit/core";
 import {
-  rectSortingStrategy,
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
@@ -34,14 +33,11 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  areZonesEqual,
   entityDefaultDropId,
   gapDropId,
-  resolveEntityReorderIndex,
   resolveRecordDrop,
   slotDropId,
   type DragZone,
-  type EntityDragData,
   type RecordDragData,
   type RecordDropData,
 } from "./model/inventoryDnd";
@@ -1155,20 +1151,18 @@ function EntityEditModal({
 }
 
 /**
- * Collision detection scoped to the active drag type so entity drags only
- * resolve against entity targets and record drags only against record zones.
- * Prefers pointer-within (precise) and falls back to closest-center so empty
- * zones and thin gaps remain reachable.
+ * Collision detection scoped to record drop targets. Prefers pointer-within
+ * for precise gaps and falls back to closest-center so empty zones remain
+ * reachable.
  */
 const dragTypeScopedCollisionDetection: CollisionDetection = (args) => {
-  const activeType = args.active.data.current?.type;
   // Keyboard dragging has no pointer coordinates. The fine-grained gap drop
   // zones are great for pointer precision but make keyboard navigation snap
   // erratically (often back onto the dragged row), so we drop them for keyboard
   // and let the move land cleanly on item/slot targets instead.
   const isKeyboard = args.pointerCoordinates === null;
   const droppableContainers = args.droppableContainers.filter((container) => {
-    if (container.data.current?.type !== activeType) {
+    if (container.data.current?.type !== "record") {
       return false;
     }
 
@@ -1182,60 +1176,7 @@ const dragTypeScopedCollisionDetection: CollisionDetection = (args) => {
     : closestCenter(scopedArgs);
 };
 
-const ARROW_KEY_CODES = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
-
-/**
- * Keyboard movement getter. Entity cards live in a responsive grid whose cards
- * have very different heights, which defeats dnd-kit's geometry-based default
- * for horizontal arrows. For entity drags we step to the previous/next card in
- * reading order; record drags use the standard sortable getter.
- */
 const inventoryKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
-  const { context } = args;
-
-  if (
-    context.active?.data.current?.type === "entity" &&
-    ARROW_KEY_CODES.includes(event.code)
-  ) {
-    event.preventDefault();
-
-    const entityTargets = context.droppableContainers
-      .getEnabled()
-      .filter((container) => container.data.current?.type === "entity")
-      .map((container) => ({
-        id: container.id,
-        rect: context.droppableRects.get(container.id),
-      }))
-      .filter(
-        (target): target is { id: typeof target.id; rect: NonNullable<typeof target.rect> } =>
-          Boolean(target.rect),
-      )
-      .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
-
-    if (entityTargets.length === 0) {
-      return undefined;
-    }
-
-    const currentId = context.over?.id ?? context.active?.id;
-    const currentIndex = entityTargets.findIndex(
-      (target) => target.id === currentId,
-    );
-    const forward = event.code === "ArrowRight" || event.code === "ArrowDown";
-    const nextIndex = Math.max(
-      0,
-      Math.min(
-        (currentIndex === -1 ? 0 : currentIndex) + (forward ? 1 : -1),
-        entityTargets.length - 1,
-      ),
-    );
-    const target = entityTargets[nextIndex];
-
-    return {
-      x: target.rect.left + target.rect.width / 2,
-      y: target.rect.top + target.rect.height / 2,
-    };
-  }
-
   return sortableKeyboardCoordinates(event, args);
 };
 
@@ -1269,7 +1210,6 @@ function InventoryEntityBoard({
   const swapInventoryRecords = useAppStore(
     (state) => state.swapInventoryRecords,
   );
-  const reorderEntity = useAppStore((state) => state.reorderEntity);
   const [activeDrag, setActiveDrag] = useState<ActiveDrag | undefined>();
   const [dragMessage, setDragMessage] = useState<string | undefined>();
   const sensors = useSensors(
@@ -1277,59 +1217,27 @@ function InventoryEntityBoard({
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 8 },
     }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: inventoryKeyboardCoordinates }),
   );
-  const entityIds = sortedEntities.map((entity) => entity.id);
 
   function handleDragStart(event: DragStartEvent) {
-    const data = event.active.data.current as
-      | RecordDragData
-      | EntityDragData
-      | undefined;
+    const data = event.active.data.current as RecordDragData | undefined;
 
-    if (!data) {
+    if (!data || data.type !== "record") {
       return;
     }
 
-    setActiveDrag(
-      data.type === "entity"
-        ? { type: "entity", entityId: data.entityId }
-        : { type: "record", recordId: data.recordId },
-    );
+    setActiveDrag({ type: "record", recordId: data.recordId });
     setDragMessage(undefined);
   }
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveDrag(undefined);
 
-    const activeData = event.active.data.current as
-      | RecordDragData
-      | EntityDragData
-      | undefined;
-    const overData = event.over?.data.current as
-      | RecordDropData
-      | EntityDragData
-      | undefined;
+    const activeData = event.active.data.current as RecordDragData | undefined;
+    const overData = event.over?.data.current as RecordDropData | undefined;
 
-    if (!activeData) {
-      return;
-    }
-
-    if (activeData.type === "entity") {
-      if (!overData || overData.type !== "entity") {
-        return;
-      }
-
-      const targetIndex = resolveEntityReorderIndex(
-        entityIds,
-        activeData.entityId,
-        overData.entityId,
-      );
-
-      if (targetIndex !== null) {
-        reorderEntity(activeData.entityId, targetIndex);
-      }
-
+    if (!activeData || activeData.type !== "record") {
       return;
     }
 
@@ -1373,10 +1281,6 @@ function InventoryEntityBoard({
     activeDrag?.type === "record"
       ? getRecordById(activeDrag.recordId, appState.inventoryRecords)
       : undefined;
-  const activeEntity =
-    activeDrag?.type === "entity"
-      ? appState.entities.find((entity) => entity.id === activeDrag.entityId)
-      : undefined;
 
   return (
     <DndContext
@@ -1386,29 +1290,26 @@ function InventoryEntityBoard({
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveDrag(undefined)}
     >
-      <SortableContext items={entityIds} strategy={rectSortingStrategy}>
-        <ul
-          className="entity-list inventory-entity-grid"
-          aria-label="Inventory entities"
-        >
-          {sortedEntities.map((entity, index) => (
-            <EntityInventoryRow
-              appState={appState}
-              collapsedContainerIds={collapsedContainerIds}
-              entity={entity}
-              index={index}
-              key={entity.id}
-              onDeleteRecord={onDeleteRecord}
-              onEditEntity={onEditEntity}
-              onEditRecord={onEditRecord}
-              onIdentifyRecord={onIdentifyRecord}
-              onSpendCoins={onSpendCoins}
-              onStartAddRecord={onStartAddRecord}
-              onToggleContainerCollapsed={onToggleContainerCollapsed}
-            />
-          ))}
-        </ul>
-      </SortableContext>
+      <ul
+        className="entity-list inventory-entity-grid"
+        aria-label="Inventory entities"
+      >
+        {sortedEntities.map((entity) => (
+          <EntityInventoryRow
+            appState={appState}
+            collapsedContainerIds={collapsedContainerIds}
+            entity={entity}
+            key={entity.id}
+            onDeleteRecord={onDeleteRecord}
+            onEditEntity={onEditEntity}
+            onEditRecord={onEditRecord}
+            onIdentifyRecord={onIdentifyRecord}
+            onSpendCoins={onSpendCoins}
+            onStartAddRecord={onStartAddRecord}
+            onToggleContainerCollapsed={onToggleContainerCollapsed}
+          />
+        ))}
+      </ul>
 
       <DragOverlay>
         {activeRecord ? (
@@ -1417,10 +1318,6 @@ function InventoryEntityBoard({
               record={activeRecord}
               allRecords={appState.inventoryRecords}
             />
-          </div>
-        ) : activeEntity ? (
-          <div className="drag-overlay-card drag-overlay-entity">
-            {activeEntity.name}
           </div>
         ) : null}
       </DragOverlay>
@@ -1436,7 +1333,6 @@ function EntityInventoryRow({
   appState,
   collapsedContainerIds,
   entity,
-  index,
   onDeleteRecord,
   onEditEntity,
   onEditRecord,
@@ -1448,28 +1344,10 @@ function EntityInventoryRow({
   appState: AppState;
   collapsedContainerIds: Set<InventoryRecordId>;
   entity: Entity;
-  index: number;
 } & EntityRowCallbacks) {
-  const data: EntityDragData = { type: "entity", entityId: entity.id, index };
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: entity.id, data });
-  const style = {
-    transform: CSS.Translate.toString(transform),
-    transition,
-  };
-
   return (
     <li
-      ref={setNodeRef}
-      style={style}
-      className={`entity-row${isDragging ? " dragging" : ""}`}
+      className="entity-row"
       data-inactive={!entity.active}
     >
       <EntityDefaultDropZone entityId={entity.id}>
@@ -1477,15 +1355,6 @@ function EntityInventoryRow({
           appState={appState}
           entity={entity}
           onEditEntity={onEditEntity}
-          dragHandle={
-            <DragHandle
-              attributes={attributes as unknown as Record<string, unknown>}
-              listeners={listeners as unknown as Record<string, unknown> | undefined}
-              setActivatorNodeRef={setActivatorNodeRef}
-              label={`Reorder ${entity.name}`}
-              className="drag-handle entity-drag-handle"
-            />
-          }
         />
       </EntityDefaultDropZone>
 
@@ -1508,12 +1377,10 @@ function EntitySummary({
   appState,
   entity,
   onEditEntity,
-  dragHandle,
 }: {
   appState: AppState;
   entity: Entity;
   onEditEntity?: (entity: Entity) => void;
-  dragHandle?: ReactNode;
 }) {
   const status = getEntityInventoryStatus(entity, appState);
 
@@ -1521,7 +1388,6 @@ function EntitySummary({
     <div className="entity-main">
       <div className="entity-card-heading">
         <div className="entity-card-title">
-          {dragHandle}
           <div>
             {onEditEntity ? (
               <button
@@ -2396,9 +2262,7 @@ function CharacterSheetPanel({
   );
 }
 
-type ActiveDrag =
-  | { type: "record"; recordId: InventoryRecordId }
-  | { type: "entity"; entityId: EntityId };
+type ActiveDrag = { type: "record"; recordId: InventoryRecordId };
 
 function getRecordZone(record: InventoryRecord): DragZone {
   return {
@@ -2454,9 +2318,6 @@ function SortableRecordItem({
     recordId: record.id,
     zone,
     index,
-    ...(record.recordType !== "coins" && record.container
-      ? { isContainer: true }
-      : {}),
   };
   const {
     attributes,
@@ -2466,6 +2327,7 @@ function SortableRecordItem({
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({ id: record.id, data });
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -2484,7 +2346,7 @@ function SortableRecordItem({
     <li
       ref={setNodeRef}
       style={style}
-      className={`record-list-item${isDragging ? " dragging" : ""}`}
+      className={`record-list-item${isDragging ? " dragging" : ""}${isOver ? " drop-over" : ""}`}
       data-record-id={record.id}
     >
       {children(handle)}
@@ -2507,9 +2369,6 @@ function DraggableRecordItem({
     recordId: record.id,
     zone,
     index: 0,
-    ...(record.recordType !== "coins" && record.container
-      ? { isContainer: true }
-      : {}),
   };
   const {
     attributes,
@@ -2597,7 +2456,8 @@ function SlotDropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`${className}${isOver ? " drop-over" : ""}`}
+      className={className}
+      data-drop-over={isOver}
     >
       {children}
     </div>
@@ -4181,12 +4041,10 @@ function ContainerHeaderDrop({
     id: `container-header__${containerId}`,
     data: {
       type: "record",
-      kind: "item",
-      recordId: containerId,
-      zone: { entityId, placement: "stowedRoot" },
-      index: 0,
-      isContainer: true,
-    } satisfies RecordDragData,
+      kind: "container",
+      entityId,
+      containerId,
+    },
   });
 
   return (
@@ -4226,9 +4084,6 @@ function ContainerBlock({
 }) {
   const isCollapsed = collapsedContainerIds.has(containerRecord.id);
   const collapseLabel = isCollapsed ? "Expand" : "Collapse";
-  // Nested containers ride inside a SortableRecordItem (which already exposes an
-  // item drop target); the non-sortable stowed root needs its own header drop.
-  const needsHeaderDrop = dragHandle === undefined;
 
   const headerRow = (
     <div
@@ -4269,13 +4124,9 @@ function ContainerBlock({
 
   return (
     <div className="container-block" data-container-record-id={containerRecord.id}>
-      {needsHeaderDrop ? (
-        <ContainerHeaderDrop entityId={entityId} containerId={containerRecord.id}>
-          {headerRow}
-        </ContainerHeaderDrop>
-      ) : (
-        headerRow
-      )}
+      <ContainerHeaderDrop entityId={entityId} containerId={containerRecord.id}>
+        {headerRow}
+      </ContainerHeaderDrop>
       {isCollapsed ? null : (
         <div className="container-contents">
           <RecordList
