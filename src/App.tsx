@@ -484,9 +484,14 @@ function LocalAppShell() {
     setCoinSpendMessage(undefined);
   }
 
-  const isInventoryRoute = location.pathname.startsWith("/inventory");
+  const isWideWorkspaceRoute = [
+    "/party",
+    "/inventory",
+    "/characters",
+    "/audit",
+  ].some((routePath) => location.pathname.startsWith(routePath));
   const workspaceClassName = `workspace-panel${
-    isInventoryRoute ? " inventory-workspace-panel" : ""
+    isWideWorkspaceRoute ? " wide-workspace-panel" : ""
   }`;
 
   return (
