@@ -1,4 +1,11 @@
 :root {
+  --icon-muted: #64748b;
+  --icon-magic: #7c3aed;
+  --icon-lit: #b7791f;
+  --icon-unidentified: #7c3aed;
+  --icon-active: #2563eb;
+  --icon-warning: #ea580c;
+  --icon-critical: #dc2626;
   color: #1e252b;
   background: #f6f7f8;
   font-family:
@@ -8,6 +15,40 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.inventory-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.icon-muted {
+  color: var(--icon-muted);
+}
+
+.icon-magic {
+  color: var(--icon-magic);
+}
+
+.icon-lit {
+  color: var(--icon-lit);
+}
+
+.icon-unidentified {
+  color: var(--icon-unidentified);
+}
+
+.icon-active {
+  color: var(--icon-active);
+}
+
+.icon-warning {
+  color: var(--icon-warning);
+}
+
+.icon-critical {
+  color: var(--icon-critical);
 }
 
 * {
@@ -860,11 +901,27 @@ h5 {
   min-width: 0;
 }
 
-.record-secondary,
-.record-status {
+.record-secondary {
   color: #52616c;
   font-size: 0.9rem;
   font-weight: 700;
+}
+
+.record-status-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: #52616c;
+}
+
+.item-type-icon-marker {
+  display: inline-flex;
+  width: 1.75rem;
+  min-height: 2.25rem;
+  flex: 0 0 auto;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
 }
 
 .record-right-meta {
@@ -1565,7 +1622,7 @@ h5 {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #8794a0;
+  color: var(--icon-muted);
   font-size: 1rem;
   line-height: 1;
   cursor: grab;
@@ -1574,7 +1631,6 @@ h5 {
 
 .drag-handle:hover {
   background: #eef2f5;
-  color: #4a5763;
 }
 
 .drag-handle:focus-visible {

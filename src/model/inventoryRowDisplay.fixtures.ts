@@ -98,6 +98,23 @@ const chainmailRecord: InventoryRecord = {
   },
 };
 
+const equippedShieldRecord: InventoryRecord = {
+  id: "shield-1",
+  entityId,
+  recordType: "armor",
+  name: "Shield",
+  location: {
+    kind: "equipped",
+    placement: "leftHand",
+  },
+  sortOrder: 6500,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  armor: {
+    armorBonus: 1,
+  },
+};
+
 const gemsRecord: InventoryRecord = {
   id: "gems-1",
   entityId,
@@ -206,6 +223,7 @@ const allRecords = [
   longswordRecord,
   unidentifiedPotionRecord,
   chainmailRecord,
+  equippedShieldRecord,
   gemsRecord,
   zeroValueTreasureRecord,
   coinsRecord,
@@ -244,11 +262,11 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "unlit torch stack row shows quantity and unlit status",
+    name: "unlit torch stack row shows quantity without a status icon",
     actual: getInventoryRowDisplay(unlitTorchStackRecord, allRecords),
     expected: {
       primaryText: "Torch (2)",
-      statusIcons: ["unlit"],
+      statusIcons: [],
       rightText: "1 slot",
     },
   },
@@ -277,6 +295,15 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
       primaryText: "Chainmail",
       statusIcons: [],
       rightText: "2 slots",
+    },
+  },
+  {
+    name: "equipped armor row shows active AC status",
+    actual: getInventoryRowDisplay(equippedShieldRecord, allRecords),
+    expected: {
+      primaryText: "Shield",
+      statusIcons: ["activeAc"],
+      rightText: "1 slot",
     },
   },
   {
@@ -321,7 +348,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     actual: getInventoryRowDisplay(overloadedSackRecord, allRecords),
     expected: {
       primaryText: "Small sack",
-      statusIcons: ["warning"],
+      statusIcons: ["overCapacity"],
       rightText: "9/6 slots",
     },
   },

@@ -5,7 +5,11 @@ import {
 } from "./calculations";
 import type { CoinData, InventoryRecord } from "./types";
 
-export type InventoryRowStatus = "lit" | "unlit" | "unidentified" | "warning";
+export type InventoryRowStatus =
+  | "lit"
+  | "unidentified"
+  | "activeAc"
+  | "overCapacity";
 
 export type InventoryRowDisplay = {
   primaryText: string;
@@ -36,7 +40,7 @@ export function getInventoryRowDisplay(
 
     return {
       primaryText,
-      statusIcons: isOverCapacity ? ["warning"] : [],
+      statusIcons: isOverCapacity ? ["overCapacity"] : [],
       rightText: formatCapacity(slotUsage.usedSlots, slotUsage.capacitySlots),
     };
   }
@@ -104,12 +108,16 @@ function getInventoryRowStatusIcons(
 ): InventoryRowStatus[] {
   const statuses: InventoryRowStatus[] = [];
 
-  if (record.light) {
-    statuses.push(record.light.isLit ? "lit" : "unlit");
+  if (record.light?.isLit) {
+    statuses.push("lit");
   }
 
   if (record.identification?.identified === false) {
     statuses.push("unidentified");
+  }
+
+  if (record.recordType === "armor" && record.location.kind === "equipped") {
+    statuses.push("activeAc");
   }
 
   return statuses;

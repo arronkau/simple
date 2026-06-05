@@ -42,7 +42,7 @@ export type CharacterEncumbranceResult = {
   stowedRate: MovementRate;
   movement: MovementRate;
   overloaded: boolean;
-  overloadedReason?: "equipped" | "stowed" | "both";
+  overloadedReason?: "equipped" | "stowed" | "container" | "invalid" | "both";
   band: EncumbranceBand;
 };
 
@@ -220,13 +220,26 @@ export function getCharacterEncumbrance(
   const equippedRate = getMovementRateForEquippedItems(equippedItems);
   const stowedRate = getMovementRateForStowedItems(stowedItems);
   const globallyOverloaded = equippedItems + stowedItems > 16;
+  const criticalContainerOverload = hasCriticalContainerOverload(
+    entity,
+    records,
+  );
+  const invalidUnheldContainer = hasInvalidUnheldContainer(entity, records);
 
   if (
     equippedRate === "overloaded" ||
     stowedRate === "overloaded" ||
-    globallyOverloaded
+    globallyOverloaded ||
+    criticalContainerOverload ||
+    invalidUnheldContainer
   ) {
-    const overloadedReason = getOverloadedReason(equippedRate, stowedRate);
+    const overloadedReason = getOverloadedReason(
+      equippedRate,
+      stowedRate,
+      globallyOverloaded,
+      criticalContainerOverload,
+      invalidUnheldContainer,
+    );
 
     return {
       equippedItems,
@@ -236,7 +249,7 @@ export function getCharacterEncumbrance(
       stowedRate: stowedRate === "overloaded" ? OVERLOADED_MOVEMENT : stowedRate,
       movement: OVERLOADED_MOVEMENT,
       overloaded: true,
-      overloadedReason: overloadedReason ?? "both",
+      overloadedReason,
       band: "overloaded",
     };
   }
@@ -402,7 +415,7 @@ function getCharacterMovementWarnings(
   const encumbrance = getCharacterEncumbrance(entity, records);
   const totalSlots = encumbrance.equippedItems + encumbrance.stowedItems;
 
-  if (encumbrance.overloaded) {
+  if (totalSlots > 16) {
     return [
       {
         code: "entityOverloaded",
@@ -419,23 +432,71 @@ function getCharacterMovementWarnings(
 function getOverloadedReason(
   equippedRate: MovementRate | "overloaded",
   stowedRate: MovementRate | "overloaded",
-): "equipped" | "stowed" | "both" | undefined {
+  globallyOverloaded: boolean,
+  criticalContainerOverload: boolean,
+  invalidUnheldContainer: boolean,
+): CharacterEncumbranceResult["overloadedReason"] {
   const equippedOverloaded = equippedRate === "overloaded";
   const stowedOverloaded = stowedRate === "overloaded";
+  const rateOverloaded = equippedOverloaded || stowedOverloaded;
+  const overloadKinds = [
+    equippedOverloaded ? "equipped" : undefined,
+    stowedOverloaded ? "stowed" : undefined,
+    globallyOverloaded && !rateOverloaded ? "both" : undefined,
+    criticalContainerOverload ? "container" : undefined,
+    invalidUnheldContainer ? "invalid" : undefined,
+  ].filter(
+    (
+      kind,
+    ): kind is NonNullable<CharacterEncumbranceResult["overloadedReason"]> =>
+      Boolean(kind),
+  );
 
-  if (equippedOverloaded && stowedOverloaded) {
+  if (overloadKinds.length > 1) {
     return "both";
   }
 
-  if (equippedOverloaded) {
-    return "equipped";
+  return overloadKinds[0] ?? "both";
+}
+
+function hasCriticalContainerOverload(
+  entity: Entity,
+  records: InventoryRecord[],
+): boolean {
+  if (!isCharacterLikeEntity(entity)) {
+    return false;
   }
 
-  if (stowedOverloaded) {
-    return "stowed";
+  return records.some((record) => {
+    if (record.entityId !== entity.id || !record.container) {
+      return false;
+    }
+
+    const slotUsage = getContainerSlotUsage(record, records);
+
+    return (
+      slotUsage.capacitySlots !== undefined &&
+      slotUsage.usedSlots > slotUsage.capacitySlots
+    );
+  });
+}
+
+function hasInvalidUnheldContainer(
+  entity: Entity,
+  records: InventoryRecord[],
+): boolean {
+  if (!isCharacterLikeEntity(entity)) {
+    return false;
   }
 
-  return undefined;
+  return records.some(
+    (record) =>
+      record.entityId === entity.id &&
+      Boolean(record.container) &&
+      getRecordHandsRequired(record) > 0 &&
+      getDirectChildRecords(record.id, records).length > 0 &&
+      !isHeldContainer(record),
+  );
 }
 
 function getEncumbranceBandForMovement(

@@ -516,6 +516,14 @@ const heldSackEncumbrance = getCharacterEncumbrance(
   characterEntity,
   heldSackRecords,
 );
+const heldOverfilledSackWithBackpackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  heldOverfilledSackWithBackpackRecords,
+);
+const looseSackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  looseSackRecords,
+);
 const storageCapacity = getContentsCapacity(
   cappedStorageEntity,
   cappedStorageRecords,
@@ -724,14 +732,15 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "held overfilled container with backpack warns only for container capacity",
+    name: "held overfilled container with backpack makes movement zero",
     actual: {
       encumbrance: summarizeEncumbrance(
-        getCharacterEncumbrance(
-          characterEntity,
-          heldOverfilledSackWithBackpackRecords,
-        ),
+        heldOverfilledSackWithBackpackEncumbrance,
       ),
+      overloaded: heldOverfilledSackWithBackpackEncumbrance.overloaded,
+      overloadedReason:
+        heldOverfilledSackWithBackpackEncumbrance.overloadedReason,
+      movement: heldOverfilledSackWithBackpackEncumbrance.movement,
       visibleContainerUsage: getContainerSlotUsage(
         heldSackRecord,
         heldOverfilledSackWithBackpackRecords,
@@ -745,18 +754,27 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       encumbrance: { equippedItems: 1, stowedItems: 1, totalItems: 2 },
+      overloaded: true,
+      overloadedReason: "container",
+      movement: { explorationFeet: 0, encounterFeet: 0 },
       visibleContainerUsage: { usedSlots: 7, capacitySlots: 6 },
       warnings: { containerOverCapacity: 1 },
     },
   },
   {
-    name: "non-held hands-required containers with contents warn",
+    name: "non-held hands-required containers with contents make movement zero",
     actual: {
+      overloaded: looseSackEncumbrance.overloaded,
+      overloadedReason: looseSackEncumbrance.overloadedReason,
+      movement: looseSackEncumbrance.movement,
       warnings: summarizeWarnings(
         getEncumbranceWarnings(characterEntity, looseSackRecords),
       ),
     },
     expected: {
+      overloaded: true,
+      overloadedReason: "invalid",
+      movement: { explorationFeet: 0, encounterFeet: 0 },
       warnings: {
         handsRequiredContainerNotHeld: 1,
         missingBackpack: 1,

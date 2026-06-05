@@ -33,6 +33,13 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  ItemStatusIcon,
+  ItemTypeIcon,
+  type IconTone,
+  type ItemStatusIconName,
+  type ItemTypeIconName,
+} from "./components/InventoryIcons";
+import {
   entityDefaultDropId,
   gapDropId,
   resolveRecordDrop,
@@ -1740,10 +1747,10 @@ function getPartyRecordLabel(
 ): string {
   const display = getInventoryRowDisplay(record, records);
   const statuses = includeStatuses
-    ? display.statusIcons.map((status) => `[${getInventoryRowStatusLabel(status)}]`)
+    ? display.statusIcons.map((status) => `[${getInventoryRowStatusText(status)}]`)
     : [];
 
-  return [...statuses, display.primaryText].join(" ");
+  return [display.primaryText, ...statuses].join(" ");
 }
 
 function formatNullablePartyNumber(value: number | null): string {
@@ -2290,12 +2297,16 @@ function DragHandle({
   listeners,
   setActivatorNodeRef,
   label,
+  icon,
+  iconTone,
   className = "drag-handle",
 }: {
   attributes: Record<string, unknown>;
   listeners: Record<string, unknown> | undefined;
   setActivatorNodeRef?: (element: HTMLElement | null) => void;
   label: string;
+  icon: ItemTypeIconName;
+  iconTone: IconTone;
   className?: string;
 }) {
   return (
@@ -2307,8 +2318,19 @@ function DragHandle({
       {...attributes}
       {...listeners}
     >
-      <span aria-hidden="true">⠿</span>
+      <ItemTypeIcon name={icon} tone={iconTone} />
     </button>
+  );
+}
+
+function InventoryTypeIconMarker({ record }: { record: InventoryRecord }) {
+  return (
+    <span className="item-type-icon-marker" aria-hidden="true">
+      <ItemTypeIcon
+        name={getInventoryRecordTypeIcon(record)}
+        tone={getInventoryRecordTypeIconTone(record)}
+      />
+    </span>
   );
 }
 
@@ -2350,6 +2372,8 @@ function SortableRecordItem({
       listeners={listeners as unknown as Record<string, unknown> | undefined}
       setActivatorNodeRef={setActivatorNodeRef}
       label={`Reorder ${getRecordDisplayName(record)}`}
+      icon={getInventoryRecordTypeIcon(record)}
+      iconTone={getInventoryRecordTypeIconTone(record)}
     />
   );
 
@@ -2398,6 +2422,8 @@ function DraggableRecordItem({
       listeners={listeners as unknown as Record<string, unknown> | undefined}
       setActivatorNodeRef={setActivatorNodeRef}
       label={`Move ${getRecordDisplayName(record)}`}
+      icon={getInventoryRecordTypeIcon(record)}
+      iconTone={getInventoryRecordTypeIconTone(record)}
     />
   );
 
@@ -4003,7 +4029,7 @@ function RecordRow({
 
   return (
     <div className="record-row record-drop-surface" data-record-id={record.id}>
-      {dragHandle}
+      {dragHandle ?? <InventoryTypeIconMarker record={record} />}
       <InventoryRowSummary
         record={record}
         allRecords={allRecords}
@@ -4088,7 +4114,7 @@ function ContainerBlock({
       className="record-row record-drop-surface container-header-row"
       data-record-id={containerRecord.id}
     >
-      {dragHandle}
+      {dragHandle ?? <InventoryTypeIconMarker record={containerRecord} />}
       <button
         className="container-toggle"
         type="button"
@@ -4165,7 +4191,7 @@ function CoinRecordRow({
 
   return (
     <div className="record-row record-drop-surface" data-record-id={record.id}>
-      {dragHandle}
+      {dragHandle ?? <InventoryTypeIconMarker record={record} />}
       <InventoryRowSummary
         record={record}
         allRecords={[record]}
@@ -4215,11 +4241,14 @@ function InventoryRowSummary({
         )}
         {statusIcons.map((status) => (
           <span
-            className="record-status"
+            className="record-status-icon"
             key={status}
             title={getInventoryRowStatusTitle(status)}
           >
-            [{getInventoryRowStatusLabel(status)}]
+            <ItemStatusIcon
+              name={getInventoryRowStatusIcon(status)}
+              tone={getInventoryRowStatusTone(status)}
+            />
           </span>
         ))}
         {display.secondaryText ? (
@@ -4232,10 +4261,10 @@ function InventoryRowSummary({
 }
 
 const INVENTORY_ROW_STATUS_ORDER: InventoryRowStatus[] = [
-  "warning",
   "lit",
-  "unlit",
   "unidentified",
+  "activeAc",
+  "overCapacity",
 ];
 
 function getCollapsedContainerStatusIcons(
@@ -4277,16 +4306,31 @@ function getUniqueInventoryRowStatuses(
   return INVENTORY_ROW_STATUS_ORDER.filter((status) => statusSet.has(status));
 }
 
-function getInventoryRowStatusLabel(status: InventoryRowStatus): string {
+function getInventoryRowStatusIcon(
+  status: InventoryRowStatus,
+): ItemStatusIconName {
   switch (status) {
     case "lit":
       return "lit";
-    case "unlit":
-      return "unlit";
     case "unidentified":
-      return "?";
-    case "warning":
-      return "warning";
+      return "unidentified";
+    case "activeAc":
+      return "activeAc";
+    case "overCapacity":
+      return "overCapacity";
+  }
+}
+
+function getInventoryRowStatusTone(status: InventoryRowStatus): IconTone {
+  switch (status) {
+    case "lit":
+      return "lit";
+    case "unidentified":
+      return "unidentified";
+    case "activeAc":
+      return "active";
+    case "overCapacity":
+      return "critical";
   }
 }
 
@@ -4294,13 +4338,73 @@ function getInventoryRowStatusTitle(status: InventoryRowStatus): string {
   switch (status) {
     case "lit":
       return "Light source is lit";
-    case "unlit":
-      return "Light source is unlit";
     case "unidentified":
       return "Unidentified item";
-    case "warning":
+    case "activeAc":
+      return "Contributes to armor class";
+    case "overCapacity":
       return "Container is over capacity";
   }
+}
+
+function getInventoryRowStatusText(status: InventoryRowStatus): string {
+  switch (status) {
+    case "lit":
+      return "lit";
+    case "unidentified":
+      return "unidentified";
+    case "activeAc":
+      return "active AC";
+    case "overCapacity":
+      return "over capacity";
+  }
+}
+
+function getInventoryRecordTypeIcon(record: InventoryRecord): ItemTypeIconName {
+  if (record.recordType === "coins") {
+    return "coins";
+  }
+
+  if (record.recordType === "treasure") {
+    return "treasure";
+  }
+
+  if (record.recordType === "weapon") {
+    return "weapon";
+  }
+
+  if (record.recordType === "armor") {
+    return "armor";
+  }
+
+  if (record.container) {
+    return "container";
+  }
+
+  if (record.light) {
+    return "light";
+  }
+
+  return "equipment";
+}
+
+function getInventoryRecordTypeIconTone(record: InventoryRecord): IconTone {
+  return isMagicInventoryRecord(record) ? "magic" : "muted";
+}
+
+function isMagicInventoryRecord(record: InventoryRecord): boolean {
+  if (record.modifiers && record.modifiers.length > 0) {
+    return true;
+  }
+
+  if (
+    record.recordType === "weapon" &&
+    record.weapon.qualities?.some((quality) => quality.toLowerCase() === "magic")
+  ) {
+    return true;
+  }
+
+  return record.recordType === "armor" && (record.armor.armorBonus ?? 0) > 0;
 }
 
 function WarningDetailsButton({
@@ -4320,6 +4424,7 @@ function WarningDetailsButton({
     (warning) => warning.message,
   );
   const severity = getWarningDisplaySeverity(validationIssues, warnings);
+  const warningIcon = getWarningDetailsIcon(validationIssues, warnings);
 
   return (
     <details className="warning-details" data-severity={severity}>
@@ -4329,7 +4434,7 @@ function WarningDetailsButton({
           " ",
         )}`}
       >
-        !
+        <ItemStatusIcon name={warningIcon.name} tone={warningIcon.tone} />
       </summary>
       <div className="warning-details-panel">
         <ul>
@@ -4342,12 +4447,50 @@ function WarningDetailsButton({
   );
 }
 
+function getWarningDetailsIcon(
+  validationIssues: ValidationIssue[],
+  warnings: EncumbranceWarning[],
+): { name: ItemStatusIconName; tone: IconTone } {
+  if (warnings.some((warning) => warning.code === "entityOverloaded")) {
+    return { name: "overloaded", tone: "critical" };
+  }
+
+  if (warnings.some((warning) => warning.code === "containerOverCapacity")) {
+    return { name: "overCapacity", tone: "critical" };
+  }
+
+  if (
+    warnings.some(
+      (warning) => warning.code === "handsRequiredContainerNotHeld",
+    )
+  ) {
+    return { name: "containerNotHeld", tone: "critical" };
+  }
+
+  if (
+    validationIssues.some((issue) => issue.code === "missingBackpack") ||
+    warnings.some((warning) => warning.code === "missingBackpack")
+  ) {
+    return { name: "missingStowedContainer", tone: "warning" };
+  }
+
+  return getWarningDisplaySeverity(validationIssues, warnings) === "error"
+    ? { name: "overloaded", tone: "critical" }
+    : { name: "missingStowedContainer", tone: "warning" };
+}
+
 function getWarningDisplaySeverity(
   validationIssues: ValidationIssue[],
   warnings: EncumbranceWarning[],
 ): "error" | "warning" {
   return validationIssues.some((issue) => issue.severity === "error") ||
-    warnings.some((warning) => warning.code === "entityOverloaded")
+    warnings.some((warning) =>
+      [
+        "containerOverCapacity",
+        "handsRequiredContainerNotHeld",
+        "entityOverloaded",
+      ].includes(warning.code),
+    )
     ? "error"
     : "warning";
 }

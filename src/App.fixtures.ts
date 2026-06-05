@@ -384,7 +384,7 @@ export const APP_MANUAL_FIXTURES = [
           { label: "Ch", value: "—" },
         ],
         languages: "Common, Elvish",
-        hands: ["L: [lit] Torch", "R: Shield"],
+        hands: ["L: Torch [lit]", "R: Shield [active AC]"],
         warningCount: 0,
         warningSummary: "No warnings",
       },
