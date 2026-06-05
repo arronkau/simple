@@ -11,6 +11,7 @@ export type AuditEventType =
   | "entityDeactivated"
   | "inventoryRecordCreated"
   | "inventoryRecordDeleted"
+  | "inventoryRecordIdentified"
   | "inventoryRecordMoved"
   | "coinsChanged"
   | "treasureValueChanged";
@@ -186,8 +187,8 @@ export type ContainerData = {
 
 export type IdentificationData = {
   identified: boolean;
-  unidentifiedName?: string;
-  unidentifiedDescription?: string;
+  secretName?: string;
+  secretDescription?: string;
 };
 
 export type UsesData = {

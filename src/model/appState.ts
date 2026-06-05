@@ -40,6 +40,7 @@ const AUDIT_EVENT_TYPES: AuditEventType[] = [
   "entityDeactivated",
   "inventoryRecordCreated",
   "inventoryRecordDeleted",
+  "inventoryRecordIdentified",
   "inventoryRecordMoved",
   "coinsChanged",
   "treasureValueChanged",
@@ -161,6 +162,7 @@ function normalizeInventoryRecords(records: unknown[]): InventoryRecord[] {
       ...recordWithoutSlotProfile,
       quantity: normalizeInventoryQuantity(record, legacySlotProfile),
       burden: normalizeInventoryBurden(record, legacySlotProfile),
+      identification: normalizeIdentificationData(record.identification),
     } as InventoryRecord;
 
     return [
@@ -442,11 +444,39 @@ function isOptionalIdentificationData(value: unknown): boolean {
 
   return (
     typeof value.identified === "boolean" &&
+    (value.secretName === undefined || typeof value.secretName === "string") &&
+    (value.secretDescription === undefined ||
+      typeof value.secretDescription === "string") &&
     (value.unidentifiedName === undefined ||
       typeof value.unidentifiedName === "string") &&
     (value.unidentifiedDescription === undefined ||
       typeof value.unidentifiedDescription === "string")
   );
+}
+
+function normalizeIdentificationData(value: unknown) {
+  if (!isRecordLike(value) || value.identified !== false) {
+    return undefined;
+  }
+
+  const secretName =
+    typeof value.secretName === "string"
+      ? value.secretName
+      : typeof value.unidentifiedName === "string"
+        ? value.unidentifiedName
+        : undefined;
+  const secretDescription =
+    typeof value.secretDescription === "string"
+      ? value.secretDescription
+      : typeof value.unidentifiedDescription === "string"
+        ? value.unidentifiedDescription
+        : undefined;
+
+  return {
+    identified: false,
+    ...(secretName ? { secretName } : {}),
+    ...(secretDescription ? { secretDescription } : {}),
+  };
 }
 
 function isOptionalUsesData(value: unknown): boolean {

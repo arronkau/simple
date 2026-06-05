@@ -235,8 +235,8 @@ const advancedWeaponResult = createInventoryRecordFromInput({
     },
     identification: {
       identified: false,
-      unidentifiedName: "Odd blade",
-      unidentifiedDescription: "A blade with unfamiliar marks",
+      secretName: "Odd blade",
+      secretDescription: "A blade with unfamiliar marks",
     },
     light: {
       isLit: true,
@@ -298,7 +298,7 @@ const removedOptionalDataResult = updateInventoryRecordFromInput({
     sortOrder: 0,
     quantity: 1,
     burden: { kind: "fixed", slotsPerItem: 1 },
-    identification: { identified: false, unidentifiedName: "Unknown thing" },
+    identification: { identified: false, secretName: "Unknown thing" },
     uses: { current: 3 },
     light: { isLit: false, lightDescription: "Lantern" },
     modifiers: [{ target: "armorClass", value: 1 }],
@@ -474,8 +474,8 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
         notes: "Referee only label, not permissioned.",
         identification: {
           identified: false,
-          unidentifiedName: "Odd blade",
-          unidentifiedDescription: "A blade with unfamiliar marks",
+          secretName: "Odd blade",
+          secretDescription: "A blade with unfamiliar marks",
         },
         recordType: "weapon",
         weapon: {

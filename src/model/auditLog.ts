@@ -19,6 +19,7 @@ export const AUDIT_EVENT_TYPE_LABELS: Record<AuditEventType, string> = {
   entityDeleted: "Entity deleted",
   inventoryRecordCreated: "Record created",
   inventoryRecordDeleted: "Record deleted",
+  inventoryRecordIdentified: "Record identified",
   inventoryRecordMoved: "Record moved",
   treasureValueChanged: "Treasure value changed",
 };

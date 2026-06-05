@@ -404,8 +404,8 @@ const unidentifiedWandRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 1 },
   identification: {
     identified: false,
-    unidentifiedName: "Carved wand",
-    unidentifiedDescription: "A polished wand with faint markings.",
+    secretName: "Carved wand",
+    secretDescription: "A polished wand with faint markings.",
   },
 };
 

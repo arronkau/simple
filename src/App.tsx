@@ -75,7 +75,11 @@ import {
   validateInventoryState,
   type ValidationIssue,
 } from "./model/validation";
-import { useAppStore, type EntityMutationResult } from "./store/useAppStore";
+import {
+  useAppStore,
+  type EntityMutationResult,
+  type InventoryMutationResult,
+} from "./store/useAppStore";
 import type { CoinDenomination } from "./store/useAppStore";
 
 type EntityFormState = {
@@ -160,8 +164,8 @@ type RecordFormState = {
   handsRequired: "0" | "1" | "2";
   isBackpack: boolean;
   isUnidentified: boolean;
-  unidentifiedName: string;
-  unidentifiedDescription: string;
+  secretName: string;
+  secretDescription: string;
   isLight: boolean;
   lightDescription: string;
   isLit: boolean;
@@ -237,6 +241,9 @@ function LocalAppShell() {
   );
   const updateInventoryRecord = useAppStore(
     (state) => state.updateInventoryRecord,
+  );
+  const identifyInventoryRecord = useAppStore(
+    (state) => state.identifyInventoryRecord,
   );
   const spendCoins = useAppStore((state) => state.spendCoins);
   const deleteInventoryRecord = useAppStore(
@@ -440,6 +447,7 @@ function LocalAppShell() {
                 onDeleteRecord={removeInventoryRecord}
                 onEditEntity={startEditing}
                 onEditRecord={startEditingRecord}
+                onIdentifyRecord={identifyInventoryRecord}
                 onSaveEditing={saveEditing}
                 onSaveRecordForm={saveRecordForm}
                 onSetEntityActive={setEntityActive}
@@ -747,6 +755,7 @@ function InventoryPage({
   onDeleteRecord,
   onEditEntity,
   onEditRecord,
+  onIdentifyRecord,
   onSaveEditing,
   onSaveRecordForm,
   onSetEntityActive,
@@ -770,6 +779,7 @@ function InventoryPage({
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditEntity: (entity: Entity) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSaveEditing: (entityId: EntityId) => void;
   onSaveRecordForm: (event: FormEvent<HTMLFormElement>) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
@@ -812,6 +822,7 @@ function InventoryPage({
               onDeleteRecord={onDeleteRecord}
               onEditEntity={onEditEntity}
               onEditRecord={onEditRecord}
+              onIdentifyRecord={onIdentifyRecord}
               onSaveEditing={onSaveEditing}
               onSetEntityActive={onSetEntityActive}
               onSpendCoins={onSpendCoins}
@@ -900,6 +911,7 @@ function EntityInventoryRow({
   onDeleteRecord,
   onEditEntity,
   onEditRecord,
+  onIdentifyRecord,
   onSaveEditing,
   onSetEntityActive,
   onSpendCoins,
@@ -915,6 +927,7 @@ function EntityInventoryRow({
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditEntity: (entity: Entity) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSaveEditing: (entityId: EntityId) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
   onSpendCoins: (record: InventoryRecord) => void;
@@ -982,6 +995,7 @@ function EntityInventoryRow({
         appState={appState}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
         onStartAddRecord={onStartAddRecord}
       />
@@ -1572,6 +1586,7 @@ function InventoryDisplay({
   appState,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
   onStartAddRecord,
 }: {
@@ -1579,6 +1594,7 @@ function InventoryDisplay({
   appState: AppState;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
 }) {
@@ -1624,6 +1640,7 @@ function InventoryDisplay({
           records={appState.inventoryRecords}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
         />
       ) : (
@@ -1632,6 +1649,7 @@ function InventoryDisplay({
           records={appState.inventoryRecords}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
         />
       )}
@@ -1685,12 +1703,14 @@ function CharacterInventoryDisplay({
   records,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
   records: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
@@ -1708,6 +1728,7 @@ function CharacterInventoryDisplay({
               records={records}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
+              onIdentifyRecord={onIdentifyRecord}
               onSpendCoins={onSpendCoins}
             />
           ) : (
@@ -1718,6 +1739,7 @@ function CharacterInventoryDisplay({
                 records={records}
                 onDeleteRecord={onDeleteRecord}
                 onEditRecord={onEditRecord}
+                onIdentifyRecord={onIdentifyRecord}
                 onSpendCoins={onSpendCoins}
               />
               <HandSlot
@@ -1726,6 +1748,7 @@ function CharacterInventoryDisplay({
                 records={records}
                 onDeleteRecord={onDeleteRecord}
                 onEditRecord={onEditRecord}
+                onIdentifyRecord={onIdentifyRecord}
                 onSpendCoins={onSpendCoins}
               />
             </div>
@@ -1738,6 +1761,7 @@ function CharacterInventoryDisplay({
             allRecords={records}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}
+            onIdentifyRecord={onIdentifyRecord}
             onSpendCoins={onSpendCoins}
           />
         </InventorySubsection>
@@ -1750,6 +1774,7 @@ function CharacterInventoryDisplay({
               record={sections.coinRecord}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
+              onIdentifyRecord={onIdentifyRecord}
               onSpendCoins={onSpendCoins}
             />
           ) : (
@@ -1765,6 +1790,7 @@ function CharacterInventoryDisplay({
               nestedRecords={sections.backpackContents}
               onDeleteRecord={onDeleteRecord}
               onEditRecord={onEditRecord}
+              onIdentifyRecord={onIdentifyRecord}
               onSpendCoins={onSpendCoins}
             />
           ) : (
@@ -1781,12 +1807,14 @@ function ContentsInventoryDisplay({
   records,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   contents: InventoryRecord[];
   records: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   return (
@@ -1797,6 +1825,7 @@ function ContentsInventoryDisplay({
           allRecords={records}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
         />
       </InventorySection>
@@ -2271,31 +2300,31 @@ function InventoryRecordForm({
         {formState.isUnidentified && showIdentificationFields ? (
           <>
             <label>
-              <span>Unidentified name</span>
+              <span>Secret name</span>
               <input
                 autoComplete="off"
                 maxLength={100}
                 type="text"
-                value={formState.unidentifiedName}
+                value={formState.secretName}
                 onChange={(event) =>
                   onChange({
                     ...formState,
-                    unidentifiedName: event.target.value,
+                    secretName: event.target.value,
                   })
                 }
               />
             </label>
             <label className="wide-field">
-              <span>Unidentified description</span>
+              <span>Secret description</span>
               <input
                 autoComplete="off"
                 maxLength={160}
                 type="text"
-                value={formState.unidentifiedDescription}
+                value={formState.secretDescription}
                 onChange={(event) =>
                   onChange({
                     ...formState,
-                    unidentifiedDescription: event.target.value,
+                    secretDescription: event.target.value,
                   })
                 }
               />
@@ -2695,6 +2724,7 @@ function HandSlot({
   records,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   label: string;
@@ -2702,6 +2732,7 @@ function HandSlot({
   records: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   return (
@@ -2713,6 +2744,7 @@ function HandSlot({
           allRecords={records}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
           onSpendCoins={onSpendCoins}
         />
       ) : (
@@ -2727,12 +2759,14 @@ function RecordList({
   allRecords,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   records: InventoryRecord[];
   allRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (records.length === 0) {
@@ -2748,6 +2782,7 @@ function RecordList({
             allRecords={allRecords}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}
+            onIdentifyRecord={onIdentifyRecord}
             onSpendCoins={onSpendCoins}
           />
         </li>
@@ -2761,12 +2796,14 @@ function RecordRow({
   allRecords,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (record.recordType === "coins") {
@@ -2775,6 +2812,7 @@ function RecordRow({
         record={record}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
       />
     );
@@ -2788,6 +2826,7 @@ function RecordRow({
         nestedRecords={getContainerContents(record, allRecords)}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
       />
     );
@@ -2800,6 +2839,7 @@ function RecordRow({
         record={record}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
       />
     </div>
   );
@@ -2811,6 +2851,7 @@ function ContainerBlock({
   nestedRecords,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   containerRecord: InventoryRecord;
@@ -2818,6 +2859,7 @@ function ContainerBlock({
   nestedRecords: InventoryRecord[];
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   return (
@@ -2828,6 +2870,7 @@ function ContainerBlock({
           record={containerRecord}
           onDeleteRecord={onDeleteRecord}
           onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
         />
       </div>
       <RecordList
@@ -2835,6 +2878,7 @@ function ContainerBlock({
         allRecords={records}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
       />
     </div>
@@ -2845,11 +2889,13 @@ function CoinRecordRow({
   record,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   record: InventoryRecord;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (record.recordType !== "coins") {
@@ -2863,6 +2909,7 @@ function CoinRecordRow({
         record={record}
         onDeleteRecord={onDeleteRecord}
         onEditRecord={onEditRecord}
+        onIdentifyRecord={onIdentifyRecord}
         onSpendCoins={onSpendCoins}
       />
     </div>
@@ -2873,11 +2920,13 @@ function RecordActions({
   record,
   onDeleteRecord,
   onEditRecord,
+  onIdentifyRecord,
   onSpendCoins,
 }: {
   record: InventoryRecord;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins?: (record: InventoryRecord) => void;
 }) {
   return (
@@ -2888,6 +2937,11 @@ function RecordActions({
       {record.recordType === "coins" && onSpendCoins ? (
         <button type="button" onClick={() => onSpendCoins(record)}>
           Spend
+        </button>
+      ) : null}
+      {onIdentifyRecord && canIdentifyRecord(record) ? (
+        <button type="button" onClick={() => onIdentifyRecord(record.id)}>
+          Identify
         </button>
       ) : null}
       <button
@@ -3172,11 +3226,19 @@ export function getRecordDisplayName(record: InventoryRecord) {
     return "Coins";
   }
 
-  if (record.identification?.identified === false) {
-    return record.identification.unidentifiedName ?? "Unidentified Item";
+  return record.name;
+}
+
+function canIdentifyRecord(record: InventoryRecord): boolean {
+  if (record.recordType === "coins" || record.recordType === "treasure") {
+    return false;
   }
 
-  return record.name;
+  return (
+    record.identification?.identified === false &&
+    (Boolean(record.identification.secretName?.trim()) ||
+      Boolean(record.identification.secretDescription?.trim()))
+  );
 }
 
 export function getDeleteConfirmationMessage(
@@ -3527,8 +3589,8 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
     handsRequired: "0",
     isBackpack: false,
     isUnidentified: false,
-    unidentifiedName: "",
-    unidentifiedDescription: "",
+    secretName: "",
+    secretDescription: "",
     isLight: false,
     lightDescription: "",
     isLit: false,
@@ -3591,9 +3653,8 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
       | "2",
     isBackpack: record.container?.isBackpack === true,
     isUnidentified: record.identification?.identified === false,
-    unidentifiedName: record.identification?.unidentifiedName ?? "",
-    unidentifiedDescription:
-      record.identification?.unidentifiedDescription ?? "",
+    secretName: record.identification?.secretName ?? "",
+    secretDescription: record.identification?.secretDescription ?? "",
     isLight: Boolean(record.light),
     lightDescription: record.light?.lightDescription ?? "",
     isLit: record.light?.isLit === true,
@@ -3697,8 +3758,8 @@ function toInventoryRecordFormInput(
     formState.recordType !== "treasure"
       ? {
           identified: false,
-          unidentifiedName: formState.unidentifiedName,
-          unidentifiedDescription: formState.unidentifiedDescription,
+          secretName: formState.secretName,
+          secretDescription: formState.secretDescription,
         }
       : undefined;
 

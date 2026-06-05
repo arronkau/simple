@@ -81,6 +81,9 @@ type AppStore = {
     recordId: InventoryRecordId,
     location: InventoryRecordLocationInput,
   ) => InventoryMutationResult;
+  identifyInventoryRecord: (
+    recordId: InventoryRecordId,
+  ) => InventoryMutationResult;
   spendCoins: (
     recordId: InventoryRecordId,
     input: SpendCoinsInput,
@@ -650,6 +653,85 @@ export const useAppStore = create<AppStore>((set) => ({
 
     return result;
   },
+  identifyInventoryRecord: (recordId) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+
+      if (
+        !record ||
+        record.recordType === "coins" ||
+        record.recordType === "treasure"
+      ) {
+        return state;
+      }
+
+      if (!hasSecretIdentificationFields(record)) {
+        result = {
+          ok: false,
+          message: "Record has no secret identification fields.",
+        };
+        return state;
+      }
+
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === record.entityId,
+      );
+
+      if (!entity) {
+        result = {
+          ok: false,
+          message: "Entity was not found.",
+        };
+        return state;
+      }
+
+      const nextRecord = revealInventoryRecord(record);
+      const nextInventoryRecords = state.appState.inventoryRecords.map(
+        (candidateRecord) =>
+          candidateRecord.id === recordId ? nextRecord : candidateRecord,
+      );
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message:
+            validationResult.errors[0]?.message ?? "Invalid identification.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: nextInventoryRecords,
+          },
+          [
+            createIdentifyInventoryRecordAuditEntryInput({
+              entity,
+              nextRecord,
+              previousRecord: record,
+            }),
+          ],
+        ),
+      };
+    });
+
+    return result;
+  },
   spendCoins: (recordId, input) => {
     let result: InventoryMutationResult = {
       ok: false,
@@ -1057,6 +1139,67 @@ function createCoinSpendAuditEntryInput(input: {
   };
 }
 
+function createIdentifyInventoryRecordAuditEntryInput(input: {
+  entity: Entity;
+  nextRecord: InventoryRecord;
+  previousRecord: InventoryRecord;
+}): AuditLogEntryInput {
+  const identifiedAs =
+    input.previousRecord.recordType !== "coins" &&
+    input.previousRecord.recordType !== "treasure" &&
+    input.previousRecord.identification?.secretName
+      ? ` as ${input.nextRecord.recordType !== "coins" ? input.nextRecord.name : "coins"}`
+      : "";
+
+  return {
+    entityId: input.entity.id,
+    eventType: "inventoryRecordIdentified",
+    recordId: input.nextRecord.id,
+    summary: `Identified ${getInventoryRecordPublicLabel(
+      input.previousRecord,
+    )}${identifiedAs}.`,
+    details: {
+      previousName:
+        input.previousRecord.recordType === "coins"
+          ? "coins"
+          : input.previousRecord.name,
+      nextName:
+        input.nextRecord.recordType === "coins" ? "coins" : input.nextRecord.name,
+      previousDescription: input.previousRecord.description,
+      nextDescription: input.nextRecord.description,
+    },
+  };
+}
+
+function hasSecretIdentificationFields(record: InventoryRecord): boolean {
+  if (record.recordType === "coins" || record.recordType === "treasure") {
+    return false;
+  }
+
+  return (
+    record.identification?.identified === false &&
+    (Boolean(record.identification.secretName?.trim()) ||
+      Boolean(record.identification.secretDescription?.trim()))
+  );
+}
+
+function revealInventoryRecord(record: InventoryRecord): InventoryRecord {
+  if (record.recordType === "coins" || record.recordType === "treasure") {
+    return record;
+  }
+
+  const secretName = record.identification?.secretName?.trim();
+  const secretDescription = record.identification?.secretDescription?.trim();
+  const { identification: _identification, ...recordWithoutIdentification } =
+    record;
+
+  return {
+    ...recordWithoutIdentification,
+    ...(secretName ? { name: secretName } : {}),
+    ...(secretDescription ? { description: secretDescription } : {}),
+  } as InventoryRecord;
+}
+
 function normalizeSpendAmounts(
   input: SpendCoinsInput,
 ):
@@ -1187,6 +1330,10 @@ function getInventoryRecordAuditLabel(record: InventoryRecord): string {
   }
 
   return `"${record.name}"`;
+}
+
+function getInventoryRecordPublicLabel(record: InventoryRecord): string {
+  return record.recordType === "coins" ? "coins" : record.name;
 }
 
 function formatInventoryLocation(

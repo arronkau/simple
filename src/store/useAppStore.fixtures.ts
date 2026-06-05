@@ -624,6 +624,156 @@ export const PHASE_5_STORE_MANUAL_FIXTURES = [
 
 useAppStore.getState().resetLocalState();
 
+const phase6CharacterId = useAppStore.getState().createEntity({
+  name: "Yost",
+  entityType: "character",
+});
+let phase6NamedItemId: string | undefined;
+let phase6DescriptionOnlyItemId: string | undefined;
+let phase6NoSecretItemId: string | undefined;
+
+if (phase6CharacterId) {
+  const namedItemResult = useAppStore.getState().createInventoryRecord(
+    phase6CharacterId,
+    {
+      recordType: "weapon",
+      name: "rusty sword",
+      description: "A corroded blade.",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 1,
+      identification: {
+        identified: false,
+        secretName: "Sword of Sundering +2",
+        secretDescription: "A keen magic sword etched with storm runes.",
+      },
+      weapon: {},
+    },
+  );
+  const descriptionOnlyResult = useAppStore.getState().createInventoryRecord(
+    phase6CharacterId,
+    {
+      recordType: "equipment",
+      name: "sealed scroll",
+      description: "A wax-sealed scroll.",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: {
+        identified: false,
+        secretDescription: "A scroll of warding against undead.",
+      },
+    },
+  );
+  const noSecretResult = useAppStore.getState().createInventoryRecord(
+    phase6CharacterId,
+    {
+      recordType: "equipment",
+      name: "plain charm",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: {
+        identified: false,
+      },
+    },
+  );
+
+  phase6NamedItemId = namedItemResult.ok ? namedItemResult.recordId : undefined;
+  phase6DescriptionOnlyItemId = descriptionOnlyResult.ok
+    ? descriptionOnlyResult.recordId
+    : undefined;
+  phase6NoSecretItemId = noSecretResult.ok ? noSecretResult.recordId : undefined;
+}
+
+const phase6IdentifyNamedResult = phase6NamedItemId
+  ? useAppStore.getState().identifyInventoryRecord(phase6NamedItemId)
+  : { ok: false };
+const phase6IdentifyDescriptionOnlyResult = phase6DescriptionOnlyItemId
+  ? useAppStore
+      .getState()
+      .identifyInventoryRecord(phase6DescriptionOnlyItemId)
+  : { ok: false };
+const phase6IdentifyNoSecretResult = phase6NoSecretItemId
+  ? useAppStore.getState().identifyInventoryRecord(phase6NoSecretItemId)
+  : { ok: false };
+const phase6State = useAppStore.getState().appState;
+const phase6NamedItem = phase6State.inventoryRecords.find(
+  (record) => record.id === phase6NamedItemId,
+);
+const phase6DescriptionOnlyItem = phase6State.inventoryRecords.find(
+  (record) => record.id === phase6DescriptionOnlyItemId,
+);
+const phase6IdentifyAuditEntries = phase6State.auditLog.filter(
+  (entry) => entry.eventType === "inventoryRecordIdentified",
+);
+
+export const PHASE_6_STORE_MANUAL_FIXTURES = [
+  {
+    name: "identify action copies secret fields into public fields",
+    actual: {
+      identifyNamedOk: phase6IdentifyNamedResult.ok,
+      identifyDescriptionOnlyOk: phase6IdentifyDescriptionOnlyResult.ok,
+      identifyNoSecretOk: phase6IdentifyNoSecretResult.ok,
+      namedItem:
+        phase6NamedItem && phase6NamedItem.recordType !== "coins"
+          ? {
+              name: phase6NamedItem.name,
+              description: phase6NamedItem.description,
+              identification: phase6NamedItem.identification,
+            }
+          : undefined,
+      descriptionOnlyItem:
+        phase6DescriptionOnlyItem &&
+        phase6DescriptionOnlyItem.recordType !== "coins"
+          ? {
+              name: phase6DescriptionOnlyItem.name,
+              description: phase6DescriptionOnlyItem.description,
+              identification: phase6DescriptionOnlyItem.identification,
+            }
+          : undefined,
+    },
+    expected: {
+      identifyNamedOk: true,
+      identifyDescriptionOnlyOk: true,
+      identifyNoSecretOk: false,
+      namedItem: {
+        name: "Sword of Sundering +2",
+        description: "A keen magic sword etched with storm runes.",
+        identification: undefined,
+      },
+      descriptionOnlyItem: {
+        name: "sealed scroll",
+        description: "A scroll of warding against undead.",
+        identification: undefined,
+      },
+    },
+  },
+  {
+    name: "identify action writes one audit entry per identified item",
+    actual: phase6IdentifyAuditEntries.map((entry) => ({
+      eventType: entry.eventType,
+      summary: entry.summary,
+      previousName: entry.details?.previousName,
+      nextName: entry.details?.nextName,
+    })),
+    expected: [
+      {
+        eventType: "inventoryRecordIdentified",
+        summary: "Identified rusty sword as Sword of Sundering +2.",
+        previousName: "rusty sword",
+        nextName: "Sword of Sundering +2",
+      },
+      {
+        eventType: "inventoryRecordIdentified",
+        summary: "Identified sealed scroll.",
+        previousName: "sealed scroll",
+        nextName: "sealed scroll",
+      },
+    ],
+  },
+];
+
+useAppStore.getState().resetLocalState();
+
 const phase8CharacterId = useAppStore.getState().createEntity({
   name: "Ledger Hero",
   entityType: "character",

@@ -749,17 +749,15 @@ function normalizeIdentification(
 
   return {
     identified: false,
-    ...(normalizeOptionalText(identification.unidentifiedName)
+    ...(normalizeOptionalText(identification.secretName)
       ? {
-          unidentifiedName: normalizeOptionalText(
-            identification.unidentifiedName,
-          ),
+          secretName: normalizeOptionalText(identification.secretName),
         }
       : {}),
-    ...(normalizeOptionalText(identification.unidentifiedDescription)
+    ...(normalizeOptionalText(identification.secretDescription)
       ? {
-          unidentifiedDescription: normalizeOptionalText(
-            identification.unidentifiedDescription,
+          secretDescription: normalizeOptionalText(
+            identification.secretDescription,
           ),
         }
       : {}),

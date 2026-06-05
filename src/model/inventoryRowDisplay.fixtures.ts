@@ -79,7 +79,7 @@ const unidentifiedPotionRecord: InventoryRecord = {
   burden: { kind: "none" },
   identification: {
     identified: false,
-    unidentifiedName: "Cloudy vial",
+    secretName: "Cloudy vial",
   },
 };
 

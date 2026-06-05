@@ -132,8 +132,8 @@ const advancedRecordAppState: AppState = {
       burden: { kind: "fixed", slotsPerItem: 1 },
       identification: {
         identified: false,
-        unidentifiedName: "Odd lantern",
-        unidentifiedDescription: "A hooded brass lamp",
+        secretName: "Odd lantern",
+        secretDescription: "A hooded brass lamp",
       },
       light: {
         isLit: true,
@@ -151,6 +151,32 @@ const advancedRecordAppState: AppState = {
         },
       ],
       notes: "GM-facing label only.",
+    },
+  ],
+  auditLog: [],
+};
+
+const legacyIdentificationAppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [
+    {
+      id: "legacy-secret-1",
+      recordType: "equipment",
+      name: "Plain ring",
+      entityId: characterEntity.id,
+      location: {
+        kind: "equipped",
+        placement: "loose",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: {
+        identified: false,
+        unidentifiedName: "Ring of Warmth",
+        unidentifiedDescription: "A copper ring that is warm to the touch.",
+      },
     },
   ],
   auditLog: [],
@@ -197,6 +223,29 @@ export const APP_STATE_MANUAL_FIXTURES = [
     name: "app state parsing preserves current audit log entries",
     actual: parseAppState(storedAppState)?.auditLog,
     expected: [auditLogEntry],
+  },
+  {
+    name: "app state parsing migrates legacy unidentified fields to secret fields",
+    actual: parseAppState(legacyIdentificationAppState)?.inventoryRecords[0],
+    expected: {
+      id: "legacy-secret-1",
+      recordType: "equipment",
+      name: "Plain ring",
+      entityId: characterEntity.id,
+      location: {
+        kind: "equipped",
+        placement: "loose",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: {
+        identified: false,
+        secretName: "Ring of Warmth",
+        secretDescription: "A copper ring that is warm to the touch.",
+      },
+      handsRequired: 0,
+    },
   },
   {
     name: "app state parsing migrates legacy slot profiles",
