@@ -82,14 +82,7 @@ export function createInventoryRecordInputFromStandardItem(
     quantity: item.quantity,
     burden: item.burden,
     handsRequired: item.handsRequired,
-    ...(item.container
-      ? {
-          container: {
-            ...item.container,
-            ...(item.slug === "backpack" ? { isBackpack: true } : {}),
-          },
-        }
-      : {}),
+    ...(item.container ? { container: item.container } : {}),
     ...(item.light ? { light: item.light } : {}),
     ...(item.uses ? { uses: item.uses } : {}),
   };

@@ -182,6 +182,31 @@ const legacyIdentificationAppState = {
   auditLog: [],
 };
 
+const legacyBackpackFlagAppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [
+    {
+      id: "backpack-1",
+      recordType: "equipment",
+      name: "Backpack",
+      entityId: characterEntity.id,
+      location: {
+        kind: "stowedRoot",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 0,
+      container: {
+        capacitySlots: 16,
+        isBackpack: true,
+      },
+    },
+  ],
+  auditLog: [],
+};
+
 const parsedLegacyAppState = parseAppState(legacyStoredAppState);
 const firebaseDocumentAppState: AppState = {
   schemaVersion: 1,
@@ -245,6 +270,26 @@ export const APP_STATE_MANUAL_FIXTURES = [
         secretDescription: "A copper ring that is warm to the touch.",
       },
       handsRequired: 0,
+    },
+  },
+  {
+    name: "app state parsing accepts and strips legacy backpack container flag",
+    actual: parseAppState(legacyBackpackFlagAppState)?.inventoryRecords[0],
+    expected: {
+      id: "backpack-1",
+      recordType: "equipment",
+      name: "Backpack",
+      entityId: characterEntity.id,
+      location: {
+        kind: "stowedRoot",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 0,
+      container: {
+        capacitySlots: 16,
+      },
     },
   },
   {

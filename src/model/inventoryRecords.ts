@@ -811,7 +811,6 @@ function normalizeContainer(
 
   return {
     capacitySlots: Math.max(0, normalizeNumber(container.capacitySlots, 0)),
-    ...(container.isBackpack ? { isBackpack: true } : {}),
     ...(container.burdenMode
       ? { burdenMode: container.burdenMode as ContainerBurdenMode }
       : {}),

@@ -207,7 +207,6 @@ type RecordFormState = {
   isContainer: boolean;
   capacitySlots: string;
   handsRequired: "0" | "1" | "2";
-  isBackpack: boolean;
   isUnidentified: boolean;
   secretName: string;
   secretDescription: string;
@@ -3169,19 +3168,6 @@ function InventoryRecordForm({
                   <option value="2">Two</option>
                 </select>
               </label>
-              <label className="checkbox-field">
-                <input
-                  checked={formState.isBackpack}
-                  type="checkbox"
-                  onChange={(event) =>
-                    onChange({
-                      ...formState,
-                      isBackpack: event.target.checked,
-                    })
-                  }
-                />
-                <span>Counts as backpack</span>
-              </label>
             </div>
           </section>
         ) : null}
@@ -4578,8 +4564,8 @@ export function getDeleteConfirmationMessage(
     return `Confirm delete treasure "${displayName}" with no recorded gp value?`;
   }
 
-  if (record.container?.isBackpack === true) {
-    return `Confirm delete backpack "${displayName}" with ${formatSlots(
+  if (record.container && record.location.kind === "stowedRoot") {
+    return `Confirm delete stowed container "${displayName}" with ${formatSlots(
       record.container.capacitySlots,
     )} capacity? This may make stowed inventory invalid.`;
   }
@@ -4898,7 +4884,6 @@ function createEmptyRecordForm(entity: Entity): RecordFormState {
     isContainer: false,
     capacitySlots: "0",
     handsRequired: "0",
-    isBackpack: false,
     isUnidentified: false,
     secretName: "",
     secretDescription: "",
@@ -4962,7 +4947,6 @@ function createRecordFormFromRecord(record: InventoryRecord): RecordFormState {
       | "0"
       | "1"
       | "2",
-    isBackpack: record.container?.isBackpack === true,
     isUnidentified: record.identification?.identified === false,
     secretName: record.identification?.secretName ?? "",
     secretDescription: record.identification?.secretDescription ?? "",
@@ -5076,7 +5060,6 @@ function applyInventoryRecordInputToFormState(
     isContainer: Boolean(input.container),
     capacitySlots: (input.container?.capacitySlots ?? 0).toString(),
     handsRequired,
-    isBackpack: input.container?.isBackpack === true,
     isUnidentified: false,
     secretName: "",
     secretDescription: "",
@@ -5174,7 +5157,6 @@ function toInventoryRecordFormInput(
       ? {
           capacitySlots: parseNumberInput(formState.capacitySlots),
           handsRequired,
-          isBackpack: formState.isBackpack,
         }
       : undefined;
   const identification =

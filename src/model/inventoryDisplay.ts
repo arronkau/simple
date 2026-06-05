@@ -52,7 +52,7 @@ export function getInventorySections(
     ownedRecords,
   )[0];
   const backpackRecordIds = new Set(
-    backpackRecords.map((record) => record.id),
+    backpackRecord ? [backpackRecord.id] : [],
   );
 
   return {

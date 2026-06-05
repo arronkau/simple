@@ -100,7 +100,7 @@ export const STANDARD_ITEMS_MANUAL_FIXTURES = [
         name: "Backpack",
         burden: { kind: "fixed", slotsPerItem: 1 },
         handsRequired: 2,
-        container: { capacitySlots: 16, isBackpack: true },
+        container: { capacitySlots: 16 },
       },
       torch: {
         quantity: 3,

@@ -136,11 +136,7 @@ export function findBackpackRecords(
   entityId: EntityId,
   records: InventoryRecord[],
 ): InventoryRecord[] {
-  return records.filter(
-    (record) =>
-      record.entityId === entityId &&
-      record.container?.isBackpack === true,
-  );
+  return findTopLevelStowedContainerRecords(entityId, records);
 }
 
 export function hasBackpack(

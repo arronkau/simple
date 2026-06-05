@@ -94,7 +94,6 @@ const carriedBackpackRecord: InventoryRecord = {
   handsRequired: 2,
   container: {
     capacitySlots: 16,
-    isBackpack: true,
   },
 };
 

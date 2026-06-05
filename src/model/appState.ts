@@ -162,6 +162,7 @@ function normalizeInventoryRecords(records: unknown[]): InventoryRecord[] {
       ...recordWithoutSlotProfile,
       quantity: normalizeInventoryQuantity(record, legacySlotProfile),
       burden: normalizeInventoryBurden(record, legacySlotProfile),
+      container: normalizeContainerData(record.container),
       identification: normalizeIdentificationData(record.identification),
     } as InventoryRecord;
 
@@ -237,6 +238,21 @@ function normalizeInventoryBurden(
   }
 
   return { kind: "fixed", slotsPerItem: 1 };
+}
+
+function normalizeContainerData(value: unknown) {
+  if (!isRecordLike(value)) {
+    return undefined;
+  }
+
+  return {
+    capacitySlots: normalizeNonNegativeNumber(value.capacitySlots, 0),
+    ...(value.handsRequired === 0 ||
+    value.handsRequired === 1 ||
+    value.handsRequired === 2
+      ? { handsRequired: value.handsRequired }
+      : {}),
+  };
 }
 
 function normalizeAuditLog(auditLog: unknown): AuditLogEntry[] {

@@ -304,7 +304,7 @@ export const APP_MANUAL_FIXTURES = [
         'Confirm delete treasure "Plain stone" with no recorded gp value?',
       valuableTreasure: 'Confirm delete treasure "Silver plate" worth 50 gp?',
       backpack:
-        'Confirm delete backpack "Backpack" with 16 slots capacity? This may make stowed inventory invalid.',
+        'Confirm delete stowed container "Backpack" with 16 slots capacity? This may make stowed inventory invalid.',
       emptyContainer:
         'Confirm delete empty container "Sack" with 6 slots capacity?',
       nonEmptyContainer:
