@@ -42,7 +42,7 @@ import {
 import {
   entityDefaultDropId,
   gapDropId,
-  resolveRecordDrop,
+  resolveRecordDropWithInventory,
   slotDropId,
   type DragZone,
   type RecordDragData,
@@ -1247,9 +1247,10 @@ function InventoryEntityBoard({
       return;
     }
 
-    const resolution = resolveRecordDrop(
+    const resolution = resolveRecordDropWithInventory(
       activeData,
       overData?.type === "record" ? (overData as RecordDropData) : undefined,
+      appState.inventoryRecords,
     );
 
     if (!resolution) {
@@ -1261,6 +1262,29 @@ function InventoryEntityBoard({
 
       if (!result.ok) {
         setDragMessage(result.message);
+      }
+
+      return;
+    }
+
+    if (resolution.kind === "twoHandSwap") {
+      const displacedResult = moveInventoryRecord(
+        resolution.displacedRecordId,
+        resolution.displacedLocation,
+      );
+
+      if (!displacedResult.ok) {
+        setDragMessage(displacedResult.message);
+        return;
+      }
+
+      const twoHandedResult = moveInventoryRecord(
+        resolution.twoHandedRecordId,
+        resolution.twoHandedLocation,
+      );
+
+      if (!twoHandedResult.ok) {
+        setDragMessage(twoHandedResult.message);
       }
 
       return;

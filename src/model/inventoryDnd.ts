@@ -2,7 +2,9 @@ import type {
   InventoryRecordLocationInput,
   InventoryRecordPlacementKey,
 } from "./inventoryRecords";
-import type { EntityId, InventoryRecordId } from "./types";
+import type { EntityId, InventoryRecord, InventoryRecordId } from "./types";
+import { getRecordHandsRequired } from "./types";
+import { getHandOccupancy } from "./validation";
 
 /**
  * Pure drag-and-drop resolution helpers. These translate the dnd-kit
@@ -82,6 +84,13 @@ export type RecordDropResolution =
         recordId: InventoryRecordId;
         location: InventoryRecordLocationInput;
       };
+    }
+  | {
+      kind: "twoHandSwap";
+      twoHandedRecordId: InventoryRecordId;
+      displacedRecordId: InventoryRecordId;
+      twoHandedLocation: InventoryRecordLocationInput;
+      displacedLocation: InventoryRecordLocationInput;
     };
 
 // --- dnd-kit id builders (ids only need to be unique; payloads ride on data) ---
@@ -247,6 +256,153 @@ export function resolveRecordDrop(
     default:
       return null;
   }
+}
+
+export function resolveRecordDropWithInventory(
+  activeData: RecordDragData,
+  overData: RecordDropData | undefined,
+  records: InventoryRecord[],
+): RecordDropResolution | null {
+  const activeRecord = records.find((record) => record.id === activeData.recordId);
+
+  if (!activeRecord || getRecordHandsRequired(activeRecord) !== 2) {
+    return resolveRecordDrop(activeData, overData);
+  }
+
+  const twoHandResolution = resolveTwoHandedRecordDrop(
+    activeData,
+    activeRecord,
+    overData,
+    records,
+  );
+
+  if (twoHandResolution !== undefined) {
+    return twoHandResolution;
+  }
+
+  return resolveRecordDrop(activeData, overData);
+}
+
+function resolveTwoHandedRecordDrop(
+  activeData: RecordDragData,
+  activeRecord: InventoryRecord,
+  overData: RecordDropData | undefined,
+  records: InventoryRecord[],
+): RecordDropResolution | null | undefined {
+  if (!overData || overData.type !== "record") {
+    return null;
+  }
+
+  if (overData.kind === "slot" && isSingleHandPlacement(overData.placement)) {
+    if (canOccupyBothHands(activeRecord.id, overData.entityId, records)) {
+      return {
+        kind: "move",
+        recordId: activeRecord.id,
+        location: {
+          entityId: overData.entityId,
+          placement: "bothHands",
+        },
+      };
+    }
+
+    return null;
+  }
+
+  if (overData.kind !== "item") {
+    return undefined;
+  }
+
+  const targetRecord = records.find((record) => record.id === overData.recordId);
+
+  if (
+    !targetRecord ||
+    targetRecord.id === activeRecord.id ||
+    targetRecord.entityId !== activeRecord.entityId ||
+    !isSingleHandLocation(targetRecord) ||
+    getRecordHandsRequired(targetRecord) !== 1
+  ) {
+    return undefined;
+  }
+
+  if (
+    !canSwapSingleHandForTwoHandedRecord(
+      activeRecord.id,
+      targetRecord,
+      records,
+    )
+  ) {
+    return null;
+  }
+
+  return {
+    kind: "twoHandSwap",
+    twoHandedRecordId: activeRecord.id,
+    displacedRecordId: targetRecord.id,
+    twoHandedLocation: {
+      entityId: targetRecord.entityId,
+      placement: "bothHands",
+    },
+    displacedLocation: zoneToLocation(activeData.zone, activeData.index),
+  };
+}
+
+function canOccupyBothHands(
+  activeRecordId: InventoryRecordId,
+  entityId: EntityId,
+  records: InventoryRecord[],
+): boolean {
+  const occupancy = getHandOccupancy(entityId, withoutRecord(activeRecordId, records));
+
+  return !occupancy.leftHand && !occupancy.rightHand && !occupancy.bothHands;
+}
+
+function canSwapSingleHandForTwoHandedRecord(
+  activeRecordId: InventoryRecordId,
+  targetRecord: InventoryRecord,
+  records: InventoryRecord[],
+): boolean {
+  const occupancy = getHandOccupancy(
+    targetRecord.entityId,
+    withoutRecord(activeRecordId, records),
+  );
+
+  if (occupancy.bothHands) {
+    return false;
+  }
+
+  const otherHandRecordId =
+    targetRecord.location.kind === "equipped" &&
+    targetRecord.location.placement === "leftHand"
+      ? occupancy.rightHand
+      : occupancy.leftHand;
+
+  const targetHandRecordId =
+    targetRecord.location.kind === "equipped" &&
+    targetRecord.location.placement === "leftHand"
+      ? occupancy.leftHand
+      : occupancy.rightHand;
+
+  return targetHandRecordId === targetRecord.id && !otherHandRecordId;
+}
+
+function withoutRecord(
+  recordId: InventoryRecordId,
+  records: InventoryRecord[],
+): InventoryRecord[] {
+  return records.filter((record) => record.id !== recordId);
+}
+
+function isSingleHandPlacement(
+  placement: string,
+): placement is "leftHand" | "rightHand" {
+  return placement === "leftHand" || placement === "rightHand";
+}
+
+function isSingleHandLocation(record: InventoryRecord): boolean {
+  return (
+    record.location.kind === "equipped" &&
+    isSingleHandPlacement(record.location.placement)
+  );
 }
 
 /**

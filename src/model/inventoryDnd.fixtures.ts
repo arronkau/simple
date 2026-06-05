@@ -3,10 +3,12 @@ import {
   parseZoneId,
   resolveEntityReorderIndex,
   resolveRecordDrop,
+  resolveRecordDropWithInventory,
   type DragZone,
   type RecordDragData,
   type RecordDropData,
 } from "./inventoryDnd";
+import type { InventoryRecord } from "./types";
 
 const equippedZone: DragZone = {
   entityId: "entity-1",
@@ -28,6 +30,71 @@ const draggedRecord: RecordDragData = {
   recordId: "rope-1",
   zone: equippedZone,
   index: 1,
+};
+
+const sourceZone: DragZone = {
+  entityId: "entity-1",
+  placement: "container",
+  containerId: "pack-1",
+};
+
+const twoHandedDrag: RecordDragData = {
+  type: "record",
+  kind: "item",
+  recordId: "spear-1",
+  zone: sourceZone,
+  index: 0,
+};
+
+const twoHandedRecord: InventoryRecord = {
+  id: "spear-1",
+  entityId: "entity-1",
+  recordType: "weapon",
+  name: "Spear",
+  location: {
+    kind: "container",
+    containerId: "pack-1",
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 2,
+  weapon: {
+    damage: "1d6",
+  },
+};
+
+const oneHandedRecord: InventoryRecord = {
+  id: "mace-1",
+  entityId: "entity-1",
+  recordType: "weapon",
+  name: "Mace",
+  location: {
+    kind: "equipped",
+    placement: "leftHand",
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  weapon: {
+    damage: "1d6",
+  },
+};
+
+const offHandRecord: InventoryRecord = {
+  ...oneHandedRecord,
+  id: "shield-1",
+  recordType: "armor",
+  name: "Shield",
+  location: {
+    kind: "equipped",
+    placement: "rightHand",
+  },
+  armor: {
+    armorBonus: 1,
+  },
+  weapon: undefined,
 };
 
 function itemTarget(recordId: string, zone: DragZone, index: number): RecordDropData {
@@ -186,6 +253,75 @@ export const INVENTORY_DND_MANUAL_FIXTURES = [
           placement: "leftHand",
         },
       },
+    },
+  },
+  {
+    name: "inventory dnd places two-handed hand slot drops into both hands",
+    actual: {
+      emptyHands: resolveRecordDropWithInventory(
+        twoHandedDrag,
+        {
+          type: "record",
+          kind: "slot",
+          entityId: "entity-1",
+          placement: "leftHand",
+        },
+        [twoHandedRecord],
+      ),
+      occupiedHands: resolveRecordDropWithInventory(
+        twoHandedDrag,
+        {
+          type: "record",
+          kind: "slot",
+          entityId: "entity-1",
+          placement: "rightHand",
+        },
+        [twoHandedRecord, oneHandedRecord],
+      ),
+    },
+    expected: {
+      emptyHands: {
+        kind: "move",
+        recordId: "spear-1",
+        location: {
+          entityId: "entity-1",
+          placement: "bothHands",
+        },
+      },
+      occupiedHands: null,
+    },
+  },
+  {
+    name: "inventory dnd swaps two-handed item with lone one-handed hand item",
+    actual: {
+      allowed: resolveRecordDropWithInventory(
+        twoHandedDrag,
+        itemTarget("mace-1", { entityId: "entity-1", placement: "leftHand" }, 0),
+        [twoHandedRecord, oneHandedRecord],
+      ),
+      blockedOtherHandOccupied: resolveRecordDropWithInventory(
+        twoHandedDrag,
+        itemTarget("mace-1", { entityId: "entity-1", placement: "leftHand" }, 0),
+        [twoHandedRecord, oneHandedRecord, offHandRecord],
+      ),
+    },
+    expected: {
+      allowed: {
+        kind: "twoHandSwap",
+        twoHandedRecordId: "spear-1",
+        displacedRecordId: "mace-1",
+        twoHandedLocation: {
+          entityId: "entity-1",
+          placement: "bothHands",
+        },
+        displacedLocation: {
+          entityId: "entity-1",
+          placement: "container",
+          containerId: "pack-1",
+          targetIndex: 0,
+        },
+      },
+      blockedOtherHandOccupied: null,
     },
   },
   {
