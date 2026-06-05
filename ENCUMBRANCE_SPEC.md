@@ -4,7 +4,7 @@
 
 Define movement and encumbrance behavior for the inventory app.
 
-This file is the source of truth for movement-rate calculations, encumbrance warnings, and the distinction between equipped and stowed carried items. Data model fields belong in `MODEL_SPEC.md`. UI layout belongs in `INVENTORY_VIEW_SPEC.md`.
+This file is the source of truth for movement-rate calculations, encumbrance warnings, and the distinction between equipped and stowed carried items. Data model fields belong in `MODEL_SPEC.md`. UI layout belongs outside this file.
 
 ## Terminology Mapping
 
@@ -35,8 +35,11 @@ Maximum load:
 
 - More than 9 equipped items means the character cannot move.
 - More than 16 stowed items means the character cannot move.
+- More than 16 total equipped + stowed items means the character cannot move.
+- A container over capacity on a character-like entity is an overload condition and the character cannot move.
+- A non-empty hands-required container that is not held/equipped is an overload condition and the character cannot move.
 
-The slower of the equipped-rate lookup and stowed-rate lookup is the character's movement rate.
+The slower of the equipped-rate lookup and stowed-rate lookup is the character's movement rate when no overload condition applies.
 
 ## Core Types
 
@@ -62,7 +65,7 @@ export type CharacterEncumbranceResult = {
   stowedRate: MovementRate;
   movement: MovementRate;
   overloaded: boolean;
-  overloadedReason?: "equipped" | "stowed" | "both";
+  overloadedReason?: "equipped" | "stowed" | "both" | "container" | "invalid";
   band: EncumbranceBand;
 };
 
@@ -110,8 +113,8 @@ A contained record is excluded when any containing ancestor is a container recor
 
 For characters and retainers, stowed item count includes:
 
-- records inside the top-level stowed container, normally a backpack;
-- records inside ordinary containers that are themselves stowed in the backpack;
+- records inside the top-level stowed container, normally named Backpack;
+- records inside ordinary containers that are themselves stowed in the top-level stowed container;
 - the character-like entity's coin record in coin-purse placement;
 - other records that are effectively stowed by helper logic.
 
@@ -119,7 +122,7 @@ A record inside a hand-held container should not be counted as stowed for moveme
 
 ## Backpack and Coin Purse Treatment
 
-The backpack is a literal container.
+The top-level stowed container is a literal container, normally named Backpack. It is identified by `location.kind === "stowedRoot"`, not by special container metadata.
 
 The coin purse is not a real container. It is a character-like coin placement/display concept.
 
@@ -145,13 +148,13 @@ Some container records require hands via record-level `handsRequired`:
 Rules:
 
 - A container record with `handsRequired > 0` may contain items while held.
-- If it contains items and is not held, warn.
+- If it contains items and is not held/equipped, it creates an overload condition: the character cannot move.
 - If held, the container occupies the appropriate hand placement.
 - Its contents remain modeled as container contents.
 - The held container itself counts toward movement-restricting encumbrance.
 - Contents inside any hand-held container are excluded from movement-restricting encumbrance.
 - The app should still show the held container's contained slot total for visibility.
-- A non-empty hands-required container that is not held should warn.
+- A non-empty hands-required container that is not held/equipped creates an overload condition: the character cannot move.
 
 ## Movement Lookup
 
@@ -212,8 +215,9 @@ Steps:
 5. Sum effective slot burden for records contributing to stowed burden.
 6. Look up equipped movement rate.
 7. Look up stowed movement rate.
-8. If either side is overloaded, return movement `0 / 0`.
-9. Otherwise return the slower movement rate.
+8. Compute total equipped + stowed burden.
+9. If either side is overloaded, total burden exceeds 16, a carried container is over capacity, or a non-empty hands-required container is not held/equipped, return movement `0 / 0`.
+10. Otherwise return the slower movement rate.
 
 ## Non-Character Capacity
 
@@ -442,6 +446,9 @@ The loaded held sack counts its own slot, but its contents do not count toward m
 - Character/retainer movement uses the slower of equipped and stowed movement lookups.
 - 10+ equipped items causes overloaded movement `0 / 0`.
 - 17+ stowed items causes overloaded movement `0 / 0`.
+- More than 16 total equipped + stowed items causes overloaded movement `0 / 0`.
+- Container over capacity on a character-like entity causes overloaded movement `0 / 0`.
+- A non-empty hands-required container not held/equipped causes overloaded movement `0 / 0`.
 - Mounts, vehicles, and storage use contents capacity, not equipped/stowed bands.
 - Backpack is a literal inventory record and follows the same container burden rules as other containers.
 - Containers always count their own slot burden whether empty or full.
@@ -451,12 +458,12 @@ The loaded held sack counts its own slot, but its contents do not count toward m
 - Contents inside hand-held containers are excluded from equipped and stowed movement burden.
 - The held container itself still counts.
 - The app still shows held container contained slot totals for visibility.
-- A hands-required container with contents warns when not held.
+- A hands-required container with contents overloads the character when not held/equipped.
 
 ## Non-Goals
 
 - No OSE coin-weight encumbrance for this campaign ruleset.
 - No automatic combat action or retrieval timing for carried sacks/containers.
-- No drag-and-drop dependency.
+- Drag-and-drop must use the same validated move and encumbrance logic as non-drag workflows.
 - No combat action automation.
 - No full vehicle movement rules.

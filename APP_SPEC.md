@@ -26,7 +26,6 @@ Use these files as the implementation source of truth:
 
 - `APP_SPEC.md` — app-level goals, constraints, tech stack, and persistence expectations.
 - `MODEL_SPEC.md` — canonical data model, interfaces, invariants, and derived calculations.
-- `INVENTORY_VIEW_SPEC.md` — canonical inventory UI layout and behavior.
 - `TASKS.md` — current implementation priorities and sequencing.
 
 Do not duplicate model rules inside view specs.
@@ -99,8 +98,8 @@ Local mode should:
 - Keep validation focused on preventing corrupt or nonsensical state.
 - Use warnings for table-adjudicated problems where strict enforcement would slow play.
 - Favor minimal diffs and no unrelated refactors during implementation.
-- Do not implement drag-and-drop in the initial pass.
-- Do not include legacy migration code or legacy terminology.
+- Drag-and-drop is allowed when it uses the same validation and move semantics as non-drag workflows.
+- Legacy migration code is allowed where needed to safely read older stored data, but canonical current-state terminology should remain `entity`, `stowed`, and top-level stowed container terminology.
 - Use `entity` terminology everywhere.
 
 ## Core Inventory Rules
@@ -142,13 +141,13 @@ For character-like entities, stowed inventory is allowed only in:
 - A valid container inside the top-level stowed container.
 - A valid container currently held in hand.
 
-On character or retainer creation, create exactly one default backpack record.
+On character or retainer creation, create exactly one default top-level stowed container record, normally named Backpack.
 
 Validation hard rule: a character-like entity may not have more than one top-level stowed container.
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 #### Coin Purse
 
@@ -174,7 +173,7 @@ These entities may contain:
 - Containers
 - Records inside containers
 
-Mounts, vehicles, and storage do not require a backpack or coin purse.
+Mounts, vehicles, and storage do not require a top-level stowed container or coin purse.
 
 Coin records for mounts, vehicles, and storage may be placed directly in contents or inside ordinary containers.
 
@@ -276,5 +275,5 @@ The app should eventually include:
 - No separate item-definition database for v1 unless imported reference data already exists.
 - No exhaustive magic-item rules engine.
 - No strict enforcement of every encumbrance edge case unless it prevents invalid state.
-- No drag-and-drop in the initial implementation.
+- Drag-and-drop must not bypass validated move/swap behavior.
 - No unrelated visual redesign while implementing the model.

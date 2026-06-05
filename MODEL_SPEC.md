@@ -6,7 +6,7 @@ Define the canonical data model for the app.
 
 This file is the source of truth for TypeScript interfaces, required and optional fields, invariants, and derived calculations.
 
-UI layout belongs in `INVENTORY_VIEW_SPEC.md`.
+UI layout belongs outside this model spec.
 
 ## Principles
 
@@ -18,8 +18,8 @@ UI layout belongs in `INVENTORY_VIEW_SPEC.md`.
 - Prefer warnings over hard blocks except where data would become corrupt or nonsensical.
 - Use equipped/stowed only for character-like entities.
 - Use contents-only inventory for mounts, vehicles, and storage.
-- Do not add legacy migration code.
-- Do not use legacy terminology.
+- Legacy migration code is allowed where needed to safely read older stored data.
+- Use current canonical terminology in new model code and UI.
 - Use `entity` terminology everywhere.
 
 ## App State
@@ -64,7 +64,8 @@ export type AuditEventType =
   | "inventoryRecordDeleted"
   | "inventoryRecordMoved"
   | "coinsChanged"
-  | "treasureValueChanged";
+  | "treasureValueChanged"
+  | "inventoryRecordIdentified";
 
 export type AuditLogDetailValue = string | number | boolean | null;
 
@@ -86,7 +87,7 @@ Audit log rules:
 - Do not log failed validation attempts, temporary form state, remote snapshot application, or reset state.
 - Log entity create/delete and active/inactive changes.
 - Log inventory record create/delete.
-- Log record moves when the location or entity changes.
+- Log record moves only when the owning entity changes. Do not log reordering or movement within the same entity.
 - Log character coin merges with denomination deltas where practical.
 - Log treasure value edits when the value changes.
 - Use `actorLabel: "Local user"` until app-level actor identity exists.
@@ -143,15 +144,15 @@ entity.entityType === "character" || entity.entityType === "retainer"
 
 Character-like entities use equipped/stowed locations.
 
-On character or retainer creation, create exactly one default backpack record.
+On character or retainer creation, create exactly one default top-level stowed container record, normally named Backpack.
 
-That backpack is a normal `recordType: "equipment"` record with `container` data and `container.isBackpack === true`.
+That record is a normal `recordType: "equipment"` record with `container` data and `location.kind === "stowedRoot"`. Do not use `container.isBackpack`; top-level stowed-container role is determined by location, not special metadata.
 
 Validation hard rule: a character-like entity may not have more than one top-level stowed container. The default backpack normally fills this role, but the invariant is about stowed-root placement, not the item name.
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 ## Non-Character Entities
 
@@ -172,7 +173,7 @@ They do not use:
 - stowed placement
 - hands
 - coin purse
-- backpack requirement
+- top-level stowed-container requirement
 
 Mounts, vehicles, and storage may contain coin records directly in contents or inside ordinary containers.
 
@@ -438,7 +439,6 @@ export type ContainerData = {
   capacitySlots: number;
   /** @deprecated Use record-level handsRequired. */
   handsRequired?: 0 | 1 | 2;
-  isBackpack?: boolean;
   /** @deprecated Containers always count own slots plus contents. */
   burdenMode?: "contentsOnlyWhenLoaded" | "containerPlusContents" | "fixedOnly";
 };
@@ -449,39 +449,40 @@ export type ContainerData = {
 - A container is any non-coin `InventoryRecord` with `container` data.
 - `capacitySlots` is required and must be `>= 0`.
 - Legacy `container.handsRequired` may be read only to derive missing record-level `handsRequired`.
-- `isBackpack` defaults to `false`.
 - Legacy `burdenMode` may exist in saved data but must not change slot accounting.
-- On character or retainer creation, create exactly one default backpack record.
+- On character or retainer creation, create exactly one default top-level stowed container record, normally named Backpack.
 - A character-like entity may not have more than one top-level stowed container.
 - An existing character-like entity with zero top-level stowed containers should warn.
-- A backpack container should normally use record-level `handsRequired: 0`.
-- A non-empty container with nonzero record-level `handsRequired` should warn if it is not being held or equipped.
+- The default top-level stowed container should normally use record-level `handsRequired: 0`.
+- A non-empty container with nonzero record-level `handsRequired` creates an overload condition if it is not being held or equipped.
 - A non-empty hands-required container may contain records even while the container itself is equipped.
 - Containers always count their own slot burden whether empty or full.
 - Contents inside containers also count toward movement encumbrance, except when the container is carried in hand.
 - When a container is carried in hand, the container itself still counts but its contents are excluded from movement encumbrance.
 - Empty containers may be placed inside another container.
-- A container nested inside another container may receive contents only if it is first moved out, unless a later task explicitly allows nested non-empty containers.
-- Non-empty containers may not be placed inside another container for v1.
+- A container nested inside another container may contain ordinary non-container records.
+- Nested containers may not contain additional containers.
+- Non-empty containers may not be moved into another container unless the resulting containment still satisfies the one-level nesting rule.
 - Container cycles are invalid.
 - Deleting a non-empty container should be blocked unless a later task adds explicit delete-with-contents behavior.
 
-### Backpack Rules
+### Top-Level Stowed Container Rules
 
-- The backpack is a real inventory record.
-- On character or retainer creation, create exactly one default backpack record.
+- The top-level stowed container is a real inventory record, normally named Backpack.
+- On character or retainer creation, create exactly one default top-level stowed container record.
 - Validation hard rule: a character-like entity may not have more than one top-level stowed container.
 - Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 - Move/add hard rule: non-coin stowed records must be placed inside a valid container.
-- The backpack is represented by an `InventoryRecord` with `recordType: "equipment"` and `container.isBackpack === true`.
-- Additional containers, including backpacks, may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
-- Character-like stowed non-coin records directly in the backpack use `kind: "container"` and `containerId` set to the backpack record ID.
-- The UI should offer an action to create a backpack for a character-like entity if missing.
+- The top-level stowed container is represented by an `InventoryRecord` with `recordType: "equipment"`, `container` data, and `location.kind === "stowedRoot"`.
+- Do not use `container.isBackpack` or any replacement special-case flag. The stowed-root role is location-derived.
+- Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+- Character-like stowed non-coin records directly in the top-level stowed container use `kind: "container"` and `containerId` set to the stowed-root record ID.
+- The UI should offer an action to create a top-level stowed container for a character-like entity if missing.
 
-Suggested default backpack factory:
+Suggested default top-level stowed container factory:
 
 ```ts
-const createDefaultBackpack = (entityId: EntityId): InventoryRecord => ({
+const createDefaultTopLevelStowedContainer = (entityId: EntityId): InventoryRecord => ({
   id: generatedId,
   recordType: "equipment",
   name: "Backpack",
@@ -495,7 +496,6 @@ const createDefaultBackpack = (entityId: EntityId): InventoryRecord => ({
   handsRequired: 0,
   container: {
     capacitySlots: 16,
-    isBackpack: true,
   },
 });
 ```
@@ -720,7 +720,15 @@ isContainerOverCapacity = containerUsedSlots > container.capacitySlots
 
 ### Character-Like Movement
 
-Movement is determined by the slower of equipped and stowed burden.
+Movement is determined by the slower of equipped and stowed burden when no overload condition applies.
+
+The following are overload conditions and set movement to `0 / 0`:
+
+- Equipped burden above the equipped limit.
+- Stowed burden above the stowed limit.
+- Total equipped + stowed burden above 16 slots.
+- Container over capacity on a character-like entity.
+- Non-empty hands-required container not currently held/equipped.
 
 For v1, keep the movement tier logic in one calculation module.
 
@@ -772,7 +780,7 @@ The app should prevent state that violates these invariants:
 - Character-like entities have at most one coin record.
 - Non-character entities may have multiple coin records if each has a valid contents/container location.
 - Character-like coins use only `recordType: "coins"`, `coins`, and stowed coin-purse location.
-- Non-character coins use only `recordType: "coins"`, `coins`, and contents location.
+- Non-character coins use only `recordType: "coins"`, `coins`, and a valid contents or container location.
 - Treasure records do not use identification data.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.
@@ -781,8 +789,8 @@ The app should prevent state that violates these invariants:
 - If a record uses `leftHand`, no other record may use `leftHand` or `bothHands`.
 - If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
 - A record cannot be placed inside a non-container.
-- A non-empty container cannot be placed inside another container for v1.
-- A container nested inside another container cannot receive contents until it is first moved out.
+- A nested container may contain ordinary non-container records.
+- A nested container may not contain another container.
 - All non-coin records must have a non-empty trimmed `name`.
 
 ## Soft Warnings
@@ -790,9 +798,8 @@ The app should prevent state that violates these invariants:
 The app may warn without blocking for:
 
 - Entity over capacity.
-- Container over capacity.
+- Container over capacity on non-character entities.
 - Character-like entity missing a top-level stowed container.
-- Attempting to stow a non-coin character-like record when no backpack exists.
-- Non-empty hands-required container not currently held/equipped.
+- Attempting to stow a non-coin character-like record when no top-level stowed container exists.
 - Missing optional metadata.
 - Unidentified equipment, armor, or weapon lacking an unidentified name.
