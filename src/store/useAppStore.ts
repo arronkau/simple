@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   createEntity,
   getNextEntitySortOrder,
+  getSortedEntities,
   isCharacterLikeEntityType,
   type UpdateEntityInput,
 } from "../model/entities";
@@ -81,6 +82,11 @@ type AppStore = {
     recordId: InventoryRecordId,
     location: InventoryRecordLocationInput,
   ) => InventoryMutationResult;
+  swapInventoryRecords: (
+    recordIdA: InventoryRecordId,
+    recordIdB: InventoryRecordId,
+  ) => InventoryMutationResult;
+  reorderEntity: (entityId: EntityId, targetIndex: number) => void;
   identifyInventoryRecord: (
     recordId: InventoryRecordId,
   ) => InventoryMutationResult;
@@ -608,6 +614,7 @@ export const useAppStore = create<AppStore>((set) => ({
         records: state.appState.inventoryRecords,
         entityId: entity.id,
         location: locationResult.location,
+        targetIndex: location.targetIndex,
       });
       const validationResult = validateInventoryState(
         state.appState.entities,
@@ -652,6 +659,181 @@ export const useAppStore = create<AppStore>((set) => ({
     });
 
     return result;
+  },
+  swapInventoryRecords: (recordIdA, recordIdB) => {
+    if (recordIdA === recordIdB) {
+      return { ok: true, recordId: recordIdA };
+    }
+
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    set((state) => {
+      const recordA = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordIdA,
+      );
+      const recordB = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordIdB,
+      );
+
+      if (!recordA || !recordB) {
+        return state;
+      }
+
+      const descendantsOfA = getMoveDescendantRecordIds(
+        recordIdA,
+        state.appState.inventoryRecords,
+      );
+      const descendantsOfB = getMoveDescendantRecordIds(
+        recordIdB,
+        state.appState.inventoryRecords,
+      );
+
+      if (descendantsOfA.has(recordIdB) || descendantsOfB.has(recordIdA)) {
+        result = {
+          ok: false,
+          message: "Cannot swap a container with its own contents.",
+        };
+        return state;
+      }
+
+      const nextInventoryRecords = state.appState.inventoryRecords.map(
+        (candidateRecord) => {
+          if (candidateRecord.id === recordIdA) {
+            return {
+              ...candidateRecord,
+              entityId: recordB.entityId,
+              location: recordB.location,
+              sortOrder: recordB.sortOrder,
+            };
+          }
+
+          if (candidateRecord.id === recordIdB) {
+            return {
+              ...candidateRecord,
+              entityId: recordA.entityId,
+              location: recordA.location,
+              sortOrder: recordA.sortOrder,
+            };
+          }
+
+          if (descendantsOfA.has(candidateRecord.id)) {
+            return { ...candidateRecord, entityId: recordB.entityId };
+          }
+
+          if (descendantsOfB.has(candidateRecord.id)) {
+            return { ...candidateRecord, entityId: recordA.entityId };
+          }
+
+          return candidateRecord;
+        },
+      );
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid swap.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId: recordIdA };
+
+      const swapAuditEntries: AuditLogEntryInput[] = [];
+      const swapPairs: Array<{
+        record: InventoryRecord;
+        nextEntityId: EntityId;
+        nextLocation: InventoryLocation;
+      }> = [
+        {
+          record: recordA,
+          nextEntityId: recordB.entityId,
+          nextLocation: recordB.location,
+        },
+        {
+          record: recordB,
+          nextEntityId: recordA.entityId,
+          nextLocation: recordA.location,
+        },
+      ];
+
+      for (const { record, nextEntityId, nextLocation } of swapPairs) {
+        if (
+          record.entityId !== nextEntityId ||
+          !areInventoryLocationsEqual(record.location, nextLocation)
+        ) {
+          swapAuditEntries.push(
+            createInventoryMoveAuditEntryInput({
+              entities: state.appState.entities,
+              record,
+              previousEntityId: record.entityId,
+              previousLocation: record.location,
+              nextEntityId,
+              nextLocation,
+            }),
+          );
+        }
+      }
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: nextInventoryRecords,
+          },
+          swapAuditEntries,
+        ),
+      };
+    });
+
+    return result;
+  },
+  reorderEntity: (entityId, targetIndex) => {
+    set((state) => {
+      const sortedEntities = getSortedEntities(state.appState.entities);
+      const currentIndex = sortedEntities.findIndex(
+        (entity) => entity.id === entityId,
+      );
+
+      if (currentIndex === -1) {
+        return state;
+      }
+
+      const clampedIndex = Math.max(
+        0,
+        Math.min(targetIndex, sortedEntities.length - 1),
+      );
+
+      if (clampedIndex === currentIndex) {
+        return state;
+      }
+
+      const reorderedEntities = [...sortedEntities];
+      const [movedEntity] = reorderedEntities.splice(currentIndex, 1);
+      reorderedEntities.splice(clampedIndex, 0, movedEntity);
+      const sortOrderByEntityId = new Map(
+        reorderedEntities.map((entity, index) => [entity.id, index * 1000]),
+      );
+
+      return {
+        appState: {
+          ...state.appState,
+          entities: state.appState.entities.map((entity) => {
+            const nextSortOrder = sortOrderByEntityId.get(entity.id);
+
+            return nextSortOrder === undefined
+              ? entity
+              : { ...entity, sortOrder: nextSortOrder };
+          }),
+        },
+      };
+    });
   },
   identifyInventoryRecord: (recordId) => {
     let result: InventoryMutationResult = {

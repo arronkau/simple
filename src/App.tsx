@@ -2,11 +2,49 @@ import {
   ChangeEvent,
   FormEvent,
   Fragment,
+  ReactNode,
   useEffect,
   useMemo,
   useState,
 } from "react";
 import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  pointerWithin,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import type { KeyboardCoordinateGetter } from "@dnd-kit/core";
+import {
+  rectSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  areZonesEqual,
+  entityDefaultDropId,
+  gapDropId,
+  resolveEntityReorderIndex,
+  resolveRecordDrop,
+  slotDropId,
+  type DragZone,
+  type EntityDragData,
+  type RecordDragData,
+  type RecordDropData,
+} from "./model/inventoryDnd";
 import { APP_STATE_STORAGE_KEY, parseAppState } from "./model/appState";
 import {
   DEFAULT_AUDIT_ACTOR_LABEL,
@@ -879,23 +917,18 @@ function InventoryPage({
       {sortedEntities.length === 0 ? (
         <p className="empty-state">No entities yet.</p>
       ) : (
-        <ul className="entity-list inventory-entity-grid" aria-label="Inventory entities">
-          {sortedEntities.map((entity) => (
-            <EntityInventoryRow
-              appState={appState}
-              collapsedContainerIds={collapsedContainerIds}
-              entity={entity}
-              key={entity.id}
-              onDeleteRecord={onDeleteRecord}
-              onEditEntity={onEditEntity}
-              onEditRecord={onEditRecord}
-              onIdentifyRecord={onIdentifyRecord}
-              onSpendCoins={onSpendCoins}
-              onStartAddRecord={onStartAddRecord}
-              onToggleContainerCollapsed={onToggleContainerCollapsed}
-            />
-          ))}
-        </ul>
+        <InventoryEntityBoard
+          appState={appState}
+          collapsedContainerIds={collapsedContainerIds}
+          sortedEntities={sortedEntities}
+          onDeleteRecord={onDeleteRecord}
+          onEditEntity={onEditEntity}
+          onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
+          onSpendCoins={onSpendCoins}
+          onStartAddRecord={onStartAddRecord}
+          onToggleContainerCollapsed={onToggleContainerCollapsed}
+        />
       )}
 
       {recordForm && recordFormEntity ? (
@@ -1121,10 +1154,289 @@ function EntityEditModal({
   );
 }
 
+/**
+ * Collision detection scoped to the active drag type so entity drags only
+ * resolve against entity targets and record drags only against record zones.
+ * Prefers pointer-within (precise) and falls back to closest-center so empty
+ * zones and thin gaps remain reachable.
+ */
+const dragTypeScopedCollisionDetection: CollisionDetection = (args) => {
+  const activeType = args.active.data.current?.type;
+  // Keyboard dragging has no pointer coordinates. The fine-grained gap drop
+  // zones are great for pointer precision but make keyboard navigation snap
+  // erratically (often back onto the dragged row), so we drop them for keyboard
+  // and let the move land cleanly on item/slot targets instead.
+  const isKeyboard = args.pointerCoordinates === null;
+  const droppableContainers = args.droppableContainers.filter((container) => {
+    if (container.data.current?.type !== activeType) {
+      return false;
+    }
+
+    return !(isKeyboard && container.data.current?.kind === "gap");
+  });
+  const scopedArgs = { ...args, droppableContainers };
+  const pointerCollisions = pointerWithin(scopedArgs);
+
+  return pointerCollisions.length > 0
+    ? pointerCollisions
+    : closestCenter(scopedArgs);
+};
+
+const ARROW_KEY_CODES = ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"];
+
+/**
+ * Keyboard movement getter. Entity cards live in a responsive grid whose cards
+ * have very different heights, which defeats dnd-kit's geometry-based default
+ * for horizontal arrows. For entity drags we step to the previous/next card in
+ * reading order; record drags use the standard sortable getter.
+ */
+const inventoryKeyboardCoordinates: KeyboardCoordinateGetter = (event, args) => {
+  const { context } = args;
+
+  if (
+    context.active?.data.current?.type === "entity" &&
+    ARROW_KEY_CODES.includes(event.code)
+  ) {
+    event.preventDefault();
+
+    const entityTargets = context.droppableContainers
+      .getEnabled()
+      .filter((container) => container.data.current?.type === "entity")
+      .map((container) => ({
+        id: container.id,
+        rect: context.droppableRects.get(container.id),
+      }))
+      .filter(
+        (target): target is { id: typeof target.id; rect: NonNullable<typeof target.rect> } =>
+          Boolean(target.rect),
+      )
+      .sort((left, right) => left.rect.top - right.rect.top || left.rect.left - right.rect.left);
+
+    if (entityTargets.length === 0) {
+      return undefined;
+    }
+
+    const currentId = context.over?.id ?? context.active?.id;
+    const currentIndex = entityTargets.findIndex(
+      (target) => target.id === currentId,
+    );
+    const forward = event.code === "ArrowRight" || event.code === "ArrowDown";
+    const nextIndex = Math.max(
+      0,
+      Math.min(
+        (currentIndex === -1 ? 0 : currentIndex) + (forward ? 1 : -1),
+        entityTargets.length - 1,
+      ),
+    );
+    const target = entityTargets[nextIndex];
+
+    return {
+      x: target.rect.left + target.rect.width / 2,
+      y: target.rect.top + target.rect.height / 2,
+    };
+  }
+
+  return sortableKeyboardCoordinates(event, args);
+};
+
+type EntityRowCallbacks = {
+  onDeleteRecord: (record: InventoryRecord) => void;
+  onEditEntity: (entity: Entity) => void;
+  onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onSpendCoins: (record: InventoryRecord) => void;
+  onStartAddRecord: (entity: Entity) => void;
+  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
+};
+
+function InventoryEntityBoard({
+  appState,
+  collapsedContainerIds,
+  sortedEntities,
+  onDeleteRecord,
+  onEditEntity,
+  onEditRecord,
+  onIdentifyRecord,
+  onSpendCoins,
+  onStartAddRecord,
+  onToggleContainerCollapsed,
+}: {
+  appState: AppState;
+  collapsedContainerIds: Set<InventoryRecordId>;
+  sortedEntities: Entity[];
+} & EntityRowCallbacks) {
+  const moveInventoryRecord = useAppStore((state) => state.moveInventoryRecord);
+  const swapInventoryRecords = useAppStore(
+    (state) => state.swapInventoryRecords,
+  );
+  const reorderEntity = useAppStore((state) => state.reorderEntity);
+  const [activeDrag, setActiveDrag] = useState<ActiveDrag | undefined>();
+  const [dragMessage, setDragMessage] = useState<string | undefined>();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const entityIds = sortedEntities.map((entity) => entity.id);
+
+  function handleDragStart(event: DragStartEvent) {
+    const data = event.active.data.current as
+      | RecordDragData
+      | EntityDragData
+      | undefined;
+
+    if (!data) {
+      return;
+    }
+
+    setActiveDrag(
+      data.type === "entity"
+        ? { type: "entity", entityId: data.entityId }
+        : { type: "record", recordId: data.recordId },
+    );
+    setDragMessage(undefined);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDrag(undefined);
+
+    const activeData = event.active.data.current as
+      | RecordDragData
+      | EntityDragData
+      | undefined;
+    const overData = event.over?.data.current as
+      | RecordDropData
+      | EntityDragData
+      | undefined;
+
+    if (!activeData) {
+      return;
+    }
+
+    if (activeData.type === "entity") {
+      if (!overData || overData.type !== "entity") {
+        return;
+      }
+
+      const targetIndex = resolveEntityReorderIndex(
+        entityIds,
+        activeData.entityId,
+        overData.entityId,
+      );
+
+      if (targetIndex !== null) {
+        reorderEntity(activeData.entityId, targetIndex);
+      }
+
+      return;
+    }
+
+    const resolution = resolveRecordDrop(
+      activeData,
+      overData?.type === "record" ? (overData as RecordDropData) : undefined,
+    );
+
+    if (!resolution) {
+      return;
+    }
+
+    if (resolution.kind === "move") {
+      const result = moveInventoryRecord(resolution.recordId, resolution.location);
+
+      if (!result.ok) {
+        setDragMessage(result.message);
+      }
+
+      return;
+    }
+
+    const swapResult = swapInventoryRecords(
+      resolution.recordIdA,
+      resolution.recordIdB,
+    );
+
+    if (!swapResult.ok) {
+      const fallbackResult = moveInventoryRecord(
+        resolution.fallback.recordId,
+        resolution.fallback.location,
+      );
+
+      if (!fallbackResult.ok) {
+        setDragMessage(fallbackResult.message);
+      }
+    }
+  }
+
+  const activeRecord =
+    activeDrag?.type === "record"
+      ? getRecordById(activeDrag.recordId, appState.inventoryRecords)
+      : undefined;
+  const activeEntity =
+    activeDrag?.type === "entity"
+      ? appState.entities.find((entity) => entity.id === activeDrag.entityId)
+      : undefined;
+
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={dragTypeScopedCollisionDetection}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveDrag(undefined)}
+    >
+      <SortableContext items={entityIds} strategy={rectSortingStrategy}>
+        <ul
+          className="entity-list inventory-entity-grid"
+          aria-label="Inventory entities"
+        >
+          {sortedEntities.map((entity, index) => (
+            <EntityInventoryRow
+              appState={appState}
+              collapsedContainerIds={collapsedContainerIds}
+              entity={entity}
+              index={index}
+              key={entity.id}
+              onDeleteRecord={onDeleteRecord}
+              onEditEntity={onEditEntity}
+              onEditRecord={onEditRecord}
+              onIdentifyRecord={onIdentifyRecord}
+              onSpendCoins={onSpendCoins}
+              onStartAddRecord={onStartAddRecord}
+              onToggleContainerCollapsed={onToggleContainerCollapsed}
+            />
+          ))}
+        </ul>
+      </SortableContext>
+
+      <DragOverlay>
+        {activeRecord ? (
+          <div className="record-row drag-overlay-card">
+            <InventoryRowSummary
+              record={activeRecord}
+              allRecords={appState.inventoryRecords}
+            />
+          </div>
+        ) : activeEntity ? (
+          <div className="drag-overlay-card drag-overlay-entity">
+            {activeEntity.name}
+          </div>
+        ) : null}
+      </DragOverlay>
+
+      <div className="drag-live-region" role="status" aria-live="polite">
+        {dragMessage ?? ""}
+      </div>
+    </DndContext>
+  );
+}
+
 function EntityInventoryRow({
   appState,
   collapsedContainerIds,
   entity,
+  index,
   onDeleteRecord,
   onEditEntity,
   onEditRecord,
@@ -1136,21 +1448,46 @@ function EntityInventoryRow({
   appState: AppState;
   collapsedContainerIds: Set<InventoryRecordId>;
   entity: Entity;
-  onDeleteRecord: (record: InventoryRecord) => void;
-  onEditEntity: (entity: Entity) => void;
-  onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
-  onSpendCoins: (record: InventoryRecord) => void;
-  onStartAddRecord: (entity: Entity) => void;
-  onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
-}) {
+  index: number;
+} & EntityRowCallbacks) {
+  const data: EntityDragData = { type: "entity", entityId: entity.id, index };
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entity.id, data });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
   return (
-    <li className="entity-row" data-inactive={!entity.active}>
-      <EntitySummary
-        appState={appState}
-        entity={entity}
-        onEditEntity={onEditEntity}
-      />
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`entity-row${isDragging ? " dragging" : ""}`}
+      data-inactive={!entity.active}
+    >
+      <EntityDefaultDropZone entityId={entity.id}>
+        <EntitySummary
+          appState={appState}
+          entity={entity}
+          onEditEntity={onEditEntity}
+          dragHandle={
+            <DragHandle
+              attributes={attributes as unknown as Record<string, unknown>}
+              listeners={listeners as unknown as Record<string, unknown> | undefined}
+              setActivatorNodeRef={setActivatorNodeRef}
+              label={`Reorder ${entity.name}`}
+              className="drag-handle entity-drag-handle"
+            />
+          }
+        />
+      </EntityDefaultDropZone>
 
       <InventoryDisplay
         entity={entity}
@@ -1171,29 +1508,36 @@ function EntitySummary({
   appState,
   entity,
   onEditEntity,
+  dragHandle,
 }: {
   appState: AppState;
   entity: Entity;
   onEditEntity?: (entity: Entity) => void;
+  dragHandle?: ReactNode;
 }) {
   const status = getEntityInventoryStatus(entity, appState);
 
   return (
     <div className="entity-main">
       <div className="entity-card-heading">
-        <div>
-          {onEditEntity ? (
-            <button
-              className="entity-title-button"
-              type="button"
-              onClick={() => onEditEntity(entity)}
-            >
-              {entity.name}
-            </button>
-          ) : (
-            <h3>{entity.name}</h3>
-          )}
-          {!entity.active ? <p className="entity-subtle-status">Inactive</p> : null}
+        <div className="entity-card-title">
+          {dragHandle}
+          <div>
+            {onEditEntity ? (
+              <button
+                className="entity-title-button"
+                type="button"
+                onClick={() => onEditEntity(entity)}
+              >
+                {entity.name}
+              </button>
+            ) : (
+              <h3>{entity.name}</h3>
+            )}
+            {!entity.active ? (
+              <p className="entity-subtle-status">Inactive</p>
+            ) : null}
+          </div>
         </div>
         <EntityStatusSummary status={status} />
       </div>
@@ -2052,6 +2396,236 @@ function CharacterSheetPanel({
   );
 }
 
+type ActiveDrag =
+  | { type: "record"; recordId: InventoryRecordId }
+  | { type: "entity"; entityId: EntityId };
+
+function getRecordZone(record: InventoryRecord): DragZone {
+  return {
+    entityId: record.entityId,
+    placement: getLocationPlacementKey(record.location),
+    ...("containerId" in record.location
+      ? { containerId: record.location.containerId }
+      : {}),
+  };
+}
+
+function DragHandle({
+  attributes,
+  listeners,
+  setActivatorNodeRef,
+  label,
+  className = "drag-handle",
+}: {
+  attributes: Record<string, unknown>;
+  listeners: Record<string, unknown> | undefined;
+  setActivatorNodeRef?: (element: HTMLElement | null) => void;
+  label: string;
+  className?: string;
+}) {
+  return (
+    <button
+      ref={setActivatorNodeRef}
+      type="button"
+      className={className}
+      aria-label={label}
+      {...attributes}
+      {...listeners}
+    >
+      <span aria-hidden="true">⠿</span>
+    </button>
+  );
+}
+
+function SortableRecordItem({
+  record,
+  index,
+  zone,
+  children,
+}: {
+  record: InventoryRecord;
+  index: number;
+  zone: DragZone;
+  children: (handle: ReactNode) => ReactNode;
+}) {
+  const data: RecordDragData = {
+    type: "record",
+    kind: "item",
+    recordId: record.id,
+    zone,
+    index,
+    ...(record.recordType !== "coins" && record.container
+      ? { isContainer: true }
+      : {}),
+  };
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: record.id, data });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+  const handle = (
+    <DragHandle
+      attributes={attributes as unknown as Record<string, unknown>}
+      listeners={listeners as unknown as Record<string, unknown> | undefined}
+      setActivatorNodeRef={setActivatorNodeRef}
+      label={`Reorder ${getRecordDisplayName(record)}`}
+    />
+  );
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`record-list-item${isDragging ? " dragging" : ""}`}
+      data-record-id={record.id}
+    >
+      {children(handle)}
+    </li>
+  );
+}
+
+function DraggableRecordItem({
+  record,
+  zone,
+  children,
+}: {
+  record: InventoryRecord;
+  zone: DragZone;
+  children: (handle: ReactNode) => ReactNode;
+}) {
+  const data: RecordDragData = {
+    type: "record",
+    kind: "item",
+    recordId: record.id,
+    zone,
+    index: 0,
+    ...(record.recordType !== "coins" && record.container
+      ? { isContainer: true }
+      : {}),
+  };
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    isDragging,
+  } = useDraggable({ id: record.id, data });
+  const style = {
+    transform: CSS.Translate.toString(transform),
+  };
+  const handle = (
+    <DragHandle
+      attributes={attributes as unknown as Record<string, unknown>}
+      listeners={listeners as unknown as Record<string, unknown> | undefined}
+      setActivatorNodeRef={setActivatorNodeRef}
+      label={`Move ${getRecordDisplayName(record)}`}
+    />
+  );
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`record-draggable${isDragging ? " dragging" : ""}`}
+    >
+      {children(handle)}
+    </div>
+  );
+}
+
+function GapDropZone({
+  zone,
+  index,
+  empty = false,
+}: {
+  zone: DragZone;
+  index: number;
+  empty?: boolean;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: gapDropId(zone, index),
+    data: { type: "record", kind: "gap", zone, index },
+  });
+
+  if (empty) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={`record-list-empty-drop-target${isOver ? " drop-over" : ""}`}
+        data-drop-zone="empty-list"
+      >
+        <p className="empty-state compact">Empty</p>
+      </div>
+    );
+  }
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={`record-drop-zone${isOver ? " drop-over" : ""}`}
+      aria-hidden="true"
+      data-drop-zone="gap"
+    />
+  );
+}
+
+function SlotDropZone({
+  entityId,
+  placement,
+  className,
+  children,
+}: {
+  entityId: EntityId;
+  placement: ReturnType<typeof getLocationPlacementKey>;
+  className: string;
+  children: ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: slotDropId(entityId, placement),
+    data: { type: "record", kind: "slot", entityId, placement },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`${className}${isOver ? " drop-over" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function EntityDefaultDropZone({
+  entityId,
+  children,
+}: {
+  entityId: EntityId;
+  children: ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: entityDefaultDropId(entityId),
+    data: { type: "record", kind: "entityDefault", entityId },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`entity-default-drop${isOver ? " drop-over" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 function InventoryDisplay({
   entity,
   appState,
@@ -2085,6 +2659,7 @@ function InventoryDisplay({
 
       {sections.mode === "characterLike" ? (
         <CharacterInventoryDisplay
+          entityId={entity.id}
           sections={sections}
           records={appState.inventoryRecords}
           collapsedContainerIds={collapsedContainerIds}
@@ -2096,6 +2671,7 @@ function InventoryDisplay({
         />
       ) : (
         <ContentsInventoryDisplay
+          entityId={entity.id}
           contents={sections.contents}
           capacity={getContentsCapacity(entity, appState.inventoryRecords)}
           records={appState.inventoryRecords}
@@ -2153,6 +2729,7 @@ function EntityInventoryHeader({
 }
 
 function CharacterInventoryDisplay({
+  entityId,
   sections,
   records,
   collapsedContainerIds,
@@ -2162,6 +2739,7 @@ function CharacterInventoryDisplay({
   onSpendCoins,
   onToggleContainerCollapsed,
 }: {
+  entityId: EntityId;
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
   records: InventoryRecord[];
   collapsedContainerIds: Set<InventoryRecordId>;
@@ -2171,11 +2749,14 @@ function CharacterInventoryDisplay({
   onSpendCoins: (record: InventoryRecord) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
+  const coinPurseZone: DragZone = { entityId, placement: "coinPurse" };
+
   return (
     <div className="inventory-sections">
       <InventorySection title="Equipped">
         <InventorySubsection title="Hands">
           <HandRows
+            entityId={entityId}
             sections={sections}
             records={records}
             onEditRecord={onEditRecord}
@@ -2186,6 +2767,7 @@ function CharacterInventoryDisplay({
 
         <InventorySubsection title="Other equipped">
           <RecordList
+            zone={{ entityId, placement: "equippedLoose" }}
             records={sections.otherEquipped}
             allRecords={records}
             collapsedContainerIds={collapsedContainerIds}
@@ -2200,20 +2782,35 @@ function CharacterInventoryDisplay({
 
       <InventorySection title="Stowed">
         <InventorySubsection title="Coin purse">
-          {sections.coinRecord ? (
-            <CoinRecordRow
-              record={sections.coinRecord}
-              onEditRecord={onEditRecord}
-              onSpendCoins={onSpendCoins}
-            />
-          ) : (
-            <p className="empty-state compact">No coins</p>
-          )}
+          <SlotDropZone
+            entityId={entityId}
+            placement="coinPurse"
+            className="coin-purse-slot"
+          >
+            {sections.coinRecord ? (
+              <DraggableRecordItem
+                record={sections.coinRecord}
+                zone={coinPurseZone}
+              >
+                {(handle) => (
+                  <CoinRecordRow
+                    record={sections.coinRecord!}
+                    dragHandle={handle}
+                    onEditRecord={onEditRecord}
+                    onSpendCoins={onSpendCoins}
+                  />
+                )}
+              </DraggableRecordItem>
+            ) : (
+              <p className="empty-state compact">No coins</p>
+            )}
+          </SlotDropZone>
         </InventorySubsection>
 
         <InventorySubsection title="Stowed container">
           {sections.backpackRecord ? (
             <ContainerBlock
+              entityId={entityId}
               containerRecord={sections.backpackRecord}
               records={records}
               nestedRecords={sections.backpackContents}
@@ -2234,6 +2831,7 @@ function CharacterInventoryDisplay({
 }
 
 function ContentsInventoryDisplay({
+  entityId,
   capacity,
   contents,
   records,
@@ -2244,6 +2842,7 @@ function ContentsInventoryDisplay({
   onSpendCoins,
   onToggleContainerCollapsed,
 }: {
+  entityId: EntityId;
   capacity: ReturnType<typeof getContentsCapacity>;
   contents: InventoryRecord[];
   records: InventoryRecord[];
@@ -2261,6 +2860,7 @@ function ContentsInventoryDisplay({
         meta={formatCapacity(capacity.usedSlots, capacity.capacitySlots)}
       >
         <RecordList
+          zone={{ entityId, placement: "contents" }}
           records={contents}
           allRecords={records}
           collapsedContainerIds={collapsedContainerIds}
@@ -3307,12 +3907,14 @@ function InventorySubsection({
 }
 
 function HandRows({
+  entityId,
   sections,
   records,
   onEditRecord,
   onIdentifyRecord,
   onSpendCoins,
 }: {
+  entityId: EntityId;
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
   records: InventoryRecord[];
   onEditRecord: (record: InventoryRecord) => void;
@@ -3325,6 +3927,8 @@ function HandRows({
     return (
       <div className="hand-rows">
         <HandRow
+          entityId={entityId}
+          placement="bothHands"
           label="Both"
           record={bothHandsRecord}
           records={records}
@@ -3340,6 +3944,8 @@ function HandRows({
   return (
     <div className="hand-rows">
       <HandRow
+        entityId={entityId}
+        placement="leftHand"
         label="Left"
         record={getRecordById(sections.handRecordIds.leftHand, records)}
         records={records}
@@ -3348,6 +3954,8 @@ function HandRows({
         onSpendCoins={onSpendCoins}
       />
       <HandRow
+        entityId={entityId}
+        placement="rightHand"
         label="Right"
         record={getRecordById(sections.handRecordIds.rightHand, records)}
         records={records}
@@ -3360,6 +3968,8 @@ function HandRows({
 }
 
 function HandRow({
+  entityId,
+  placement,
   doubleHeight = false,
   label,
   record,
@@ -3368,6 +3978,8 @@ function HandRow({
   onIdentifyRecord,
   onSpendCoins,
 }: {
+  entityId: EntityId;
+  placement: "leftHand" | "rightHand" | "bothHands";
   doubleHeight?: boolean;
   label: string;
   record?: InventoryRecord;
@@ -3377,52 +3989,55 @@ function HandRow({
   onSpendCoins?: (record: InventoryRecord) => void;
 }) {
   return (
-    <div
-      className="hand-row"
-      data-double-height={doubleHeight}
-      data-drop-target="hand-slot"
-      data-hand-label={label}
+    <SlotDropZone
+      entityId={entityId}
+      placement={placement}
+      className={`hand-row${doubleHeight ? " hand-row-double" : ""}`}
     >
       <span className="hand-row-label">{label}</span>
       {record ? (
-        <div
-          className="record-row record-drop-surface hand-record-card"
-          data-record-id={record.id}
-        >
-          <InventoryRowSummary
-            record={record}
-            allRecords={records}
-            onOpenRecord={onEditRecord}
-          />
-          {onSpendCoins && record.recordType === "coins" ? (
-            <button
-              className="compact-row-action"
-              type="button"
-              onClick={() => onSpendCoins(record)}
+        <DraggableRecordItem record={record} zone={{ entityId, placement }}>
+          {(handle) => (
+            <div
+              className="record-row record-drop-surface hand-record-card"
+              data-record-id={record.id}
             >
-              Spend
-            </button>
-          ) : null}
-          {onIdentifyRecord && canIdentifyRecord(record) ? (
-            <button
-              className="compact-row-action"
-              type="button"
-              onClick={() => onIdentifyRecord(record.id)}
-            >
-              Identify
-            </button>
-          ) : null}
-        </div>
+              {handle}
+              <InventoryRowSummary
+                record={record}
+                allRecords={records}
+                onOpenRecord={onEditRecord}
+              />
+              {onSpendCoins && record.recordType === "coins" ? (
+                <button
+                  className="compact-row-action"
+                  type="button"
+                  onClick={() => onSpendCoins(record)}
+                >
+                  Spend
+                </button>
+              ) : null}
+              {onIdentifyRecord && canIdentifyRecord(record) ? (
+                <button
+                  className="compact-row-action"
+                  type="button"
+                  onClick={() => onIdentifyRecord(record.id)}
+                >
+                  Identify
+                </button>
+              ) : null}
+            </div>
+          )}
+        </DraggableRecordItem>
       ) : (
-        <span className="hand-row-empty" data-drop-target="empty-hand">
-          Empty
-        </span>
+        <span className="hand-row-empty">Empty</span>
       )}
-    </div>
+    </SlotDropZone>
   );
 }
 
 function RecordList({
+  zone,
   records,
   allRecords,
   collapsedContainerIds,
@@ -3432,6 +4047,7 @@ function RecordList({
   onSpendCoins,
   onToggleContainerCollapsed,
 }: {
+  zone: DragZone;
   records: InventoryRecord[];
   allRecords: InventoryRecord[];
   collapsedContainerIds: Set<InventoryRecordId>;
@@ -3442,48 +4058,44 @@ function RecordList({
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
   if (records.length === 0) {
-    return (
-      <div className="record-list-empty-drop-target" data-drop-zone="empty-list">
-        <p className="empty-state compact">Empty</p>
-      </div>
-    );
+    return <GapDropZone zone={zone} index={0} empty />;
   }
 
   return (
     <ul className="record-list" data-drop-zone="record-list">
-      <li
-        className="record-drop-zone"
-        aria-hidden="true"
-        data-drop-zone="before-first"
-      />
-      {records.map((record) => (
-        <Fragment key={record.id}>
-          <li className="record-list-item" data-record-id={record.id}>
-            <RecordRow
-              record={record}
-              allRecords={allRecords}
-              collapsedContainerIds={collapsedContainerIds}
-              onDeleteRecord={onDeleteRecord}
-              onEditRecord={onEditRecord}
-              onIdentifyRecord={onIdentifyRecord}
-              onSpendCoins={onSpendCoins}
-              onToggleContainerCollapsed={onToggleContainerCollapsed}
-            />
-          </li>
-          <li
-            className="record-drop-zone"
-            aria-hidden="true"
-            data-after-record-id={record.id}
-            data-drop-zone="after-record"
-          />
-        </Fragment>
-      ))}
+      <SortableContext
+        items={records.map((record) => record.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <GapDropZone zone={zone} index={0} />
+        {records.map((record, index) => (
+          <Fragment key={record.id}>
+            <SortableRecordItem record={record} index={index} zone={zone}>
+              {(handle) => (
+                <RecordRow
+                  record={record}
+                  dragHandle={handle}
+                  allRecords={allRecords}
+                  collapsedContainerIds={collapsedContainerIds}
+                  onDeleteRecord={onDeleteRecord}
+                  onEditRecord={onEditRecord}
+                  onIdentifyRecord={onIdentifyRecord}
+                  onSpendCoins={onSpendCoins}
+                  onToggleContainerCollapsed={onToggleContainerCollapsed}
+                />
+              )}
+            </SortableRecordItem>
+            <GapDropZone zone={zone} index={index + 1} />
+          </Fragment>
+        ))}
+      </SortableContext>
     </ul>
   );
 }
 
 function RecordRow({
   record,
+  dragHandle,
   allRecords,
   collapsedContainerIds,
   onDeleteRecord,
@@ -3493,6 +4105,7 @@ function RecordRow({
   onToggleContainerCollapsed,
 }: {
   record: InventoryRecord;
+  dragHandle?: ReactNode;
   allRecords: InventoryRecord[];
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
@@ -3505,6 +4118,7 @@ function RecordRow({
     return (
       <CoinRecordRow
         record={record}
+        dragHandle={dragHandle}
         onEditRecord={onEditRecord}
         onSpendCoins={onSpendCoins}
       />
@@ -3514,7 +4128,9 @@ function RecordRow({
   if (record.container) {
     return (
       <ContainerBlock
+        entityId={record.entityId}
         containerRecord={record}
+        dragHandle={dragHandle}
         records={allRecords}
         nestedRecords={getContainerContents(record, allRecords)}
         collapsedContainerIds={collapsedContainerIds}
@@ -3528,10 +4144,8 @@ function RecordRow({
   }
 
   return (
-    <div
-      className="record-row record-drop-surface"
-      data-record-id={record.id}
-    >
+    <div className="record-row record-drop-surface" data-record-id={record.id}>
+      {dragHandle}
       <InventoryRowSummary
         record={record}
         allRecords={allRecords}
@@ -3550,8 +4164,45 @@ function RecordRow({
   );
 }
 
+/**
+ * Droppable wrapper for a container header that is not itself a sortable item
+ * (e.g. the stowed-root backpack). Dropping onto it appends inside the container.
+ */
+function ContainerHeaderDrop({
+  entityId,
+  containerId,
+  children,
+}: {
+  entityId: EntityId;
+  containerId: InventoryRecordId;
+  children: ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `container-header__${containerId}`,
+    data: {
+      type: "record",
+      kind: "item",
+      recordId: containerId,
+      zone: { entityId, placement: "stowedRoot" },
+      index: 0,
+      isContainer: true,
+    } satisfies RecordDragData,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`container-header-drop${isOver ? " drop-over" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 function ContainerBlock({
+  entityId,
   containerRecord,
+  dragHandle,
   records,
   nestedRecords,
   collapsedContainerIds,
@@ -3561,7 +4212,9 @@ function ContainerBlock({
   onSpendCoins,
   onToggleContainerCollapsed,
 }: {
+  entityId: EntityId;
   containerRecord: InventoryRecord;
+  dragHandle?: ReactNode;
   records: InventoryRecord[];
   nestedRecords: InventoryRecord[];
   collapsedContainerIds: Set<InventoryRecordId>;
@@ -3573,46 +4226,64 @@ function ContainerBlock({
 }) {
   const isCollapsed = collapsedContainerIds.has(containerRecord.id);
   const collapseLabel = isCollapsed ? "Expand" : "Collapse";
+  // Nested containers ride inside a SortableRecordItem (which already exposes an
+  // item drop target); the non-sortable stowed root needs its own header drop.
+  const needsHeaderDrop = dragHandle === undefined;
+
+  const headerRow = (
+    <div
+      className="record-row record-drop-surface container-header-row"
+      data-record-id={containerRecord.id}
+    >
+      {dragHandle}
+      <button
+        className="container-toggle"
+        type="button"
+        aria-label={`${collapseLabel} ${getRecordDisplayName(containerRecord)}`}
+        aria-expanded={!isCollapsed}
+        onClick={() => onToggleContainerCollapsed(containerRecord.id)}
+      >
+        {isCollapsed ? "+" : "-"}
+      </button>
+      <InventoryRowSummary
+        record={containerRecord}
+        allRecords={records}
+        extraStatusIcons={
+          isCollapsed
+            ? getCollapsedContainerStatusIcons(containerRecord, records)
+            : undefined
+        }
+        onOpenRecord={onEditRecord}
+      />
+      {canIdentifyRecord(containerRecord) ? (
+        <button
+          className="compact-row-action"
+          type="button"
+          onClick={() => onIdentifyRecord(containerRecord.id)}
+        >
+          Identify
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="container-block" data-container-record-id={containerRecord.id}>
-      <div
-        className="record-row record-drop-surface container-header-row"
-        data-drop-target="container"
-        data-record-id={containerRecord.id}
-      >
-        <button
-          className="container-toggle"
-          type="button"
-          aria-label={`${collapseLabel} ${getRecordDisplayName(containerRecord)}`}
-          aria-expanded={!isCollapsed}
-          onClick={() => onToggleContainerCollapsed(containerRecord.id)}
-        >
-          {isCollapsed ? "+" : "-"}
-        </button>
-        <InventoryRowSummary
-          record={containerRecord}
-          allRecords={records}
-          extraStatusIcons={
-            isCollapsed
-              ? getCollapsedContainerStatusIcons(containerRecord, records)
-              : undefined
-          }
-          onOpenRecord={onEditRecord}
-        />
-        {canIdentifyRecord(containerRecord) ? (
-          <button
-            className="compact-row-action"
-            type="button"
-            onClick={() => onIdentifyRecord(containerRecord.id)}
-          >
-            Identify
-          </button>
-        ) : null}
-      </div>
+      {needsHeaderDrop ? (
+        <ContainerHeaderDrop entityId={entityId} containerId={containerRecord.id}>
+          {headerRow}
+        </ContainerHeaderDrop>
+      ) : (
+        headerRow
+      )}
       {isCollapsed ? null : (
         <div className="container-contents">
           <RecordList
+            zone={{
+              entityId,
+              placement: "container",
+              containerId: containerRecord.id,
+            }}
             records={nestedRecords}
             allRecords={records}
             collapsedContainerIds={collapsedContainerIds}
@@ -3630,10 +4301,12 @@ function ContainerBlock({
 
 function CoinRecordRow({
   record,
+  dragHandle,
   onEditRecord,
   onSpendCoins,
 }: {
   record: InventoryRecord;
+  dragHandle?: ReactNode;
   onEditRecord: (record: InventoryRecord) => void;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
@@ -3642,10 +4315,8 @@ function CoinRecordRow({
   }
 
   return (
-    <div
-      className="record-row record-drop-surface"
-      data-record-id={record.id}
-    >
+    <div className="record-row record-drop-surface" data-record-id={record.id}>
+      {dragHandle}
       <InventoryRowSummary
         record={record}
         allRecords={[record]}
