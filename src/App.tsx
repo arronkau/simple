@@ -2681,22 +2681,59 @@ function CharacterInventoryDisplay({
   return (
     <div className="inventory-sections">
       <InventorySection title="Equipped">
-        <InventorySubsection title="Hands">
-          <HandRows
-            entityId={entityId}
-            sections={sections}
-            records={records}
-            onEditRecord={onEditRecord}
-            onIdentifyRecord={onIdentifyRecord}
-            onSpendCoins={onSpendCoins}
-          />
-        </InventorySubsection>
+        <HandRows
+          entityId={entityId}
+          sections={sections}
+          records={records}
+          onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
+          onSpendCoins={onSpendCoins}
+        />
 
-        <InventorySubsection title="Other equipped">
-          <RecordList
-            zone={{ entityId, placement: "equippedLoose" }}
-            records={sections.otherEquipped}
-            allRecords={records}
+        <RecordList
+          zone={{ entityId, placement: "equippedLoose" }}
+          records={sections.otherEquipped}
+          allRecords={records}
+          collapsedContainerIds={collapsedContainerIds}
+          onDeleteRecord={onDeleteRecord}
+          onEditRecord={onEditRecord}
+          onIdentifyRecord={onIdentifyRecord}
+          onSpendCoins={onSpendCoins}
+          onToggleContainerCollapsed={onToggleContainerCollapsed}
+        />
+      </InventorySection>
+
+      <InventorySection title="Stowed">
+        <SlotDropZone
+          entityId={entityId}
+          placement="coinPurse"
+          className="coin-purse-slot"
+        >
+          {sections.coinRecord ? (
+            <DraggableRecordItem
+              record={sections.coinRecord}
+              zone={coinPurseZone}
+            >
+              {(handle) => (
+                <CoinRecordRow
+                  record={sections.coinRecord!}
+                  dragHandle={handle}
+                  onEditRecord={onEditRecord}
+                  onSpendCoins={onSpendCoins}
+                />
+              )}
+            </DraggableRecordItem>
+          ) : (
+            <p className="empty-state compact">No coins</p>
+          )}
+        </SlotDropZone>
+
+        {sections.backpackRecord ? (
+          <ContainerBlock
+            entityId={entityId}
+            containerRecord={sections.backpackRecord}
+            records={records}
+            nestedRecords={sections.backpackContents}
             collapsedContainerIds={collapsedContainerIds}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}
@@ -2704,54 +2741,9 @@ function CharacterInventoryDisplay({
             onSpendCoins={onSpendCoins}
             onToggleContainerCollapsed={onToggleContainerCollapsed}
           />
-        </InventorySubsection>
-      </InventorySection>
-
-      <InventorySection title="Stowed">
-        <InventorySubsection title="Coin purse">
-          <SlotDropZone
-            entityId={entityId}
-            placement="coinPurse"
-            className="coin-purse-slot"
-          >
-            {sections.coinRecord ? (
-              <DraggableRecordItem
-                record={sections.coinRecord}
-                zone={coinPurseZone}
-              >
-                {(handle) => (
-                  <CoinRecordRow
-                    record={sections.coinRecord!}
-                    dragHandle={handle}
-                    onEditRecord={onEditRecord}
-                    onSpendCoins={onSpendCoins}
-                  />
-                )}
-              </DraggableRecordItem>
-            ) : (
-              <p className="empty-state compact">No coins</p>
-            )}
-          </SlotDropZone>
-        </InventorySubsection>
-
-        <InventorySubsection title="Stowed container">
-          {sections.backpackRecord ? (
-            <ContainerBlock
-              entityId={entityId}
-              containerRecord={sections.backpackRecord}
-              records={records}
-              nestedRecords={sections.backpackContents}
-              collapsedContainerIds={collapsedContainerIds}
-              onDeleteRecord={onDeleteRecord}
-              onEditRecord={onEditRecord}
-              onIdentifyRecord={onIdentifyRecord}
-              onSpendCoins={onSpendCoins}
-              onToggleContainerCollapsed={onToggleContainerCollapsed}
-            />
-          ) : (
-            <p className="empty-state compact">Missing stowed container</p>
-          )}
-        </InventorySubsection>
+        ) : (
+          <p className="empty-state compact">Missing stowed container</p>
+        )}
       </InventorySection>
     </div>
   );
