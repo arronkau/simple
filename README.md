@@ -1,34 +1,105 @@
 # simple
 
-A small TTRPG character and inventory tracker for table use.
+A small TTRPG character, party, and inventory tracker built for table use.
 
-## Current Status
+`simple` is designed for old-school roleplaying games where encumbrance, light, equipment, retainers, mounts, and shared party resources matter during play. The app favors fast table workflows, clear inventory state, and practical warnings over heavy rules automation.
 
-Spec-first repository. Implementation should follow:
+## Features
 
-- `APP_SPEC.md`
-- `MODEL_SPEC.md`
-- `INVENTORY_VIEW_SPEC.md`
-- `TASKS.md`
+- Party overview for characters, retainers, mounts, vehicles, and storage.
+- Inventory tracking for weapons, armor, equipment, treasure, coins, and containers.
+- Slot-based encumbrance with separate equipped and stowed burden.
+- Movement warnings for overloaded characters and containers.
+- Character-like inventory sections for hands, equipped gear, coin purse, backpack, and stowed containers.
+- Simpler contents inventory for mounts, vehicles, and storage.
+- Add and edit modals for entities and inventory records.
+- Audit log for significant party and inventory changes.
+- Local-only mode with `localStorage`.
+- Optional Firebase anonymous auth and Firestore sync when configured.
 
-## Priorities
+## Tech Stack
 
-1. Local mode must work without Firebase.
-2. Inventory model must stay simple.
-3. Character-like inventory must distinguish equipped and stowed records.
-4. Stowed non-coin character inventory requires one top-level stowed container, normally a backpack.
-5. Character coin purse is a placement/display concept, not a real container.
-6. Mounts, vehicles, and storage use simple contents inventory, not equipped/stowed.
-7. No drag-and-drop in the initial implementation.
-8. No unrelated refactors.
-9. Firebase sync comes after local behavior is stable.
+- React
+- TypeScript
+- Vite
+- React Router
+- Zustand
+- Plain CSS
+- Firebase / Firestore, optional
 
-## Implementation Guardrails
+## Getting Started
 
-- Do not add a separate item-definition layer for v1.
-- Do not add legacy migration code or legacy terminology.
-- Do not use holder terminology. Use `entity`.
-- Do not implement drag-and-drop in the first pass.
-- Do not create a separate armor location.
-- Do not create a real coin-purse container.
-- Do not allow character stowed non-coin records outside the character's top-level stowed container or another valid container.
+### Prerequisites
+
+Install Node.js and npm.
+
+### Install
+
+```bash
+npm install
+```
+
+### Run the development server
+
+```bash
+npm run dev
+```
+
+Vite will print the local development URL in the terminal.
+
+### Build
+
+```bash
+npm run build
+```
+
+### Typecheck
+
+```bash
+npm run typecheck
+```
+
+## Configuration
+
+The app can run without Firebase. When Firebase environment variables are missing, it should fall back to local storage.
+
+To enable Firebase-backed sync, copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Then fill in the Firebase values:
+
+```env
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_STORAGE_BUCKET=
+VITE_FIREBASE_MESSAGING_SENDER_ID=
+VITE_FIREBASE_APP_ID=
+```
+
+## Project Documents
+
+The main project documents are:
+
+- `APP_SPEC.md` — app goals, constraints, stack, and persistence behavior.
+- `MODEL_SPEC.md` — canonical data model and rule calculations.
+- `ENCUMBRANCE_SPEC.md` — encumbrance rules and expected behavior.
+- `TASKS.md` — current implementation priorities and sequencing.
+
+Use these documents as the source of truth when changing behavior.
+
+## Development Notes
+
+- Prefer minimal, focused changes.
+- Do not introduce unrelated refactors.
+- Keep the inventory model simple.
+- Use `entity` terminology for characters, retainers, mounts, vehicles, and storage.
+- Keep derived calculations derived unless there is a clear performance reason to store them.
+- Preserve local mode behavior when adding Firebase-related changes.
+
+## License
+
+No license has been specified.

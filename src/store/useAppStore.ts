@@ -11,10 +11,14 @@ import {
   validateCharacterData,
 } from "../model/characters";
 import {
+  createPartyState,
   createEmptyAppState,
-  readLocalAppState,
-  writeLocalAppState,
+  normalizePartyDisplayName,
+  readLocalPartyState,
+  writeLocalPartyState,
   type AppState,
+  type PartyId,
+  type PartyState,
 } from "../model/appState";
 import {
   createAuditLogEntry,
@@ -53,15 +57,19 @@ import {
 import { getRuntimeFirebaseConfig } from "../persistence/firebaseConfig";
 import {
   startFirebaseAppStateSync,
-  type FirebaseWriteAppState,
+  type FirebaseWritePartyState,
 } from "../persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 type AppStore = {
   appState: AppState;
+  partyDisplayName: string;
+  partyId: PartyId;
   persistenceMode: PersistenceMode;
   syncError?: string;
   syncStatus: SyncStatus;
+  renameParty: (displayName: string) => void;
+  setCurrentParty: (partyId: PartyId) => void;
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
   updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
   updateCharacterData: (
@@ -127,17 +135,49 @@ type AuditLogEntryInput = Omit<CreateAuditLogEntryInput, "createdAt" | "id">;
 
 const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
 
-const initialAppState = readLocalAppState();
 const firebaseConfig = getRuntimeFirebaseConfig();
 const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
+const initialPartyId = getInitialPartyId();
+const initialPartyState = readLocalPartyState(initialPartyId);
 
-writeLocalAppState(initialAppState);
+writeLocalPartyState(initialPartyState);
 
 export const useAppStore = create<AppStore>((set) => ({
-  appState: initialAppState,
+  appState: initialPartyState.appState,
+  partyDisplayName: initialPartyState.party.displayName,
+  partyId: initialPartyState.party.id,
   persistenceMode,
   syncError: undefined,
   syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
+  renameParty: (displayName) => {
+    set((state) => ({
+      partyDisplayName: normalizePartyDisplayName(displayName),
+    }));
+  },
+  setCurrentParty: (partyId) => {
+    set((state) => {
+      if (state.partyId === partyId) {
+        return state;
+      }
+
+      const partyState = readLocalPartyState(partyId);
+
+      stopConfiguredFirebaseSync();
+      resetFirebaseWriteQueue();
+
+      return {
+        appState: partyState.appState,
+        partyDisplayName: partyState.party.displayName,
+        partyId: partyState.party.id,
+        syncError: undefined,
+        syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
+      };
+    });
+
+    if (firebaseConfig && canStartFirebaseSync()) {
+      void startConfiguredFirebaseSync();
+    }
+  },
   createEntity: (input) => {
     const name = input.name.trim();
 
@@ -1095,25 +1135,32 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 }));
 
-let applyingRemoteAppState = false;
-let firebaseWriteAppState: FirebaseWriteAppState | undefined;
-let pendingFirebaseAppState: AppState | undefined;
+let applyingRemotePartyState = false;
+let firebaseUnsubscribe: (() => void) | undefined;
+let firebaseWritePartyState: FirebaseWritePartyState | undefined;
+let pendingFirebasePartyState: PartyState | undefined;
 let writingFirebaseAppState = false;
 
 useAppStore.subscribe((state, previousState) => {
-  if (state.appState === previousState.appState) {
+  if (
+    state.appState === previousState.appState &&
+    state.partyDisplayName === previousState.partyDisplayName &&
+    state.partyId === previousState.partyId
+  ) {
     return;
   }
 
-  writeLocalAppState(state.appState);
+  const partyState = getPartyStateFromStoreState(state);
 
-  if (applyingRemoteAppState) {
-    applyingRemoteAppState = false;
+  writeLocalPartyState(partyState);
+
+  if (applyingRemotePartyState) {
+    applyingRemotePartyState = false;
     return;
   }
 
   if (state.persistenceMode === "firebase") {
-    queueFirebaseAppStateWrite(state.appState);
+    queueFirebasePartyStateWrite(partyState);
   }
 });
 
@@ -1573,55 +1620,87 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     return;
   }
 
-  await startFirebaseAppStateSync({
+  stopConfiguredFirebaseSync();
+
+  const activePartyId = useAppStore.getState().partyId;
+  const unsubscribe = await startFirebaseAppStateSync({
     config: firebaseConfig,
-    getCurrentAppState: () => useAppStore.getState().appState,
+    getCurrentPartyState: () =>
+      getPartyStateFromStoreState(useAppStore.getState()),
     onError: (message) => {
       setSyncMetadata("error", message);
     },
-    onReadyToWrite: (writeAppState) => {
-      firebaseWriteAppState = writeAppState;
-      void flushFirebaseAppStateWrite();
+    onReadyToWrite: (writePartyState) => {
+      if (useAppStore.getState().partyId !== activePartyId) {
+        return;
+      }
+
+      firebaseWritePartyState = writePartyState;
+      void flushFirebasePartyStateWrite();
     },
-    onRemoteAppState: (appState) => {
-      applyRemoteAppState(appState);
+    onRemotePartyState: (partyState) => {
+      if (useAppStore.getState().partyId !== partyState.party.id) {
+        return;
+      }
+
+      applyRemotePartyState(partyState);
     },
     onStatusChange: (syncStatus) => {
-      setSyncMetadata(syncStatus);
+      if (useAppStore.getState().partyId === activePartyId) {
+        setSyncMetadata(syncStatus);
+      }
     },
+    partyId: activePartyId,
   });
+
+  if (useAppStore.getState().partyId === activePartyId) {
+    firebaseUnsubscribe = unsubscribe;
+  } else {
+    unsubscribe();
+  }
 }
 
-function queueFirebaseAppStateWrite(appState: AppState): void {
-  pendingFirebaseAppState = appState;
+function stopConfiguredFirebaseSync(): void {
+  firebaseUnsubscribe?.();
+  firebaseUnsubscribe = undefined;
+}
 
-  if (!firebaseWriteAppState) {
+function resetFirebaseWriteQueue(): void {
+  firebaseWritePartyState = undefined;
+  pendingFirebasePartyState = undefined;
+  writingFirebaseAppState = false;
+}
+
+function queueFirebasePartyStateWrite(partyState: PartyState): void {
+  pendingFirebasePartyState = partyState;
+
+  if (!firebaseWritePartyState) {
     return;
   }
 
-  void flushFirebaseAppStateWrite();
+  void flushFirebasePartyStateWrite();
 }
 
-async function flushFirebaseAppStateWrite(): Promise<void> {
+async function flushFirebasePartyStateWrite(): Promise<void> {
   if (
-    !firebaseWriteAppState ||
-    !pendingFirebaseAppState ||
+    !firebaseWritePartyState ||
+    !pendingFirebasePartyState ||
     writingFirebaseAppState
   ) {
     return;
   }
 
-  const appState = pendingFirebaseAppState;
-  pendingFirebaseAppState = undefined;
+  const partyState = pendingFirebasePartyState;
+  pendingFirebasePartyState = undefined;
   writingFirebaseAppState = true;
   setSyncMetadata("saving");
 
   try {
-    await firebaseWriteAppState(appState);
+    await firebaseWritePartyState(partyState);
     writingFirebaseAppState = false;
 
-    if (pendingFirebaseAppState) {
-      void flushFirebaseAppStateWrite();
+    if (pendingFirebasePartyState) {
+      void flushFirebasePartyStateWrite();
       return;
     }
 
@@ -1629,23 +1708,28 @@ async function flushFirebaseAppStateWrite(): Promise<void> {
   } catch (error) {
     writingFirebaseAppState = false;
 
-    if (!pendingFirebaseAppState) {
-      pendingFirebaseAppState = appState;
+    if (!pendingFirebasePartyState) {
+      pendingFirebasePartyState = partyState;
     }
 
     setSyncMetadata("error", formatSyncError(error));
   }
 }
 
-function applyRemoteAppState(appState: AppState): void {
+function applyRemotePartyState(partyState: PartyState): void {
   setSyncMetadata("synced");
 
-  if (areAppStatesEqual(useAppStore.getState().appState, appState)) {
+  const currentPartyState = getPartyStateFromStoreState(useAppStore.getState());
+
+  if (arePartyStatesEqual(currentPartyState, partyState)) {
     return;
   }
 
-  applyingRemoteAppState = true;
-  useAppStore.setState({ appState });
+  applyingRemotePartyState = true;
+  useAppStore.setState({
+    appState: partyState.appState,
+    partyDisplayName: partyState.party.displayName,
+  });
 }
 
 function setSyncMetadata(syncStatus: SyncStatus, syncError?: string): void {
@@ -1655,11 +1739,47 @@ function setSyncMetadata(syncStatus: SyncStatus, syncError?: string): void {
   });
 }
 
-function areAppStatesEqual(
-  leftAppState: AppState,
-  rightAppState: AppState,
+function arePartyStatesEqual(
+  leftPartyState: PartyState,
+  rightPartyState: PartyState,
 ): boolean {
-  return JSON.stringify(leftAppState) === JSON.stringify(rightAppState);
+  return JSON.stringify(leftPartyState) === JSON.stringify(rightPartyState);
+}
+
+function getPartyStateFromStoreState(
+  state: Pick<AppStore, "appState" | "partyDisplayName" | "partyId">,
+): PartyState {
+  return createPartyState({
+    appState: state.appState,
+    displayName: state.partyDisplayName,
+    partyId: state.partyId,
+  });
+}
+
+function getInitialPartyId(): PartyId {
+  if (typeof window === "undefined") {
+    return createPartyId();
+  }
+
+  return getPartyIdFromPathname(window.location.pathname) ?? createPartyId();
+}
+
+function getPartyIdFromPathname(pathname: string): PartyId | undefined {
+  const [, partySegment, partyId] = pathname.split("/");
+
+  if (partySegment !== "party" || !partyId) {
+    return undefined;
+  }
+
+  return partyId;
+}
+
+export function createPartyId(): PartyId {
+  const randomId =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+  return `party-${randomId.replaceAll("-", "")}`;
 }
 
 function formatSyncError(error: unknown): string {

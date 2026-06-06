@@ -10,7 +10,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import {
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import {
   closestCenter,
   DndContext,
@@ -51,7 +58,11 @@ import {
   type RecordDragData,
   type RecordDropData,
 } from "./model/inventoryDnd";
-import { APP_STATE_STORAGE_KEY, parseAppState } from "./model/appState";
+import {
+  getLocalPartyStateStorageKey,
+  parseAppState,
+  type PartyId,
+} from "./model/appState";
 import {
   DEFAULT_AUDIT_ACTOR_LABEL,
   AUDIT_EVENT_TYPE_LABELS,
@@ -104,10 +115,7 @@ import {
 } from "./model/inventoryRowDisplay";
 import type { AppState } from "./model/appState";
 import { getRecordHandsRequired } from "./model/types";
-import {
-  FIREBASE_APP_STATE_COLLECTION,
-  FIREBASE_APP_STATE_DOCUMENT_ID,
-} from "./persistence/firebaseSync";
+import { FIREBASE_PARTY_STATE_COLLECTION } from "./persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "./persistence/types";
 import type {
   AuditEventType,
@@ -133,6 +141,7 @@ import {
 } from "./model/validation";
 import {
   useAppStore,
+  createPartyId,
   type EntityMutationResult,
   type InventoryMutationResult,
 } from "./store/useAppStore";
@@ -283,10 +292,15 @@ type AppStateExport = {
 
 function LocalAppShell() {
   const location = useLocation();
+  const { partyId } = useParams<{ partyId: PartyId }>();
   const appState = useAppStore((state) => state.appState);
+  const partyDisplayName = useAppStore((state) => state.partyDisplayName);
+  const activePartyId = useAppStore((state) => state.partyId);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
   const syncError = useAppStore((state) => state.syncError);
   const syncStatus = useAppStore((state) => state.syncStatus);
+  const renameParty = useAppStore((state) => state.renameParty);
+  const setCurrentParty = useAppStore((state) => state.setCurrentParty);
   const createEntity = useAppStore((state) => state.createEntity);
   const updateEntity = useAppStore((state) => state.updateEntity);
   const updateCharacterData = useAppStore((state) => state.updateCharacterData);
@@ -336,6 +350,16 @@ function LocalAppShell() {
   const [collapsedContainerIds, setCollapsedContainerIds] = useState<
     Set<InventoryRecordId>
   >(() => new Set());
+
+  useEffect(() => {
+    if (partyId) {
+      setCurrentParty(partyId);
+    }
+  }, [partyId, setCurrentParty]);
+
+  if (!partyId) {
+    return <Navigate to={`/party/${createPartyId()}`} replace />;
+  }
 
   function toggleContainerCollapsed(recordId: InventoryRecordId) {
     setCollapsedContainerIds((currentIds) => {
@@ -488,10 +512,10 @@ function LocalAppShell() {
   }
 
   const isWideWorkspaceRoute = [
-    "/party",
-    "/inventory",
-    "/characters",
-    "/audit",
+    `/party/${partyId}`,
+    `/party/${partyId}/inventory`,
+    `/party/${partyId}/characters`,
+    `/party/${partyId}/audit`,
   ].some((routePath) => location.pathname.startsWith(routePath));
   const workspaceClassName = `workspace-panel${
     isWideWorkspaceRoute ? " wide-workspace-panel" : ""
@@ -505,7 +529,7 @@ function LocalAppShell() {
             <p className="eyebrow">
               {formatPersistenceSummary(persistenceMode, syncStatus)}
             </p>
-            <h1 id="app-title">Simple Inventory</h1>
+            <h1 id="app-title">{partyDisplayName}</h1>
             {syncError ? <p className="sync-message">{syncError}</p> : null}
           </div>
           <button type="button" onClick={() => setManageModalOpen(true)}>
@@ -514,19 +538,21 @@ function LocalAppShell() {
         </div>
 
         <nav className="app-nav" aria-label="Primary">
-          <NavLink to="/party">Party</NavLink>
-          <NavLink to="/inventory">Inventory</NavLink>
-          <NavLink to="/characters">Characters</NavLink>
-          <NavLink to="/audit">Audit Log</NavLink>
+          <NavLink to={`/party/${partyId}`} end>
+            Party
+          </NavLink>
+          <NavLink to={`/party/${partyId}/inventory`}>Inventory</NavLink>
+          <NavLink to={`/party/${partyId}/characters`}>Characters</NavLink>
+          <NavLink to={`/party/${partyId}/audit`}>Audit Log</NavLink>
         </nav>
 
         <Routes>
-          <Route index element={<Navigate to="/party" replace />} />
           <Route
-            path="party"
+            index
             element={
               <PartyPage
                 appState={appState}
+                inventoryPath={`/party/${partyId}/inventory`}
                 sortedEntities={sortedEntities}
               />
             }
@@ -588,7 +614,10 @@ function LocalAppShell() {
               />
             }
           />
-          <Route path="*" element={<Navigate to="/inventory" replace />} />
+          <Route
+            path="*"
+            element={<Navigate to={`/party/${partyId}/inventory`} replace />}
+          />
         </Routes>
 
         <div className="storage-key">
@@ -597,16 +626,19 @@ function LocalAppShell() {
           </span>
           <code>
             {persistenceMode === "firebase"
-              ? `${FIREBASE_APP_STATE_COLLECTION}/${FIREBASE_APP_STATE_DOCUMENT_ID}`
-              : APP_STATE_STORAGE_KEY}
+              ? `${FIREBASE_PARTY_STATE_COLLECTION}/${activePartyId}`
+              : getLocalPartyStateStorageKey(activePartyId)}
           </code>
         </div>
 
         {manageModalOpen ? (
           <ManageDataModal
             appState={appState}
+            partyDisplayName={partyDisplayName}
+            partyId={activePartyId}
             onClose={() => setManageModalOpen(false)}
             onImportAppState={replaceAppState}
+            onRenameParty={renameParty}
             onReset={() => {
               resetLocalState();
               setManageModalOpen(false);
@@ -631,13 +663,19 @@ function LocalAppShell() {
 
 function ManageDataModal({
   appState,
+  partyDisplayName,
+  partyId,
   onClose,
   onImportAppState,
+  onRenameParty,
   onReset,
 }: {
   appState: AppState;
+  partyDisplayName: string;
+  partyId: PartyId;
   onClose: () => void;
   onImportAppState: (appState: AppState) => void;
+  onRenameParty: (displayName: string) => void;
   onReset: () => void;
 }) {
   const [importMessage, setImportMessage] = useState<ManageMessage | undefined>();
@@ -646,9 +684,14 @@ function ManageDataModal({
   >();
   const [importConfirmation, setImportConfirmation] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
+  const [editingPartyName, setEditingPartyName] = useState(partyDisplayName);
   const importEnabled =
     pendingImportAppState !== undefined && importConfirmation === "import";
   const resetEnabled = resetConfirmation === "delete";
+  const partyUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/party/${partyId}`
+      : `/party/${partyId}`;
 
   function exportAppData() {
     const exportData: AppStateExport = {
@@ -731,12 +774,36 @@ function ManageDataModal({
         <div className="manage-heading">
           <div>
             <h2>Manage Data</h2>
-            <p>Export, import, or reset the current app data.</p>
+            <p>Rename, share, export, import, or reset the current party.</p>
           </div>
           <button type="button" onClick={onClose}>
             Close
           </button>
         </div>
+
+        <section className="manage-section">
+          <div>
+            <h3>Party</h3>
+            <p>Rename this party or share its stable URL.</p>
+          </div>
+          <label>
+            <span>Party name</span>
+            <input
+              value={editingPartyName}
+              onChange={(event) => setEditingPartyName(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => onRenameParty(editingPartyName)}
+          >
+            Save name
+          </button>
+          <label>
+            <span>Party URL</span>
+            <input readOnly value={partyUrl} />
+          </label>
+        </section>
 
         <section className="manage-section">
           <div>
@@ -1558,9 +1625,11 @@ type PartyAbilityScoreDisplay = {
 
 function PartyPage({
   appState,
+  inventoryPath,
   sortedEntities,
 }: {
   appState: AppState;
+  inventoryPath: string;
   sortedEntities: Entity[];
 }) {
   const cards = getPartyOverviewCards(appState, sortedEntities);
@@ -1578,7 +1647,7 @@ function PartyPage({
           </h2>
           <p>Table-facing character and retainer status.</p>
         </div>
-        <NavLink className="text-link-button" to="/inventory">
+        <NavLink className="text-link-button" to={inventoryPath}>
           Inventory
         </NavLink>
       </div>
@@ -5703,8 +5772,16 @@ const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {
 export default function App() {
   return (
     <Routes>
-      <Route path="/*" element={<LocalAppShell />} />
-      <Route path="*" element={<Navigate to="/inventory" replace />} />
+      <Route path="/" element={<NewPartyRedirect />} />
+      <Route path="/party" element={<NewPartyRedirect />} />
+      <Route path="/party/:partyId/*" element={<LocalAppShell />} />
+      <Route path="*" element={<NewPartyRedirect />} />
     </Routes>
   );
+}
+
+function NewPartyRedirect() {
+  const partyId = useAppStore((state) => state.partyId);
+
+  return <Navigate to={`/party/${partyId}`} replace />;
 }

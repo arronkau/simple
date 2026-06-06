@@ -1,28 +1,33 @@
-import { parseAppState, type AppState } from "../model/appState";
+import {
+  parsePartyState,
+  type PartyId,
+  type PartyState,
+} from "../model/appState";
 import type { FirebaseConfig } from "./firebaseConfig";
 import type { SyncStatus } from "./types";
 
-export const FIREBASE_APP_STATE_COLLECTION = "appStates";
-export const FIREBASE_APP_STATE_DOCUMENT_ID = "default";
+export const FIREBASE_PARTY_STATE_COLLECTION = "parties";
 
-export type FirebaseWriteAppState = (appState: AppState) => Promise<void>;
+export type FirebaseWritePartyState = (partyState: PartyState) => Promise<void>;
 
 type StartFirebaseAppStateSyncInput = {
   config: FirebaseConfig;
-  getCurrentAppState: () => AppState;
+  getCurrentPartyState: () => PartyState;
   onError: (message: string) => void;
-  onReadyToWrite: (writeAppState: FirebaseWriteAppState) => void;
-  onRemoteAppState: (appState: AppState) => void;
+  onReadyToWrite: (writePartyState: FirebaseWritePartyState) => void;
+  onRemotePartyState: (partyState: PartyState) => void;
   onStatusChange: (syncStatus: SyncStatus) => void;
+  partyId: PartyId;
 };
 
 export async function startFirebaseAppStateSync({
   config,
-  getCurrentAppState,
+  getCurrentPartyState,
   onError,
   onReadyToWrite,
-  onRemoteAppState,
+  onRemotePartyState,
   onStatusChange,
+  partyId,
 }: StartFirebaseAppStateSyncInput): Promise<() => void> {
   onStatusChange("connecting");
 
@@ -52,36 +57,36 @@ export async function startFirebaseAppStateSync({
     const database = firestore.initializeFirestore(app, {
       ignoreUndefinedProperties: true,
     });
-    const appStateRef = firestore.doc(
+    const partyStateRef = firestore.doc(
       database,
-      FIREBASE_APP_STATE_COLLECTION,
-      FIREBASE_APP_STATE_DOCUMENT_ID,
+      FIREBASE_PARTY_STATE_COLLECTION,
+      partyId,
     );
-    const writeAppState: FirebaseWriteAppState = async (appState) => {
-      await firestore.setDoc(appStateRef, appState);
+    const writePartyState: FirebaseWritePartyState = async (partyState) => {
+      await firestore.setDoc(partyStateRef, partyState);
     };
 
-    onReadyToWrite(writeAppState);
+    onReadyToWrite(writePartyState);
 
     return firestore.onSnapshot(
-      appStateRef,
+      partyStateRef,
       (snapshot) => {
         if (!snapshot.exists()) {
           onStatusChange("saving");
-          void writeAppState(getCurrentAppState())
+          void writePartyState(getCurrentPartyState())
             .then(() => onStatusChange("synced"))
             .catch((error: unknown) => onError(formatFirebaseError(error)));
           return;
         }
 
-        const appState = parseAppState(snapshot.data());
+        const partyState = parsePartyState(snapshot.data(), partyId);
 
-        if (!appState) {
-          onError("Firestore app state document is not a valid AppState.");
+        if (!partyState) {
+          onError("Firestore party document is not a valid PartyState.");
           return;
         }
 
-        onRemoteAppState(appState);
+        onRemotePartyState(partyState);
       },
       (error) => onError(formatFirebaseError(error)),
     );

@@ -24,7 +24,19 @@ export type AppState = {
   auditLog: AuditLogEntry[];
 };
 
+export type PartyId = string;
+
+export type PartyState = {
+  schemaVersion: 1;
+  party: {
+    id: PartyId;
+    displayName: string;
+  };
+  appState: AppState;
+};
+
 export const APP_STATE_STORAGE_KEY = "simple.inventory.appState.v1";
+export const PARTY_STATE_STORAGE_KEY_PREFIX = "simple.inventory.partyState.v1.";
 
 export const EMPTY_APP_STATE: AppState = {
   schemaVersion: 1,
@@ -91,6 +103,71 @@ export function createEmptyAppState(): AppState {
   };
 }
 
+export function createPartyState({
+  appState = createEmptyAppState(),
+  displayName = "New Party",
+  partyId,
+}: {
+  appState?: AppState;
+  displayName?: string;
+  partyId: PartyId;
+}): PartyState {
+  return {
+    schemaVersion: 1,
+    party: {
+      id: partyId,
+      displayName: normalizePartyDisplayName(displayName),
+    },
+    appState,
+  };
+}
+
+export function getLocalPartyStateStorageKey(partyId: PartyId): string {
+  return `${PARTY_STATE_STORAGE_KEY_PREFIX}${partyId}`;
+}
+
+export function readLocalPartyState(partyId: PartyId): PartyState {
+  if (!canUseLocalStorage()) {
+    return createPartyState({ partyId });
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(
+      getLocalPartyStateStorageKey(partyId),
+    );
+
+    if (!storedValue) {
+      return createPartyState({ partyId });
+    }
+
+    const parsedValue: unknown = JSON.parse(storedValue);
+    const parsedPartyState = parsePartyState(parsedValue, partyId);
+
+    if (parsedPartyState) {
+      return parsedPartyState;
+    }
+  } catch {
+    return createPartyState({ partyId });
+  }
+
+  return createPartyState({ partyId });
+}
+
+export function writeLocalPartyState(partyState: PartyState): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      getLocalPartyStateStorageKey(partyState.party.id),
+      JSON.stringify(partyState),
+    );
+  } catch {
+    // Storage can fail in private contexts or when quota is exceeded.
+  }
+}
+
 export function readLocalAppState(): AppState {
   if (!canUseLocalStorage()) {
     return createEmptyAppState();
@@ -139,6 +216,44 @@ export function parseAppState(value: unknown): AppState | undefined {
     inventoryRecords: normalizeInventoryRecords(value.inventoryRecords),
     auditLog: normalizeAuditLog(value.auditLog),
   };
+}
+
+export function parsePartyState(
+  value: unknown,
+  expectedPartyId?: PartyId,
+): PartyState | undefined {
+  if (!isRecordLike(value) || value.schemaVersion !== 1) {
+    return undefined;
+  }
+
+  const party = value.party;
+
+  if (!isRecordLike(party) || typeof party.id !== "string") {
+    return undefined;
+  }
+
+  if (expectedPartyId !== undefined && party.id !== expectedPartyId) {
+    return undefined;
+  }
+
+  const appState = parseAppState(value.appState);
+
+  if (!appState) {
+    return undefined;
+  }
+
+  return createPartyState({
+    appState,
+    displayName:
+      typeof party.displayName === "string" ? party.displayName : "New Party",
+    partyId: party.id,
+  });
+}
+
+export function normalizePartyDisplayName(displayName: string): string {
+  const trimmedName = displayName.trim();
+
+  return trimmedName.length > 0 ? trimmedName : "New Party";
 }
 
 function normalizeEntities(entities: Entity[]): Entity[] {
