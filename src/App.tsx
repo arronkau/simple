@@ -90,6 +90,7 @@ import {
   ABILITY_SCORE_KEYS,
   normalizeCharacterData,
 } from "./model/characters";
+import { getCharacterSaveLookup } from "./model/saveTables";
 import {
   ENTITY_TYPE_LABELS,
   ENTITY_TYPES,
@@ -2239,6 +2240,10 @@ function formatNullablePartyNumber(value: number | null): string {
   return value === null ? "—" : value.toString();
 }
 
+function formatSignedNumber(value: number): string {
+  return value > 0 ? `+${value}` : value.toString();
+}
+
 function formatMovementFeet(feet: number): string {
   return `${feet}'`;
 }
@@ -2256,6 +2261,21 @@ function CharactersPage({
   ) => EntityMutationResult;
 }) {
   const characterEntities = sortedEntities.filter(isCharacterLikeEntity);
+  const [selectedEntityId, setSelectedEntityId] = useState<EntityId | undefined>(
+    () => characterEntities[0]?.id,
+  );
+  const selectedEntity =
+    characterEntities.find((entity) => entity.id === selectedEntityId) ??
+    characterEntities[0];
+
+  useEffect(() => {
+    if (
+      characterEntities.length > 0 &&
+      !characterEntities.some((entity) => entity.id === selectedEntityId)
+    ) {
+      setSelectedEntityId(characterEntities[0]?.id);
+    }
+  }, [characterEntities, selectedEntityId]);
 
   return (
     <section className="entity-workspace" aria-labelledby="characters-title">
@@ -2269,28 +2289,40 @@ function CharactersPage({
       {characterEntities.length === 0 ? (
         <p className="empty-state">No characters or retainers yet.</p>
       ) : (
-        <ul className="entity-list" aria-label="Characters">
-          {characterEntities.map((entity) => (
-            <li
-              className="entity-row character-page-row"
-              data-inactive={!entity.active}
-              key={entity.id}
+        <div className="character-page-layout">
+          <aside className="character-selector" aria-label="Characters">
+            {characterEntities.map((entity) => {
+              const character = normalizeCharacterData(entity.character);
+
+              return (
+                <button
+                  data-active={entity.id === selectedEntity?.id}
+                  key={entity.id}
+                  type="button"
+                  onClick={() => setSelectedEntityId(entity.id)}
+                >
+                  <span>{entity.name}</span>
+                  <small>{formatPartyClassLevel(character)}</small>
+                </button>
+              );
+            })}
+          </aside>
+
+          {selectedEntity ? (
+            <article
+              className="character-detail"
+              data-inactive={!selectedEntity.active}
             >
-              <EntitySummary
-                appState={appState}
-                entity={entity}
-              />
-              <CharacterInventorySummary
-                appState={appState}
-                entity={entity}
-              />
+              <EntitySummary appState={appState} entity={selectedEntity} />
+              <CharacterInventorySummary appState={appState} entity={selectedEntity} />
               <CharacterSheetPanel
-                entity={entity}
+                appState={appState}
+                entity={selectedEntity}
                 onSaveCharacterData={onSaveCharacterData}
               />
-            </li>
-          ))}
-        </ul>
+            </article>
+          ) : null}
+        </div>
       )}
     </section>
   );
@@ -2390,9 +2422,11 @@ function InventoryRecordModal({
 }
 
 function CharacterSheetPanel({
+  appState,
   entity,
   onSaveCharacterData,
 }: {
+  appState: AppState;
   entity: Entity;
   onSaveCharacterData: (
     entityId: EntityId,
@@ -2462,6 +2496,18 @@ function CharacterSheetPanel({
     }));
   }
 
+  const normalizedCharacter = normalizeCharacterData(entity.character);
+  const armorClass = getCharacterArmorClass(
+    entity,
+    appState.inventoryRecords,
+    normalizedCharacter,
+  );
+  const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
+  const saveLookup = getCharacterSaveLookup(
+    formState.className,
+    parseNullableIntegerInput(formState.level),
+  );
+
   return (
     <section
       className="character-sheet-panel"
@@ -2480,6 +2526,59 @@ function CharacterSheetPanel({
             </p>
           ) : null}
         </div>
+
+        <section className="character-sheet-section character-reference-section">
+          <h5>Table Reference</h5>
+          <div className="character-reference-grid">
+            <div className="reference-stat">
+              <span>HP</span>
+              <strong>
+                {formatPartyHp({
+                  ...normalizedCharacter,
+                  hp: {
+                    current: parseNullableIntegerInput(formState.hpCurrent),
+                    max: parseNullableIntegerInput(formState.hpMax),
+                  },
+                })}
+              </strong>
+            </div>
+            <div className="reference-stat">
+              <span>AC</span>
+              <strong>{formatNullablePartyNumber(armorClass.armorClass)}</strong>
+            </div>
+            <div className="reference-stat">
+              <span>Move</span>
+              <strong>{formatMovementFeet(encumbrance.movement.explorationFeet)}</strong>
+            </div>
+            <div className="reference-stat">
+              <span>XP</span>
+              <strong>
+                {formatNullablePartyNumber(parseNullableIntegerInput(formState.xp))}
+              </strong>
+            </div>
+            <div className="reference-stat">
+              <span>Attack</span>
+              <strong>
+                {saveLookup.ok ? formatSignedNumber(saveLookup.attackBonus) : "—"}
+              </strong>
+            </div>
+          </div>
+
+          <div className="saving-throw-panel">
+            <div className="saving-throw-heading">
+              <span>Saves</span>
+              {!saveLookup.ok ? <p>{saveLookup.message}</p> : null}
+            </div>
+            <div className="saving-throw-grid">
+              {saveLookup.saves.map((save) => (
+                <span key={save.key}>
+                  <strong>{save.label}</strong>
+                  {Number.isFinite(save.value) ? save.value : "—"}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
 
         <section className="character-sheet-section">
           <h5>Identity</h5>
@@ -2694,7 +2793,7 @@ function CharacterSheetPanel({
 
         <section className="character-sheet-section">
           <div className="repeatable-heading">
-            <h5>Features</h5>
+            <h5>Class Abilities / Features</h5>
             <button
               type="button"
               onClick={() =>
@@ -2707,12 +2806,12 @@ function CharacterSheetPanel({
                 }))
               }
             >
-              Add feature
+              Add ability
             </button>
           </div>
 
           {formState.features.length === 0 ? (
-            <p className="empty-state compact">No features</p>
+            <p className="empty-state compact">No class abilities</p>
           ) : (
             <div className="repeatable-list">
               {formState.features.map((feature) => (

@@ -5,6 +5,7 @@ import {
   normalizeCharacterData,
   validateCharacterData,
 } from "./characters";
+import { getCharacterSaveLookup } from "./saveTables";
 import type { CharacterData, Entity } from "./types";
 
 const emptyCharacterData = createEmptyCharacterData();
@@ -131,6 +132,54 @@ export const CHARACTER_MANUAL_FIXTURES = [
     expected: {
       valid: false,
       errors: ["Open Doors chance must be an integer from 1 through 6."],
+    },
+  },
+  {
+    name: "save lookup calculates supported class saves by exact class and level",
+    actual: getCharacterSaveLookup("Fighter", 1),
+    expected: {
+      ok: true,
+      attackBonus: 0,
+      classId: "fighter",
+      className: "Fighter",
+      level: 1,
+      saves: [
+        { key: "doom", label: "Doom", value: 12 },
+        { key: "ray", label: "Ray", value: 13 },
+        { key: "hold", label: "Hold", value: 14 },
+        { key: "blast", label: "Blast", value: 15 },
+        { key: "spell", label: "Spell", value: 16 },
+      ],
+    },
+  },
+  {
+    name: "save lookup safely reports unknown class",
+    actual: getCharacterSaveLookup("Custom Adventurer", 1),
+    expected: {
+      ok: false,
+      message: "Saves unavailable for this class.",
+      saves: [
+        { key: "doom", label: "Doom", value: Number.NaN },
+        { key: "ray", label: "Ray", value: Number.NaN },
+        { key: "hold", label: "Hold", value: Number.NaN },
+        { key: "blast", label: "Blast", value: Number.NaN },
+        { key: "spell", label: "Spell", value: Number.NaN },
+      ],
+    },
+  },
+  {
+    name: "save lookup safely reports missing level",
+    actual: getCharacterSaveLookup("Fighter", null),
+    expected: {
+      ok: false,
+      message: "Enter level 1 or higher to calculate saves.",
+      saves: [
+        { key: "doom", label: "Doom", value: Number.NaN },
+        { key: "ray", label: "Ray", value: Number.NaN },
+        { key: "hold", label: "Hold", value: Number.NaN },
+        { key: "blast", label: "Blast", value: Number.NaN },
+        { key: "spell", label: "Spell", value: Number.NaN },
+      ],
     },
   },
 ];
