@@ -1,700 +1,1542 @@
 # TASKS.md
 
-## 0.1 Launch Standard
+# Simple 1.0 Implementation Plan
 
-The 0.1 launch target is **usable and helpful in actual table play**, not feature complete.
+## Purpose
 
-The app should support a referee running a real session with enough confidence that:
+This document defines the implementation plan for the remaining 1.0 scope of **Simple**, an OSR/OSE-focused party, inventory, time, and character tracking app.
 
-- imports and exports are safe enough for real campaign data;
-- encumbrance, containers, hands, coins, and warnings are trustworthy;
-- party state can be inspected quickly during play;
-- standard inventory can be added without tedious manual entry;
-- common table actions like spending coins and identifying magic items are supported.
+The goal for 1.0 is a stable, usable campaign tool with shared party access, basic user identity, campaign time/notes, cleaner modals, practical coin handling, AC calculation, and improved character sheets.
 
-0.1 is explicitly **single-user / referee-facing**. It does not need player accounts, role management, drag-and-drop, or final visual design.
+This plan intentionally avoids higher-risk inventory extensions that have been moved to post-1.0.
 
----
+## Current 1.0 Scope
 
-## 0.1 Scope Summary
+Implement these phases in order:
 
-### 0.1 Blockers
+1. Multi-party support
+2. Multi-user support
+3. Modal cleanup
+4. Time tracker and notes
+5. Coin display summary
+6. Easy coin transfer
+7. AC calculation
+8. Character sheet improvements
+9. Visual design pass before 1.0 release
 
-1. Import/export safety and hard rejection of malformed imports.
-2. Warning correctness pass.
-3. Core calculation regression test review/fill-in.
-4. One-level nested containers.
-5. Coin spend action with audit note.
-6. Unidentified item workflow with audit log.
-7. Standard item autofill.
-8. Compact party view.
-9. Focused 0.1 UI cleanup.
+## Explicitly Post-1.0
 
-### Deferred Post-0.1
+Do not implement these as part of 1.0 unless explicitly re-scoped later:
 
-The following are explicitly out of scope for 0.1:
+- Stack splitting, partial stack movement, stack merging, and stack-specific action handling
+- Item action buttons: split, light/extinguish, cast, eat/consume, generic use
+- Floor / scene inventory for dropped items and referee-placed treasure
+- Light and ad hoc duration tracking connected to campaign time
+- Prepared treasure hoards
+- Shopping page
+- Spell reference
+- Per-party configurable rule sets
+- Permissions or access-control schemes beyond basic GM/Player labels
+- Drag-and-drop
 
-- GM vs player roles.
-- Role management.
-- Player permissions.
-- Role-gated secret fields.
-- Drag-and-drop.
-- Full audit log beyond required 0.1 events.
-- Shopping page.
-- Prepared treasure hoards.
-- Full referee operations dashboard beyond the compact party view.
-- Full visual design pass.
-- Mobile/tablet-specific design work.
-- Automatic backup/recovery beyond import/export.
-- Demo party/fixture polish unless needed for tests.
+Existing quantity/stack display or burden behavior may remain if already present, but do not expand it into full stack handling for 1.0.
 
 ---
 
-# Phase 0 — Lock 0.1 Scope
+# Phase 1 — Multi-Party Support
 
-## Goal
+## Task
 
-Make the 0.1 launch scope explicit so implementation does not drift into deferred features.
-
-## Requirements
-
-- Treat 0.1 as referee-facing, single-user table support.
-- Keep the launch standard focused on actual table usefulness, not completeness.
-- Do not add dependencies on multiplayer, player accounts, role management, or drag-and-drop.
-- Import/export is sufficient as the 0.1 data recovery path.
-- Demo fixture work is not required for 0.1 unless needed for tests.
-
-## Non-goals
-
-- No GM/player role system.
-- No permission model.
-- No role-gated data visibility.
-- No drag-and-drop.
-- No full design pass.
-- No automatic backup history.
-
-## Acceptance Criteria
-
-- 0.1 tasks can be completed without adding auth, permissions, or drag/drop.
-- Deferred work is clearly separated from launch blockers.
-- Future Codex tasks can refer to this file as the source of truth for 0.1 scope.
-
----
-
-# Phase 1 — Import/Export Safety
-
-## Goal
-
-Make import/export safe enough for real use without building a larger recovery system.
-
-## Requirements
-
-### Export
-
-- Export current app state as JSON.
-- Export should include all data needed to restore the current campaign state.
-- Export format should remain compatible with current import expectations.
-
-### Import
-
-- Import is destructive.
-- Show a clear warning before import.
-- Require explicit confirmation before replacing current state.
-- Hard reject malformed imports.
-- Do not partially import invalid data.
-- On failure, preserve existing app state.
-
-Suggested confirmation text:
-
-```text
-Import replaces all current app data. Export a backup first. Type "import" to continue.
-```
-
-### Reset
-
-- Reset data remains destructive.
-- Require typing `delete` before reset proceeds.
-
-## Non-goals
-
-- No automatic backup system.
-- No backup history.
-- No partial import recovery.
-- No migration UI beyond hard rejecting invalid data.
-- No import preview unless already trivial.
-
-## Acceptance Criteria
-
-- Malformed JSON cannot overwrite current data.
-- Invalid import shape cannot partially overwrite current data.
-- User must explicitly confirm destructive import.
-- User must explicitly confirm reset.
-- Exported JSON can be re-imported successfully.
-
-## Validation
-
-Run the existing test suite and add targeted import/export tests where practical.
-
-Suggested commands:
-
-```bash
-npm test
-npm run build
-```
-
----
-
-# Phase 2 — Warning Correctness Pass
-
-## Goal
-
-Make warnings accurate enough that users can trust them during play.
-
-## Requirements
-
-### Remove inappropriate warnings
-
-- Remove warnings about non-held containers from non-character entities.
-- Non-character entities include storage, mounts, vehicles, banks, and similar inventory holders.
-- These entities should not use character-style equipped/stowed/held assumptions unless explicitly modeled.
-
-### Keep character-like warnings
-
-For characters and retainers, keep or add warnings for:
-
-- Missing backpack where backpack is required.
-- More than one backpack, if still forbidden by the model.
-- Stowed non-coin item with no valid backpack destination.
-- Invalid item location.
-- Overfilled hands.
-- Overfilled container.
-- Overloaded entity.
-- Movement reduced by encumbrance.
-- Hands-required non-empty container not held, if this remains a rule.
-- Lit items where light status affects display.
-- Unidentified items with secret fields.
-
-### Warning structure
-
-- Warnings should be generated generically enough that the UI can later show them behind an icon.
-- For now, correctness matters more than compact presentation.
-
-## Non-goals
-
-- No full warning redesign yet.
-- No hover-only warning system.
-- No mobile/touch warning interaction work.
-- No role-specific warning visibility.
-
-## Acceptance Criteria
-
-- Storage, mount, bank, and similar non-character containers do not warn merely because they are not held.
-- Character/retainer warning cases remain covered.
-- Warning tests cover at least:
-  - character with missing backpack;
-  - overfilled backpack;
-  - non-character entity with non-held container;
-  - overloaded character;
-  - invalid hand state.
-
-## Validation
-
-```bash
-npm test
-npm run build
-```
-
----
-
-# Phase 3 — One-Level Nested Containers
-
-## Goal
-
-Allow ordinary table-use cases like a scroll case, pouch, or small sack inside a backpack without allowing unlimited recursive complexity.
+Add support for multiple parties, with each party keyed to a unique URL.
 
 ## Intended Behavior
 
-Allow this:
+The app should no longer assume a single global party state. A party should be loaded by URL. Users can create a new party, open an existing party URL, and share that URL with others.
 
-```text
-Character
-  Backpack
-    Scroll case
-      Scroll
-```
+Security by obscurity is acceptable for 1.0. Party URLs should use long random IDs that are not easily guessable, but no permission system is required.
 
-Allow this:
+## Decisions Already Made
 
-```text
-Storage
-  Chest
-    Pouch
-      Gems
-```
-
-Do not allow this:
-
-```text
-Character
-  Backpack
-    Sack
-      Scroll case
-        Scroll
-```
+- The first-load experience with no party ID should be automatic party creation.
+- Existing local state does not need to be migrated or supported.
+- Old saves do not need to be supported.
+- Party IDs should be stable; renaming a party should not change the URL.
+- Local and Firebase modes should use the same party-shaped state model where practical.
 
 ## Requirements
 
-- Containers may be nested one level deep inside another container.
-- The UI should display one nested container level clearly.
-- Destination validation must prevent deeper nesting.
-- Encumbrance calculations must count nested container contents correctly.
-- Container capacity calculations must include nested contents correctly.
-- Non-character entities may contain containers without held-container warnings.
-- Character/retainer stowed inventory should still respect backpack rules.
+- Add a party-scoped app state model.
+- Add a route or URL format for party access, preferably `/party/{partyId}`.
+- Add a first-load screen when no party ID is present.
+- Creating a party should generate a long random party ID.
+- Each party should have a display name.
+- Renaming a party should not change its ID or URL.
+- Firebase persistence should store party state under the party ID.
+- Local mode should still behave consistently and should not require a separate state model.
+- Existing old local saves may be ignored for now.
+- If import/export already exists, ensure it applies to the current party rather than global app state.
 
-## Rule Notes
+## Non-Goals
 
-- A character-like entity’s stowed non-coin items should still normally be in the backpack.
-- The backpack may contain items and one level of containers.
-- Nested containers may contain items.
-- Nested containers may not contain additional containers.
-- The held-container exception still applies only where relevant to character-like entities.
+- Do not add permission enforcement.
+- Do not add invite approval.
+- Do not add accounts/passwords.
+- Do not support old save migration unless it is already trivial.
+- Do not build a party directory or public listing.
 
-## Non-goals
+## Likely Files
 
-- No arbitrary recursive nesting.
-- No drag-and-drop support.
-- No visual redesign of the inventory tree.
-- No complex container-type-specific nesting rules unless already present.
+- `src/model/types.ts`
+- `src/model/appState.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- Firebase configuration/persistence files
+- Import/export helpers if present
+- Routing/bootstrap files if present
 
-## Acceptance Criteria
+## Implementation Guidance
 
-- User can place a scroll case inside a backpack.
-- User can place a scroll inside that scroll case.
-- User cannot place another container inside the scroll case.
-- Nested contents count toward capacity and encumbrance as intended.
-- Non-character entities can contain nested containers without irrelevant held warnings.
-- Regression tests cover allowed and disallowed nesting.
-
-## Validation
-
-```bash
-npm test
-npm run build
-```
-
----
-
-# Phase 4 — Core Calculation Regression Tests
-
-## Goal
-
-Ensure the app’s rule calculations are trustworthy before adding more UI.
-
-This may already be mostly done. The task is to review existing coverage and fill gaps.
-
-## Required Test Coverage
-
-### Missing or insufficient test coverage
-
-- Direct global 16-slot overload test where equipped + stowed > 16 but neither side individually overloads.
-- Mirror slower-of test where stowed burden is slower than equipped burden.
-- Explicit coin boundary tests at 99/100/101 coins and mixed denominations.
-- Explicit stackable equipment burden tests.
-- Exact-at-capacity and over-capacity container slot usage tests.
-- Store/action-level invalid destination tests, not just validation-state tests.
-- Held overfilled container test: contents excluded from movement but still over-capacity warning.
-- Clean held-container test with backpack present, avoiding unrelated missing-backpack warning.
-
-## Non-goals
-
-- No exhaustive property-based testing.
-- No full fixture overhaul unless needed.
-- No demo party requirement for 0.1.
-
-## Acceptance Criteria
-
-- Existing tests are reviewed for the required cases.
-- Missing coverage is added.
-- Test names clearly describe the rule being protected.
-- All tests pass.
+Keep this phase boring and structural. The key success condition is that every meaningful piece of app state belongs to one current party. Avoid adding feature behavior while doing the party scoping work.
 
 ## Validation
 
 ```bash
-npm test
+npm run typecheck
+npm run test
 npm run build
 ```
 
+Manual checks:
+
+- Loading the app without a party ID creates a new party with a random ID.
+- Creating a party produces a unique URL.
+- Reloading the party URL opens the same party.
+- Renaming the party does not change the URL.
+- Two different party URLs do not share inventory, characters, notes, time, or audit data.
+- Local mode and Firebase mode remain coherent.
+
+## Stop Condition
+
+Stop when the app reliably loads and persists data for a specific party ID, and no new 1.0 feature has to be built against unscoped global party state.
 
 ---
 
-# Phase 5 — Coin Spend Action with Audit Note
+# Phase 2 — Multi-User Support
 
-## Goal
+## Task
 
-Support a common table action: spending coins and recording why.
+Add basic multi-user identity: each anonymous user can name themselves and label themselves as GM or Player.
+
+## Intended Behavior
+
+Users sharing a party should be able to see who made meaningful changes. GM/Player is a descriptive label only. It does not restrict actions or hide information in 1.0.
+
+## Decisions Already Made
+
+- GM/Player is descriptive only for 1.0.
+- No permissions or access-control schemes are required.
+- Users should be able to name themselves.
+- Display name should be per user per party, with a reasonable default if possible.
+- Duplicate display names are allowed.
+- Meaningful mutations should include actor attribution where practical.
 
 ## Requirements
 
-- Add a **Spend** action for coin records.
-- User can choose coin type and amount.
-- User can add an optional note.
-- Spending reduces the coin amount.
-- Spending cannot reduce a coin type below zero.
-- Spending writes to the audit log.
-- Audit log should include:
-  - entity name;
-  - amount spent;
-  - coin type;
-  - optional note.
+- Use anonymous auth identity where Firebase auth is available.
+- Add a per-party user profile record or equivalent local state with:
+  - anonymous user ID or local user ID
+  - display name
+  - role label: GM or Player
+- Prompt users to set a display name and role when first joining a party if not already set.
+- Allow users to edit their display name and role later.
+- Attach actor information to meaningful audit entries and state changes where practical.
+- Actor attribution should include at least:
+  - display name
+  - role label
+  - stable internal user ID where available
+- Do not enforce role-based restrictions.
 
-Example audit log entry:
+## Non-Goals
 
-```text
-Yost spent 25 gp — paid temple donation.
-```
+- No permissions.
+- No GM-only hidden data.
+- No player ownership model.
+- No account linking.
+- No password/email login.
+- No uniqueness requirement for display names.
 
-## Non-goals
+## Likely Files
 
-- No full accounting ledger.
-- No vendor/shop integration.
-- No automatic currency conversion.
-- No mixed-coin spend UI unless already trivial.
-- No role-gated audit log.
+- `src/model/types.ts`
+- `src/model/appState.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- Audit helper files if present
+- Firebase auth/persistence files
+- `src/styles.css`
 
-## Acceptance Criteria
+## Implementation Guidance
 
-- Spending 10 gp from 50 gp leaves 40 gp.
-- Spending more coins than available is blocked.
-- Spending with a note records the note in the audit log.
-- Spending without a note still records the spend.
-- Coin spending is covered by tests where practical.
+Treat user identity as attribution metadata, not authorization. The app should continue to allow all users to do everything they could already do.
+
+Avoid hardcoding `Local user` throughout the app. Centralize actor creation so later features can consistently attach actor metadata.
 
 ## Validation
 
 ```bash
-npm test
+npm run typecheck
+npm run test
 npm run build
 ```
 
+Manual checks:
+
+- A new user joining a party can enter a display name and choose GM/Player.
+- User name and role can be edited later.
+- Audit-relevant changes show the actor name/role.
+- Two users in the same party can have different names.
+- Duplicate names do not break the app.
+- No role-based restrictions are enforced.
+
+## Stop Condition
+
+Stop when shared-party activity can be attributed to named users without introducing a permission system.
+
 ---
 
-# Phase 6 — Unidentified Item Workflow with Audit Log
+# Phase 3 — Modal Cleanup
 
-## Goal
+## Task
 
-Support unidentified magic or special items without exposing referee information in public fields.
+Improve the layout, clarity, and consistency of modals and modal-like forms across the app.
 
-## Data Model
+## Intended Behavior
 
-Use or add fields equivalent to:
+Modals should be scannable and predictable. They should use consistent structure, aligned controls, clear button hierarchy, and safe destructive actions. This phase should improve usability without changing underlying data behavior.
 
-```ts
-name: string;
-description?: string;
-secretName?: string;
-secretDescription?: string;
-isIdentified?: boolean;
+## Requirements
+
+- Establish a consistent modal structure:
+  - header/title
+  - body/content
+  - footer/actions
+- Standardize button hierarchy:
+  - primary action
+  - secondary/cancel action
+  - destructive action
+- Improve form layout:
+  - aligned labels and inputs
+  - sensible grouping
+  - larger text areas where descriptions/notes are expected
+  - less wasted space
+  - fewer haphazard conditional fields
+- Improve destructive actions:
+  - clear confirmation language
+  - destructive buttons visually distinct
+  - avoid accidental deletion
+- Apply the cleanup to major existing modal flows, especially:
+  - add/edit item
+  - add/edit entity
+  - move/transfer flows if modal-based
+  - coin-related forms if already present
+  - note forms once added, or ensure patterns are ready for notes
+- Allow click-outside dismissal for simple detail popovers where safe.
+- Do not allow click-outside dismissal to silently discard dirty edit forms.
+
+## Non-Goals
+
+- Do not redesign the entire app visual identity here.
+- Do not add new inventory behavior.
+- Do not add drag-and-drop.
+- Do not add action buttons.
+
+## Likely Files
+
+- `src/App.tsx`
+- `src/styles.css`
+- Modal component files if the app has been split
+- Feature components containing form/modal markup
+
+## Implementation Guidance
+
+This should be a usability cleanup, not a behavioral rewrite. If modal markup is duplicated, introduce light shared structure, but avoid large refactors unrelated to the current flows.
+
+Preserve existing behavior unless the current behavior is clearly unsafe or unclear.
+
+## Validation
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Add/edit item modal is aligned and scannable.
+- Entity add/edit modal is aligned and scannable.
+- Destructive actions require clear confirmation.
+- Cancel/save behavior is clear.
+- Dirty forms are not silently discarded by accidental outside clicks.
+- Modal layout works at desktop and narrow widths.
+
+## Stop Condition
+
+Stop when the app has consistent modal conventions that later 1.0 features can reuse without creating new modal design debt.
+
+---
+
+# Phase 4 — Campaign Time Tracker Sidebar
+
+## Task
+
+Add a lightweight OSR campaign time tracker as a sidebar on the Party page.
+
+The tracker should help the referee track campaign time during play, write time-stamped notes, manage manually created timers, and see urgent reminders without leaving the Party page.
+
+This feature should be useful at the table, but it should remain modest. Do not build a full calendar engine, inventory integration, automatic spell rules, or automatic random encounter rolling.
+
+## Context
+
+The app currently focuses on party/inventory management. This task adds a referee-facing timekeeping sidebar to the existing Party page.
+
+The intended UI is a narrow vertical sidebar that works on both desktop and mobile:
+
+- On desktop/wide layouts, the Party page should remain primary, with the time tracker visible as a side panel.
+- On narrow/mobile layouts, the time tracker should remain usable as a compact vertical panel with large controls and a readable timeline.
+- The tracker should use normal day/clock labels, not visible arbitrary turn numbers.
+- Internally, the app may still use an absolute turn count for correctness.
+
+Example display:
+
+```text
+Day 3 · 8:10 AM
+
+At Hand
+- Mal torch expires now
+- Yost torch: 20 minutes left
+- Bless: 20 minutes left
+- Encounter check due at 8:20 AM
+
+Timeline
+7:40 AM — searched 3-133, found the secret door
+7:50 AM — Encounter check
+8:00 AM — encounter with gelatinous cube
+8:10 AM — room 3-140: books, desk
+          Mal torch expires
+8:20 AM — Encounter check
+8:30 AM — 3-140 chest + treasure
+          Bless ends
 ```
 
 ## Intended Behavior
 
-Before identification:
+The sidebar should answer four questions quickly:
 
-- Public display uses `name`.
-- Public display uses `description`.
-- Referee/edit UI can see and edit `secretName`.
-- Referee/edit UI can see and edit `secretDescription`.
-- Item is marked unidentified if `isIdentified` is false and secret fields exist.
+1. What time is it now?
+2. What just happened?
+3. What is about to happen?
+4. What timers/effects require attention?
 
-On identification:
-
-- The Identify action copies `secretName` into `name`.
-- The Identify action copies `secretDescription` into `description`.
-- The item becomes identified.
-- The action writes to the audit log.
-
-Example audit log entry:
+The core referee loop should be:
 
 ```text
-Identified rusty sword as Sword of Sundering +2.
+Write note → advance one 10-minute turn
 ```
 
-## Requirements
+The tracker should support:
 
-- Rename/adjust extra fields to:
-  - `secretName`
-  - `secretDescription`
-- Add an **Identify** button where appropriate.
-- Identify button should be available only when there is something to identify.
-- Identifying should update public fields.
-- Identifying should write a clear audit log entry.
-- If either secret field is missing, identify should still behave sensibly:
-  - secret name only: update name;
-  - secret description only: update description;
-  - neither: no-op or disabled.
-- Preserve the old public name for the audit message before overwriting it.
+- 10-minute dungeon turns.
+- Notes tied to campaign time.
+- Manually created timers.
+- Reminders when timers expire.
+- Encounter check reminders as intermittent events.
+- Longer timers measured in hours, days, weeks, or months.
+- Direct editing by clicking/tapping relevant objects where reasonable.
 
-## Non-goals
+## Decisions Already Made
 
-- No GM/player role visibility yet.
-- No partial reveal system.
-- No identify permissions.
-- No complex history of prior public names/descriptions beyond the audit log.
-- No automatic magic item rules.
-
-## Acceptance Criteria
-
-- An item named `rusty sword` with `secretName: Sword of Sundering +2` identifies into public name `Sword of Sundering +2`.
-- Audit log records: `Identified rusty sword as Sword of Sundering +2.`
-- Secret description copies into public description when present.
-- Identify button is disabled or hidden when no secret fields are present.
-- Identification behavior is covered by tests where practical.
-
-## Validation
-
-```bash
-npm test
-npm run build
-```
-
----
-
-# Phase 7 — Standard Item Autofill
-
-## Goal
-
-Make adding common inventory fast enough for table use.
-
-## Requirements
-
-Add or expand an item catalog for common OSE/Dolmenwood-style inventory:
-
-- Standard adventuring equipment.
-- Weapons.
-- Armor.
-- Containers.
-- Light sources.
-- Rations.
-- Tools.
-- Treasure placeholders if useful.
-- Common stackables such as torches, iron spikes, rations, oil, arrows/bolts if modeled.
-
-Autofill should populate relevant fields:
-
-- Name.
-- Record type.
-- Quantity.
-- Slots per item or items per slot.
-- Stackable flag.
-- Hands required.
-- Container capacity.
-- Light-related fields.
-- Weapon/armor metadata where already supported.
-
-## UI Requirements
-
-- Add/edit modal should support selecting from standard items.
-- Custom item creation must remain possible.
-- Autofill should not prevent editing fields after selection.
-- Search/filter is preferred if the list is long.
-
-## Non-goals
-
-- No complete sourcebook database.
-- No pricing/shop system.
-- No automatic equipment packs.
-- No import from external equipment compendia.
-- No new item taxonomy unless required by existing model.
-
-## Acceptance Criteria
-
-- User can quickly add:
-  - torch;
-  - lantern;
-  - rations;
-  - rope;
-  - backpack;
-  - sack;
-  - scroll case;
-  - sword;
-  - dagger;
-  - bow;
-  - shield;
-  - leather armor;
-  - chain mail.
-- Autofilled items can still be edited before creation.
-- Autofill does not break custom item creation.
-- Standard item data matches current model field names.
-
-## Validation
-
-```bash
-npm test
-npm run build
-```
-
----
-
-# Phase 8 — Compact Party View
-
-## Goal
-
-Give the referee a table-facing party overview that avoids opening every character sheet during play.
+- A turn is 10 minutes.
+- Tracking in 10-minute increments is sufficient.
+- Watches are not modeled explicitly.
+- Notes live at a campaign time.
+- The visible UI should use day/clock time, such as `Day 3 · 8:10 AM`.
+- Internally, an absolute turn count is preferred as the source of truth.
+- The current time should be editable.
+- Ordinary 10-minute advancement should not create audit noise.
+- Manual time edits should be audited.
+- Light duration tracking is manual in this phase.
+- Random encounter checks are reminders only, not automated rolls.
+- Spell/effect timers are manual in this phase.
+- Inventory integration is explicitly out of scope for this phase.
 
 ## Scope
 
-Show compact cards for:
+Implement the smallest complete version that supports:
 
-- characters;
-- retainers.
+- Campaign time state.
+- Party page time tracker sidebar.
+- Current time display.
+- Note + Turn action.
+- + Turn action.
+- Set Current Time action.
+- Start Timer action.
+- Turn/time-bound notes.
+- Manually managed timers.
+- At Hand timer/reminder display.
+- Basic timer controls:
+  - pause
+  - dismiss
+  - edit
+- Persistence in local and Firebase modes.
+- Import/export support.
+- Focused tests.
 
-Mounts/storage do not need full cards in this view unless already easy. They may be linked or summarized separately.
+## Non-Goals
 
-## Card Requirements
+Do not implement:
 
-Each card should show:
+- A full fantasy calendar engine.
+- Watches.
+- Automatic inventory consumption.
+- Automatic torch/lantern creation from inventory.
+- Automatic random encounter rolls.
+- Spell-specific duration rules.
+- Inventory behavior that depends on campaign time.
+- A separate full Time Tracker page unless already trivial.
+- Complex recurring-event automation.
+- Large redesign of the Party page.
+- Rendering every long-term timer in the visible 10-minute timeline.
 
-- Name.
-- Class/level.
-- Current/max HP.
-- Movement.
-- Languages.
-- Hands contents.
-- Warning icon or concise warning summary.
-- Light source indicator.
+## UI Requirements
 
-Optional if already easy:
+### Party Page Placement
 
-- AC.
-- Equipped/stowed slot totals.
-- Link/button to open full inventory or character detail.
+Add the time tracker as a sidebar on the Party page.
 
-## Layout Requirements
+The sidebar should not replace the existing Party page content. It should supplement it.
 
-- Cards should be more compact than the current full-width character inventory display.
-- Use columns or wrapping layout where practical.
-- Keep text scannable.
-- Do not surface nonessential metadata.
+On wide layouts:
 
-## Non-goals
+- Main Party page content remains the primary area.
+- Time tracker appears as a right sidebar or equivalent side panel.
+- Sidebar should be visually compact but readable.
 
-- No full redesign.
-- No drag/drop.
-- No role-specific visibility.
-- No mobile-specific design work.
-- No advanced party analytics yet.
+On narrow/mobile layouts:
 
-## Acceptance Criteria
+- Time tracker should still work as a vertical panel.
+- Primary controls should be reachable and not tiny.
+- Do not require horizontal scrolling for the main time tracker.
+- Timeline rows should stack cleanly.
 
-- Referee can see all characters and retainers in one overview.
-- Referee can quickly see who is hurt, slow, holding light, or has warnings.
-- Hands contents are visible without opening each character.
-- Movement is visible without expanding inventory details.
-- Party view links to the existing detailed view where needed.
+### Sidebar Structure
+
+The sidebar should contain:
+
+1. Current time header.
+2. Main controls.
+3. At Hand panel.
+4. Vertical timeline.
+
+Suggested order:
+
+```text
+Day 3 · 8:10 AM
+Now: Mal torch expires
+Next: encounter check at 8:20 AM
+
+[Note + Turn] [+ Turn]
+[Set Time]    [Start Timer]
+
+At Hand
+- Mal torch expires now
+- Yost torch: 20 minutes left
+- Bless: 20 minutes left
+
+Timeline
+7:40 AM — searched 3-133, found the secret door
+7:50 AM — Encounter check
+8:00 AM — encounter with gelatinous cube
+8:10 AM — room 3-140: books, desk
+          Mal torch expires
+8:20 AM — Encounter check
+8:30 AM — 3-140 chest + treasure
+          Bless ends
+```
+
+### Current Time Header
+
+Display current time clearly.
+
+Use day/clock notation:
+
+```text
+Day 3 · 8:10 AM
+```
+
+Do not make arbitrary turn numbers the primary visible label.
+
+The current time label should be clickable/tappable to open the Set Current Time control if this is simple and accessible. If not, use the explicit Set Time button only.
+
+### Main Controls
+
+Use this minimal primary control set:
+
+```text
+[Note + Turn]  [+ Turn]  [Set Time]  [Start Timer]
+```
+
+On narrow/mobile layouts, this may wrap into two rows:
+
+```text
+[Note + Turn]  [+ Turn]
+[Set Time]     [Start Timer]
+```
+
+Do not add extra always-visible buttons unless needed.
+
+### Note + Turn
+
+This is the primary table-use action.
+
+Behavior:
+
+1. Open a note input for the current time.
+2. Save the note at the current campaign time.
+3. Advance the campaign time by one 10-minute turn.
+
+The note form should also allow saving without advancing if simple:
+
+```text
+Note for Day 3, 8:10 AM
+
+[Save Note] [Save + Advance Turn]
+```
+
+This avoids needing a separate always-visible Add Note button.
+
+### + Turn
+
+Advances current campaign time by 10 minutes without creating a note.
+
+This should still process timer/reminder state:
+
+- expired timers become due
+- encounter reminders become due
+- future reminders that reach current time are surfaced
+
+Do not audit ordinary + Turn.
+
+### Set Time
+
+Manual current-time editing.
+
+Fields:
+
+- day
+- hour
+- minute, in 10-minute increments
+
+Example:
+
+```text
+Set Current Time
+
+Day: [3]
+Hour: [8 AM]
+Minute: [10]
+
+[Set Time]
+```
+
+Manual time edits should be audited.
+
+This control is for correcting or directly setting campaign time. It is not ordinary turn advancement.
+
+### Start Timer
+
+Opens a compact timer form.
+
+Fields:
+
+- name
+- duration number
+- duration unit
+- optional owner
+- category/type
+
+Example:
+
+```text
+Start Timer
+
+Name: [Mal torch]
+Duration: [6] [turns]
+Category: [Light]
+Owner: [Mal]
+
+[Start Timer]
+```
+
+Duration units should support:
+
+- turns
+- hours
+- days
+- weeks
+- months
+
+Useful presets if simple:
+
+```text
+Torch
+Lantern
+3 turns
+1 hour
+4 hours
+1 day
+2 weeks
+```
+
+Presets are optional for this phase, but the model should not prevent adding them later.
+
+## Timeline Requirements
+
+Use a vertical timeline in the sidebar.
+
+Each ordinary row represents one 10-minute time position.
+
+Rows should show:
+
+- clock time
+- compact timer bars if useful
+- notes/events for that time
+
+The active/current row should be visually emphasized.
+
+The current row should always be visible if possible.
+
+When space allows, show at least:
+
+- 2 past rows
+- the current row
+- 2 future rows
+
+More rows may be shown on desktop/wide layouts.
+
+Example:
+
+```text
+7:40 AM — searched 3-133, found the secret door
+7:50 AM — Encounter check
+8:00 AM — encounter with gelatinous cube
+8:10 AM — room 3-140: books, desk
+          Mal torch expires
+8:20 AM — Encounter check
+8:30 AM — 3-140 chest + treasure
+          Bless ends
+```
+
+### Timer Bars
+
+Where practical, show narrow timer bars beside the visible timeline.
+
+Rules:
+
+- Each active torch has its own bar.
+- Each active lantern has its own bar.
+- Each spell/effect timer may have its own bar if it is relevant in the visible window.
+- Do not merge all torches into one “torch” bar.
+- Do not merge all lights into one “light” bar.
+- Do not render every timer if there are many.
+- Prioritize visible bars for:
+  - due now
+  - due within visible window
+  - active light sources
+  - pinned/important timers
+  - currently relevant spell/effect timers
+
+### Encounter Checks
+
+Encounter checks are not duration bars.
+
+Represent encounter checks as intermittent reminders/events.
+
+Example:
+
+```text
+8:20 AM — Encounter check
+```
+
+Do not roll random encounters automatically.
+
+Preferred minimal behavior:
+
+- Store optional encounter-check cadence, such as every 2 turns.
+- When a check is due, show it in the timeline and/or At Hand panel.
+- Provide a simple way to mark the check handled if practical.
+
+If encounter cadence controls are too much for this phase, hard-code or defer cadence configuration, but do not model encounter checks as continuous duration bars.
+
+### Compressed Time Blocks
+
+The timeline may eventually show compressed time blocks.
+
+Example:
+
+```text
+9:00–10:00 AM — 1 hour resting
+```
+
+For this phase, compressed blocks are optional. Do not build a large jump-time workflow unless it is straightforward.
+
+However, the data model should not make compressed time blocks impossible later.
+
+## Notes
+
+Notes live at a specific campaign time.
+
+Minimum note fields:
+
+- id
+- createdAt
+- optional updatedAt
+- absoluteTurn
+- body
+
+Optional fields if easy:
+
+- title
+- category
+- tags
+
+A single note body is enough for this phase.
+
+Notes should be editable by clicking/tapping note text if simple.
+
+Clicking an empty visible timeline row may open “Add note at this time” if simple. Otherwise, rely on Note + Turn.
+
+Deleting a non-empty note should require confirmation.
+
+## At Hand Panel
+
+The At Hand panel shows active and urgent timers/reminders.
+
+Always prioritize:
+
+1. due now
+2. due soon
+3. active lights
+4. active spells/effects
+5. long timers due today or soon
+
+Example:
+
+```text
+At Hand
+
+Mal torch
+expires now
+[Replace] [Pause] [Dismiss] [Edit]
+
+Yost torch
+20 minutes left
+
+Party lantern
+2 hours left
+
+Bless
+20 minutes left
+```
+
+If many timers exist, group lower-priority timers.
+
+Suggested groups:
+
+```text
+Due / Soon
+Light
+Spells / Effects
+Long Timers
+Hidden / Later
+```
+
+## Timer Controls
+
+Each timer should support:
+
+- pause
+- dismiss
+- edit
+
+For light timers, support a restart/replace action if simple:
+
+- Replace torch
+- Refill lantern
+- Restart timer
+
+This can be contextual and does not need to appear for every timer category.
+
+### Pause Timer
+
+Paused timers do not tick down when time advances.
+
+If pause creates too much complexity, keep the data model ready for `paused` but hide the control temporarily. Preferred behavior is to include it now.
+
+### Dismiss Timer
+
+For expired timers, dismiss means “handled.”
+
+For active timers, dismiss means “stop tracking.”
+
+Require confirmation only if dismissing an active, non-expired timer would be destructive or surprising.
+
+### Edit Timer
+
+Allow editing:
+
+- name
+- owner
+- category
+- duration/end time
+- paused status
+- description, if present
+
+## Long Timers and Day Notes
+
+The timer model should support longer durations:
+
+- days
+- weeks
+- months
+
+Examples:
+
+```text
+Faction response — Day 5 morning
+Hireling penalty — next month
+Research complete — in 2 weeks
+```
+
+For this phase:
+
+- Long timers should appear in At Hand if due soon.
+- Long timers may be grouped under “Long Timers.”
+- Long timers do not need to render into every 10-minute timeline row.
+
+Day notes may be useful:
+
+```text
+Day 3 — entered level 3; beastmen alerted
+```
+
+If day-level notes are simple to support using the same note model, include them. Otherwise, defer explicit day notes.
+
+## Direct Interaction Guidance
+
+Use direct interaction to reduce button clutter:
+
+- Click/tap current time header → Set Current Time.
+- Click/tap note text → Edit note.
+- Click/tap empty visible row → Add note at that time, if simple.
+- Click/tap timer card → Edit timer.
+- Click/tap timer bar → Edit timer, if bars are interactive.
+- Click/tap compressed block → Edit block, if compressed blocks are implemented.
+- Due light timer should expose direct actions:
+  - Replace/restart
+  - Dismiss
+  - Edit
+
+Do not add separate buttons for every editable object if the object itself can reasonably be clicked.
+
+## Data Model Guidance
+
+Use an internal absolute turn count as the source of truth.
+
+Suggested campaign time state:
+
+```ts
+campaignTime: {
+  absoluteTurn: number;
+  turnsPerDay: number;
+  dayStartHour?: number;
+  updatedAt?: string;
+}
+```
+
+Display day/hour/minute from `absoluteTurn`.
+
+Example visible label:
+
+```text
+Day 3 · 8:10 AM
+```
+
+The exact day start hour can be simple. If no campaign calendar exists, assume a basic 24-hour day and 10-minute increments.
+
+Suggested note model:
+
+```ts
+campaignNotes: {
+  id: string;
+  createdAt: string;
+  updatedAt?: string;
+  absoluteTurn: number;
+  body: string;
+  title?: string;
+  category?: string;
+}[]
+```
+
+Suggested timer model:
+
+```ts
+campaignTimers: {
+  id: string;
+  name: string;
+  category: "light" | "spell" | "effect" | "encounter" | "faction" | "downtime" | "other";
+  ownerName?: string;
+  startTurn: number;
+  endTurn?: number;
+  durationTurns?: number;
+  dueTurn?: number;
+  status: "active" | "paused" | "expired" | "dismissed";
+  description?: string;
+  createdAt: string;
+  updatedAt?: string;
+}[]
+```
+
+For long timers, either convert duration to turns or store a due day/date representation if the existing app has date handling.
+
+Use the simplest representation that preserves correct display.
+
+Do not connect timers to inventory items in this phase.
+
+## Persistence
+
+Persist and sync campaign time, notes, and timers in both local and Firebase modes.
+
+Import/export should include:
+
+- campaign time state
+- campaign notes
+- campaign timers
+- timer statuses
+
+Existing saves without these fields should still load safely with default empty values.
+
+## Audit Logging
+
+Audit:
+
+- manual current time edits
+- day changes caused by manual time edits
+- deleting non-empty notes if existing audit policy would normally log deletes
+- deleting/dismissing active timers if consistent with existing audit behavior
+
+Do not audit:
+
+- ordinary + Turn
+- Note + Turn advancement
+- timer countdown progression
+- ordinary timer expiration
+- ordinary note creation unless existing audit policy already does this
+
+The audit log should not become a turn-by-turn noise log.
+
+## Likely Files
+
+Likely affected files may include:
+
+- `src/model/types.ts`
+- `src/model/appState.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- Party page / party view components
+- `src/styles.css`
+- persistence/import/export helpers
+- Firebase sync helpers
+- audit helper files if present
+- tests for model/store behavior
+
+Adjust based on the current code organization.
+
+## Implementation Guidance
+
+Favor minimal diffs.
+
+Build the time tracker as a Party page sidebar component, not as a broad app redesign.
+
+Suggested implementation order:
+
+1. Add campaign time state.
+2. Add note model tied to absolute turn.
+3. Add timer model.
+4. Add store actions:
+   - advance one turn
+   - create note
+   - note and advance one turn
+   - set current time
+   - start timer
+   - pause timer
+   - dismiss timer
+   - edit timer
+5. Add persistence/import/export handling.
+6. Add the Party page sidebar UI.
+7. Add the At Hand panel.
+8. Add the vertical timeline.
+9. Add focused tests.
+10. Validate local and Firebase behavior.
+
+Do not implement inventory integration or complex calendar features.
 
 ## Validation
 
+Run:
+
 ```bash
-npm test
+npm run typecheck
+npm run test
 npm run build
 ```
 
+Manual checks:
+
+- Party page shows the time tracker sidebar.
+- Current time displays as day + clock time, not only arbitrary turn number.
+- Active/current time row is visually obvious.
+- Sidebar shows at least a couple of past and future rows around current time when space allows.
+- `+ Turn` advances 10 minutes.
+- `Note + Turn` creates a note at the current time and advances 10 minutes.
+- Note can be saved without advancing if that option is implemented.
+- Clicking/tapping current time opens Set Current Time if direct editing is implemented.
+- Setting current time supports day/hour/minute in 10-minute increments.
+- Manual current time edit creates an audit entry.
+- Start Timer creates a visible timer.
+- Separate torches/lanterns appear as separate timer records.
+- Active timers appear in At Hand.
+- Due timers are emphasized.
+- Timer can be paused.
+- Timer can be dismissed.
+- Timer can be edited.
+- Expired light timer can be replaced/restarted if that action is implemented.
+- Notes can be edited.
+- Deleting a non-empty note requires confirmation.
+- Local mode persists time, notes, and timers.
+- Firebase mode syncs time, notes, and timers.
+- Import/export preserves time, notes, and timers.
+- Existing imported data without time tracker fields still loads safely.
+
+## Acceptance Criteria
+
+- The Party page includes a usable vertical time tracker sidebar.
+- The current campaign time can be advanced in 10-minute increments.
+- The current campaign time can be manually set.
+- Notes can be created at campaign times.
+- `Note + Turn` supports the core referee loop.
+- Timers can be started, paused, dismissed, and edited.
+- Timers support turns, hours, days, weeks, and months at the model/input level.
+- Timer reminders surface clearly when due.
+- Encounter checks, if implemented, are shown as intermittent reminders and not duration bars.
+- Time tracker state is persisted in local mode and Firebase mode.
+- Import/export includes the time tracker state.
+- Ordinary turn advancement does not create audit noise.
+- Manual time editing is audited.
+- No inventory behavior depends on the time tracker.
+
+## Stop Condition
+
+Stop when the Party page has a functional vertical time tracker sidebar with:
+
+- current day/clock time
+- Note + Turn
+- + Turn
+- Set Current Time
+- Start Timer
+- turn-bound notes
+- manually managed timers
+- At Hand timer display
+- pause/dismiss/edit timer controls
+- local/Firebase persistence
+- import/export support
+
+Do not continue into inventory integration, automatic encounter rolling, full calendar systems, watches, or unrelated Party page redesign.
+
 ---
 
-# Phase 9 — Focused 0.1 UI Cleanup
 
-## Goal
+# Phase 6 — Easy Coin Transfer
 
-Reduce friction in actual table use without doing the full post-0.1 design pass.
+## Task
+
+Add a simple workflow for transferring coins between entities.
+
+## Intended Behavior
+
+Users should be able to move coins from one entity to another without manually editing coin records. The workflow should be clear, safe, and audit-friendly.
+
+## Decisions Already Made
+
+- Coin transfer should not automatically make change in 1.0.
+- Transfers should require available exact denominations.
+- Negative coins should not be allowed.
+- Any entity that can hold inventory can receive coins.
+- Transfers should be audited.
 
 ## Requirements
 
-Prioritize these small cleanups:
+- Add a coin transfer workflow.
+- The user should choose:
+  - source entity
+  - destination entity
+  - denomination amounts
+  - optional note if simple
+- Validate that the source has enough of each transferred denomination.
+- Do not automatically convert denominations.
+  - Example: if source has 10 sp but no gp, transferring 1 gp should be rejected.
+- Update coin records according to existing coin rules.
+- Destination may be a character, retainer, storage entity, mount, or other valid inventory-holding entity.
+- If multiple coin records/locations exist for a source, either:
+  - use a clear default source behavior, or
+  - allow choosing source location only when necessary.
+- Log transfer event in audit log with:
+  - actor
+  - source
+  - destination
+  - denominations moved
+  - optional note
 
-1. Improve light display.
-2. Improve hand item layout.
-3. Allow containers to collapse.
-4. Show only essential info on item/container headings.
-5. Move warning details behind a generic warning icon using click/tap, not hover only.
-6. Use character columns where this is straightforward.
+## Non-Goals
 
-## Essential Heading Info
+- No automatic change-making.
+- No pooled party wallet unless already present.
+- No shopping/payment checkout.
+- No coin weight/burden rule changes.
+- No arbitrary debt/negative coin balances.
 
-Inventory item headings should generally show only:
+## Likely Files
 
-- Name.
-- Quantity, when relevant.
-- Slot usage.
-- Status icons, such as lit/unidentified/warning.
-- Value only for treasure/coins.
+- `src/model/types.ts`
+- `src/model/calculations.ts`
+- `src/model/validation.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- `src/styles.css`
+- Audit helper files if present
+- Tests for coin mutations if present
 
-Avoid showing in normal compact headings:
+## Implementation Guidance
 
-- Internal location.
-- Hands required.
-- Damage die.
-- Modifiers.
-- Long descriptions.
-- IDs.
-- Debug metadata.
+Prefer a simple transfer form. Do not expose raw coin records unless the user needs to resolve ambiguity. The common case should be fast: choose source, choose destination, enter amounts, transfer.
 
-## Non-goals
-
-- No final visual design pass.
-- No mobile/tablet optimization beyond avoiding obvious breakage.
-- No drag/drop.
-- No icon perfection.
-- No animation work.
-
-## Acceptance Criteria
-
-- Lit items are easy to spot.
-- Held items are easy to understand.
-- Containers can be collapsed.
-- Warning details are available by click/tap.
-- Item rows/headings are less cluttered.
-- Existing edit flows still work.
+Use the modal conventions established in Phase 3.
 
 ## Validation
 
 ```bash
-npm test
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Transfer gp from one character to another.
+- Transfer mixed denominations.
+- Transfer coins to storage.
+- Attempt to transfer more than source has; confirm it is blocked.
+- Attempt denomination conversion; confirm it is not automatic.
+- Confirm coin displays update after transfer.
+- Confirm audit entry includes actor/source/destination/amounts.
+
+## Stop Condition
+
+Stop when coins can be transferred safely without manual record editing or automatic change-making.
+
+---
+
+# Phase 7 — AC Calculation
+
+## Task
+
+Calculate and display character AC from equipped armor and shield state, with warning handling and manual override support.
+
+## Intended Behavior
+
+AC should be visible and useful on the character/party views. It should be calculated from equipped armor and shield where possible, while still allowing manual exceptions.
+
+## Decisions Already Made
+
+- Base ascending AC is 10 unless existing rules already specify otherwise.
+- Shield counts only when held in hand.
+- Armor counts when equipped.
+- Armor does not count when stowed.
+- There is no separate “worn” category; equipped means actively in use.
+- If multiple armors are equipped, show warning: `Multiple armors equipped.`
+- If multiple armors are equipped, use the best armor for calculation.
+- Manual override should be allowed.
+
+## Requirements
+
+- Add or complete AC calculation for characters and retainers where relevant.
+- Calculate AC from:
+  - base AC
+  - equipped armor
+  - shield held in hand
+  - manual modifier/override if present
+- Armor contributes only when in equipped state.
+- Stowed armor does not contribute.
+- Shield contributes only when held in hand.
+- Stowed shield does not contribute.
+- Shield in an ambiguous non-hand location should not contribute unless the existing model clearly treats it as held/equipped.
+- If multiple armors are equipped:
+  - show warning: `Multiple armors equipped.`
+  - use best armor for calculation
+- Display AC prominently on relevant character and party views.
+- Provide a way to see calculation details, such as:
+  - base AC
+  - armor source
+  - shield source
+  - override/manual modifier if active
+- Allow manual override for exceptions.
+- Clearly indicate when AC is manually overridden.
+
+## Non-Goals
+
+- Do not build a full combat engine.
+- Do not automate Dexterity modifiers unless already unambiguously supported.
+- Do not automate magic item AC unless item data explicitly supports it.
+- Do not support rule-set variations yet.
+- Do not change inventory placement rules.
+
+## Likely Files
+
+- `src/model/types.ts`
+- `src/model/calculations.ts`
+- `src/model/validation.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- `src/styles.css`
+- Existing warning/display helper files
+- Tests for calculations/warnings
+
+## Implementation Guidance
+
+Do not calculate AC by brittle item-name matching if there is already structured armor/shield data. Use item type/properties where available.
+
+If the data model is not clean enough to identify armor and shield reliably, prefer a small explicit metadata field over a large heuristic system.
+
+## Validation
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- No armor/shield: AC is base value.
+- Equipped armor changes AC.
+- Stowed armor does not change AC.
+- Shield held in hand changes AC.
+- Shield stowed does not change AC.
+- Multiple equipped armors show warning and use best armor.
+- Manual override displays and takes precedence where intended.
+- Party summary displays correct AC.
+
+## Stop Condition
+
+Stop when AC is calculated from normal equipped state, warnings are clear, and manual exceptions are supported without adding combat-system complexity.
+
+---
+
+# Phase 8 — Character Sheet Improvements
+
+## Task
+
+Improve character sheet support for saves, skills, and other table-facing character data.
+
+## Intended Behavior
+
+The app should be usable as a lightweight character reference during play, not only an inventory tracker. The party summary already has the correct information; this phase should not rework that page unnecessarily.
+
+## Decisions Already Made
+
+- Saves should be calculated from class tables.
+- Skills should be manually entered for 1.0.
+- Party summary currently has the correct information already.
+- Character sheet improvements should avoid full character creation/progression automation.
+
+## Requirements
+
+- Add or complete save calculation from class tables.
+- Saves should derive from class and level where possible.
+- Support the classes currently allowed/supported by the app’s rule baseline.
+- If a class is unknown or unsupported, provide a safe fallback such as manual fields or clear missing-data display.
+- Add manually editable skills/class ability fields for 1.0.
+- Preserve or improve display of existing character fields:
+  - name
+  - class/level
+  - HP
+  - AC
+  - movement
+  - XP
+  - ability scores
+  - alignment
+  - languages
+  - notes
+- Do not substantially change the party summary information if it is already correct.
+- Character and retainer sheets should receive the main improvements.
+- Mounts/storage should only show fields relevant to those entity types.
+
+## Non-Goals
+
+- No full character builder.
+- No automated class progression beyond save lookup.
+- No automated skill progression in 1.0.
+- No spell reference.
+- No spell slot automation unless already present and trivial.
+- No per-party rule-set switching.
+
+## Likely Files
+
+- `src/model/types.ts`
+- `src/model/calculations.ts`
+- `src/model/appState.ts`
+- `src/store/useAppStore.ts`
+- `src/App.tsx`
+- `src/styles.css`
+- New save table data file if needed, e.g. `src/model/saveTables.ts`
+- Tests for save calculation
+
+## Implementation Guidance
+
+Keep saves data explicit and testable. Do not bury save lookup in UI code. Character sheet fields should remain editable where automation is not settled.
+
+Use the existing party summary as source guidance; do not redesign it unless necessary to display AC/saves data consistently.
+
+## Validation
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Saves calculate correctly for supported class/level combinations.
+- Unsupported/unknown class does not crash the app.
+- Skills can be manually edited and persist.
+- Character sheet remains readable on desktop and narrow widths.
+- Party summary retains currently correct information.
+- AC and movement display remain consistent with previous phases.
+
+## Stop Condition
+
+Stop when character sheets provide useful table reference data, saves are calculated from class tables, and skills remain editable without introducing full character-builder scope.
+
+---
+
+# Phase 9 — Visual Design Pass Before 1.0
+
+## Task
+
+Perform a focused visual design pass for clarity, consistency, and table usability before the 1.0 release.
+
+## Intended Behavior
+
+The app should be readable during play on laptops and tablets. This pass should improve hierarchy and consistency without changing feature behavior or data shape.
+
+## Decisions Already Made
+
+- A visual design pass should happen before 1.0 release.
+- This is broader than modal cleanup, but still should not become a feature redesign.
+
+## Requirements
+
+- Review all 1.0 pages and major flows:
+  - party summary
+  - inventory
+  - character sheets
+  - audit log
+  - time/notes
+  - coin transfer
+  - settings/setup/join screens
+- Improve visual hierarchy for high-priority information:
+  - entity names
+  - movement
+  - AC
+  - warnings
+  - coin summary
+  - time tracker state
+  - note titles/current turn
+- Standardize visual treatment of:
+  - cards
+  - item rows
+  - warnings/errors
+  - buttons
+  - forms
+  - modals
+  - tables/lists
+- Ensure destructive actions are visually distinct.
+- Improve mobile/narrow-width behavior where practical.
+- Keep plain CSS unless a separate decision is made.
+- Preserve existing calculations and persistence behavior.
+
+## Non-Goals
+
+- Do not change the inventory model.
+- Do not add new features.
+- Do not add drag-and-drop.
+- Do not introduce a component library unless explicitly approved.
+- Do not redesign page information architecture beyond obvious cleanup.
+
+## Likely Files
+
+- `src/styles.css`
+- `src/App.tsx`
+- Feature components/files if the app has been split
+
+## Implementation Guidance
+
+This is a polish pass, not a new design system rewrite. Favor small, visible improvements and consistency fixes. Do not destabilize working features immediately before 1.0.
+
+## Validation
+
+```bash
+npm run typecheck
+npm run test
+npm run build
+```
+
+Manual checks:
+
+- Review every major page at desktop width.
+- Review every major page at tablet/narrow width.
+- Confirm warnings and destructive actions are visually distinct.
+- Confirm no visual changes alter calculations or persistence.
+- Confirm modal cleanup conventions remain intact.
+
+## Stop Condition
+
+Stop when the app is more readable and consistent across 1.0 features without behavior changes or large structural rewrites.
+
+---
+
+# Cross-Cutting Requirements for All 1.0 Work
+
+## Audit Logging
+
+Meaningful user actions should be audit-friendly and actor-attributed where practical.
+
+Audit these in 1.0:
+
+- manual time edits
+- day advancement
+- note creation/edit/delete
+- coin transfers
+- character sheet edits where meaningful
+- AC override changes
+- destructive imports/resets if present
+
+Do not create noisy audit entries for simple 10-minute turn advancement.
+
+## Local and Firebase Parity
+
+Every 1.0 feature should work consistently in both local and Firebase modes unless a feature is explicitly Firebase-only for unavoidable reasons.
+
+Do not leave features half-working in one mode.
+
+## Import/Export
+
+If import/export already exists, keep it compatible with the current party state.
+
+If import/export is incomplete, add or preserve at least basic full-party export/import before 1.0 if feasible. Import should validate basic shape and require confirmation before replacing current party state.
+
+Old save migration is not required for now.
+
+## Validation Philosophy
+
+- Hard-block structurally impossible actions.
+- Do not silently fix user data.
+- Allow game-state warnings where appropriate.
+- Surface critical warnings clearly.
+- Avoid broad refactors unless needed to make the current phase safe.
+
+## UI Philosophy
+
+- Favor clarity at the table over dense configuration.
+- Keep common actions fast.
+- Hide details until needed.
+- Use click/tap-accessible details, not hover-only behavior.
+- Avoid adding new visual patterns when existing cleaned-up patterns work.
+
+---
+
+# Suggested 1.0 Completion Checklist
+
+Before declaring 1.0 ready:
+
+- A new user can create a party and get a shareable party URL.
+- Another user can open the party URL and set their display name/role.
+- Meaningful changes show actor attribution in audit where applicable.
+- Modals are readable and consistent.
+- Campaign time tracks days and 10-minute turns.
+- Notes are associated with turns and persist.
+- Coins show compact value/burden summaries.
+- Coins can be transferred between entities without manual record editing.
+- AC calculates from equipped armor and shield-in-hand behavior.
+- Multiple equipped armors warn and use best armor.
+- Saves calculate from class tables.
+- Skills are manually editable.
+- Party summary still shows the currently correct information.
+- Visual pass has been completed across all major pages.
+- Local and Firebase modes behave consistently.
+- Typecheck, tests, and build pass.
+
+```bash
+npm run typecheck
+npm run test
 npm run build
 ```
 
 ---
 
-# Final 0.1 Checklist
+# Post-1.0 Backlog
 
-0.1 is ready when:
+## High-Value Post-1.0
 
-- Import/export works.
-- Bad imports do not corrupt state.
-- Destructive actions require confirmation.
-- Warnings are accurate and not noisy.
-- Non-character entities do not receive character-only held-container warnings.
-- Encumbrance and movement tests pass.
-- One-level nested containers work.
-- Coin spending works and logs notes.
-- Identifying an item copies secret fields into public fields and logs the event.
-- Standard items can be added quickly.
-- Party view gives a useful table overview.
-- UI is compact enough for live play.
-- Deferred features are clearly not required for 0.1.
+1. Floor / scene inventory
+   - dropped items
+   - referee-placed treasure
+   - pickup/drop workflows
 
----
+2. Stack handling
+   - split stacks
+   - partial movement
+   - merge behavior if desired
+   - hand-placement special cases
 
-# Suggested Build Order
+3. Item action buttons
+   - split if not handled above
+   - light/extinguish
+   - eat/consume
+   - cast
+   - generic use
 
-1. Update scope and confirm deferred work is excluded.
-2. Import/export safety and hard import rejection.
-3. Warning correctness pass.
-4. Core calculation regression test review/fill-in.
-5. One-level nested containers.
-6. Coin spend action with audit note.
-7. Unidentified item workflow with audit log.
-8. Standard item autofill.
-9. Compact party view.
-10. Focused 0.1 UI cleanup.
+4. Light and ad hoc duration tracking
+   - attach durations to active effects/items
+   - evaluate against campaign time
+   - expiration warnings
+
+## Lower or Later Post-1.0
+
+5. Prepared treasure hoards
+6. Shopping page
+7. Spell reference
+8. Per-party configurable rule sets
+9. Drag-and-drop
+
