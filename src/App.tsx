@@ -3137,7 +3137,6 @@ function CharacterInventoryDisplay({
                   record={sections.coinRecord!}
                   dragHandle={handle}
                   onEditRecord={onEditRecord}
-                  onSpendCoins={onSpendCoins}
                 />
               )}
             </DraggableRecordItem>
@@ -4167,7 +4166,7 @@ function InventoryRecordForm({
               ) : null}
             </div>
           ) : null}
-          {onDelete ? (
+          {onDelete && coinActionRecord?.recordType !== "coins" ? (
             <button className="danger-button" type="button" onClick={onDelete}>
               Delete
             </button>
@@ -4747,7 +4746,6 @@ function RecordRow({
         record={record}
         dragHandle={dragHandle}
         onEditRecord={onEditRecord}
-        onSpendCoins={onSpendCoins}
       />
     );
   }
@@ -4921,12 +4919,10 @@ function CoinRecordRow({
   record,
   dragHandle,
   onEditRecord,
-  onSpendCoins,
 }: {
   record: InventoryRecord;
   dragHandle?: ReactNode;
   onEditRecord: (record: InventoryRecord) => void;
-  onSpendCoins: (record: InventoryRecord) => void;
 }) {
   if (record.recordType !== "coins") {
     return null;
@@ -4940,13 +4936,6 @@ function CoinRecordRow({
         allRecords={[record]}
         onOpenRecord={onEditRecord}
       />
-      <button
-        className="compact-row-action"
-        type="button"
-        onClick={() => onSpendCoins(record)}
-      >
-        Spend
-      </button>
     </div>
   );
 }
