@@ -705,6 +705,58 @@ const phase6DescriptionOnlyItem = phase6State.inventoryRecords.find(
 const phase6IdentifyAuditEntries = phase6State.auditLog.filter(
   (entry) => entry.eventType === "inventoryRecordIdentified",
 );
+const phase6TransferDestinationId = useAppStore.getState().createEntity({
+  name: "Shared Chest",
+  entityType: "storage",
+});
+
+if (phase6CharacterId) {
+  useAppStore.getState().createInventoryRecord(phase6CharacterId, {
+    recordType: "coins",
+    coins: { gp: 9, sp: 4 },
+  });
+}
+
+const phase6TransferResult =
+  phase6CharacterId && phase6TransferDestinationId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: phase6CharacterId,
+        destinationEntityId: phase6TransferDestinationId,
+        amounts: {
+          gp: 3,
+          sp: 2,
+        },
+        note: "party split",
+      })
+    : { ok: false };
+const phase6TransferOverdraftResult =
+  phase6CharacterId && phase6TransferDestinationId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: phase6CharacterId,
+        destinationEntityId: phase6TransferDestinationId,
+        amounts: {
+          pp: 1,
+        },
+      })
+    : { ok: false };
+const phase6TransferState = useAppStore.getState().appState;
+const phase6TransferSourceCoinRecord =
+  phase6TransferState.inventoryRecords.find(
+    (record) =>
+      record.recordType === "coins" &&
+      record.entityId === phase6CharacterId,
+  );
+const phase6TransferDestinationCoinRecord =
+  phase6TransferState.inventoryRecords.find(
+    (record) =>
+      record.recordType === "coins" &&
+      record.entityId === phase6TransferDestinationId,
+  );
+const phase6TransferAuditEntry = phase6TransferState.auditLog.find(
+  (entry) =>
+    entry.eventType === "coinsChanged" &&
+    entry.details?.transferNote === "party split",
+);
 
 export const PHASE_6_STORE_MANUAL_FIXTURES = [
   {
@@ -769,6 +821,57 @@ export const PHASE_6_STORE_MANUAL_FIXTURES = [
         nextName: "sealed scroll",
       },
     ],
+  },
+  {
+    name: "coin transfer moves exact denominations and rejects missing change",
+    actual: {
+      transferOk: phase6TransferResult.ok,
+      overdraftOk: phase6TransferOverdraftResult.ok,
+      sourceCoins:
+        phase6TransferSourceCoinRecord?.recordType === "coins"
+          ? phase6TransferSourceCoinRecord.coins
+          : undefined,
+      destinationCoins:
+        phase6TransferDestinationCoinRecord?.recordType === "coins"
+          ? phase6TransferDestinationCoinRecord.coins
+          : undefined,
+    },
+    expected: {
+      transferOk: true,
+      overdraftOk: false,
+      sourceCoins: {
+        pp: 0,
+        gp: 6,
+        sp: 2,
+        cp: 0,
+      },
+      destinationCoins: {
+        pp: 0,
+        gp: 3,
+        sp: 2,
+        cp: 0,
+      },
+    },
+  },
+  {
+    name: "coin transfer audit records source destination amounts and note",
+    actual: {
+      summary: phase6TransferAuditEntry?.summary,
+      sourceEntityId: phase6TransferAuditEntry?.details?.sourceEntityId,
+      destinationEntityId:
+        phase6TransferAuditEntry?.details?.destinationEntityId,
+      transferGp: phase6TransferAuditEntry?.details?.transferGp,
+      transferSp: phase6TransferAuditEntry?.details?.transferSp,
+      transferNote: phase6TransferAuditEntry?.details?.transferNote,
+    },
+    expected: {
+      summary: "Transferred 3 gp, 2 sp from Yost to Shared Chest — party split.",
+      sourceEntityId: phase6CharacterId,
+      destinationEntityId: phase6TransferDestinationId,
+      transferGp: 3,
+      transferSp: 2,
+      transferNote: "party split",
+    },
   },
 ];
 

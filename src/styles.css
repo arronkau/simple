@@ -963,6 +963,11 @@ h5 {
   justify-content: flex-end;
 }
 
+.record-form-action-group.left-actions {
+  justify-content: flex-start;
+  margin-bottom: 0.45rem;
+}
+
 .record-title-button {
   min-height: 0;
   border: 0;
@@ -1054,6 +1059,10 @@ h5 {
   margin: auto 0;
 }
 
+.inventory-item-modal {
+  margin: 0 0 auto;
+}
+
 .modal-panel .record-form {
   background: #ffffff;
   box-shadow: 0 18px 48px rgb(17 24 30 / 0.24);
@@ -1103,29 +1112,53 @@ h5 {
   gap: 1rem;
 }
 
-.modal-actions {
+.modal-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.modal-actions,
+.modal-footer {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: flex-end;
 }
 
+.modal-footer {
+  border-top: 1px solid #e1e5e8;
+  padding-top: 1rem;
+}
+
+.split-actions {
+  justify-content: space-between;
+}
+
+.modal-header,
 .manage-heading,
 .manage-section {
   display: grid;
   gap: 0.75rem;
 }
 
+.modal-header,
 .manage-heading {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
 }
 
+.modal-header p,
 .manage-heading p,
 .manage-section p {
   margin-top: 0.25rem;
   color: #5a6974;
   font-size: 0.95rem;
+}
+
+.modal-header h2,
+.modal-header h3,
+.modal-header h4 {
+  margin: 0;
 }
 
 .manage-section {
@@ -1193,6 +1226,11 @@ h5 {
   margin: 0;
 }
 
+.modal-header.record-form-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .record-type-badge {
   display: inline-flex;
   min-height: 1.8rem;
@@ -1207,9 +1245,47 @@ h5 {
   white-space: nowrap;
 }
 
-.record-type-select {
-  grid-template-columns: auto minmax(9rem, 12rem);
-  align-items: center;
+.record-type-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid #c8d2da;
+  border-radius: 8px;
+  background: #f4f7f9;
+}
+
+.record-type-tabs button {
+  min-height: 2.35rem;
+  border: 0;
+  border-right: 1px solid #c8d2da;
+  border-radius: 0;
+  padding: 0 0.7rem;
+  color: #364750;
+  background: transparent;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.record-type-tabs button:last-child {
+  border-right: 0;
+}
+
+.record-type-tabs button:hover {
+  background: #e9f0f4;
+}
+
+.record-type-tabs button[data-active="true"] {
+  color: #ffffff;
+  background: #2f4658;
+}
+
+.record-type-tabs button[aria-disabled="true"]:not([data-active="true"]) {
+  color: #7b8790;
+  cursor: not-allowed;
+}
+
+.record-type-tabs button[aria-disabled="true"]:not([data-active="true"]):hover {
+  background: transparent;
 }
 
 .form-error {
@@ -1231,6 +1307,12 @@ h5 {
 .coin-spend-layout {
   display: grid;
   gap: 1rem;
+}
+
+.coin-transfer-entities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
 .coin-spend-section {
@@ -1271,15 +1353,27 @@ h5 {
 
 .record-form-body {
   display: grid;
-  gap: 0.9rem;
+  gap: 0.7rem;
 }
 
+.record-core-grid,
 .record-form-grid,
 .record-detail-grid,
 .record-location-controls {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
+  align-items: end;
+}
+
+.record-core-grid {
+  grid-template-columns: minmax(16rem, 1fr) minmax(5.5rem, 7rem) minmax(7rem, 9rem);
+}
+
+.record-coin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(5.5rem, 1fr));
+  gap: 0.55rem;
   align-items: end;
 }
 
@@ -1356,9 +1450,9 @@ h5 {
 
 .record-form-section {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.55rem;
   border-top: 1px solid #e1e5e8;
-  padding-top: 0.8rem;
+  padding-top: 0.65rem;
 }
 
 .record-form-section:first-child {
@@ -1386,15 +1480,20 @@ h5 {
   align-items: end;
 }
 
+.record-options-grid,
 .record-traits-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.35rem 0.55rem;
 }
 
 .description-field {
-  min-height: 5rem;
+  min-height: 4rem;
   resize: vertical;
+}
+
+.record-description-field {
+  margin-top: 0.2rem;
 }
 
 .record-location-heading {
@@ -1430,9 +1529,18 @@ h5 {
 }
 
 .checkbox-field {
-  min-height: 2.5rem;
+  min-height: 2rem;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
+  gap: 0.45rem;
+  border: 1px solid #d8e0e6;
+  border-radius: 6px;
+  padding: 0.3rem 0.45rem;
+  background: #fbfcfd;
+}
+
+.checkbox-field input {
+  margin: 0;
 }
 
 .audit-panel {
@@ -1544,6 +1652,8 @@ h5 {
   }
 
   .record-form-grid,
+  .record-core-grid,
+  .record-coin-grid,
   .record-detail-grid.four-column,
   .record-detail-grid.three-column,
   .record-location-controls,
@@ -1607,6 +1717,8 @@ h5 {
 
   .record-row,
   .record-form-grid,
+  .record-core-grid,
+  .record-coin-grid,
   .record-detail-grid,
   .record-detail-grid.two-column,
   .record-detail-grid.three-column,
@@ -1614,6 +1726,7 @@ h5 {
   .record-location-controls,
   .record-basic-grid,
   .record-slots-grid,
+  .record-options-grid,
   .record-traits-grid,
   .character-sheet-grid,
   .character-sheet-grid.compact-grid,
@@ -1621,6 +1734,10 @@ h5 {
   .repeatable-row,
   .audit-filters {
     grid-template-columns: 1fr;
+  }
+
+  .record-type-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .party-ability-row {
@@ -1648,6 +1765,10 @@ h5 {
   .coin-spend-grid {
     grid-template-columns: minmax(4rem, 0.7fr) minmax(4rem, 0.6fr) minmax(6rem, 1fr);
     gap: 0.4rem;
+  }
+
+  .coin-transfer-entities {
+    grid-template-columns: 1fr;
   }
 
   .ability-score-grid {

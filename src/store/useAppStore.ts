@@ -108,6 +108,7 @@ type AppStore = {
     recordId: InventoryRecordId,
     input: SpendCoinsInput,
   ) => InventoryMutationResult;
+  transferCoins: (input: TransferCoinsInput) => InventoryMutationResult;
   deleteInventoryRecord: (
     recordId: InventoryRecordId,
   ) => InventoryMutationResult;
@@ -132,6 +133,13 @@ export type SpendCoinsInput = {
   denomination?: CoinDenomination;
   amount?: number;
   note?: string;
+};
+
+export type TransferCoinsInput = {
+  amounts: Partial<CoinData>;
+  destinationEntityId: EntityId;
+  note?: string;
+  sourceEntityId: EntityId;
 };
 
 export type InventoryMutationResult =
@@ -1092,6 +1100,194 @@ export const useAppStore = create<AppStore>((set) => ({
 
     return result;
   },
+  transferCoins: (input) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Coin transfer could not be completed.",
+    };
+
+    set((state) => {
+      const sourceEntity = state.appState.entities.find(
+        (entity) => entity.id === input.sourceEntityId,
+      );
+      const destinationEntity = state.appState.entities.find(
+        (entity) => entity.id === input.destinationEntityId,
+      );
+
+      if (!sourceEntity) {
+        result = {
+          ok: false,
+          message: "Source entity was not found.",
+        };
+        return state;
+      }
+
+      if (!destinationEntity) {
+        result = {
+          ok: false,
+          message: "Destination entity was not found.",
+        };
+        return state;
+      }
+
+      if (sourceEntity.id === destinationEntity.id) {
+        result = {
+          ok: false,
+          message: "Choose a different destination.",
+        };
+        return state;
+      }
+
+      const transferAmounts = normalizeSpendAmounts({ amounts: input.amounts });
+
+      if (!transferAmounts.ok) {
+        result = {
+          ok: false,
+          message: transferAmounts.message.replace("spend", "transfer"),
+        };
+        return state;
+      }
+
+      const sourceRecord = getDefaultCoinRecordForEntity(
+        sourceEntity.id,
+        state.appState.inventoryRecords,
+      );
+
+      if (!sourceRecord || sourceRecord.recordType !== "coins") {
+        result = {
+          ok: false,
+          message: "Source has no coin record.",
+        };
+        return state;
+      }
+
+      const overspentDenomination = COIN_DENOMINATIONS.find(
+        (denomination) =>
+          sourceRecord.coins[denomination] <
+          transferAmounts.amounts[denomination],
+      );
+
+      if (overspentDenomination) {
+        result = {
+          ok: false,
+          message: `Cannot transfer more ${overspentDenomination} than available.`,
+        };
+        return state;
+      }
+
+      const destinationRecord = getDefaultCoinRecordForEntity(
+        destinationEntity.id,
+        state.appState.inventoryRecords,
+      );
+      const previousSourceCoins = sourceRecord.coins;
+      const nextSourceCoins: CoinData = {
+        pp: sourceRecord.coins.pp - transferAmounts.amounts.pp,
+        gp: sourceRecord.coins.gp - transferAmounts.amounts.gp,
+        sp: sourceRecord.coins.sp - transferAmounts.amounts.sp,
+        cp: sourceRecord.coins.cp - transferAmounts.amounts.cp,
+      };
+      let nextInventoryRecords = state.appState.inventoryRecords.map((record) =>
+        record.id === sourceRecord.id && record.recordType === "coins"
+          ? { ...record, coins: nextSourceCoins }
+          : record,
+      );
+      let destinationRecordId = destinationRecord?.id;
+      let previousDestinationCoins: CoinData = {
+        pp: 0,
+        gp: 0,
+        sp: 0,
+        cp: 0,
+      };
+      let nextDestinationCoins: CoinData;
+
+      if (destinationRecord && destinationRecord.recordType === "coins") {
+        previousDestinationCoins = destinationRecord.coins;
+        nextDestinationCoins = mergeCoinData(
+          destinationRecord.coins,
+          transferAmounts.amounts,
+        );
+        nextInventoryRecords = nextInventoryRecords.map((record) =>
+          record.id === destinationRecord.id && record.recordType === "coins"
+            ? { ...record, coins: nextDestinationCoins }
+            : record,
+        );
+      } else {
+        destinationRecordId = createId("record");
+        const buildResult = createInventoryRecordFromInput({
+          entity: destinationEntity,
+          id: destinationRecordId,
+          records: nextInventoryRecords,
+          input: {
+            recordType: "coins",
+            coins: transferAmounts.amounts,
+            location: {
+              entityId: destinationEntity.id,
+              placement: "default",
+            },
+          },
+        });
+
+        if (!buildResult.ok) {
+          result = buildResult;
+          return state;
+        }
+
+        nextDestinationCoins =
+          buildResult.record.recordType === "coins"
+            ? buildResult.record.coins
+            : { pp: 0, gp: 0, sp: 0, cp: 0 };
+        nextInventoryRecords = [...nextInventoryRecords, buildResult.record];
+      }
+
+      if (!destinationRecordId) {
+        result = {
+          ok: false,
+          message: "Destination coin record was not found.",
+        };
+        return state;
+      }
+
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        nextInventoryRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid transfer.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId: sourceRecord.id };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: nextInventoryRecords,
+          },
+          [
+            createCoinTransferAuditEntryInput({
+              amounts: transferAmounts.amounts,
+              destinationEntity,
+              destinationRecordId,
+              nextDestinationCoins,
+              nextSourceCoins,
+              note: input.note,
+              previousDestinationCoins,
+              previousSourceCoins,
+              sourceEntity,
+              sourceRecordId: sourceRecord.id,
+            }),
+          ],
+        ),
+      };
+    });
+
+    return result;
+  },
   deleteInventoryRecord: (recordId) => {
     let result: InventoryMutationResult = {
       ok: false,
@@ -1408,6 +1604,56 @@ function createCoinSpendAuditEntryInput(input: {
   };
 }
 
+function createCoinTransferAuditEntryInput(input: {
+  amounts: CoinData;
+  destinationEntity: Entity;
+  destinationRecordId: InventoryRecordId;
+  nextDestinationCoins: CoinData;
+  nextSourceCoins: CoinData;
+  note?: string;
+  previousDestinationCoins: CoinData;
+  previousSourceCoins: CoinData;
+  sourceEntity: Entity;
+  sourceRecordId: InventoryRecordId;
+}): AuditLogEntryInput {
+  const note = input.note?.trim();
+
+  return {
+    entityId: input.sourceEntity.id,
+    eventType: "coinsChanged",
+    recordId: input.sourceRecordId,
+    summary: `Transferred ${formatCoinSpendAmounts(input.amounts)} from ${
+      input.sourceEntity.name
+    } to ${input.destinationEntity.name}${note ? ` — ${note}` : ""}.`,
+    details: {
+      sourceEntityId: input.sourceEntity.id,
+      destinationEntityId: input.destinationEntity.id,
+      destinationRecordId: input.destinationRecordId,
+      transferPp: input.amounts.pp,
+      transferGp: input.amounts.gp,
+      transferSp: input.amounts.sp,
+      transferCp: input.amounts.cp,
+      transferNote: note || undefined,
+      previousSourcePp: input.previousSourceCoins.pp,
+      previousSourceGp: input.previousSourceCoins.gp,
+      previousSourceSp: input.previousSourceCoins.sp,
+      previousSourceCp: input.previousSourceCoins.cp,
+      nextSourcePp: input.nextSourceCoins.pp,
+      nextSourceGp: input.nextSourceCoins.gp,
+      nextSourceSp: input.nextSourceCoins.sp,
+      nextSourceCp: input.nextSourceCoins.cp,
+      previousDestinationPp: input.previousDestinationCoins.pp,
+      previousDestinationGp: input.previousDestinationCoins.gp,
+      previousDestinationSp: input.previousDestinationCoins.sp,
+      previousDestinationCp: input.previousDestinationCoins.cp,
+      nextDestinationPp: input.nextDestinationCoins.pp,
+      nextDestinationGp: input.nextDestinationCoins.gp,
+      nextDestinationSp: input.nextDestinationCoins.sp,
+      nextDestinationCp: input.nextDestinationCoins.cp,
+    },
+  };
+}
+
 function createIdentifyInventoryRecordAuditEntryInput(input: {
   entity: Entity;
   nextRecord: InventoryRecord;
@@ -1527,6 +1773,23 @@ function formatCoinSpendAmounts(amounts: CoinData): string {
   return COIN_DENOMINATIONS.filter((denomination) => amounts[denomination] > 0)
     .map((denomination) => `${amounts[denomination]} ${denomination}`)
     .join(", ");
+}
+
+function getDefaultCoinRecordForEntity(
+  entityId: EntityId,
+  records: InventoryRecord[],
+): InventoryRecord | undefined {
+  const coinPurseRecord = getCharacterCoinRecord(entityId, records);
+
+  if (coinPurseRecord) {
+    return coinPurseRecord;
+  }
+
+  return records
+    .filter(
+      (record) => record.entityId === entityId && record.recordType === "coins",
+    )
+    .sort((recordA, recordB) => recordA.sortOrder - recordB.sortOrder)[0];
 }
 
 function createInventoryMoveAuditEntryInput(input: {

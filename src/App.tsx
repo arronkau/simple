@@ -92,6 +92,7 @@ import {
   getSortedEntities,
 } from "./model/entities";
 import {
+  getCharacterCoinRecord,
   getUsableContainerRecords,
   getLocationPlacementKey,
   type InventoryRecordFormInput,
@@ -168,14 +169,20 @@ const RECORD_TYPE_LABELS: Record<InventoryRecordType, string> = {
 };
 
 const RECORD_TYPES: InventoryRecordType[] = [
+  "equipment",
   "coins",
   "treasure",
   "weapon",
   "armor",
-  "equipment",
 ];
 
 const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
+const EMPTY_COINS: CoinData = {
+  pp: 0,
+  gp: 0,
+  sp: 0,
+  cp: 0,
+};
 
 const MODIFIER_TARGET_OPTIONS: Array<{
   label: string;
@@ -281,6 +288,13 @@ type CoinSpendFormState = {
   note: string;
 };
 
+type CoinTransferFormState = {
+  sourceEntityId: EntityId;
+  destinationEntityId: EntityId;
+  amounts: Record<CoinDenomination, string>;
+  note: string;
+};
+
 type ManageMessage = {
   tone: "error" | "success";
   text: string;
@@ -290,6 +304,16 @@ type UserProfileFormState = {
   displayName: string;
   role: UserRole;
 };
+
+type DeleteConfirmationState =
+  | {
+      kind: "entity";
+      entity: Entity;
+    }
+  | {
+      kind: "record";
+      record: InventoryRecord;
+    };
 
 type AppStateExport = {
   version: 1;
@@ -328,6 +352,7 @@ function LocalAppShell() {
     (state) => state.identifyInventoryRecord,
   );
   const spendCoins = useAppStore((state) => state.spendCoins);
+  const transferCoins = useAppStore((state) => state.transferCoins);
   const deleteInventoryRecord = useAppStore(
     (state) => state.deleteInventoryRecord,
   );
@@ -345,11 +370,17 @@ function LocalAppShell() {
   const [coinSpendForm, setCoinSpendForm] = useState<
     CoinSpendFormState | undefined
   >();
+  const [coinTransferForm, setCoinTransferForm] = useState<
+    CoinTransferFormState | undefined
+  >();
   const [recordFormMessage, setRecordFormMessage] = useState<
     string | undefined
   >();
   const [entityCreateModalOpen, setEntityCreateModalOpen] = useState(false);
   const [coinSpendMessage, setCoinSpendMessage] = useState<
+    string | undefined
+  >();
+  const [coinTransferMessage, setCoinTransferMessage] = useState<
     string | undefined
   >();
   const [auditEntityFilter, setAuditEntityFilter] = useState<
@@ -360,6 +391,9 @@ function LocalAppShell() {
   >("all");
   const [manageModalOpen, setManageModalOpen] = useState(false);
   const [identityModalOpen, setIdentityModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<
+    DeleteConfirmationState | undefined
+  >();
   const [collapsedContainerIds, setCollapsedContainerIds] = useState<
     Set<InventoryRecordId>
   >(() => new Set());
@@ -439,6 +473,10 @@ function LocalAppShell() {
     setEditingName("");
   }
 
+  function requestDeleteEntity(entity: Entity) {
+    setDeleteConfirmation({ kind: "entity", entity });
+  }
+
   function startAddingRecord(entity: Entity) {
     setRecordForm(createEmptyRecordForm(entity));
     setRecordFormMessage(undefined);
@@ -476,27 +514,39 @@ function LocalAppShell() {
     setRecordFormMessage(undefined);
   }
 
-  function removeInventoryRecord(record: InventoryRecord) {
-    if (
-      !window.confirm(
-        getDeleteConfirmationMessage(record, appState.inventoryRecords),
-      )
-    ) {
+  function requestDeleteInventoryRecord(record: InventoryRecord) {
+    setDeleteConfirmation({ kind: "record", record });
+  }
+
+  function confirmDelete() {
+    if (!deleteConfirmation) {
       return;
     }
 
-    const result = deleteInventoryRecord(record.id);
+    if (deleteConfirmation.kind === "entity") {
+      deleteEntity(deleteConfirmation.entity.id);
+      if (editingEntityId === deleteConfirmation.entity.id) {
+        setEditingEntityId(undefined);
+        setEditingName("");
+      }
+      setDeleteConfirmation(undefined);
+      return;
+    }
+
+    const result = deleteInventoryRecord(deleteConfirmation.record.id);
 
     if (!result.ok) {
       setRecordFormMessage(result.message);
+      setDeleteConfirmation(undefined);
       return;
     }
 
-    if (recordForm?.recordId === record.id) {
+    if (recordForm?.recordId === deleteConfirmation.record.id) {
       setRecordForm(undefined);
     }
 
     setRecordFormMessage(undefined);
+    setDeleteConfirmation(undefined);
   }
 
   function startSpendingCoins(record: InventoryRecord) {
@@ -517,6 +567,56 @@ function LocalAppShell() {
     setCoinSpendMessage(undefined);
   }
 
+  function startTransferringCoins(record: InventoryRecord) {
+    if (record.recordType !== "coins") {
+      return;
+    }
+
+    const destinationEntityId =
+      sortedEntities.find((entity) => entity.id !== record.entityId)?.id ?? "";
+
+    setCoinTransferForm({
+      sourceEntityId: record.entityId,
+      destinationEntityId,
+      amounts: createEmptyCoinSpendAmounts(),
+      note: "",
+    });
+    setCoinTransferMessage(undefined);
+  }
+
+  function cancelTransferringCoins() {
+    setCoinTransferForm(undefined);
+    setCoinTransferMessage(undefined);
+  }
+
+  function saveCoinTransferForm(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!coinTransferForm) {
+      return;
+    }
+
+    const result = transferCoins({
+      sourceEntityId: coinTransferForm.sourceEntityId,
+      destinationEntityId: coinTransferForm.destinationEntityId,
+      amounts: toCoinSpendAmounts(coinTransferForm.amounts),
+      note: coinTransferForm.note,
+    });
+
+    if (!result.ok) {
+      setCoinTransferMessage(result.message);
+      return;
+    }
+
+    if (recordForm?.recordType === "coins") {
+      setRecordForm(undefined);
+      setRecordFormMessage(undefined);
+    }
+
+    setCoinTransferForm(undefined);
+    setCoinTransferMessage(undefined);
+  }
+
   function saveCoinSpendForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -532,6 +632,11 @@ function LocalAppShell() {
     if (!result.ok) {
       setCoinSpendMessage(result.message);
       return;
+    }
+
+    if (recordForm?.recordType === "coins") {
+      setRecordForm(undefined);
+      setRecordFormMessage(undefined);
     }
 
     setCoinSpendForm(undefined);
@@ -615,8 +720,8 @@ function LocalAppShell() {
                 onChangeEditingName={setEditingName}
                 onChangeRecordForm={setRecordForm}
                 onCreateEntity={handleCreateEntity}
-                onDeleteEntity={deleteEntity}
-                onDeleteRecord={removeInventoryRecord}
+                onDeleteEntity={requestDeleteEntity}
+                onDeleteRecord={requestDeleteInventoryRecord}
                 onEditEntity={startEditing}
                 onEditRecord={startEditingRecord}
                 onIdentifyRecord={identifyInventoryRecord}
@@ -624,6 +729,7 @@ function LocalAppShell() {
                 onSaveRecordForm={saveRecordForm}
                 onSetEntityActive={setEntityActive}
                 onSpendCoins={startSpendingCoins}
+                onTransferCoins={startTransferringCoins}
                 onStartCreateEntity={startCreatingEntity}
                 onStartAddRecord={startAddingRecord}
                 onToggleContainerCollapsed={toggleContainerCollapsed}
@@ -701,6 +807,26 @@ function LocalAppShell() {
             onCancel={cancelSpendingCoins}
             onChange={setCoinSpendForm}
             onSubmit={saveCoinSpendForm}
+          />
+        ) : null}
+
+        {coinTransferForm ? (
+          <CoinTransferModal
+            appState={appState}
+            formState={coinTransferForm}
+            message={coinTransferMessage}
+            onCancel={cancelTransferringCoins}
+            onChange={setCoinTransferForm}
+            onSubmit={saveCoinTransferForm}
+          />
+        ) : null}
+
+        {deleteConfirmation ? (
+          <DeleteConfirmationModal
+            confirmation={deleteConfirmation}
+            inventoryRecords={appState.inventoryRecords}
+            onCancel={() => setDeleteConfirmation(undefined)}
+            onConfirm={confirmDelete}
           />
         ) : null}
       </section>
@@ -818,7 +944,7 @@ function ManageDataModal({
         className="modal-panel manage-modal"
         role="dialog"
       >
-        <div className="manage-heading">
+        <div className="modal-header">
           <div>
             <h2>Manage Data</h2>
             <p>Rename, share, export, import, or reset the current party.</p>
@@ -828,107 +954,118 @@ function ManageDataModal({
           </button>
         </div>
 
-        <section className="manage-section">
-          <div>
-            <h3>Party</h3>
-            <p>Rename this party or share its stable URL.</p>
-          </div>
-          <label>
-            <span>Party name</span>
-            <input
-              value={editingPartyName}
-              onChange={(event) => setEditingPartyName(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            onClick={() => onRenameParty(editingPartyName)}
-          >
-            Save name
-          </button>
-          <label>
-            <span>Party URL</span>
-            <input readOnly value={partyUrl} />
-          </label>
-        </section>
-
-        <section className="manage-section">
-          <div>
-            <h3>Export</h3>
-            <p>Download a JSON file that can be imported later.</p>
-          </div>
-          <button type="button" onClick={exportAppData}>
-            Export JSON
-          </button>
-        </section>
-
-        <section className="manage-section">
-          <div>
-            <h3>Import</h3>
-            <p>
-              Import replaces all current app data. Export a backup first. Type
-              import to continue.
-            </p>
-          </div>
-          <label className="file-button">
-            <span>Import JSON</span>
-            <input accept="application/json,.json" type="file" onChange={importAppData} />
-          </label>
-          {pendingImportAppState ? (
-            <>
-              <label>
-                <span>Type import to confirm</span>
-                <input
-                  autoComplete="off"
-                  value={importConfirmation}
-                  onChange={(event) =>
-                    setImportConfirmation(event.target.value)
-                  }
-                />
-              </label>
-              <button
-                className="danger-button"
-                disabled={!importEnabled}
-                type="button"
-                onClick={confirmImport}
-              >
-                Replace data
-              </button>
-            </>
-          ) : null}
-          {importMessage ? (
-            <p
-              className={
-                importMessage.tone === "error" ? "form-error" : "form-success"
-              }
+        <div className="modal-body">
+          <section className="manage-section">
+            <div>
+              <h3>Party</h3>
+              <p>Rename this party or share its stable URL.</p>
+            </div>
+            <label>
+              <span>Party name</span>
+              <input
+                value={editingPartyName}
+                onChange={(event) => setEditingPartyName(event.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => onRenameParty(editingPartyName)}
             >
-              {importMessage.text}
-            </p>
-          ) : null}
-        </section>
+              Save name
+            </button>
+            <label>
+              <span>Party URL</span>
+              <input readOnly value={partyUrl} />
+            </label>
+          </section>
 
-        <section className="manage-section danger-section">
-          <div>
-            <h3>Reset Data</h3>
-            <p>Delete all current app data and return to the default empty state.</p>
-          </div>
-          <label>
-            <span>Type delete to confirm</span>
-            <input
-              autoComplete="off"
-              value={resetConfirmation}
-              onChange={(event) => setResetConfirmation(event.target.value)}
-            />
-          </label>
-          <button
-            className="danger-button"
-            disabled={!resetEnabled}
-            type="button"
-            onClick={onReset}
-          >
-            Reset data
-          </button>
-        </section>
+          <section className="manage-section">
+            <div>
+              <h3>Export</h3>
+              <p>Download a JSON file that can be imported later.</p>
+            </div>
+            <button type="button" onClick={exportAppData}>
+              Export JSON
+            </button>
+          </section>
+
+          <section className="manage-section">
+            <div>
+              <h3>Import</h3>
+              <p>
+                Import replaces all current app data. Export a backup first.
+                Type import to continue.
+              </p>
+            </div>
+            <label className="file-button">
+              <span>Import JSON</span>
+              <input
+                accept="application/json,.json"
+                type="file"
+                onChange={importAppData}
+              />
+            </label>
+            {pendingImportAppState ? (
+              <>
+                <label>
+                  <span>Type import to confirm</span>
+                  <input
+                    autoComplete="off"
+                    value={importConfirmation}
+                    onChange={(event) =>
+                      setImportConfirmation(event.target.value)
+                    }
+                  />
+                </label>
+                <button
+                  className="danger-button"
+                  disabled={!importEnabled}
+                  type="button"
+                  onClick={confirmImport}
+                >
+                  Replace data
+                </button>
+              </>
+            ) : null}
+            {importMessage ? (
+              <p
+                className={
+                  importMessage.tone === "error"
+                    ? "form-error"
+                    : "form-success"
+                }
+              >
+                {importMessage.text}
+              </p>
+            ) : null}
+          </section>
+
+          <section className="manage-section danger-section">
+            <div>
+              <h3>Reset Data</h3>
+              <p>
+                Delete all current app data and return to the default empty
+                state.
+              </p>
+            </div>
+            <label>
+              <span>Type delete to confirm</span>
+              <input
+                autoComplete="off"
+                value={resetConfirmation}
+                onChange={(event) => setResetConfirmation(event.target.value)}
+              />
+            </label>
+            <button
+              className="danger-button"
+              disabled={!resetEnabled}
+              type="button"
+              onClick={onReset}
+            >
+              Reset data
+            </button>
+          </section>
+        </div>
       </section>
     </div>
   );
@@ -970,7 +1107,7 @@ function UserIdentityModal({
         role="dialog"
       >
         <form className="modal-form" onSubmit={handleSubmit}>
-          <div className="manage-heading">
+          <div className="modal-header">
             <div>
               <h2>{profile ? "Edit User" : "Join Party"}</h2>
               <p>Name yourself for this party.</p>
@@ -982,44 +1119,46 @@ function UserIdentityModal({
             )}
           </div>
 
-          <section className="manage-section">
-            <label>
-              <span>Display name</span>
-              <input
-                autoFocus
-                autoComplete="name"
-                value={formState.displayName}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    displayName: event.target.value,
-                  }))
-                }
-              />
-            </label>
+          <div className="modal-body">
+            <section className="manage-section">
+              <label>
+                <span>Display name</span>
+                <input
+                  autoFocus
+                  autoComplete="name"
+                  value={formState.displayName}
+                  onChange={(event) =>
+                    setFormState((currentState) => ({
+                      ...currentState,
+                      displayName: event.target.value,
+                    }))
+                  }
+                />
+              </label>
 
-            <label>
-              <span>Role</span>
-              <select
-                value={formState.role}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    role: event.target.value as UserRole,
-                  }))
-                }
-              >
-                <option value="Player">Player</option>
-                <option value="GM">GM</option>
-              </select>
-            </label>
+              <label>
+                <span>Role</span>
+                <select
+                  value={formState.role}
+                  onChange={(event) =>
+                    setFormState((currentState) => ({
+                      ...currentState,
+                      role: event.target.value as UserRole,
+                    }))
+                  }
+                >
+                  <option value="Player">Player</option>
+                  <option value="GM">GM</option>
+                </select>
+              </label>
 
-            {!displayNameValid ? (
-              <p className="form-error">Enter a display name.</p>
-            ) : null}
-          </section>
+              {!displayNameValid ? (
+                <p className="form-error">Enter a display name.</p>
+              ) : null}
+            </section>
+          </div>
 
-          <div className="modal-actions">
+          <div className="modal-footer">
             {required ? null : (
               <button type="button" onClick={onCancel}>
                 Cancel
@@ -1030,6 +1169,65 @@ function UserIdentityModal({
             </button>
           </div>
         </form>
+      </section>
+    </div>
+  );
+}
+
+function DeleteConfirmationModal({
+  confirmation,
+  inventoryRecords,
+  onCancel,
+  onConfirm,
+}: {
+  confirmation: DeleteConfirmationState;
+  inventoryRecords: InventoryRecord[];
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const title =
+    confirmation.kind === "entity" ? "Delete Entity" : "Delete Item";
+  const message =
+    confirmation.kind === "entity"
+      ? `Delete ${confirmation.entity.name} and all of its inventory records?`
+      : getDeleteConfirmationMessage(confirmation.record, inventoryRecords);
+  const targetName =
+    confirmation.kind === "entity"
+      ? confirmation.entity.name
+      : getRecordDisplayName(confirmation.record);
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-label={title}
+        aria-modal="true"
+        className="modal-panel manage-modal"
+        role="dialog"
+      >
+        <div className="modal-header">
+          <div>
+            <h2>{title}</h2>
+            <p>{targetName}</p>
+          </div>
+          <button type="button" onClick={onCancel}>
+            Close
+          </button>
+        </div>
+
+        <div className="modal-body">
+          <section className="manage-section danger-section">
+            <p>{message}</p>
+          </section>
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="danger-button" type="button" onClick={onConfirm}>
+            Delete
+          </button>
+        </div>
       </section>
     </div>
   );
@@ -1088,6 +1286,7 @@ function InventoryPage({
   onSaveRecordForm,
   onSetEntityActive,
   onSpendCoins,
+  onTransferCoins,
   onStartCreateEntity,
   onStartAddRecord,
   onToggleContainerCollapsed,
@@ -1108,7 +1307,7 @@ function InventoryPage({
   onChangeEditingName: (name: string) => void;
   onChangeRecordForm: (formState: RecordFormState) => void;
   onCreateEntity: (event: FormEvent<HTMLFormElement>) => void;
-  onDeleteEntity: (entityId: EntityId) => void;
+  onDeleteEntity: (entity: Entity) => void;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditEntity: (entity: Entity) => void;
   onEditRecord: (record: InventoryRecord) => void;
@@ -1117,6 +1316,7 @@ function InventoryPage({
   onSaveRecordForm: (event: FormEvent<HTMLFormElement>) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
   onSpendCoins: (record: InventoryRecord) => void;
+  onTransferCoins: (record: InventoryRecord) => void;
   onStartCreateEntity: () => void;
   onStartAddRecord: (entity: Entity) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
@@ -1166,7 +1366,9 @@ function InventoryPage({
           onCancel={onCancelRecordForm}
           onChange={onChangeRecordForm}
           onDeleteRecord={onDeleteRecord}
+          onSpendCoins={onSpendCoins}
           onSubmit={onSaveRecordForm}
+          onTransferCoins={onTransferCoins}
         />
       ) : null}
 
@@ -1198,16 +1400,12 @@ function InventoryPage({
 function EntityForm({
   formState,
   onChange,
-  onSubmit,
-  submitLabel = "Add entity",
 }: {
   formState: EntityFormState;
   onChange: (formState: EntityFormState) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  submitLabel?: string;
 }) {
   return (
-    <form className="entity-form" onSubmit={onSubmit}>
+    <div className="entity-form">
       <label>
         <span>Name</span>
         <input
@@ -1243,9 +1441,7 @@ function EntityForm({
           ))}
         </select>
       </label>
-
-      <button type="submit">{submitLabel}</button>
-    </form>
+    </div>
   );
 }
 
@@ -1262,25 +1458,26 @@ function EntityCreateModal({
 }) {
   return (
     <div className="modal-backdrop" role="presentation">
-      <section
+      <form
         aria-label="Add entity"
         aria-modal="true"
         className="modal-panel entity-modal"
         role="dialog"
+        onSubmit={onSubmit}
       >
-        <div className="record-form-heading">
+        <div className="modal-header">
           <h3>Add Entity</h3>
+        </div>
+        <div className="modal-body">
+          <EntityForm formState={formState} onChange={onChange} />
+        </div>
+        <div className="modal-footer">
           <button type="button" onClick={onCancel}>
             Cancel
           </button>
+          <button type="submit">Create entity</button>
         </div>
-        <EntityForm
-          formState={formState}
-          onChange={onChange}
-          onSubmit={onSubmit}
-          submitLabel="Create entity"
-        />
-      </section>
+      </form>
     </div>
   );
 }
@@ -1300,7 +1497,7 @@ function EntityEditModal({
   entity: Entity;
   onCancel: () => void;
   onChangeEditingName: (name: string) => void;
-  onDeleteEntity: (entityId: EntityId) => void;
+  onDeleteEntity: (entity: Entity) => void;
   onSaveEditing: (entityId: EntityId) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
 }) {
@@ -1314,51 +1511,44 @@ function EntityEditModal({
         className="modal-panel entity-modal"
         role="dialog"
       >
-        <div className="record-form-heading">
+        <div className="modal-header">
           <div>
             <h3>Edit Entity</h3>
             <p className="form-help">{ENTITY_TYPE_LABELS[entity.entityType]}</p>
           </div>
-          <button type="button" onClick={onCancel}>
-            Close
-          </button>
         </div>
 
-        <label className="edit-name">
-          <span>Name</span>
-          <input
-            autoComplete="off"
-            maxLength={80}
-            required
-            type="text"
-            value={editingName}
-            onChange={(event) => onChangeEditingName(event.target.value)}
-          />
-        </label>
+        <div className="modal-body">
+          <label className="edit-name">
+            <span>Name</span>
+            <input
+              autoComplete="off"
+              maxLength={80}
+              required
+              type="text"
+              value={editingName}
+              onChange={(event) => onChangeEditingName(event.target.value)}
+            />
+          </label>
 
-        <div className="entity-modal-summary">
-          {status.movement ? <span>{status.movement}</span> : null}
-          {status.capacity ? <span>{status.capacity}</span> : null}
-          {status.warningCount > 0 ? (
-            <span>{formatWarningState(status.warnings, status.validationIssues)}</span>
-          ) : (
-            <span>No warnings</span>
-          )}
+          <div className="entity-modal-summary">
+            {status.movement ? <span>{status.movement}</span> : null}
+            {status.capacity ? <span>{status.capacity}</span> : null}
+            {status.warningCount > 0 ? (
+              <span>
+                {formatWarningState(status.warnings, status.validationIssues)}
+              </span>
+            ) : (
+              <span>No warnings</span>
+            )}
+          </div>
         </div>
 
-        <div className="record-form-actions">
+        <div className="modal-footer split-actions">
           <button
             className="danger-button"
             type="button"
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Delete ${entity.name} and its inventory records?`,
-                )
-              ) {
-                onDeleteEntity(entity.id);
-              }
-            }}
+            onClick={() => onDeleteEntity(entity)}
           >
             Delete
           </button>
@@ -1368,12 +1558,14 @@ function EntityEditModal({
           >
             {entity.active ? "Deactivate" : "Reactivate"}
           </button>
-          <button type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" onClick={() => onSaveEditing(entity.id)}>
-            Save entity
-          </button>
+          <div className="record-form-action-group">
+            <button type="button" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="button" onClick={() => onSaveEditing(entity.id)}>
+              Save entity
+            </button>
+          </div>
         </div>
       </section>
     </div>
@@ -2107,7 +2299,9 @@ function InventoryRecordModal({
   onCancel,
   onChange,
   onDeleteRecord,
+  onSpendCoins,
   onSubmit,
+  onTransferCoins,
 }: {
   appState: AppState;
   entity: Entity;
@@ -2116,7 +2310,9 @@ function InventoryRecordModal({
   onCancel: () => void;
   onChange: (formState: RecordFormState) => void;
   onDeleteRecord: (record: InventoryRecord) => void;
+  onSpendCoins: (record: InventoryRecord) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onTransferCoins: (record: InventoryRecord) => void;
 }) {
   const editingRecord = formState.recordId
     ? getRecordById(formState.recordId, appState.inventoryRecords)
@@ -2127,7 +2323,7 @@ function InventoryRecordModal({
       <section
         aria-label={formState.mode === "edit" ? "Edit inventory record" : "Add inventory record"}
         aria-modal="true"
-        className="modal-panel"
+        className="modal-panel inventory-item-modal"
         role="dialog"
       >
         <InventoryRecordForm
@@ -2144,7 +2340,9 @@ function InventoryRecordModal({
                 }
               : undefined
           }
+          onSpendCoins={onSpendCoins}
           onSubmit={onSubmit}
+          onTransferCoins={onTransferCoins}
         />
       </section>
     </div>
@@ -3022,7 +3220,9 @@ function InventoryRecordForm({
   onCancel,
   onChange,
   onDelete,
+  onSpendCoins,
   onSubmit,
+  onTransferCoins,
 }: {
   appState: AppState;
   entity: Entity;
@@ -3031,7 +3231,9 @@ function InventoryRecordForm({
   onCancel: () => void;
   onChange: (formState: RecordFormState) => void;
   onDelete?: () => void;
+  onSpendCoins?: (record: InventoryRecord) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onTransferCoins?: (record: InventoryRecord) => void;
 }) {
   const targetEntity =
     appState.entities.find(
@@ -3082,6 +3284,9 @@ function InventoryRecordForm({
     placementOptions,
     targetEntity,
   });
+  const coinActionRecord = formState.recordId
+    ? getRecordById(formState.recordId, appState.inventoryRecords)
+    : undefined;
 
   useEffect(() => {
     if (standardItemSuggestions.length === 0) {
@@ -3168,52 +3373,65 @@ function InventoryRecordForm({
     }
   }
 
+  function changeRecordType(recordType: InventoryRecordType) {
+    if (formState.mode === "edit" || recordType === formState.recordType) {
+      return;
+    }
+
+    onChange({
+      ...formState,
+      recordType,
+      handsRequired: getDefaultHandsRequired(recordType).toString() as
+        | "0"
+        | "1"
+        | "2",
+      placement: "default",
+      containerId: "",
+    });
+  }
+
   return (
-    <form className="record-form" onSubmit={onSubmit}>
-      <div className="record-form-heading">
+    <form className="record-form modal-form" onSubmit={onSubmit}>
+      <div className="modal-header record-form-heading">
         <div>
           <h4>{formState.mode === "edit" ? "Edit item" : "Add item"}</h4>
+          <p className="form-help">
+            {formState.mode === "edit"
+              ? `${RECORD_TYPE_LABELS[formState.recordType]} for ${entity.name}`
+              : `New item for ${entity.name}`}
+          </p>
           {message ? <p className="form-error">{message}</p> : null}
         </div>
-        {formState.mode === "edit" ? (
-          <span className="record-type-badge">
-            {RECORD_TYPE_LABELS[formState.recordType]}
-          </span>
-        ) : (
-          <label className="record-type-select">
-            <span>Type</span>
-            <select
-              value={formState.recordType}
-              onChange={(event) => {
-                const recordType = event.target.value as InventoryRecordType;
-
-                onChange({
-                  ...formState,
-                  recordType,
-                  handsRequired: getDefaultHandsRequired(recordType).toString() as
-                    | "0"
-                    | "1"
-                    | "2",
-                  placement: "default",
-                  containerId: "",
-                });
-              }}
-            >
-              {RECORD_TYPES.map((recordType) => (
-                <option key={recordType} value={recordType}>
-                  {RECORD_TYPE_LABELS[recordType]}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
 
-      <div className="record-form-body">
-        {formState.recordType === "coins" ? (
-          <section className="record-form-section">
-            <h5>Coins</h5>
-            <div className="record-detail-grid four-column">
+      <div
+        aria-label="Item type"
+        className="record-type-tabs"
+        role="tablist"
+      >
+        {RECORD_TYPES.map((recordType) => {
+          const active = recordType === formState.recordType;
+
+          return (
+            <button
+              aria-disabled={formState.mode === "edit"}
+              aria-selected={active}
+              data-active={active}
+              key={recordType}
+              role="tab"
+              type="button"
+              onClick={() => changeRecordType(recordType)}
+            >
+              {RECORD_TYPE_LABELS[recordType]}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="modal-body record-form-body">
+        <section className="record-form-section record-core-section">
+          {formState.recordType === "coins" ? (
+            <div className="record-coin-grid">
               <NumberField
                 label="PP"
                 value={formState.pp}
@@ -3235,14 +3453,9 @@ function InventoryRecordForm({
                 onChange={(value) => onChange({ ...formState, cp: value })}
               />
             </div>
-          </section>
-        ) : null}
-
-        {showNonCoinFields ? (
-          <>
-            <section className="record-form-section">
-              <h5>Basic</h5>
-              <div className="record-basic-grid">
+          ) : (
+            <>
+              <div className="record-core-grid">
                 <div className="autocomplete-field" ref={autocompleteRef}>
                   <label>
                     <span>Name</span>
@@ -3317,12 +3530,6 @@ function InventoryRecordForm({
                     onChange({ ...formState, quantity: value })
                   }
                 />
-              </div>
-            </section>
-
-            <section className="record-form-section">
-              <h5>Slots</h5>
-              <div className="record-slots-grid">
                 <NumberField
                   label={
                     formState.stackable ? "Items per slot" : "Slots per item"
@@ -3341,38 +3548,143 @@ function InventoryRecordForm({
                     )
                   }
                 />
-
-                <label className="checkbox-field">
-                  <input
-                    checked={formState.stackable}
-                    type="checkbox"
-                    onChange={(event) =>
-                      onChange({
-                        ...formState,
-                        stackable: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>Stackable</span>
-                </label>
               </div>
-            </section>
 
-            <section className="record-form-section">
-              <label>
+              <label className="record-description-field">
                 <span>Description</span>
                 <textarea
                   className="description-field"
                   maxLength={160}
-                  rows={4}
+                  rows={3}
                   value={formState.description}
                   onChange={(event) =>
                     onChange({ ...formState, description: event.target.value })
                   }
                 />
               </label>
-            </section>
-          </>
+            </>
+          )}
+        </section>
+
+        {showNonCoinFields ? (
+          <section className="record-form-section">
+            <h5>Options</h5>
+            <div className="record-options-grid">
+              <label className="checkbox-field">
+                <input
+                  checked={formState.stackable}
+                  type="checkbox"
+                  onChange={(event) =>
+                    onChange({
+                      ...formState,
+                      stackable: event.target.checked,
+                    })
+                  }
+                />
+                <span>Stackable</span>
+              </label>
+              {showContainerFields ? (
+                <label className="checkbox-field">
+                  <input
+                    checked={formState.isContainer}
+                    type="checkbox"
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        isContainer: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Container</span>
+                </label>
+              ) : null}
+              {showIdentificationFields ? (
+                <label className="checkbox-field">
+                  <input
+                    checked={formState.isUnidentified}
+                    type="checkbox"
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        isUnidentified: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Unidentified</span>
+                </label>
+              ) : null}
+              <label className="checkbox-field">
+                <input
+                  checked={formState.isLight}
+                  type="checkbox"
+                  onChange={(event) =>
+                    onChange({
+                      ...formState,
+                      isLight: event.target.checked,
+                      trackUses: event.target.checked,
+                    })
+                  }
+                />
+                <span>Light source</span>
+              </label>
+              {!formState.isLight ? (
+                <label className="checkbox-field">
+                  <input
+                    checked={formState.trackUses}
+                    type="checkbox"
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        trackUses: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Track uses / charges</span>
+                </label>
+              ) : null}
+              <label className="checkbox-field">
+                <input
+                  checked={formState.addModifiers}
+                  type="checkbox"
+                  onChange={(event) =>
+                    onChange({
+                      ...formState,
+                      addModifiers: event.target.checked,
+                    })
+                  }
+                />
+                <span>This item modifies a stat</span>
+              </label>
+              {formState.recordType === "weapon" ? (
+                <label className="checkbox-field">
+                  <input
+                    checked={formState.addWeaponQualities}
+                    type="checkbox"
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        addWeaponQualities: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Add weapon qualities</span>
+                </label>
+              ) : null}
+              <label className="checkbox-field">
+                <input
+                  checked={formState.notesEnabled}
+                  type="checkbox"
+                  onChange={(event) =>
+                    onChange({
+                      ...formState,
+                      notesEnabled: event.target.checked,
+                    })
+                  }
+                />
+                <span>Add GM notes</span>
+              </label>
+            </div>
+          </section>
         ) : null}
 
         {formState.recordType === "treasure" ? (
@@ -3457,73 +3769,6 @@ function InventoryRecordForm({
                   onChange({ ...formState, armorBonus: value })
                 }
               />
-            </div>
-          </section>
-        ) : null}
-
-        {showNonCoinFields ? (
-          <section className="record-form-section">
-            <h5>Traits</h5>
-            <div className="record-traits-grid">
-              {showContainerFields ? (
-                <label className="checkbox-field">
-                  <input
-                    checked={formState.isContainer}
-                    type="checkbox"
-                    onChange={(event) =>
-                      onChange({
-                        ...formState,
-                        isContainer: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>Container</span>
-                </label>
-              ) : null}
-              {showIdentificationFields ? (
-                <label className="checkbox-field">
-                  <input
-                    checked={formState.isUnidentified}
-                    type="checkbox"
-                    onChange={(event) =>
-                      onChange({
-                        ...formState,
-                        isUnidentified: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>Unidentified</span>
-                </label>
-              ) : null}
-              <label className="checkbox-field">
-                <input
-                  checked={formState.isLight}
-                  type="checkbox"
-                  onChange={(event) =>
-                    onChange({
-                      ...formState,
-                      isLight: event.target.checked,
-                      trackUses: event.target.checked,
-                    })
-                  }
-                />
-                <span>Light source</span>
-              </label>
-              {!formState.isLight ? (
-                <label className="checkbox-field">
-                  <input
-                    checked={formState.trackUses}
-                    type="checkbox"
-                    onChange={(event) =>
-                      onChange({
-                        ...formState,
-                        trackUses: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>Track uses / charges</span>
-                </label>
-              ) : null}
             </div>
           </section>
         ) : null}
@@ -3667,187 +3912,141 @@ function InventoryRecordForm({
           </section>
         ) : null}
 
-        {showNonCoinFields ? (
+        {formState.addModifiers && showNonCoinFields ? (
           <section className="record-form-section">
             <h5>Modifiers</h5>
-            <label className="checkbox-field">
-              <input
-                checked={formState.addModifiers}
-                type="checkbox"
-                onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    addModifiers: event.target.checked,
-                  })
-                }
-              />
-              <span>This item modifies a stat</span>
-            </label>
-            {formState.addModifiers ? (
-              <div className="modifier-list">
-                {formState.modifiers.map((modifierRow) => (
-                  <div className="modifier-row" key={modifierRow.id}>
-                    <label>
-                      <span>Target</span>
-                      <select
-                        value={modifierRow.target}
-                        onChange={(event) =>
-                          onChange({
-                            ...formState,
-                            modifiers: formState.modifiers.map(
-                              (candidateRow) =>
-                                candidateRow.id === modifierRow.id
-                                  ? {
-                                      ...candidateRow,
-                                      target: event.target.value,
-                                    }
-                                  : candidateRow,
-                            ),
-                          })
-                        }
-                      >
-                        {MODIFIER_TARGET_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <NumberField
-                      label="Value"
-                      min="-99"
-                      value={modifierRow.value}
-                      onChange={(value) =>
+            <div className="modifier-list">
+              {formState.modifiers.map((modifierRow) => (
+                <div className="modifier-row" key={modifierRow.id}>
+                  <label>
+                    <span>Target</span>
+                    <select
+                      value={modifierRow.target}
+                      onChange={(event) =>
                         onChange({
                           ...formState,
-                          modifiers: formState.modifiers.map((candidateRow) =>
-                            candidateRow.id === modifierRow.id
-                              ? { ...candidateRow, value }
-                              : candidateRow,
-                          ),
-                        })
-                      }
-                    />
-                    <label>
-                      <span>Label</span>
-                      <input
-                        autoComplete="off"
-                        maxLength={80}
-                        type="text"
-                        value={modifierRow.label}
-                        onChange={(event) =>
-                          onChange({
-                            ...formState,
-                            modifiers: formState.modifiers.map(
-                              (candidateRow) =>
-                                candidateRow.id === modifierRow.id
-                                  ? {
-                                      ...candidateRow,
-                                      label: event.target.value,
-                                    }
-                                  : candidateRow,
-                            ),
-                          })
-                        }
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onChange({
-                          ...formState,
-                          modifiers: formState.modifiers.filter(
+                          modifiers: formState.modifiers.map(
                             (candidateRow) =>
-                              candidateRow.id !== modifierRow.id,
+                              candidateRow.id === modifierRow.id
+                                ? {
+                                    ...candidateRow,
+                                    target: event.target.value,
+                                  }
+                                : candidateRow,
                           ),
                         })
                       }
                     >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() =>
-                    onChange({
-                      ...formState,
-                      modifiers: [
-                        ...formState.modifiers,
-                        createEmptyModifierFormRow(),
-                      ],
-                    })
-                  }
-                >
-                  Add modifier
-                </button>
-              </div>
-            ) : null}
+                      {MODIFIER_TARGET_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <NumberField
+                    label="Value"
+                    min="-99"
+                    value={modifierRow.value}
+                    onChange={(value) =>
+                      onChange({
+                        ...formState,
+                        modifiers: formState.modifiers.map((candidateRow) =>
+                          candidateRow.id === modifierRow.id
+                            ? { ...candidateRow, value }
+                            : candidateRow,
+                        ),
+                      })
+                    }
+                  />
+                  <label>
+                    <span>Label</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={80}
+                      type="text"
+                      value={modifierRow.label}
+                      onChange={(event) =>
+                        onChange({
+                          ...formState,
+                          modifiers: formState.modifiers.map(
+                            (candidateRow) =>
+                              candidateRow.id === modifierRow.id
+                                ? {
+                                    ...candidateRow,
+                                    label: event.target.value,
+                                  }
+                                : candidateRow,
+                          ),
+                        })
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        ...formState,
+                        modifiers: formState.modifiers.filter(
+                          (candidateRow) => candidateRow.id !== modifierRow.id,
+                        ),
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...formState,
+                    modifiers: [
+                      ...formState.modifiers,
+                      createEmptyModifierFormRow(),
+                    ],
+                  })
+                }
+              >
+                Add modifier
+              </button>
+            </div>
           </section>
         ) : null}
 
-        {formState.recordType === "weapon" ? (
+        {formState.recordType === "weapon" && formState.addWeaponQualities ? (
           <section className="record-form-section">
             <h5>Weapon qualities</h5>
-            <label className="checkbox-field">
+            <label>
+              <span>Qualities</span>
               <input
-                checked={formState.addWeaponQualities}
-                type="checkbox"
+                autoComplete="off"
+                maxLength={160}
+                type="text"
+                value={formState.qualities}
                 onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    addWeaponQualities: event.target.checked,
-                  })
+                  onChange({ ...formState, qualities: event.target.value })
                 }
               />
-              <span>Add weapon qualities</span>
             </label>
-            {formState.addWeaponQualities ? (
-              <label>
-                <span>Qualities</span>
-                <input
-                  autoComplete="off"
-                  maxLength={160}
-                  type="text"
-                  value={formState.qualities}
-                  onChange={(event) =>
-                    onChange({ ...formState, qualities: event.target.value })
-                  }
-                />
-              </label>
-            ) : null}
           </section>
         ) : null}
 
-        {showNonCoinFields ? (
+        {formState.notesEnabled && showNonCoinFields ? (
           <section className="record-form-section">
             <h5>Private / GM notes</h5>
-            <label className="checkbox-field">
-              <input
-                checked={formState.notesEnabled}
-                type="checkbox"
+            <label>
+              <span>GM notes</span>
+              <textarea
+                maxLength={1000}
+                rows={3}
+                value={formState.notes}
                 onChange={(event) =>
-                  onChange({
-                    ...formState,
-                    notesEnabled: event.target.checked,
-                  })
+                  onChange({ ...formState, notes: event.target.value })
                 }
               />
-              <span>Add GM notes</span>
             </label>
-            {formState.notesEnabled ? (
-              <label>
-                <span>GM notes</span>
-                <textarea
-                  maxLength={1000}
-                  rows={3}
-                  value={formState.notes}
-                  onChange={(event) =>
-                    onChange({ ...formState, notes: event.target.value })
-                  }
-                />
-              </label>
-            ) : null}
           </section>
         ) : null}
 
@@ -3946,8 +4145,28 @@ function InventoryRecordForm({
         </section>
       </div>
 
-      <div className="record-form-actions">
+      <div className="modal-footer split-actions">
         <div>
+          {coinActionRecord?.recordType === "coins" ? (
+            <div className="record-form-action-group left-actions">
+              {onSpendCoins ? (
+                <button
+                  type="button"
+                  onClick={() => onSpendCoins(coinActionRecord)}
+                >
+                  Spend coins
+                </button>
+              ) : null}
+              {onTransferCoins ? (
+                <button
+                  type="button"
+                  onClick={() => onTransferCoins(coinActionRecord)}
+                >
+                  Transfer coins
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           {onDelete ? (
             <button className="danger-button" type="button" onClick={onDelete}>
               Delete
@@ -3999,13 +4218,15 @@ function CoinSpendModal({
         className="modal-panel record-modal"
         role="dialog"
       >
-        <form className="record-form" onSubmit={onSubmit}>
-          <div className="record-form-heading">
-            <h4>Spend Coins</h4>
-            {message ? <p className="form-error">{message}</p> : null}
+        <form className="record-form modal-form" onSubmit={onSubmit}>
+          <div className="modal-header record-form-heading">
+            <div>
+              <h4>Spend Coins</h4>
+              {message ? <p className="form-error">{message}</p> : null}
+            </div>
           </div>
 
-          <div className="coin-spend-layout">
+          <div className="modal-body coin-spend-layout">
             <section className="coin-spend-section">
               <h5>Spend amount</h5>
               <div className="coin-spend-grid">
@@ -4014,6 +4235,7 @@ function CoinSpendModal({
                 <div className="coin-spend-heading">Spend</div>
                 {COIN_DENOMINATIONS.map((denomination) => (
                   <CoinSpendRow
+                    actionLabel="Spend"
                     available={record.coins[denomination]}
                     denomination={denomination}
                     key={denomination}
@@ -4049,7 +4271,7 @@ function CoinSpendModal({
             </label>
           </div>
 
-          <div className="record-form-actions">
+          <div className="modal-footer">
             <button type="button" onClick={onCancel}>
               Cancel
             </button>
@@ -4063,12 +4285,171 @@ function CoinSpendModal({
   );
 }
 
+function CoinTransferModal({
+  appState,
+  formState,
+  message,
+  onCancel,
+  onChange,
+  onSubmit,
+}: {
+  appState: AppState;
+  formState: CoinTransferFormState;
+  message?: string;
+  onCancel: () => void;
+  onChange: (formState: CoinTransferFormState) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const sortedEntities = getSortedEntities(appState.entities);
+  const sourceRecord = getDefaultCoinRecordForEntity(
+    formState.sourceEntityId,
+    appState.inventoryRecords,
+  );
+  const sourceCoins =
+    sourceRecord?.recordType === "coins" ? sourceRecord.coins : EMPTY_COINS;
+  const validationMessage = getCoinTransferValidationMessage(
+    formState,
+    appState,
+  );
+
+  function changeSourceEntity(sourceEntityId: EntityId) {
+    const destinationEntityId =
+      sourceEntityId === formState.destinationEntityId
+        ? sortedEntities.find((entity) => entity.id !== sourceEntityId)?.id ?? ""
+        : formState.destinationEntityId;
+
+    onChange({
+      ...formState,
+      sourceEntityId,
+      destinationEntityId,
+    });
+  }
+
+  function changeDestinationEntity(destinationEntityId: EntityId) {
+    onChange({
+      ...formState,
+      destinationEntityId,
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-label="Transfer coins"
+        aria-modal="true"
+        className="modal-panel record-modal"
+        role="dialog"
+      >
+        <form className="record-form modal-form" onSubmit={onSubmit}>
+          <div className="modal-header record-form-heading">
+            <div>
+              <h4>Transfer Coins</h4>
+              <p className="form-help">Move exact denominations between entities.</p>
+              {message ? <p className="form-error">{message}</p> : null}
+            </div>
+          </div>
+
+          <div className="modal-body coin-spend-layout">
+            <section className="coin-transfer-entities">
+              <label>
+                <span>Source</span>
+                <select
+                  value={formState.sourceEntityId}
+                  onChange={(event) =>
+                    changeSourceEntity(event.target.value as EntityId)
+                  }
+                >
+                  {sortedEntities.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {entity.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>Destination</span>
+                <select
+                  value={formState.destinationEntityId}
+                  onChange={(event) =>
+                    changeDestinationEntity(event.target.value as EntityId)
+                  }
+                >
+                  <option value="">Select destination</option>
+                  {sortedEntities.map((entity) => (
+                    <option key={entity.id} value={entity.id}>
+                      {entity.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </section>
+
+            <section className="coin-spend-section">
+              <h5>Transfer amount</h5>
+              <div className="coin-spend-grid">
+                <div className="coin-spend-heading">Denomination</div>
+                <div className="coin-spend-heading">Available</div>
+                <div className="coin-spend-heading">Transfer</div>
+                {COIN_DENOMINATIONS.map((denomination) => (
+                  <CoinSpendRow
+                    actionLabel="Transfer"
+                    available={sourceCoins[denomination]}
+                    denomination={denomination}
+                    key={denomination}
+                    value={formState.amounts[denomination]}
+                    onChange={(value) =>
+                      onChange({
+                        ...formState,
+                        amounts: {
+                          ...formState.amounts,
+                          [denomination]: value,
+                        },
+                      })
+                    }
+                  />
+                ))}
+              </div>
+              {validationMessage ? (
+                <p className="form-error">{validationMessage}</p>
+              ) : null}
+            </section>
+
+            <label>
+              <span>Note</span>
+              <span className="field-help">Optional transfer note</span>
+              <input
+                autoComplete="off"
+                maxLength={160}
+                value={formState.note}
+                onChange={(event) =>
+                  onChange({ ...formState, note: event.target.value })
+                }
+              />
+            </label>
+          </div>
+
+          <div className="modal-footer">
+            <button type="button" onClick={onCancel}>
+              Cancel
+            </button>
+            <button disabled={validationMessage !== undefined} type="submit">
+              Transfer coins
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function CoinSpendRow({
+  actionLabel,
   available,
   denomination,
   onChange,
   value,
 }: {
+  actionLabel: string;
   available: number;
   denomination: CoinDenomination;
   onChange: (value: string) => void;
@@ -4079,7 +4460,7 @@ function CoinSpendRow({
       <div className="coin-spend-denomination">{denomination.toUpperCase()}</div>
       <div className="coin-spend-available">{available}</div>
       <input
-        aria-label={`Spend ${denomination}`}
+        aria-label={`${actionLabel} ${denomination}`}
         min="0"
         step="1"
         type="number"
@@ -5190,6 +5571,58 @@ function getCoinSpendValidationMessage(
   }
 
   return undefined;
+}
+
+function getCoinTransferValidationMessage(
+  formState: CoinTransferFormState,
+  appState: AppState,
+): string | undefined {
+  if (!formState.sourceEntityId) {
+    return "Choose a source.";
+  }
+
+  if (!formState.destinationEntityId) {
+    return "Choose a destination.";
+  }
+
+  if (formState.sourceEntityId === formState.destinationEntityId) {
+    return "Choose a different destination.";
+  }
+
+  const sourceRecord = getDefaultCoinRecordForEntity(
+    formState.sourceEntityId,
+    appState.inventoryRecords,
+  );
+
+  if (!sourceRecord || sourceRecord.recordType !== "coins") {
+    return "Source has no coin record.";
+  }
+
+  const spendValidationMessage = getCoinSpendValidationMessage(
+    formState.amounts,
+    sourceRecord.coins,
+  );
+
+  return spendValidationMessage
+    ?.replace("spend", "transfer")
+    .replace("Spend", "Transfer");
+}
+
+function getDefaultCoinRecordForEntity(
+  entityId: EntityId,
+  records: InventoryRecord[],
+): InventoryRecord | undefined {
+  const coinPurseRecord = getCharacterCoinRecord(entityId, records);
+
+  if (coinPurseRecord) {
+    return coinPurseRecord;
+  }
+
+  return records
+    .filter(
+      (record) => record.entityId === entityId && record.recordType === "coins",
+    )
+    .sort((recordA, recordB) => recordA.sortOrder - recordB.sortOrder)[0];
 }
 
 function toCoinSpendNumber(value: string): number {
