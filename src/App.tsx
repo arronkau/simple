@@ -73,6 +73,7 @@ import {
   getCoinCount,
   getCoinGpValue,
   getDirectChildRecords,
+  getRecordSlotBurden,
 } from "./model/calculations";
 import {
   getCharacterEncumbrance,
@@ -4987,8 +4988,50 @@ function InventoryRowSummary({
           <span className="record-secondary">· {display.secondaryText}</span>
         ) : null}
       </div>
-      <span className="record-right-meta">{display.rightText}</span>
+      {display.rightKind === "burden" ? (
+        <SlotPipIndicator slots={getRecordSlotBurden(record)} />
+      ) : (
+        <span className="record-right-meta">{display.rightText}</span>
+      )}
     </div>
+  );
+}
+
+function SlotPipIndicator({ slots }: { slots: number }) {
+  const description = formatSlots(slots);
+
+  return (
+    <span
+      aria-label={description}
+      className="slot-pip-indicator"
+      title={description}
+    >
+      {getSlotPipContent(slots)}
+    </span>
+  );
+}
+
+function getSlotPipContent(slots: number): ReactNode {
+  if (slots <= 0) {
+    return "○";
+  }
+
+  if (slots === 1) {
+    return "●";
+  }
+
+  if (slots === 2) {
+    return "●●";
+  }
+
+  if (slots === 3) {
+    return "●●●";
+  }
+
+  return (
+    <>
+      ●×<span className="slot-pip-multiplier">{slots}</span>
+    </>
   );
 }
 

@@ -15,6 +15,7 @@ export type InventoryRowDisplay = {
   primaryText: string;
   statusIcons: InventoryRowStatus[];
   secondaryText?: string;
+  rightKind: "burden" | "capacity";
   rightText: string;
 };
 
@@ -26,6 +27,7 @@ export function getInventoryRowDisplay(
     return {
       primaryText: formatCoinDenominations(record.coins),
       statusIcons: [],
+      rightKind: "burden",
       rightText: formatSlots(getRecordSlotBurden(record)),
     };
   }
@@ -41,6 +43,7 @@ export function getInventoryRowDisplay(
     return {
       primaryText,
       statusIcons: isOverCapacity ? ["overCapacity"] : [],
+      rightKind: "capacity",
       rightText: formatCapacity(slotUsage.usedSlots, slotUsage.capacitySlots),
     };
   }
@@ -55,6 +58,7 @@ export function getInventoryRowDisplay(
       primaryText,
       statusIcons: [],
       ...(gpValue ? { secondaryText: gpValue } : {}),
+      rightKind: "burden",
       rightText: formatSlots(getRecordSlotBurden(record)),
     };
   }
@@ -62,6 +66,7 @@ export function getInventoryRowDisplay(
   return {
     primaryText,
     statusIcons: getInventoryRowStatusIcons(record),
+    rightKind: "burden",
     rightText: formatSlots(getRecordSlotBurden(record)),
   };
 }

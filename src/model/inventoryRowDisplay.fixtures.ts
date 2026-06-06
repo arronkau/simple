@@ -240,6 +240,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Rope",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "1 slot",
     },
   },
@@ -249,6 +250,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Rations (15)",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "3 slots",
     },
   },
@@ -258,6 +260,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Torch",
       statusIcons: ["lit"],
+      rightKind: "burden",
       rightText: "1 slot",
     },
   },
@@ -267,6 +270,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Torch (2)",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "1 slot",
     },
   },
@@ -276,6 +280,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Longsword",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "1 slot",
     },
   },
@@ -285,6 +290,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Potion",
       statusIcons: ["unidentified"],
+      rightKind: "burden",
       rightText: "0 slots",
     },
   },
@@ -294,6 +300,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Chainmail",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "2 slots",
     },
   },
@@ -303,6 +310,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Shield",
       statusIcons: ["activeAc"],
+      rightKind: "burden",
       rightText: "1 slot",
     },
   },
@@ -313,6 +321,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
       primaryText: "Gems (10)",
       statusIcons: [],
       secondaryText: "500 gp",
+      rightKind: "burden",
       rightText: "0 slots",
     },
   },
@@ -322,6 +331,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Strange token",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "1 slot",
     },
   },
@@ -331,6 +341,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "100 pp, 240 gp, 80 sp",
       statusIcons: [],
+      rightKind: "burden",
       rightText: "5 slots",
     },
   },
@@ -340,6 +351,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Backpack",
       statusIcons: [],
+      rightKind: "capacity",
       rightText: "7/8 slots",
     },
   },
@@ -349,6 +361,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     expected: {
       primaryText: "Small sack",
       statusIcons: ["overCapacity"],
+      rightKind: "capacity",
       rightText: "9/6 slots",
     },
   },
