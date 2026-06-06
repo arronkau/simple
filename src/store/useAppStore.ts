@@ -49,6 +49,9 @@ import type {
   InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
+  UserId,
+  UserProfile,
+  UserRole,
 } from "../model/types";
 import {
   createInitialInventoryRecordsForEntity,
@@ -63,13 +66,16 @@ import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 type AppStore = {
   appState: AppState;
+  currentUserId: UserId;
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
   syncError?: string;
   syncStatus: SyncStatus;
+  updateCurrentUserProfile: (input: UserProfileInput) => void;
   renameParty: (displayName: string) => void;
   setCurrentParty: (partyId: PartyId) => void;
+  userProfiles: UserProfile[];
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
   updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
   updateCharacterData: (
@@ -114,6 +120,11 @@ type CreateEntityStoreInput = {
   entityType: EntityType;
 };
 
+type UserProfileInput = {
+  displayName: string;
+  role: UserRole;
+};
+
 export type CoinDenomination = keyof CoinData;
 
 export type SpendCoinsInput = {
@@ -134,21 +145,49 @@ export type EntityMutationResult =
 type AuditLogEntryInput = Omit<CreateAuditLogEntryInput, "createdAt" | "id">;
 
 const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
+const LOCAL_USER_ID_STORAGE_KEY = "simple.inventory.localUserId.v1";
 
 const firebaseConfig = getRuntimeFirebaseConfig();
 const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
 const initialPartyId = getInitialPartyId();
 const initialPartyState = readLocalPartyState(initialPartyId);
+const initialCurrentUserId = readLocalUserId();
 
 writeLocalPartyState(initialPartyState);
 
 export const useAppStore = create<AppStore>((set) => ({
   appState: initialPartyState.appState,
+  currentUserId: initialCurrentUserId,
   partyDisplayName: initialPartyState.party.displayName,
   partyId: initialPartyState.party.id,
   persistenceMode,
   syncError: undefined,
   syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
+  userProfiles: initialPartyState.userProfiles,
+  updateCurrentUserProfile: (input) => {
+    set((state) => {
+      const displayName = normalizeUserDisplayName(input.displayName);
+      const profile: UserProfile = {
+        id: state.currentUserId,
+        displayName,
+        role: input.role,
+        updatedAt: new Date().toISOString(),
+      };
+      const existingProfile = state.userProfiles.find(
+        (candidateProfile) => candidateProfile.id === state.currentUserId,
+      );
+
+      return {
+        userProfiles: existingProfile
+          ? state.userProfiles.map((candidateProfile) =>
+              candidateProfile.id === state.currentUserId
+                ? profile
+                : candidateProfile,
+            )
+          : [...state.userProfiles, profile],
+      };
+    });
+  },
   renameParty: (displayName) => {
     set((state) => ({
       partyDisplayName: normalizePartyDisplayName(displayName),
@@ -167,6 +206,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
       return {
         appState: partyState.appState,
+        userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
         partyId: partyState.party.id,
         syncError: undefined,
@@ -1145,7 +1185,8 @@ useAppStore.subscribe((state, previousState) => {
   if (
     state.appState === previousState.appState &&
     state.partyDisplayName === previousState.partyDisplayName &&
-    state.partyId === previousState.partyId
+    state.partyId === previousState.partyId &&
+    state.userProfiles === previousState.userProfiles
   ) {
     return;
   }
@@ -1195,6 +1236,7 @@ function appendAuditLogEntries(
       ...appState.auditLog,
       ...entries.map((entry) =>
         createAuditLogEntry({
+          ...getCurrentAuditActor(),
           ...entry,
           createdAt: new Date().toISOString(),
           id: createId("audit"),
@@ -1630,6 +1672,9 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     onError: (message) => {
       setSyncMetadata("error", message);
     },
+    onAuthUserId: (userId) => {
+      useAppStore.setState({ currentUserId: userId });
+    },
     onReadyToWrite: (writePartyState) => {
       if (useAppStore.getState().partyId !== activePartyId) {
         return;
@@ -1729,6 +1774,7 @@ function applyRemotePartyState(partyState: PartyState): void {
   useAppStore.setState({
     appState: partyState.appState,
     partyDisplayName: partyState.party.displayName,
+    userProfiles: partyState.userProfiles,
   });
 }
 
@@ -1747,12 +1793,16 @@ function arePartyStatesEqual(
 }
 
 function getPartyStateFromStoreState(
-  state: Pick<AppStore, "appState" | "partyDisplayName" | "partyId">,
+  state: Pick<
+    AppStore,
+    "appState" | "partyDisplayName" | "partyId" | "userProfiles"
+  >,
 ): PartyState {
   return createPartyState({
     appState: state.appState,
     displayName: state.partyDisplayName,
     partyId: state.partyId,
+    userProfiles: state.userProfiles,
   });
 }
 
@@ -1780,6 +1830,64 @@ export function createPartyId(): PartyId {
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
   return `party-${randomId.replaceAll("-", "")}`;
+}
+
+function readLocalUserId(): UserId {
+  if (typeof window === "undefined" || !("localStorage" in window)) {
+    return createLocalUserId();
+  }
+
+  try {
+    const storedUserId = window.localStorage.getItem(LOCAL_USER_ID_STORAGE_KEY);
+
+    if (storedUserId && storedUserId.trim().length > 0) {
+      return storedUserId;
+    }
+
+    const userId = createLocalUserId();
+    window.localStorage.setItem(LOCAL_USER_ID_STORAGE_KEY, userId);
+
+    return userId;
+  } catch {
+    return createLocalUserId();
+  }
+}
+
+function createLocalUserId(): UserId {
+  const randomId =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
+  return `local-user-${randomId.replaceAll("-", "")}`;
+}
+
+function normalizeUserDisplayName(displayName: string): string {
+  const trimmedName = displayName.trim();
+
+  return trimmedName.length > 0 ? trimmedName : "Player";
+}
+
+function getCurrentAuditActor(): Pick<
+  CreateAuditLogEntryInput,
+  "actorLabel" | "actorRole" | "actorUserId"
+> {
+  const state = useAppStore.getState();
+  const profile = state.userProfiles.find(
+    (candidateProfile) => candidateProfile.id === state.currentUserId,
+  );
+
+  if (!profile) {
+    return {
+      actorLabel: "Anonymous user",
+      actorUserId: state.currentUserId,
+    };
+  }
+
+  return {
+    actorLabel: `${profile.displayName} (${profile.role})`,
+    actorRole: profile.role,
+    actorUserId: profile.id,
+  };
 }
 
 function formatSyncError(error: unknown): string {

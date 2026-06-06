@@ -15,6 +15,8 @@ import type {
   InventoryRecord,
   InventoryRecordType,
   KnownModifierTarget,
+  UserProfile,
+  UserRole,
 } from "./types";
 
 export type AppState = {
@@ -33,6 +35,7 @@ export type PartyState = {
     displayName: string;
   };
   appState: AppState;
+  userProfiles: UserProfile[];
 };
 
 export const APP_STATE_STORAGE_KEY = "simple.inventory.appState.v1";
@@ -93,6 +96,7 @@ const KNOWN_MODIFIER_TARGETS: KnownModifierTarget[] = [
 
 const ABILITY_SCORE_KEYS = ["str", "int", "wis", "dex", "con", "cha"] as const;
 const CHARACTER_ALIGNMENTS = ["Law", "Neutrality", "Chaos", ""] as const;
+const USER_ROLES: UserRole[] = ["GM", "Player"];
 
 export function createEmptyAppState(): AppState {
   return {
@@ -107,10 +111,12 @@ export function createPartyState({
   appState = createEmptyAppState(),
   displayName = "New Party",
   partyId,
+  userProfiles = [],
 }: {
   appState?: AppState;
   displayName?: string;
   partyId: PartyId;
+  userProfiles?: UserProfile[];
 }): PartyState {
   return {
     schemaVersion: 1,
@@ -119,6 +125,7 @@ export function createPartyState({
       displayName: normalizePartyDisplayName(displayName),
     },
     appState,
+    userProfiles,
   };
 }
 
@@ -247,6 +254,7 @@ export function parsePartyState(
     displayName:
       typeof party.displayName === "string" ? party.displayName : "New Party",
     partyId: party.id,
+    userProfiles: normalizeUserProfiles(value.userProfiles),
   });
 }
 
@@ -372,6 +380,10 @@ function normalizeContainerData(value: unknown) {
 
 function normalizeAuditLog(auditLog: unknown): AuditLogEntry[] {
   return Array.isArray(auditLog) ? auditLog.filter(isAuditLogEntry) : [];
+}
+
+function normalizeUserProfiles(value: unknown): UserProfile[] {
+  return Array.isArray(value) ? value.filter(isUserProfile) : [];
 }
 
 function isAppState(value: unknown): value is Omit<AppState, "auditLog" | "inventoryRecords"> & {
@@ -766,11 +778,28 @@ function isAuditLogEntry(value: unknown): value is AuditLogEntry {
     typeof candidate.id === "string" &&
     typeof candidate.createdAt === "string" &&
     typeof candidate.actorLabel === "string" &&
+    (candidate.actorRole === undefined ||
+      USER_ROLES.includes(candidate.actorRole as UserRole)) &&
+    (candidate.actorUserId === undefined ||
+      typeof candidate.actorUserId === "string") &&
     AUDIT_EVENT_TYPES.includes(candidate.eventType as AuditEventType) &&
     typeof candidate.summary === "string" &&
     (candidate.entityId === undefined || typeof candidate.entityId === "string") &&
     (candidate.recordId === undefined || typeof candidate.recordId === "string") &&
     (candidate.details === undefined || isAuditLogDetails(candidate.details))
+  );
+}
+
+function isUserProfile(value: unknown): value is UserProfile {
+  if (!isRecordLike(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.displayName === "string" &&
+    USER_ROLES.includes(value.role as UserRole) &&
+    (value.updatedAt === undefined || typeof value.updatedAt === "string")
   );
 }
 

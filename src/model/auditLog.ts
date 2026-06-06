@@ -7,6 +7,8 @@ import type {
   EntityId,
   InventoryRecordId,
   ISODateTimeString,
+  UserId,
+  UserRole,
 } from "./types";
 
 export const DEFAULT_AUDIT_ACTOR_LABEL = "Local user";
@@ -30,6 +32,8 @@ export type CreateAuditLogEntryInput = {
   eventType: AuditEventType;
   summary: string;
   actorLabel?: string;
+  actorRole?: UserRole;
+  actorUserId?: UserId;
   entityId?: EntityId;
   recordId?: InventoryRecordId;
   details?: Record<string, AuditLogDetailValue | undefined>;
@@ -37,6 +41,8 @@ export type CreateAuditLogEntryInput = {
 
 export function createAuditLogEntry({
   actorLabel = DEFAULT_AUDIT_ACTOR_LABEL,
+  actorRole,
+  actorUserId,
   createdAt,
   details,
   entityId,
@@ -51,6 +57,8 @@ export function createAuditLogEntry({
     id,
     createdAt,
     actorLabel,
+    ...(actorRole ? { actorRole } : {}),
+    ...(actorUserId ? { actorUserId } : {}),
     eventType,
     summary,
     ...(entityId ? { entityId } : {}),

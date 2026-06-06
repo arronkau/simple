@@ -1,6 +1,8 @@
 import {
   APP_STATE_STORAGE_KEY,
   createEmptyAppState,
+  createPartyState,
+  parsePartyState,
   parseAppState,
   readLocalAppState,
   writeLocalAppState,
@@ -225,6 +227,20 @@ const invalidLocalAppState = withMockLocalStorage((localStorage) => {
   return readLocalAppState();
 });
 
+const partyStateWithUserProfiles = createPartyState({
+  appState: storedAppState,
+  displayName: "Blackmarsh Table",
+  partyId: "party-1",
+  userProfiles: [
+    {
+      id: "user-1",
+      displayName: "Morgan",
+      role: "GM",
+      updatedAt: "2026-06-05T12:00:00.000Z",
+    },
+  ],
+});
+
 export const APP_STATE_MANUAL_FIXTURES = [
   {
     name: "app state parsing preserves v1 shape and normalizes records",
@@ -379,6 +395,35 @@ export const APP_STATE_MANUAL_FIXTURES = [
     name: "Firebase document data preserves the same logical AppState shape",
     actual: parseAppState(firebaseDocumentAppState),
     expected: firebaseDocumentAppState,
+  },
+  {
+    name: "party state parsing preserves user profiles",
+    actual: parsePartyState(partyStateWithUserProfiles, "party-1"),
+    expected: {
+      ...partyStateWithUserProfiles,
+      appState: {
+        ...storedAppState,
+        entities: [normalizedCharacterEntity],
+        inventoryRecords: [
+          {
+            ...legacyWeaponRecord,
+            handsRequired: 2,
+          },
+        ],
+      },
+    },
+  },
+  {
+    name: "party state parsing defaults missing user profiles",
+    actual: parsePartyState({
+      schemaVersion: 1,
+      party: {
+        id: "party-1",
+        displayName: "Blackmarsh Table",
+      },
+      appState: storedAppState,
+    })?.userProfiles,
+    expected: [],
   },
   {
     name: "app state parsing preserves exposed advanced inventory fields",

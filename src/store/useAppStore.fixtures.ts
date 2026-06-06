@@ -1237,3 +1237,47 @@ export const PHASE_DND_STORE_MANUAL_FIXTURES = [
     },
   },
 ];
+
+useAppStore.getState().resetLocalState();
+useAppStore.setState({
+  currentUserId: "user-1",
+  userProfiles: [],
+});
+useAppStore.getState().updateCurrentUserProfile({
+  displayName: "Morgan",
+  role: "GM",
+});
+useAppStore.getState().createEntity({
+  name: "Attributed Character",
+  entityType: "character",
+});
+const attributedAuditEntry = useAppStore.getState().appState.auditLog[0];
+const currentUserProfile = useAppStore.getState().userProfiles[0];
+
+export const PHASE_2_STORE_MANUAL_FIXTURES = [
+  {
+    name: "store profiles current user and attributes audit entries",
+    actual: {
+      profile: currentUserProfile
+        ? {
+            id: currentUserProfile.id,
+            displayName: currentUserProfile.displayName,
+            role: currentUserProfile.role,
+          }
+        : undefined,
+      auditActorLabel: attributedAuditEntry?.actorLabel,
+      auditActorRole: attributedAuditEntry?.actorRole,
+      auditActorUserId: attributedAuditEntry?.actorUserId,
+    },
+    expected: {
+      profile: {
+        id: "user-1",
+        displayName: "Morgan",
+        role: "GM",
+      },
+      auditActorLabel: "Morgan (GM)",
+      auditActorRole: "GM",
+      auditActorUserId: "user-1",
+    },
+  },
+];

@@ -3,6 +3,8 @@ export type InventoryRecordId = string;
 export type ISODateTimeString = string;
 
 export type AuditLogEntryId = string;
+export type UserId = string;
+export type UserRole = "GM" | "Player";
 
 export type AuditEventType =
   | "entityCreated"
@@ -22,11 +24,20 @@ export type AuditLogEntry = {
   id: AuditLogEntryId;
   createdAt: ISODateTimeString;
   actorLabel: string;
+  actorRole?: UserRole;
+  actorUserId?: UserId;
   eventType: AuditEventType;
   entityId?: EntityId;
   recordId?: InventoryRecordId;
   summary: string;
   details?: Record<string, AuditLogDetailValue>;
+};
+
+export type UserProfile = {
+  id: UserId;
+  displayName: string;
+  role: UserRole;
+  updatedAt?: ISODateTimeString;
 };
 
 export type EntityType =

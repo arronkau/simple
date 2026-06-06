@@ -14,6 +14,7 @@ type StartFirebaseAppStateSyncInput = {
   config: FirebaseConfig;
   getCurrentPartyState: () => PartyState;
   onError: (message: string) => void;
+  onAuthUserId: (userId: string) => void;
   onReadyToWrite: (writePartyState: FirebaseWritePartyState) => void;
   onRemotePartyState: (partyState: PartyState) => void;
   onStatusChange: (syncStatus: SyncStatus) => void;
@@ -23,6 +24,7 @@ type StartFirebaseAppStateSyncInput = {
 export async function startFirebaseAppStateSync({
   config,
   getCurrentPartyState,
+  onAuthUserId,
   onError,
   onReadyToWrite,
   onRemotePartyState,
@@ -50,6 +52,10 @@ export async function startFirebaseAppStateSync({
 
     if (!auth.currentUser) {
       await signInAnonymously(auth);
+    }
+
+    if (auth.currentUser) {
+      onAuthUserId(auth.currentUser.uid);
     }
 
     onStatusChange("syncing");

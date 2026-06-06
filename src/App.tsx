@@ -132,6 +132,8 @@ import type {
   InventoryRecordType,
   KnownModifierTarget,
   Modifier,
+  UserProfile,
+  UserRole,
 } from "./model/types";
 import {
   findTopLevelStowedContainerRecords,
@@ -284,6 +286,11 @@ type ManageMessage = {
   text: string;
 };
 
+type UserProfileFormState = {
+  displayName: string;
+  role: UserRole;
+};
+
 type AppStateExport = {
   version: 1;
   exportedAt: string;
@@ -294,6 +301,7 @@ function LocalAppShell() {
   const location = useLocation();
   const { partyId } = useParams<{ partyId: PartyId }>();
   const appState = useAppStore((state) => state.appState);
+  const currentUserId = useAppStore((state) => state.currentUserId);
   const partyDisplayName = useAppStore((state) => state.partyDisplayName);
   const activePartyId = useAppStore((state) => state.partyId);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
@@ -301,6 +309,10 @@ function LocalAppShell() {
   const syncStatus = useAppStore((state) => state.syncStatus);
   const renameParty = useAppStore((state) => state.renameParty);
   const setCurrentParty = useAppStore((state) => state.setCurrentParty);
+  const updateCurrentUserProfile = useAppStore(
+    (state) => state.updateCurrentUserProfile,
+  );
+  const userProfiles = useAppStore((state) => state.userProfiles);
   const createEntity = useAppStore((state) => state.createEntity);
   const updateEntity = useAppStore((state) => state.updateEntity);
   const updateCharacterData = useAppStore((state) => state.updateCharacterData);
@@ -347,9 +359,15 @@ function LocalAppShell() {
     AuditEventType | "all"
   >("all");
   const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
   const [collapsedContainerIds, setCollapsedContainerIds] = useState<
     Set<InventoryRecordId>
   >(() => new Set());
+  const currentUserProfile = userProfiles.find(
+    (profile) => profile.id === currentUserId,
+  );
+  const identityReady = canEditUserIdentity(persistenceMode, syncStatus);
+  const identityRequired = identityReady && currentUserProfile === undefined;
 
   useEffect(() => {
     if (partyId) {
@@ -359,6 +377,15 @@ function LocalAppShell() {
 
   if (!partyId) {
     return <Navigate to={`/party/${createPartyId()}`} replace />;
+  }
+
+  function openIdentityModal() {
+    setIdentityModalOpen(true);
+  }
+
+  function saveIdentity(input: UserProfileFormState) {
+    updateCurrentUserProfile(input);
+    setIdentityModalOpen(false);
   }
 
   function toggleContainerCollapsed(recordId: InventoryRecordId) {
@@ -532,9 +559,20 @@ function LocalAppShell() {
             <h1 id="app-title">{partyDisplayName}</h1>
             {syncError ? <p className="sync-message">{syncError}</p> : null}
           </div>
-          <button type="button" onClick={() => setManageModalOpen(true)}>
-            Manage
-          </button>
+          <div className="header-actions">
+            <button
+              disabled={!identityReady}
+              type="button"
+              onClick={openIdentityModal}
+            >
+              {currentUserProfile
+                ? `${currentUserProfile.displayName} (${currentUserProfile.role})`
+                : "Set User"}
+            </button>
+            <button type="button" onClick={() => setManageModalOpen(true)}>
+              Manage
+            </button>
+          </div>
         </div>
 
         <nav className="app-nav" aria-label="Primary">
@@ -643,6 +681,15 @@ function LocalAppShell() {
               resetLocalState();
               setManageModalOpen(false);
             }}
+          />
+        ) : null}
+
+        {identityReady && (identityRequired || identityModalOpen) ? (
+          <UserIdentityModal
+            profile={currentUserProfile}
+            required={identityRequired}
+            onCancel={() => setIdentityModalOpen(false)}
+            onSubmit={saveIdentity}
           />
         ) : null}
 
@@ -882,6 +929,107 @@ function ManageDataModal({
             Reset data
           </button>
         </section>
+      </section>
+    </div>
+  );
+}
+
+function UserIdentityModal({
+  profile,
+  required,
+  onCancel,
+  onSubmit,
+}: {
+  profile?: UserProfile;
+  required: boolean;
+  onCancel: () => void;
+  onSubmit: (input: UserProfileFormState) => void;
+}) {
+  const [formState, setFormState] = useState<UserProfileFormState>({
+    displayName: profile?.displayName ?? "",
+    role: profile?.role ?? "Player",
+  });
+  const displayNameValid = formState.displayName.trim().length > 0;
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!displayNameValid) {
+      return;
+    }
+
+    onSubmit(formState);
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <section
+        aria-label="User identity"
+        aria-modal="true"
+        className="modal-panel manage-modal"
+        role="dialog"
+      >
+        <form className="modal-form" onSubmit={handleSubmit}>
+          <div className="manage-heading">
+            <div>
+              <h2>{profile ? "Edit User" : "Join Party"}</h2>
+              <p>Name yourself for this party.</p>
+            </div>
+            {required ? null : (
+              <button type="button" onClick={onCancel}>
+                Close
+              </button>
+            )}
+          </div>
+
+          <section className="manage-section">
+            <label>
+              <span>Display name</span>
+              <input
+                autoFocus
+                autoComplete="name"
+                value={formState.displayName}
+                onChange={(event) =>
+                  setFormState((currentState) => ({
+                    ...currentState,
+                    displayName: event.target.value,
+                  }))
+                }
+              />
+            </label>
+
+            <label>
+              <span>Role</span>
+              <select
+                value={formState.role}
+                onChange={(event) =>
+                  setFormState((currentState) => ({
+                    ...currentState,
+                    role: event.target.value as UserRole,
+                  }))
+                }
+              >
+                <option value="Player">Player</option>
+                <option value="GM">GM</option>
+              </select>
+            </label>
+
+            {!displayNameValid ? (
+              <p className="form-error">Enter a display name.</p>
+            ) : null}
+          </section>
+
+          <div className="modal-actions">
+            {required ? null : (
+              <button type="button" onClick={onCancel}>
+                Cancel
+              </button>
+            )}
+            <button disabled={!displayNameValid} type="submit">
+              Save user
+            </button>
+          </div>
+        </form>
       </section>
     </div>
   );
@@ -5757,6 +5905,18 @@ function formatPersistenceSummary(
   }
 
   return `Persistence: Firebase / ${SYNC_STATUS_LABELS[syncStatus]}`;
+}
+
+function canEditUserIdentity(
+  persistenceMode: PersistenceMode,
+  syncStatus: SyncStatus,
+): boolean {
+  return (
+    persistenceMode === "local" ||
+    syncStatus === "local" ||
+    syncStatus === "synced" ||
+    syncStatus === "error"
+  );
 }
 
 const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {

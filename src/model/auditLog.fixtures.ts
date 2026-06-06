@@ -37,6 +37,15 @@ const newerEntry = createAuditLogEntry({
   summary: "Changed coins.",
   details: {},
 });
+const attributedEntry = createAuditLogEntry({
+  id: "audit-attributed",
+  actorLabel: "Morgan (GM)",
+  actorRole: "GM",
+  actorUserId: "user-1",
+  createdAt: "2026-06-03T12:00:00.000Z",
+  eventType: "entityCreated",
+  summary: "Created entity.",
+});
 
 export const AUDIT_LOG_MANUAL_FIXTURES = [
   {
@@ -48,6 +57,19 @@ export const AUDIT_LOG_MANUAL_FIXTURES = [
       actorLabel: "Local user",
       eventType: "coinsChanged",
       summary: "Changed coins.",
+    },
+  },
+  {
+    name: "audit entries preserve actor role and stable user id",
+    actual: attributedEntry,
+    expected: {
+      id: "audit-attributed",
+      createdAt: "2026-06-03T12:00:00.000Z",
+      actorLabel: "Morgan (GM)",
+      actorRole: "GM",
+      actorUserId: "user-1",
+      eventType: "entityCreated",
+      summary: "Created entity.",
     },
   },
   {
