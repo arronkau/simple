@@ -379,7 +379,6 @@ AC should be visible and useful on the character/party views. It should be calcu
 - There is no separate “worn” category; equipped means actively in use.
 - If multiple armors are equipped, show warning: `Multiple armors equipped.`
 - If multiple armors are equipped, use the best armor for calculation.
-- Manual override should be allowed.
 
 ## Requirements
 
@@ -389,6 +388,7 @@ AC should be visible and useful on the character/party views. It should be calcu
   - equipped armor
   - shield held in hand
   - manual modifier/override if present
+  - any items in equipped with modifier that increases AC
 - Armor contributes only when in equipped state.
 - Stowed armor does not contribute.
 - Shield contributes only when held in hand.
@@ -397,20 +397,11 @@ AC should be visible and useful on the character/party views. It should be calcu
 - If multiple armors are equipped:
   - show warning: `Multiple armors equipped.`
   - use best armor for calculation
-- Display AC prominently on relevant character and party views.
-- Provide a way to see calculation details, such as:
-  - base AC
-  - armor source
-  - shield source
-  - override/manual modifier if active
-- Allow manual override for exceptions.
-- Clearly indicate when AC is manually overridden.
 
 ## Non-Goals
 
 - Do not build a full combat engine.
 - Do not automate Dexterity modifiers unless already unambiguously supported.
-- Do not automate magic item AC unless item data explicitly supports it.
 - Do not support rule-set variations yet.
 - Do not change inventory placement rules.
 

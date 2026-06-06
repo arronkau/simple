@@ -693,12 +693,25 @@ function isCharacterData(value: unknown): value is CharacterData {
     (value.xp === null || isNonNegativeInteger(value.xp)) &&
     (value.hp.current === null || isNonNegativeInteger(value.hp.current)) &&
     (value.hp.max === null || isNonNegativeInteger(value.hp.max)) &&
+    isCharacterArmorClass(value.armorClass) &&
     isAbilityScores(value.abilityScores) &&
     isCharacterSkills(value.skills) &&
     Array.isArray(value.languages) &&
     value.languages.every((language) => typeof language === "string") &&
     typeof value.description === "string" &&
     isCharacterFeatures(value.features)
+  );
+}
+
+function isCharacterArmorClass(value: unknown): boolean {
+  if (value === undefined) {
+    return true;
+  }
+
+  return (
+    isRecordLike(value) &&
+    Number.isInteger(value.modifier) &&
+    (value.override === null || isNonNegativeInteger(value.override))
   );
 }
 

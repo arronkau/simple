@@ -374,7 +374,7 @@ export const APP_MANUAL_FIXTURES = [
         hp: "5/8",
         hurt: true,
         movement: "120'",
-        ac: "AC 10",
+        ac: "AC 11",
         abilityScores: [
           { label: "S", value: "—" },
           { label: "I", value: "—" },

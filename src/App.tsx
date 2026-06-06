@@ -72,6 +72,7 @@ import {
 import {
   getCoinCount,
   getCoinGpValue,
+  getCharacterArmorClass,
   getDirectChildRecords,
   getRecordSlotBurden,
 } from "./model/calculations";
@@ -276,6 +277,8 @@ type CharacterSheetFormState = {
   xp: string;
   hpCurrent: string;
   hpMax: string;
+  armorClassModifier: string;
+  armorClassOverride: string;
   abilityScores: Record<AbilityScoreKey, string>;
   skills: CharacterSkillFormState[];
   languagesText: string;
@@ -2065,7 +2068,19 @@ export function getPartyOverviewCards(
     const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
     const sections = getInventorySections(entity, appState.inventoryRecords);
     const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
-    const warnings = getEncumbranceWarnings(entity, appState.inventoryRecords);
+    const armorClass = getCharacterArmorClass(
+      entity,
+      appState.inventoryRecords,
+      character,
+    );
+    const warnings = [
+      ...getEncumbranceWarnings(entity, appState.inventoryRecords),
+      ...armorClass.warnings.map((warning) => ({
+        code: warning.code,
+        entityId: warning.entityId,
+        message: warning.message,
+      })),
+    ];
     const validationIssues = getDisplayValidationIssues([
       ...validationResult.errors,
       ...validationResult.warnings,
@@ -2091,7 +2106,7 @@ export function getPartyOverviewCards(
           ? formatPartyHands(sections, appState.inventoryRecords)
           : [],
       abilityScores: formatPartyAbilityScores(character),
-      ac: "AC 10",
+      ac: formatPartyArmorClass(armorClass.armorClass),
       validationIssues,
       warningCount: warnings.length + validationIssues.length,
       warningSummary: formatWarningState(warnings, validationIssues),
@@ -2110,6 +2125,10 @@ function formatPartyClassLevel(character: CharacterData): string {
   }
 
   return `${classLabel} ${character.level}`;
+}
+
+function formatPartyArmorClass(armorClass: number): string {
+  return `AC ${formatNullablePartyNumber(armorClass)}`;
 }
 
 function formatPartyAlignment(alignment: CharacterAlignment): string {
@@ -2507,6 +2526,27 @@ function CharacterSheetPanel({
               value={formState.hpMax}
               onChange={(value) =>
                 setFormState({ ...formState, hpMax: value })
+              }
+            />
+          </div>
+        </section>
+
+        <section className="character-sheet-section">
+          <h5>Armor Class</h5>
+          <div className="character-sheet-grid compact-grid">
+            <NumberField
+              label="AC modifier"
+              min="-99"
+              value={formState.armorClassModifier}
+              onChange={(value) =>
+                setFormState({ ...formState, armorClassModifier: value })
+              }
+            />
+            <NumberField
+              label="Manual AC"
+              value={formState.armorClassOverride}
+              onChange={(value) =>
+                setFormState({ ...formState, armorClassOverride: value })
               }
             />
           </div>
@@ -5731,6 +5771,10 @@ function createCharacterSheetFormState(
     xp: formatNullableNumberInput(normalizedCharacterData.xp),
     hpCurrent: formatNullableNumberInput(normalizedCharacterData.hp.current),
     hpMax: formatNullableNumberInput(normalizedCharacterData.hp.max),
+    armorClassModifier: normalizedCharacterData.armorClass.modifier.toString(),
+    armorClassOverride: formatNullableNumberInput(
+      normalizedCharacterData.armorClass.override,
+    ),
     abilityScores: ABILITY_SCORE_KEYS.reduce<Record<AbilityScoreKey, string>>(
       (abilityScores, key) => ({
         ...abilityScores,
@@ -5774,6 +5818,12 @@ function toCharacterDataFormInput(
     hp: {
       current: parseNullableIntegerInput(formState.hpCurrent),
       max: parseNullableIntegerInput(formState.hpMax),
+    },
+    armorClass: {
+      modifier: formState.armorClassModifier.trim()
+        ? parseIntegerInput(formState.armorClassModifier)
+        : 0,
+      override: parseNullableIntegerInput(formState.armorClassOverride),
     },
     abilityScores: ABILITY_SCORE_KEYS.reduce<CharacterData["abilityScores"]>(
       (abilityScores, key) => ({

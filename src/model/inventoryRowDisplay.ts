@@ -2,6 +2,7 @@ import {
   getCoinCount,
   getContainerSlotUsage,
   getRecordSlotBurden,
+  isArmorClassActiveRecord,
 } from "./calculations";
 import type { CoinData, InventoryRecord } from "./types";
 
@@ -121,7 +122,7 @@ function getInventoryRowStatusIcons(
     statuses.push("unidentified");
   }
 
-  if (record.recordType === "armor" && record.location.kind === "equipped") {
+  if (isArmorClassActiveRecord(record)) {
     statuses.push("activeAc");
   }
 

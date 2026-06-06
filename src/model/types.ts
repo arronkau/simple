@@ -80,6 +80,10 @@ export type CharacterData = {
     current: number | null;
     max: number | null;
   };
+  armorClass: {
+    modifier: number;
+    override: number | null;
+  };
   abilityScores: AbilityScores;
   skills: CharacterSkill[];
   languages: string[];

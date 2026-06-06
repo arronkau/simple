@@ -7,6 +7,7 @@ import {
   getContentsSlots,
   getEffectiveRecordAndContentsSlotBurden,
   getEffectiveRecordSlotBurden,
+  getCharacterArmorClass,
   getRecordSlotBurden,
   getTotalEntitySlots,
 } from "./calculations";
@@ -209,6 +210,82 @@ const loadedContentsOnlyRecords = [
 ];
 const heldContainerRecords = [sackRecord, rationsRecord];
 
+const leatherArmorRecord: InventoryRecord = {
+  id: "leather-armor-1",
+  recordType: "armor",
+  name: "Leather armor",
+  entityId: "character-1",
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 3000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  armor: {
+    baseArmorClass: 12,
+  },
+};
+const chainmailRecord: InventoryRecord = {
+  ...leatherArmorRecord,
+  id: "chainmail-1",
+  name: "Chainmail",
+  sortOrder: 4000,
+  armor: {
+    baseArmorClass: 14,
+  },
+};
+const stowedPlateRecord: InventoryRecord = {
+  ...leatherArmorRecord,
+  id: "plate-1",
+  name: "Plate",
+  location: {
+    kind: "stowedRoot",
+  },
+  sortOrder: 5000,
+  armor: {
+    baseArmorClass: 16,
+  },
+};
+const heldShieldRecord: InventoryRecord = {
+  id: "shield-1",
+  recordType: "armor",
+  name: "Shield",
+  entityId: "character-1",
+  location: {
+    kind: "equipped",
+    placement: "leftHand",
+  },
+  sortOrder: 6000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  armor: {
+    armorBonus: 1,
+  },
+};
+const stowedShieldRecord: InventoryRecord = {
+  ...heldShieldRecord,
+  id: "stowed-shield-1",
+  location: {
+    kind: "stowedRoot",
+  },
+};
+const ringRecord: InventoryRecord = {
+  id: "ring-1",
+  recordType: "equipment",
+  name: "Ring of protection",
+  entityId: "character-1",
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 7000,
+  quantity: 1,
+  burden: { kind: "none" },
+  modifiers: [{ target: "armorClass", value: 1 }],
+};
+
 export const CALCULATION_MANUAL_FIXTURES = [
   {
     name: "coins count, value, and slots",
@@ -256,6 +333,104 @@ export const CALCULATION_MANUAL_FIXTURES = [
       oneHundredOneCoinSlots: 2,
       mixedCoinSlots: 2,
       mixedCoinGpValue: 55.09,
+    },
+  },
+  {
+    name: "character AC uses equipped armor held shield item modifier and manual modifier",
+    actual: getCharacterArmorClass(characterEntity, [
+      leatherArmorRecord,
+      heldShieldRecord,
+      ringRecord,
+      stowedPlateRecord,
+      stowedShieldRecord,
+    ], {
+      className: "",
+      level: null,
+      alignment: "",
+      xp: null,
+      hp: { current: null, max: null },
+      armorClass: { modifier: 1, override: null },
+      abilityScores: {
+        str: null,
+        int: null,
+        wis: null,
+        dex: null,
+        con: null,
+        cha: null,
+      },
+      skills: [],
+      languages: [],
+      description: "",
+      features: [],
+    }),
+    expected: {
+      armorClass: 15,
+      baseArmorClass: 12,
+      equippedArmorRecordIds: ["leather-armor-1"],
+      itemModifier: 1,
+      manualModifier: 1,
+      shieldRecordIds: ["shield-1"],
+      warnings: [],
+    },
+  },
+  {
+    name: "character AC manual override replaces calculated value",
+    actual: getCharacterArmorClass(characterEntity, [
+      leatherArmorRecord,
+      heldShieldRecord,
+    ], {
+      className: "",
+      level: null,
+      alignment: "",
+      xp: null,
+      hp: { current: null, max: null },
+      armorClass: { modifier: 0, override: 17 },
+      abilityScores: {
+        str: null,
+        int: null,
+        wis: null,
+        dex: null,
+        con: null,
+        cha: null,
+      },
+      skills: [],
+      languages: [],
+      description: "",
+      features: [],
+    }),
+    expected: {
+      armorClass: 17,
+      baseArmorClass: 12,
+      equippedArmorRecordIds: ["leather-armor-1"],
+      itemModifier: 0,
+      manualModifier: 0,
+      manualOverride: 17,
+      shieldRecordIds: ["shield-1"],
+      warnings: [],
+    },
+  },
+  {
+    name: "character AC warns on multiple equipped armors and uses best armor",
+    actual: getCharacterArmorClass(characterEntity, [
+      leatherArmorRecord,
+      chainmailRecord,
+      heldShieldRecord,
+    ]),
+    expected: {
+      armorClass: 15,
+      baseArmorClass: 14,
+      equippedArmorRecordIds: ["leather-armor-1", "chainmail-1"],
+      itemModifier: 0,
+      manualModifier: 0,
+      shieldRecordIds: ["shield-1"],
+      warnings: [
+        {
+          code: "multipleArmorsEquipped",
+          entityId: "character-1",
+          message: "Multiple armors equipped.",
+          recordIds: ["leather-armor-1", "chainmail-1"],
+        },
+      ],
     },
   },
   {

@@ -40,6 +40,10 @@ export function createEmptyCharacterData(): CharacterData {
       current: null,
       max: null,
     },
+    armorClass: {
+      modifier: 0,
+      override: null,
+    },
     abilityScores: createEmptyAbilityScores(),
     skills: [],
     languages: [],
@@ -78,6 +82,7 @@ export function normalizeCharacterData(value: unknown): CharacterData {
       current: getNullableInteger(hp?.current ?? candidate.hpCurrent, 0),
       max: getNullableInteger(hp?.max ?? candidate.hpMax, 0),
     },
+    armorClass: normalizeArmorClass(candidate.armorClass),
     abilityScores: normalizeAbilityScores(candidate.abilityScores),
     skills: normalizeSkills(candidate.skills),
     languages: normalizeLanguages(candidate.languages),
@@ -116,6 +121,17 @@ export function validateCharacterData(
 
   if (!isIntegerAtLeast(characterData.hp.max, 0) && characterData.hp.max !== null) {
     errors.push("Max HP must be a non-negative integer.");
+  }
+
+  if (!Number.isInteger(characterData.armorClass.modifier)) {
+    errors.push("AC modifier must be an integer.");
+  }
+
+  if (
+    !isIntegerAtLeast(characterData.armorClass.override, 0) &&
+    characterData.armorClass.override !== null
+  ) {
+    errors.push("Manual AC must be a non-negative integer.");
   }
 
   characterData.skills.forEach((skill) => {
@@ -158,6 +174,20 @@ function normalizeAbilityScores(value: unknown): AbilityScores {
     }),
     createEmptyAbilityScores(),
   );
+}
+
+function normalizeArmorClass(value: unknown): CharacterData["armorClass"] {
+  if (!isRecord(value)) {
+    return {
+      modifier: 0,
+      override: null,
+    };
+  }
+
+  return {
+    modifier: getInteger(value.modifier, 0),
+    override: getNullableInteger(value.override, 0),
+  };
 }
 
 function normalizeSkills(value: unknown): CharacterSkill[] {
@@ -238,6 +268,10 @@ function getIntegerInRange(
     value <= max
     ? value
     : fallback;
+}
+
+function getInteger(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isInteger(value) ? value : fallback;
 }
 
 function getNullableInteger(value: unknown, min: number): number | null {

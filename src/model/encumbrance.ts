@@ -57,7 +57,8 @@ export type EncumbranceWarningCode =
   | "containerOverCapacity"
   | "missingBackpack"
   | "handsRequiredContainerNotHeld"
-  | "entityOverloaded";
+  | "entityOverloaded"
+  | "multipleArmorsEquipped";
 
 export type EncumbranceWarning = {
   code: EncumbranceWarningCode;

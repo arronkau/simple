@@ -1,6 +1,8 @@
 import type {
+  CharacterData,
   CoinData,
   Entity,
+  EntityId,
   InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
@@ -16,9 +18,29 @@ export type SlotUsage = {
   capacitySlots?: number;
 };
 
+export type CharacterArmorClassResult = {
+  armorClass: number;
+  baseArmorClass: number;
+  equippedArmorRecordIds: InventoryRecordId[];
+  itemModifier: number;
+  manualModifier: number;
+  manualOverride?: number;
+  shieldRecordIds: InventoryRecordId[];
+  warnings: CharacterArmorClassWarning[];
+};
+
+export type CharacterArmorClassWarning = {
+  code: "multipleArmorsEquipped";
+  entityId: EntityId;
+  message: "Multiple armors equipped.";
+  recordIds: InventoryRecordId[];
+};
+
 export const MOVEMENT_SLOT_BURDEN_OPTIONS: SlotBurdenOptions = {
   excludeHeldContainerContents: true,
 };
+
+const DEFAULT_ASCENDING_ARMOR_CLASS = 10;
 
 export function getCoinCount(coins: CoinData): number {
   return coins.pp + coins.gp + coins.sp + coins.cp;
@@ -45,6 +67,99 @@ export function getRecordSlotBurden(record: InventoryRecord): number {
     case "none":
       return 0;
   }
+}
+
+export function getCharacterArmorClass(
+  entity: Entity,
+  records: InventoryRecord[],
+  characterData?: CharacterData,
+): CharacterArmorClassResult {
+  const ownedRecords = records.filter((record) => record.entityId === entity.id);
+  const activeArmorRecords = ownedRecords.filter(isActiveArmorRecord);
+  const bestArmor = [...activeArmorRecords].sort(
+    (leftRecord, rightRecord) =>
+      getArmorRecordArmorClass(rightRecord) - getArmorRecordArmorClass(leftRecord),
+  )[0];
+  const shieldRecords = ownedRecords.filter(isHeldShieldRecord);
+  const shieldBonus = shieldRecords.reduce(
+    (bonus, record) => bonus + (record.armor.armorBonus ?? 0),
+    0,
+  );
+  const itemModifier = ownedRecords
+    .filter((record) => record.location.kind === "equipped")
+    .flatMap((record) => record.modifiers ?? [])
+    .filter((modifier) => modifier.target === "armorClass" && modifier.value > 0)
+    .reduce((modifierTotal, modifier) => modifierTotal + modifier.value, 0);
+  const manualModifier = characterData?.armorClass?.modifier ?? 0;
+  const calculatedArmorClass =
+    (bestArmor
+      ? getArmorRecordArmorClass(bestArmor)
+      : DEFAULT_ASCENDING_ARMOR_CLASS) +
+    shieldBonus +
+    itemModifier +
+    manualModifier;
+  const manualOverride = characterData?.armorClass?.override ?? undefined;
+  const warnings: CharacterArmorClassWarning[] =
+    activeArmorRecords.length > 1
+      ? [
+          {
+            code: "multipleArmorsEquipped",
+            entityId: entity.id,
+            message: "Multiple armors equipped.",
+            recordIds: activeArmorRecords.map((record) => record.id),
+          },
+        ]
+      : [];
+
+  return {
+    armorClass: manualOverride ?? calculatedArmorClass,
+    baseArmorClass: bestArmor
+      ? getArmorRecordArmorClass(bestArmor)
+      : DEFAULT_ASCENDING_ARMOR_CLASS,
+    equippedArmorRecordIds: activeArmorRecords.map((record) => record.id),
+    itemModifier,
+    manualModifier,
+    ...(manualOverride !== undefined ? { manualOverride } : {}),
+    shieldRecordIds: shieldRecords.map((record) => record.id),
+    warnings,
+  };
+}
+
+export function isActiveArmorRecord(
+  record: InventoryRecord,
+): record is Extract<InventoryRecord, { recordType: "armor" }> {
+  return (
+    record.recordType === "armor" &&
+    record.location.kind === "equipped" &&
+    record.armor.baseArmorClass !== undefined
+  );
+}
+
+export function isArmorClassActiveRecord(record: InventoryRecord): boolean {
+  return isActiveArmorRecord(record) || isHeldShieldRecord(record);
+}
+
+function isHeldShieldRecord(
+  record: InventoryRecord,
+): record is Extract<InventoryRecord, { recordType: "armor" }> {
+  return (
+    record.recordType === "armor" &&
+    record.armor.baseArmorClass === undefined &&
+    (record.armor.armorBonus ?? 0) > 0 &&
+    record.location.kind === "equipped" &&
+    (record.location.placement === "leftHand" ||
+      record.location.placement === "rightHand" ||
+      record.location.placement === "bothHands")
+  );
+}
+
+function getArmorRecordArmorClass(
+  record: Extract<InventoryRecord, { recordType: "armor" }>,
+): number {
+  return (
+    (record.armor.baseArmorClass ?? DEFAULT_ASCENDING_ARMOR_CLASS) +
+    (record.armor.armorBonus ?? 0)
+  );
 }
 
 export function getEffectiveRecordSlotBurden(
