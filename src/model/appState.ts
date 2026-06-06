@@ -38,6 +38,10 @@ export type PartyState = {
   userProfiles: UserProfile[];
 };
 
+export type ParseResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; message: string; path?: string };
+
 export const APP_STATE_STORAGE_KEY = "simple.inventory.appState.v1";
 export const PARTY_STATE_STORAGE_KEY_PREFIX = "simple.inventory.partyState.v1.";
 
@@ -213,15 +217,28 @@ export function writeLocalAppState(appState: AppState): void {
 }
 
 export function parseAppState(value: unknown): AppState | undefined {
-  if (!isAppState(value)) {
-    return undefined;
+  const result = parseAppStateResult(value);
+
+  return result.ok ? result.value : undefined;
+}
+
+export function parseAppStateResult(value: unknown): ParseResult<AppState> {
+  const validationResult = validateAppStateShape(value, "data");
+
+  if (!validationResult.ok) {
+    return validationResult;
   }
 
+  const appState = validationResult.value;
+
   return {
-    schemaVersion: 1,
-    entities: normalizeEntities(value.entities),
-    inventoryRecords: normalizeInventoryRecords(value.inventoryRecords),
-    auditLog: normalizeAuditLog(value.auditLog),
+    ok: true,
+    value: {
+      schemaVersion: 1,
+      entities: normalizeEntities(appState.entities),
+      inventoryRecords: normalizeInventoryRecords(appState.inventoryRecords),
+      auditLog: normalizeAuditLog(appState.auditLog),
+    },
   };
 }
 
@@ -384,6 +401,388 @@ function normalizeAuditLog(auditLog: unknown): AuditLogEntry[] {
 
 function normalizeUserProfiles(value: unknown): UserProfile[] {
   return Array.isArray(value) ? value.filter(isUserProfile) : [];
+}
+
+function validateAppStateShape(
+  value: unknown,
+  rootPath: string,
+): ParseResult<
+  Omit<AppState, "auditLog" | "inventoryRecords"> & {
+    inventoryRecords: unknown[];
+    auditLog?: unknown;
+  }
+> {
+  if (!isRecordLike(value)) {
+    return {
+      ok: false,
+      path: rootPath,
+      message: "Expected app state object.",
+    };
+  }
+
+  if (value.schemaVersion !== 1) {
+    return {
+      ok: false,
+      path: `${rootPath}.schemaVersion`,
+      message:
+        value.schemaVersion === undefined
+          ? "Missing schemaVersion 1."
+          : `Unsupported app-state schemaVersion: ${String(value.schemaVersion)}.`,
+    };
+  }
+
+  if (!Array.isArray(value.entities)) {
+    return {
+      ok: false,
+      path: `${rootPath}.entities`,
+      message: '"data.entities" must be an array.',
+    };
+  }
+
+  if (!Array.isArray(value.inventoryRecords)) {
+    return {
+      ok: false,
+      path: `${rootPath}.inventoryRecords`,
+      message: '"data.inventoryRecords" must be an array.',
+    };
+  }
+
+  if (value.auditLog !== undefined && !Array.isArray(value.auditLog)) {
+    return {
+      ok: false,
+      path: `${rootPath}.auditLog`,
+      message: '"data.auditLog" must be an array.',
+    };
+  }
+
+  for (const [index, entity] of value.entities.entries()) {
+    const entityResult = validateEntityShape(entity, `${rootPath}.entities[${index}]`);
+
+    if (!entityResult.ok) {
+      return entityResult;
+    }
+  }
+
+  for (const [index, record] of value.inventoryRecords.entries()) {
+    const recordResult = validateInventoryRecordShape(
+      record,
+      `${rootPath}.inventoryRecords[${index}]`,
+    );
+
+    if (!recordResult.ok) {
+      return recordResult;
+    }
+  }
+
+  if (Array.isArray(value.auditLog)) {
+    for (const [index, entry] of value.auditLog.entries()) {
+      const entryResult = validateAuditLogEntryShape(
+        entry,
+        `${rootPath}.auditLog[${index}]`,
+      );
+
+      if (!entryResult.ok) {
+        return entryResult;
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    value: value as Omit<AppState, "auditLog" | "inventoryRecords"> & {
+      inventoryRecords: unknown[];
+      auditLog?: unknown;
+    },
+  };
+}
+
+function validateEntityShape(
+  value: unknown,
+  path: string,
+): ParseResult<Entity> {
+  if (!isRecordLike(value)) {
+    return { ok: false, path, message: "Expected entity object." };
+  }
+
+  if (typeof value.id !== "string") {
+    return { ok: false, path: `${path}.id`, message: "Missing required string id." };
+  }
+
+  if (typeof value.name !== "string") {
+    return {
+      ok: false,
+      path: `${path}.name`,
+      message: "Missing required string name.",
+    };
+  }
+
+  if (!ENTITY_TYPES.includes(value.entityType as EntityType)) {
+    return {
+      ok: false,
+      path: `${path}.entityType`,
+      message: "Invalid entity type.",
+    };
+  }
+
+  if (typeof value.active !== "boolean") {
+    return {
+      ok: false,
+      path: `${path}.active`,
+      message: "Missing required boolean active.",
+    };
+  }
+
+  if (typeof value.sortOrder !== "number") {
+    return {
+      ok: false,
+      path: `${path}.sortOrder`,
+      message: "Missing required numeric sortOrder.",
+    };
+  }
+
+  if (!isOptionalNonNegativeNumber(value.capacitySlots)) {
+    return {
+      ok: false,
+      path: `${path}.capacitySlots`,
+      message: "Expected non-negative number.",
+    };
+  }
+
+  if (!isOptionalNonNegativeNumber(value.baseMovementFeet)) {
+    return {
+      ok: false,
+      path: `${path}.baseMovementFeet`,
+      message: "Expected non-negative number.",
+    };
+  }
+
+  if (!isOptionalCharacterData(value.character)) {
+    return {
+      ok: false,
+      path: `${path}.character`,
+      message: "Invalid character data.",
+    };
+  }
+
+  if (value.notes !== undefined && typeof value.notes !== "string") {
+    return { ok: false, path: `${path}.notes`, message: "Expected string." };
+  }
+
+  if (value.createdAt !== undefined && typeof value.createdAt !== "string") {
+    return { ok: false, path: `${path}.createdAt`, message: "Expected string." };
+  }
+
+  if (value.updatedAt !== undefined && typeof value.updatedAt !== "string") {
+    return { ok: false, path: `${path}.updatedAt`, message: "Expected string." };
+  }
+
+  return { ok: true, value: value as Entity };
+}
+
+function validateInventoryRecordShape(
+  value: unknown,
+  path: string,
+): ParseResult<Record<string, unknown>> {
+  if (!isRecordLike(value)) {
+    return { ok: false, path, message: "Expected inventory record object." };
+  }
+
+  if (typeof value.id !== "string") {
+    return { ok: false, path: `${path}.id`, message: "Missing required string id." };
+  }
+
+  if (typeof value.entityId !== "string") {
+    return {
+      ok: false,
+      path: `${path}.entityId`,
+      message: "Missing required string entityId.",
+    };
+  }
+
+  if (!INVENTORY_RECORD_TYPES.includes(value.recordType as InventoryRecordType)) {
+    return {
+      ok: false,
+      path: `${path}.recordType`,
+      message: "Invalid inventory record type.",
+    };
+  }
+
+  const locationResult = validateInventoryLocationShape(
+    value.location,
+    `${path}.location`,
+  );
+
+  if (!locationResult.ok) {
+    return locationResult;
+  }
+
+  if (typeof value.sortOrder !== "number") {
+    return {
+      ok: false,
+      path: `${path}.sortOrder`,
+      message: "Missing required numeric sortOrder.",
+    };
+  }
+
+  if (value.description !== undefined && typeof value.description !== "string") {
+    return { ok: false, path: `${path}.description`, message: "Expected string." };
+  }
+
+  if (value.notes !== undefined && typeof value.notes !== "string") {
+    return { ok: false, path: `${path}.notes`, message: "Expected string." };
+  }
+
+  if (value.createdAt !== undefined && typeof value.createdAt !== "string") {
+    return { ok: false, path: `${path}.createdAt`, message: "Expected string." };
+  }
+
+  if (value.updatedAt !== undefined && typeof value.updatedAt !== "string") {
+    return { ok: false, path: `${path}.updatedAt`, message: "Expected string." };
+  }
+
+  if (!isOptionalUsesData(value.uses)) {
+    return { ok: false, path: `${path}.uses`, message: "Invalid uses data." };
+  }
+
+  if (!isOptionalLightData(value.light)) {
+    return { ok: false, path: `${path}.light`, message: "Invalid light data." };
+  }
+
+  if (!isOptionalModifierArray(value.modifiers)) {
+    return {
+      ok: false,
+      path: `${path}.modifiers`,
+      message: "Invalid modifiers.",
+    };
+  }
+
+  if (value.recordType === "coins") {
+    return isCoinData(value.coins)
+      ? { ok: true, value }
+      : { ok: false, path: `${path}.coins`, message: "Invalid coin data." };
+  }
+
+  const hasCurrentBurden =
+    isPositiveInteger(value.quantity) && isInventoryBurden(value.burden);
+  const hasLegacySlotProfile = isLegacySlotProfile(value.slotProfile);
+
+  if (typeof value.name !== "string") {
+    return {
+      ok: false,
+      path: `${path}.name`,
+      message: "Missing required string name.",
+    };
+  }
+
+  if (!hasCurrentBurden && !hasLegacySlotProfile) {
+    return {
+      ok: false,
+      path: `${path}.burden`,
+      message: "Missing or invalid burden.",
+    };
+  }
+
+  if (!isOptionalHandsRequired(value.handsRequired)) {
+    return {
+      ok: false,
+      path: `${path}.handsRequired`,
+      message: "Invalid handsRequired.",
+    };
+  }
+
+  if (!isOptionalContainerData(value.container)) {
+    return {
+      ok: false,
+      path: `${path}.container`,
+      message: "Invalid container data.",
+    };
+  }
+
+  if (!isOptionalIdentificationData(value.identification)) {
+    return {
+      ok: false,
+      path: `${path}.identification`,
+      message: "Invalid identification data.",
+    };
+  }
+
+  switch (value.recordType) {
+    case "treasure":
+      return isTreasureData(value.treasure)
+        ? { ok: true, value }
+        : { ok: false, path: `${path}.treasure`, message: "Invalid treasure data." };
+    case "weapon":
+      return isOptionalRecordData(value.weapon)
+        ? { ok: true, value }
+        : { ok: false, path: `${path}.weapon`, message: "Invalid weapon data." };
+    case "armor":
+      return isOptionalRecordData(value.armor)
+        ? { ok: true, value }
+        : { ok: false, path: `${path}.armor`, message: "Invalid armor data." };
+    case "equipment":
+      return { ok: true, value };
+  }
+
+  return {
+    ok: false,
+    path: `${path}.recordType`,
+    message: "Invalid inventory record type.",
+  };
+}
+
+function validateInventoryLocationShape(
+  value: unknown,
+  path: string,
+): ParseResult<InventoryLocation> {
+  if (!isRecordLike(value)) {
+    return { ok: false, path, message: "Missing required location object." };
+  }
+
+  if (typeof value.kind !== "string") {
+    return {
+      ok: false,
+      path: `${path}.kind`,
+      message: "Missing required location kind.",
+    };
+  }
+
+  switch (value.kind) {
+    case "equipped":
+      return EQUIPPED_PLACEMENTS.includes(value.placement as EquippedPlacement)
+        ? { ok: true, value: value as InventoryLocation }
+        : {
+            ok: false,
+            path: `${path}.placement`,
+            message: "Invalid equipped placement.",
+          };
+    case "stowedRoot":
+    case "coinPurse":
+    case "contents":
+      return { ok: true, value: value as InventoryLocation };
+    case "container":
+      return typeof value.containerId === "string"
+        ? { ok: true, value: value as InventoryLocation }
+        : {
+            ok: false,
+            path: `${path}.containerId`,
+            message: "Missing required string containerId.",
+          };
+    default:
+      return {
+        ok: false,
+        path: `${path}.kind`,
+        message: "Invalid location kind.",
+      };
+  }
+}
+
+function validateAuditLogEntryShape(
+  value: unknown,
+  path: string,
+): ParseResult<AuditLogEntry> {
+  return isAuditLogEntry(value)
+    ? { ok: true, value }
+    : { ok: false, path, message: "Invalid audit log entry." };
 }
 
 function isAppState(value: unknown): value is Omit<AppState, "auditLog" | "inventoryRecords"> & {

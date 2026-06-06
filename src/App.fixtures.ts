@@ -5,6 +5,7 @@ import {
   getFilteredAuditLogEntries,
   getPartyOverviewCards,
   parseImportedAppState,
+  parseImportedAppStateResult,
   getRecordDisplayName,
 } from "./App";
 import type { AppState } from "./model/appState";
@@ -268,6 +269,42 @@ const partyOverviewAppState: AppState = {
   ],
   auditLog: [],
 };
+const validEmptyExport = {
+  version: 1,
+  exportedAt: "2026-06-06T12:00:00.000Z",
+  data: {
+    schemaVersion: 1,
+    entities: [],
+    inventoryRecords: [],
+    auditLog: [],
+  },
+};
+const invalidLocationExport = {
+  version: 1,
+  exportedAt: "2026-06-06T12:00:00.000Z",
+  data: {
+    schemaVersion: 1,
+    entities: [],
+    inventoryRecords: [
+      {
+        id: "bad-location-record",
+        entityId: "entity-1",
+        recordType: "equipment",
+        name: "Bad Location",
+        location: {
+          kind: "badKind",
+        },
+        sortOrder: 0,
+        quantity: 1,
+        burden: {
+          kind: "fixed",
+          slotsPerItem: 1,
+        },
+      },
+    ],
+    auditLog: [],
+  },
+};
 
 export const APP_MANUAL_FIXTURES = [
   {
@@ -444,5 +481,59 @@ export const APP_MANUAL_FIXTURES = [
       },
     }),
     expected: undefined,
+  },
+  {
+    name: "import validation reports missing export data object",
+    actual: parseImportedAppStateResult({}),
+    expected: {
+      ok: false,
+      path: "data",
+      message: 'Missing top-level "data" object.',
+    },
+  },
+  {
+    name: "import validation reports unsupported export version",
+    actual: parseImportedAppStateResult({
+      version: 2,
+      exportedAt: "2026-06-06T12:00:00.000Z",
+      data: validEmptyExport.data,
+    }),
+    expected: {
+      ok: false,
+      path: "version",
+      message: "Unsupported export version: 2.",
+    },
+  },
+  {
+    name: "import validation reports missing entities array",
+    actual: parseImportedAppStateResult({
+      version: 1,
+      exportedAt: "2026-06-06T12:00:00.000Z",
+      data: {
+        schemaVersion: 1,
+      },
+    }),
+    expected: {
+      ok: false,
+      path: "data.entities",
+      message: '"data.entities" must be an array.',
+    },
+  },
+  {
+    name: "import validation reports invalid nested inventory location",
+    actual: parseImportedAppStateResult(invalidLocationExport),
+    expected: {
+      ok: false,
+      path: "data.inventoryRecords[0].location.kind",
+      message: "Invalid location kind.",
+    },
+  },
+  {
+    name: "import validation accepts valid empty export",
+    actual: parseImportedAppStateResult(validEmptyExport),
+    expected: {
+      ok: true,
+      value: validEmptyExport.data,
+    },
   },
 ];

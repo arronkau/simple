@@ -1,0 +1,4652 @@
+{
+  "schemaVersion": "0.2.1-audited",
+  "ruleset": "Old-School Essentials Advanced Fantasy class reference plus Carcass Crawler goblin, using Dolmenwood save labels",
+  "sourceBasis": [
+    "Old-School Essentials Advanced Fantasy Player's Tome v1.3 class level progression tables, printed pages 29, 31, 33, 35, 37, 39, 41, 45, 47, 49, 51, 53, 55, 57, 61, 63, 65, 67, 69, 71, 73, 75",
+    "Carcass Crawler Issue #1 goblin class level progression table, printed page 11",
+    "Dolmenwood save labels mapped to OSE saving throw categories by project decision; OSE D/W/P/B/S values are unchanged."
+  ],
+  "excludedByDesign": [
+    "Only xpThreshold, attackBonus, saves, spellSlots, and maxSpellLevel are included in class level records."
+  ],
+  "saveLabels": {
+    "doom": {
+      "label": "Doom",
+      "oseKey": "D",
+      "oseCategory": "Death / poison"
+    },
+    "ray": {
+      "label": "Ray",
+      "oseKey": "W",
+      "oseCategory": "Wands"
+    },
+    "hold": {
+      "label": "Hold",
+      "oseKey": "P",
+      "oseCategory": "Paralysis / petrify"
+    },
+    "blast": {
+      "label": "Blast",
+      "oseKey": "B",
+      "oseCategory": "Breath attacks"
+    },
+    "spell": {
+      "label": "Spell",
+      "oseKey": "S",
+      "oseCategory": "Spells / rods / staves"
+    }
+  },
+  "classes": {
+    "acrobat": {
+      "id": "acrobat",
+      "displayName": "Acrobat",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 29
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 1200,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 2400,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 4800,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 9600,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 20000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 80000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 160000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 280000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 400000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 520000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 13,
+          "xpThreshold": 640000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 14,
+          "xpThreshold": 760000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "assassin": {
+      "id": "assassin",
+      "displayName": "Assassin",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 31
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 1500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 3000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 6000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 12000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 25000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 50000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 100000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 200000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 300000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 425000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 575000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 13,
+          "xpThreshold": 750000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 14,
+          "xpThreshold": 900000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "barbarian": {
+      "id": "barbarian",
+      "displayName": "Barbarian",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 33
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 10,
+            "ray": 13,
+            "hold": 12,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 10,
+            "ray": 13,
+            "hold": 12,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 10,
+            "ray": 13,
+            "hold": 12,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 8,
+            "ray": 11,
+            "hold": 10,
+            "blast": 13,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 18500,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 8,
+            "ray": 11,
+            "hold": 10,
+            "blast": 13,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 37000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 8,
+            "ray": 11,
+            "hold": 10,
+            "blast": 13,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 85000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 9,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 140000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 9,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 270000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 9,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 400000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 4,
+            "ray": 7,
+            "hold": 6,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 530000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 4,
+            "ray": 7,
+            "hold": 6,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 660000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 4,
+            "ray": 7,
+            "hold": 6,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 13,
+          "xpThreshold": 790000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 3,
+            "ray": 5,
+            "hold": 4,
+            "blast": 5,
+            "spell": 5
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 14,
+          "xpThreshold": 920000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 3,
+            "ray": 5,
+            "hold": 4,
+            "blast": 5,
+            "spell": 5
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "bard": {
+      "id": "bard",
+      "displayName": "Bard",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 35
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 4,
+          "xpThreshold": 8000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 3
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 5,
+          "xpThreshold": 16000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 6,
+          "xpThreshold": 32000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 7,
+          "xpThreshold": 64000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 8,
+          "xpThreshold": 120000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 9,
+          "xpThreshold": 240000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 10,
+          "xpThreshold": 360000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 11,
+          "xpThreshold": 480000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 12,
+          "xpThreshold": 600000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 13,
+          "xpThreshold": 720000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 3
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 14,
+          "xpThreshold": 840000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 3,
+            "4": 3
+          },
+          "maxSpellLevel": 4
+        }
+      ]
+    },
+    "cleric": {
+      "id": "cleric",
+      "displayName": "Cleric",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 37
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 1500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 3000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 4,
+          "xpThreshold": 6000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 12000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 6,
+          "xpThreshold": 25000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 7,
+          "xpThreshold": 50000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2,
+            "4": 1,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 8,
+          "xpThreshold": 100000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 9,
+          "xpThreshold": 200000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 10,
+          "xpThreshold": 300000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 3,
+            "4": 3,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 11,
+          "xpThreshold": 400000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 3,
+            "5": 3
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 12,
+          "xpThreshold": 500000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 5,
+            "2": 5,
+            "3": 4,
+            "4": 4,
+            "5": 3
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 13,
+          "xpThreshold": 600000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 3,
+            "ray": 5,
+            "hold": 7,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {
+            "1": 5,
+            "2": 5,
+            "3": 5,
+            "4": 4,
+            "5": 4
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 14,
+          "xpThreshold": 700000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 3,
+            "ray": 5,
+            "hold": 7,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {
+            "1": 6,
+            "2": 5,
+            "3": 5,
+            "4": 5,
+            "5": 4
+          },
+          "maxSpellLevel": 5
+        }
+      ]
+    },
+    "drow": {
+      "id": "drow",
+      "displayName": "Drow",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 39
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1,
+          "spellNotes": "At 1st level, a drow may only pray for the light (darkness) spell."
+        },
+        {
+          "level": 2,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 8000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 4,
+          "xpThreshold": 16000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 32000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 6,
+          "xpThreshold": 64000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 7,
+          "xpThreshold": 120000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 8,
+          "xpThreshold": 250000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 9,
+          "xpThreshold": 400000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 3,
+            "4": 3,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 10,
+          "xpThreshold": 600000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 6
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 3,
+            "5": 3
+          },
+          "maxSpellLevel": 5
+        }
+      ]
+    },
+    "druid": {
+      "id": "druid",
+      "displayName": "Druid",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 41
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 4,
+          "xpThreshold": 7500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 14,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 12500,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 6,
+          "xpThreshold": 20000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2,
+            "4": 1,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 7,
+          "xpThreshold": 35000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 8,
+          "xpThreshold": 60000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 9,
+            "ray": 10,
+            "hold": 12,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 9,
+          "xpThreshold": 90000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 3,
+            "4": 3,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 10,
+          "xpThreshold": 125000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 3,
+            "5": 3
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 11,
+          "xpThreshold": 200000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 5,
+            "2": 5,
+            "3": 4,
+            "4": 4,
+            "5": 3
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 12,
+          "xpThreshold": 300000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 9,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 5,
+            "2": 5,
+            "3": 5,
+            "4": 4,
+            "5": 4
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 13,
+          "xpThreshold": 750000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 3,
+            "ray": 5,
+            "hold": 7,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {
+            "1": 6,
+            "2": 5,
+            "3": 5,
+            "4": 5,
+            "5": 4
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 14,
+          "xpThreshold": 1500000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 3,
+            "ray": 5,
+            "hold": 7,
+            "blast": 8,
+            "spell": 7
+          },
+          "spellSlots": {
+            "1": 6,
+            "2": 6,
+            "3": 5,
+            "4": 5,
+            "5": 5
+          },
+          "maxSpellLevel": 5
+        }
+      ]
+    },
+    "duergar": {
+      "id": "duergar",
+      "displayName": "Duergar",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 45
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2800,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5600,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 11200,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 23000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 46000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 100000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 200000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 300000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 400000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 2,
+            "ray": 3,
+            "hold": 4,
+            "blast": 4,
+            "spell": 6
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "dwarf": {
+      "id": "dwarf",
+      "displayName": "Dwarf",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 47
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2200,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4400,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 8800,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 17000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 35000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 70000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 140000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 270000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 400000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 2,
+            "ray": 3,
+            "hold": 4,
+            "blast": 4,
+            "spell": 6
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 530000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 2,
+            "ray": 3,
+            "hold": 4,
+            "blast": 4,
+            "spell": 6
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 660000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 2,
+            "ray": 3,
+            "hold": 4,
+            "blast": 4,
+            "spell": 6
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "elf": {
+      "id": "elf",
+      "displayName": "Elf",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 49
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 2,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 8000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 4,
+          "xpThreshold": 16000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 32000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 6,
+          "xpThreshold": 64000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 7,
+          "xpThreshold": 120000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 8,
+          "xpThreshold": 250000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 9,
+          "xpThreshold": 400000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 10,
+          "xpThreshold": 600000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 3,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        }
+      ]
+    },
+    "fighter": {
+      "id": "fighter",
+      "displayName": "Fighter",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 51
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 8000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 16000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 32000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 64000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 120000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 240000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 360000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 480000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 600000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 13,
+          "xpThreshold": 720000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 5,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 14,
+          "xpThreshold": 840000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 5,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "gnome": {
+      "id": "gnome",
+      "displayName": "Gnome",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 53
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 2,
+          "xpThreshold": 3000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 6000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 4,
+          "xpThreshold": 12000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 30000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 6,
+          "xpThreshold": 60000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 7,
+          "xpThreshold": 120000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 8,
+          "xpThreshold": 240000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2
+          },
+          "maxSpellLevel": 4
+        }
+      ]
+    },
+    "halfElf": {
+      "id": "halfElf",
+      "displayName": "Half-Elf",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 55
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 13,
+            "blast": 15,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 5,
+          "xpThreshold": 20000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 6,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 11,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 7,
+          "xpThreshold": 80000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 8,
+          "xpThreshold": 150000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 9,
+          "xpThreshold": 300000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 9,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 10,
+          "xpThreshold": 450000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 11,
+          "xpThreshold": 600000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 12,
+          "xpThreshold": 750000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        }
+      ]
+    },
+    "halfling": {
+      "id": "halfling",
+      "displayName": "Halfling",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 57
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 8000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 16000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 32000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 64000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 120000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "halfOrc": {
+      "id": "halfOrc",
+      "displayName": "Half-Orc",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 61
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 1800,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 3600,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 7000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 14000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 28000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 60000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 120000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "illusionist": {
+      "id": "illusionist",
+      "displayName": "Illusionist",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 63
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 20000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 6,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 7,
+          "xpThreshold": 80000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 8,
+          "xpThreshold": 150000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 9,
+          "xpThreshold": 300000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 10,
+          "xpThreshold": 450000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 3,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 11,
+          "xpThreshold": 600000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 3,
+            "3": 3,
+            "4": 3,
+            "5": 2,
+            "6": 1
+          },
+          "maxSpellLevel": 6
+        },
+        {
+          "level": 12,
+          "xpThreshold": 750000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 3,
+            "4": 3,
+            "5": 3,
+            "6": 2
+          },
+          "maxSpellLevel": 6
+        },
+        {
+          "level": 13,
+          "xpThreshold": 900000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 3,
+            "5": 3,
+            "6": 3
+          },
+          "maxSpellLevel": 6
+        },
+        {
+          "level": 14,
+          "xpThreshold": 1050000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 4,
+            "5": 3,
+            "6": 3
+          },
+          "maxSpellLevel": 6
+        }
+      ]
+    },
+    "knight": {
+      "id": "knight",
+      "displayName": "Knight",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 65
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 18500,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 37000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 85000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 140000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 270000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 400000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 530000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 660000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 13,
+          "xpThreshold": 790000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 5,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 14,
+          "xpThreshold": 920000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 5,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "magicUser": {
+      "id": "magicUser",
+      "displayName": "Magic-User",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 67
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 5,
+          "xpThreshold": 20000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 6,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 7,
+          "xpThreshold": 80000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2,
+            "4": 1
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 8,
+          "xpThreshold": 150000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 2,
+            "4": 2
+          },
+          "maxSpellLevel": 4
+        },
+        {
+          "level": 9,
+          "xpThreshold": 300000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 2,
+            "5": 1
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 10,
+          "xpThreshold": 450000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 11,
+            "ray": 12,
+            "hold": 11,
+            "blast": 14,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 3,
+            "3": 3,
+            "4": 3,
+            "5": 2
+          },
+          "maxSpellLevel": 5
+        },
+        {
+          "level": 11,
+          "xpThreshold": 600000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 3,
+            "3": 3,
+            "4": 3,
+            "5": 2,
+            "6": 1
+          },
+          "maxSpellLevel": 6
+        },
+        {
+          "level": 12,
+          "xpThreshold": 750000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 3,
+            "4": 3,
+            "5": 3,
+            "6": 2
+          },
+          "maxSpellLevel": 6
+        },
+        {
+          "level": 13,
+          "xpThreshold": 900000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 3,
+            "5": 3,
+            "6": 3
+          },
+          "maxSpellLevel": 6
+        },
+        {
+          "level": 14,
+          "xpThreshold": 1050000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 8,
+            "blast": 11,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 4,
+            "2": 4,
+            "3": 4,
+            "4": 4,
+            "5": 3,
+            "6": 3
+          },
+          "maxSpellLevel": 6
+        }
+      ]
+    },
+    "paladin": {
+      "id": "paladin",
+      "displayName": "Paladin",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 69
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2750,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 5500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 12000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 11,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 24000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 11,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 45000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 11,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 95000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 175000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 350000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 10,
+          "xpThreshold": 500000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 6,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 11,
+          "xpThreshold": 650000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 6,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 12,
+          "xpThreshold": 800000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 6,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 13,
+          "xpThreshold": 950000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 2,
+            "ray": 3,
+            "hold": 4,
+            "blast": 3,
+            "spell": 6
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 14,
+          "xpThreshold": 1100000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 2,
+            "ray": 3,
+            "hold": 4,
+            "blast": 3,
+            "spell": 6
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        }
+      ]
+    },
+    "ranger": {
+      "id": "ranger",
+      "displayName": "Ranger",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 71
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2250,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4500,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 14,
+            "blast": 15,
+            "spell": 16
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 20000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 12,
+            "blast": 13,
+            "spell": 14
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 90000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 150000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 1
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 9,
+          "xpThreshold": 300000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 10,
+            "spell": 12
+          },
+          "spellSlots": {
+            "1": 2
+          },
+          "maxSpellLevel": 1
+        },
+        {
+          "level": 10,
+          "xpThreshold": 425000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 1
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 11,
+          "xpThreshold": 550000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2
+          },
+          "maxSpellLevel": 2
+        },
+        {
+          "level": 12,
+          "xpThreshold": 675000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 8,
+            "spell": 10
+          },
+          "spellSlots": {
+            "1": 2,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 13,
+          "xpThreshold": 800000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 5,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 1
+          },
+          "maxSpellLevel": 3
+        },
+        {
+          "level": 14,
+          "xpThreshold": 925000,
+          "attackBonus": 9,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 5,
+            "spell": 8
+          },
+          "spellSlots": {
+            "1": 3,
+            "2": 2,
+            "3": 2
+          },
+          "maxSpellLevel": 3
+        }
+      ]
+    },
+    "svirfneblin": {
+      "id": "svirfneblin",
+      "displayName": "Svirfneblin",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 73
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2400,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4800,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 14,
+            "spell": 11
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 10000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 20000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 11,
+            "spell": 9
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 80000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 9,
+            "spell": 7
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 160000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 9,
+            "spell": 7
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "thief": {
+      "id": "thief",
+      "displayName": "Thief",
+      "source": {
+        "system": "Old-School Essentials Advanced Fantasy Player's Tome",
+        "page": 75
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 1200,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 2400,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 4800,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 13,
+            "ray": 14,
+            "hold": 13,
+            "blast": 16,
+            "spell": 15
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 9600,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 20000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 40000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 80000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 12,
+            "ray": 13,
+            "hold": 11,
+            "blast": 14,
+            "spell": 13
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 9,
+          "xpThreshold": 160000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 10,
+          "xpThreshold": 280000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 11,
+          "xpThreshold": 400000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 12,
+          "xpThreshold": 520000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 10,
+            "ray": 11,
+            "hold": 9,
+            "blast": 12,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 13,
+          "xpThreshold": 640000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 14,
+          "xpThreshold": 760000,
+          "attackBonus": 7,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 7,
+            "blast": 10,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    },
+    "goblin": {
+      "id": "goblin",
+      "displayName": "Goblin",
+      "source": {
+        "system": "Carcass Crawler Issue #1",
+        "page": 11
+      },
+      "levels": [
+        {
+          "level": 1,
+          "xpThreshold": 0,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 2,
+          "xpThreshold": 2000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 3,
+          "xpThreshold": 4000,
+          "attackBonus": 0,
+          "saves": {
+            "doom": 8,
+            "ray": 9,
+            "hold": 10,
+            "blast": 13,
+            "spell": 12
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 4,
+          "xpThreshold": 8000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 5,
+          "xpThreshold": 16000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 6,
+          "xpThreshold": 32000,
+          "attackBonus": 2,
+          "saves": {
+            "doom": 6,
+            "ray": 7,
+            "hold": 8,
+            "blast": 10,
+            "spell": 10
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 7,
+          "xpThreshold": 64000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        },
+        {
+          "level": 8,
+          "xpThreshold": 120000,
+          "attackBonus": 5,
+          "saves": {
+            "doom": 4,
+            "ray": 5,
+            "hold": 6,
+            "blast": 7,
+            "spell": 8
+          },
+          "spellSlots": {},
+          "maxSpellLevel": null
+        }
+      ]
+    }
+  },
+  "incomplete": [
+    {
+      "item": "Class aliases / fuzzy matching strings",
+      "status": "excluded from audited official rules data",
+      "reason": "Aliases such as abbreviations or alternate spellings are app convenience data, not class table source data."
+    }
+  ],
+  "auditNotes": [
+    "Audited against the uploaded Old-School Essentials Advanced Fantasy Player's Tome class progression tables and Carcass Crawler Issue #1 goblin progression table.",
+    "Removed alias arrays because they contained app-convenience strings not directly sourced from official class table names.",
+    "Class ids are app-facing identifiers; displayName contains the official class name used for rule lookup.",
+    "Hit dice, skills, turn undead, class features, racial abilities, and individual character state remain intentionally excluded."
+  ]
+}

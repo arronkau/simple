@@ -61,6 +61,8 @@ import {
 import {
   getLocalPartyStateStorageKey,
   parseAppState,
+  parseAppStateResult,
+  type ParseResult,
   type PartyId,
 } from "./model/appState";
 import {
@@ -899,34 +901,52 @@ function ManageDataModal({
       return;
     }
 
+    let parsedValue: unknown;
+
     try {
-      const parsedValue: unknown = JSON.parse(await file.text());
-      const importedAppState = parseImportedAppState(parsedValue);
-
-      if (!importedAppState) {
-        setPendingImportAppState(undefined);
-        setImportConfirmation("");
-        setImportMessage({
-          tone: "error",
-          text: "Import failed. Choose a JSON export with a valid app state.",
-        });
-        return;
-      }
-
-      setPendingImportAppState(importedAppState);
-      setImportConfirmation("");
-      setImportMessage({
-        tone: "success",
-        text: "Import file is valid. Type import to replace current data.",
-      });
-    } catch {
+      parsedValue = JSON.parse(await file.text());
+    } catch (error) {
       setPendingImportAppState(undefined);
       setImportConfirmation("");
       setImportMessage({
         tone: "error",
-        text: "Import failed. The selected file is not valid JSON.",
+        text: formatJsonImportParseError(error),
       });
+      return;
     }
+
+    let importResult: ParseResult<AppState>;
+
+    try {
+      importResult = parseImportedAppStateResult(parsedValue);
+    } catch (error) {
+      console.error("Import app-state validation failed", error);
+      setPendingImportAppState(undefined);
+      setImportConfirmation("");
+      setImportMessage({
+        tone: "error",
+        text:
+          "Import failed. The file is valid JSON, but the app state could not be imported.",
+      });
+      return;
+    }
+
+    if (!importResult.ok) {
+      setPendingImportAppState(undefined);
+      setImportConfirmation("");
+      setImportMessage({
+        tone: "error",
+        text: formatImportValidationError(importResult),
+      });
+      return;
+    }
+
+    setPendingImportAppState(importResult.value);
+    setImportConfirmation("");
+    setImportMessage({
+      tone: "success",
+      text: "Import file is valid. Type import to replace current data.",
+    });
   }
 
   function confirmImport() {
@@ -5461,23 +5481,78 @@ export function getFilteredAuditLogEntries(
 }
 
 export function parseImportedAppState(value: unknown): AppState | undefined {
-  const directAppState = parseAppState(value);
+  const result = parseImportedAppStateResult(value);
 
-  if (directAppState) {
+  return result.ok ? result.value : undefined;
+}
+
+export function parseImportedAppStateResult(
+  value: unknown,
+): ParseResult<AppState> {
+  const directAppState = parseAppStateResult(value);
+
+  if (directAppState.ok) {
     return directAppState;
   }
 
   if (!value || typeof value !== "object") {
-    return undefined;
+    return {
+      ok: false,
+      message: "Expected app export object.",
+    };
   }
 
   const candidateExport = value as Partial<AppStateExport>;
 
-  if (candidateExport.version !== 1 || !("data" in candidateExport)) {
-    return undefined;
+  if (!("data" in candidateExport)) {
+    return {
+      ok: false,
+      path: "data",
+      message: 'Missing top-level "data" object.',
+    };
   }
 
-  return parseAppState(candidateExport.data);
+  if (candidateExport.version !== 1) {
+    return {
+      ok: false,
+      path: "version",
+      message:
+        candidateExport.version === undefined
+          ? "Missing top-level export version."
+          : `Unsupported export version: ${String(candidateExport.version)}.`,
+    };
+  }
+
+  if (typeof candidateExport.exportedAt !== "string") {
+    return {
+      ok: false,
+      path: "exportedAt",
+      message: 'Missing top-level "exportedAt" timestamp.',
+    };
+  }
+
+  if (!candidateExport.data || typeof candidateExport.data !== "object") {
+    return {
+      ok: false,
+      path: "data",
+      message: 'Missing top-level "data" object.',
+    };
+  }
+
+  return parseAppStateResult(candidateExport.data);
+}
+
+function formatJsonImportParseError(error: unknown): string {
+  const detail =
+    error instanceof Error && error.message.length <= 160
+      ? ` JSON parse error: ${error.message}.`
+      : "";
+
+  return `Import failed. The selected file is not valid JSON.${detail}`;
+}
+
+function formatImportValidationError(result: Extract<ParseResult<AppState>, { ok: false }>): string {
+  return `Import failed. ${result.path ? `${result.path}: ` : ""}${result.message}`;
 }
 
 function formatExportDate(date: Date): string {
