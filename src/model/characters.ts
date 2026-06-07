@@ -9,13 +9,22 @@ import type {
 } from "./types";
 
 export const ABILITY_SCORE_KEYS = [
-  "str",
-  "int",
-  "wis",
-  "dex",
-  "con",
-  "cha",
+  "strength",
+  "intelligence",
+  "wisdom",
+  "dexterity",
+  "constitution",
+  "charisma",
 ] as const;
+
+export const ABILITY_SCORE_LABELS: Record<AbilityScoreKey, string> = {
+  strength: "STR",
+  intelligence: "INT",
+  wisdom: "WIS",
+  dexterity: "DEX",
+  constitution: "CON",
+  charisma: "CHA",
+};
 
 type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
 
@@ -153,14 +162,23 @@ export function isCharacterLikeEntityType(entityType: EntityType): boolean {
 
 function createEmptyAbilityScores(): AbilityScores {
   return {
-    str: null,
-    int: null,
-    wis: null,
-    dex: null,
-    con: null,
-    cha: null,
+    strength: null,
+    intelligence: null,
+    wisdom: null,
+    dexterity: null,
+    constitution: null,
+    charisma: null,
   };
 }
+
+const LEGACY_ABILITY_SCORE_KEY: Record<AbilityScoreKey, string> = {
+  strength: "str",
+  intelligence: "int",
+  wisdom: "wis",
+  dexterity: "dex",
+  constitution: "con",
+  charisma: "cha",
+};
 
 function normalizeAbilityScores(value: unknown): AbilityScores {
   if (!isRecord(value)) {
@@ -170,7 +188,7 @@ function normalizeAbilityScores(value: unknown): AbilityScores {
   return ABILITY_SCORE_KEYS.reduce<AbilityScores>(
     (abilityScores, key) => ({
       ...abilityScores,
-      [key]: getNullableInteger(value[key], 1),
+      [key]: getNullableInteger(value[key] ?? value[LEGACY_ABILITY_SCORE_KEY[key]], 1),
     }),
     createEmptyAbilityScores(),
   );
@@ -233,17 +251,17 @@ function normalizeFeatures(value: unknown): CharacterFeature[] {
       return [];
     }
 
-    const title = getString(feature.title);
+    const name = getString(feature.name) || getString(feature.title);
     const description = getString(feature.description);
 
-    if (!title.trim() && !description.trim()) {
+    if (!name.trim() && !description.trim()) {
       return [];
     }
 
     return [
       {
         id: getString(feature.id) || `feature-${index + 1}`,
-        title,
+        name,
         description,
       },
     ];
@@ -291,5 +309,5 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function formatAbilityScoreLabel(key: AbilityScoreKey): string {
-  return key.toUpperCase();
+  return ABILITY_SCORE_LABELS[key];
 }

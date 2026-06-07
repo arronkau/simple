@@ -1102,12 +1102,12 @@ const phase8BCharacterData = {
     max: 6,
   },
   abilityScores: {
-    str: 9,
-    int: 10,
-    wis: 13,
-    dex: 8,
-    con: 11,
-    cha: 12,
+    strength: 9,
+    intelligence: 10,
+    wisdom: 13,
+    dexterity: 8,
+    constitution: 11,
+    charisma: 12,
   },
   skills: [
     {
@@ -1122,7 +1122,7 @@ const phase8BCharacterData = {
   features: [
     {
       id: "feature-turn-undead",
-      title: "Turn Undead",
+      name: "Turn Undead",
       description: "Manual note only.",
     },
   ],
@@ -1168,9 +1168,9 @@ export const PHASE_8B_STORE_MANUAL_FIXTURES = [
       alignment: phase8BCharacter?.character?.alignment,
       xp: phase8BCharacter?.character?.xp,
       hp: phase8BCharacter?.character?.hp,
-      wis: phase8BCharacter?.character?.abilityScores.wis,
+      wis: phase8BCharacter?.character?.abilityScores.wisdom,
       languages: phase8BCharacter?.character?.languages,
-      featureTitle: phase8BCharacter?.character?.features[0]?.title,
+      featureName: phase8BCharacter?.character?.features[0]?.name,
       skillChance: phase8BCharacter?.character?.skills[0]?.chanceInSix,
       inventoryCountUnchanged:
         phase8BInventoryCountBeforeUpdate ===
@@ -1188,7 +1188,7 @@ export const PHASE_8B_STORE_MANUAL_FIXTURES = [
       },
       wis: 13,
       languages: ["Common", "Lawful"],
-      featureTitle: "Turn Undead",
+      featureName: "Turn Undead",
       skillChance: 2,
       inventoryCountUnchanged: true,
     },

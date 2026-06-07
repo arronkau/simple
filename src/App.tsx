@@ -88,6 +88,7 @@ import {
 } from "./model/encumbrance";
 import {
   ABILITY_SCORE_KEYS,
+  ABILITY_SCORE_LABELS,
   normalizeCharacterData,
 } from "./model/characters";
 import { getCharacterSaveLookup } from "./model/saveTables";
@@ -269,7 +270,7 @@ type CharacterSkillFormState = {
 
 type CharacterFeatureFormState = {
   id: string;
-  title: string;
+  name: string;
   description: string;
 };
 
@@ -2189,12 +2190,12 @@ function formatPartyAbilityScores(
   const scores = character.abilityScores;
 
   return [
-    { label: "S", value: formatNullablePartyNumber(scores.str) },
-    { label: "I", value: formatNullablePartyNumber(scores.int) },
-    { label: "W", value: formatNullablePartyNumber(scores.wis) },
-    { label: "D", value: formatNullablePartyNumber(scores.dex) },
-    { label: "C", value: formatNullablePartyNumber(scores.con) },
-    { label: "Ch", value: formatNullablePartyNumber(scores.cha) },
+    { label: "S", value: formatNullablePartyNumber(scores.strength) },
+    { label: "I", value: formatNullablePartyNumber(scores.intelligence) },
+    { label: "W", value: formatNullablePartyNumber(scores.wisdom) },
+    { label: "D", value: formatNullablePartyNumber(scores.dexterity) },
+    { label: "C", value: formatNullablePartyNumber(scores.constitution) },
+    { label: "Ch", value: formatNullablePartyNumber(scores.charisma) },
   ];
 }
 
@@ -2677,7 +2678,7 @@ function CharacterSheetPanel({
             {ABILITY_SCORE_KEYS.map((abilityScoreKey) => (
               <NumberField
                 key={abilityScoreKey}
-                label={abilityScoreKey.toUpperCase()}
+                label={ABILITY_SCORE_LABELS[abilityScoreKey]}
                 min="1"
                 value={formState.abilityScores[abilityScoreKey]}
                 onChange={(value) =>
@@ -2817,15 +2818,15 @@ function CharacterSheetPanel({
               {formState.features.map((feature) => (
                 <div className="repeatable-row feature-row" key={feature.id}>
                   <label>
-                    <span>Title</span>
+                    <span>Name</span>
                     <input
                       autoComplete="off"
                       maxLength={80}
                       type="text"
-                      value={feature.title}
+                      value={feature.name}
                       onChange={(event) =>
                         updateFeature(feature.id, {
-                          title: event.target.value,
+                          name: event.target.value,
                         })
                       }
                     />
@@ -5957,12 +5958,12 @@ function createCharacterSheetFormState(
         ),
       }),
       {
-        str: "",
-        int: "",
-        wis: "",
-        dex: "",
-        con: "",
-        cha: "",
+        strength: "",
+        intelligence: "",
+        wisdom: "",
+        dexterity: "",
+        constitution: "",
+        charisma: "",
       },
     ),
     skills: normalizedCharacterData.skills.map((skill) => ({
@@ -5975,7 +5976,7 @@ function createCharacterSheetFormState(
     description: normalizedCharacterData.description,
     features: normalizedCharacterData.features.map((feature) => ({
       id: feature.id,
-      title: feature.title,
+      name: feature.name,
       description: feature.description,
     })),
   };
@@ -6005,12 +6006,12 @@ function toCharacterDataFormInput(
         [key]: parseNullableIntegerInput(formState.abilityScores[key]),
       }),
       {
-        str: null,
-        int: null,
-        wis: null,
-        dex: null,
-        con: null,
-        cha: null,
+        strength: null,
+        intelligence: null,
+        wisdom: null,
+        dexterity: null,
+        constitution: null,
+        charisma: null,
       },
     ),
     skills: formState.skills.map((skill) => ({
@@ -6026,10 +6027,10 @@ function toCharacterDataFormInput(
     features: formState.features
       .map((feature) => ({
         id: feature.id,
-        title: feature.title.trim(),
+        name: feature.name.trim(),
         description: feature.description.trim(),
       }))
-      .filter((feature) => feature.title || feature.description),
+      .filter((feature) => feature.name || feature.description),
   };
 }
 
@@ -6045,7 +6046,7 @@ function createEmptySkillFormState(): CharacterSkillFormState {
 function createEmptyFeatureFormState(): CharacterFeatureFormState {
   return {
     id: createFormRowId("feature"),
-    title: "",
+    name: "",
     description: "",
   };
 }

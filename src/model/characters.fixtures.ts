@@ -67,6 +67,26 @@ const legacyPartialCharacterData = normalizeCharacterData({
   languages: ["Common", "Lawful"],
 });
 
+const legacyShortKeyCharacterData = normalizeCharacterData({
+  className: "Thief",
+  abilityScores: {
+    str: 9,
+    int: 10,
+    wis: 8,
+    dex: 14,
+    con: 11,
+    cha: 12,
+  },
+});
+
+const legacyTitleFeatureCharacterData = normalizeCharacterData({
+  className: "Cleric",
+  features: [
+    { id: "f-1", title: "Turn Undead", description: "Controls undead." },
+    { id: "f-2", title: "Holy Symbol", description: "" },
+  ],
+});
+
 const invalidSkillCharacterData: CharacterData = {
   ...emptyCharacterData,
   skills: [
@@ -125,6 +145,35 @@ export const CHARACTER_MANUAL_FIXTURES = [
       },
       languages: ["Common", "Lawful"],
     },
+  },
+  {
+    name: "legacy short ability score keys are mapped to full keys on normalize",
+    actual: legacyShortKeyCharacterData.abilityScores,
+    expected: {
+      strength: 9,
+      intelligence: 10,
+      wisdom: 8,
+      dexterity: 14,
+      constitution: 11,
+      charisma: 12,
+    },
+  },
+  {
+    name: "normalized ability scores contain only full keys",
+    actual: Object.keys(legacyShortKeyCharacterData.abilityScores).sort(),
+    expected: ["charisma", "constitution", "dexterity", "intelligence", "strength", "wisdom"],
+  },
+  {
+    name: "legacy feature title field is normalized to name",
+    actual: legacyTitleFeatureCharacterData.features.map((f) => f.name),
+    expected: ["Turn Undead", "Holy Symbol"],
+  },
+  {
+    name: "normalized features contain name not title",
+    actual: legacyTitleFeatureCharacterData.features.every(
+      (f) => "name" in f && !("title" in f),
+    ),
+    expected: true,
   },
   {
     name: "character sheet validation rejects skill chances outside one through six",
