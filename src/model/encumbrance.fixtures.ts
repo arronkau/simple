@@ -29,7 +29,7 @@ const cappedStorageEntity: Entity = {
   capacitySlots: 4,
 };
 
-const backpackRecord = createDefaultBackpack({
+const topLevelStowedContainerRecord = createDefaultBackpack({
   entityId: characterEntity.id,
   id: "backpack-1",
 });
@@ -41,7 +41,7 @@ const ropeRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 0,
   quantity: 1,
@@ -55,7 +55,7 @@ const torchesRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 1000,
   quantity: 6,
@@ -212,7 +212,7 @@ const heavyBackpackContentsRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 2000,
   quantity: 1,
@@ -358,7 +358,7 @@ const nineSlotBackpackContentsRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 5000,
   quantity: 1,
@@ -379,7 +379,7 @@ const litLanternRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 3000,
   quantity: 1,
@@ -397,7 +397,7 @@ const unidentifiedWandRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 4000,
   quantity: 1,
@@ -409,8 +409,8 @@ const unidentifiedWandRecord: InventoryRecord = {
   },
 };
 
-const emptyBackpackRecords = [backpackRecord];
-const literalBackpackRecords = [backpackRecord, ropeRecord, torchesRecord];
+const emptyTopLevelStowedContainerRecords = [topLevelStowedContainerRecord];
+const literalTopLevelStowedContainerRecords = [topLevelStowedContainerRecord, ropeRecord, torchesRecord];
 const yostLoadedBackpackRecords = [
   yostBackpackRecord,
   yostBackpackTreasureRecord,
@@ -431,7 +431,7 @@ const yostLoadedBackpackWithHeldLoadedSackRecords = [
 ];
 const heldSackRecords = [heldSackRecord, heldSackRationsRecord];
 const heldOverfilledSackWithBackpackRecords = [
-  backpackRecord,
+  topLevelStowedContainerRecord,
   heldSackRecord,
   heldSackOverfilledRationsRecord,
 ];
@@ -445,10 +445,10 @@ const storageHandsRequiredSackRecords = [
   storageHandsRequiredSackRecord,
   storageSackContentsRecord,
 ];
-const overfilledBackpackRecords = [backpackRecord, heavyBackpackContentsRecord];
-const overloadedCharacterRecords = [backpackRecord, seventeenSlotCoinsRecord];
+const overfilledTopLevelStowedContainerRecords = [topLevelStowedContainerRecord, heavyBackpackContentsRecord];
+const overloadedCharacterRecords = [topLevelStowedContainerRecord, seventeenSlotCoinsRecord];
 const globalOverloadRecords = [
-  backpackRecord,
+  topLevelStowedContainerRecord,
   equippedEightSlotsRecord,
   nineSlotBackpackContentsRecord,
 ];
@@ -472,31 +472,31 @@ const armorRecord2: InventoryRecord = {
   armor: { baseArmorClass: 14 },
 };
 
-const multipleArmorsRecords = [backpackRecord, armorRecord1, armorRecord2];
-const equippedOverloadWarningRecords = [backpackRecord, equippedTenSlotsRecord, fiveSlotCoinsRecord];
+const multipleArmorsRecords = [topLevelStowedContainerRecord, armorRecord1, armorRecord2];
+const equippedOverloadWarningRecords = [topLevelStowedContainerRecord, equippedTenSlotsRecord, fiveSlotCoinsRecord];
 const movementReducedRecords = [
-  backpackRecord,
+  topLevelStowedContainerRecord,
   equippedSixSlotsRecord,
   fourSlotCoinsRecord,
 ];
 const stowedSlowerRecords = [
-  backpackRecord,
+  topLevelStowedContainerRecord,
   heldSackRecord,
   fourteenSlotBackpackContentsRecord,
 ];
 const itemStatusRecords = [
-  backpackRecord,
+  topLevelStowedContainerRecord,
   litLanternRecord,
   unidentifiedWandRecord,
 ];
 
-const emptyBackpackEncumbrance = getCharacterEncumbrance(
+const emptyTopLevelStowedContainerEncumbrance = getCharacterEncumbrance(
   characterEntity,
-  emptyBackpackRecords,
+  emptyTopLevelStowedContainerRecords,
 );
 const loadedLiteralBackpackEncumbrance = getCharacterEncumbrance(
   characterEntity,
-  literalBackpackRecords,
+  literalTopLevelStowedContainerRecords,
 );
 const yostLoadedBackpackEncumbrance = getCharacterEncumbrance(
   characterEntity,
@@ -582,10 +582,10 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
   {
     name: "empty stowed-root backpack counts own slots as stowed",
     actual: {
-      equippedItems: emptyBackpackEncumbrance.equippedItems,
-      stowedItems: emptyBackpackEncumbrance.stowedItems,
-      movement: emptyBackpackEncumbrance.movement,
-      band: emptyBackpackEncumbrance.band,
+      equippedItems: emptyTopLevelStowedContainerEncumbrance.equippedItems,
+      stowedItems: emptyTopLevelStowedContainerEncumbrance.stowedItems,
+      movement: emptyTopLevelStowedContainerEncumbrance.movement,
+      band: emptyTopLevelStowedContainerEncumbrance.band,
     },
     expected: {
       equippedItems: 0,
@@ -807,7 +807,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     name: "overfilled backpack creates a container warning",
     actual: {
       warnings: summarizeWarnings(
-        getEncumbranceWarnings(characterEntity, overfilledBackpackRecords),
+        getEncumbranceWarnings(characterEntity, overfilledTopLevelStowedContainerRecords),
       ),
     },
     expected: {

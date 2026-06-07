@@ -68,7 +68,7 @@ const valuableTreasureRecord: InventoryRecord = {
   },
 };
 
-const backpackRecord = createDefaultBackpack({
+const topLevelStowedContainerRecord = createDefaultBackpack({
   entityId: "character-1",
   id: "backpack-1",
 });
@@ -325,7 +325,7 @@ export const APP_MANUAL_FIXTURES = [
       valuableCoin: getDeleteConfirmationMessage(valuableCoinRecord),
       zeroTreasure: getDeleteConfirmationMessage(zeroTreasureRecord),
       valuableTreasure: getDeleteConfirmationMessage(valuableTreasureRecord),
-      backpack: getDeleteConfirmationMessage(backpackRecord),
+      topLevelStowedContainer: getDeleteConfirmationMessage(topLevelStowedContainerRecord),
       emptyContainer: getDeleteConfirmationMessage(emptyContainerRecord),
       nonEmptyContainer: getDeleteConfirmationMessage(nonEmptyContainerRecord, [
         nonEmptyContainerRecord,
@@ -340,7 +340,7 @@ export const APP_MANUAL_FIXTURES = [
       zeroTreasure:
         'Confirm delete treasure "Plain stone" with no recorded gp value?',
       valuableTreasure: 'Confirm delete treasure "Silver plate" worth 50 gp?',
-      backpack:
+      topLevelStowedContainer:
         'Confirm delete stowed container "Backpack" with 16 slots capacity? This may make stowed inventory invalid.',
       emptyContainer:
         'Confirm delete empty container "Sack" with 6 slots capacity?',

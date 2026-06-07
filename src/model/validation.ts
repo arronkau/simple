@@ -77,7 +77,7 @@ export function validateInventoryState(
     ...validateCoinRules(entities, records),
     ...validateHandOccupancy(entities, records),
     ...validateContainment(records),
-    ...validateBackpackRules(entities, records),
+    ...validateTopLevelStowedContainerRules(entities, records),
   ];
 
   const errors = issues.filter((issue) => issue.severity === "error");
@@ -130,20 +130,6 @@ export function getHandOccupancy(
   }
 
   return occupancy;
-}
-
-export function findBackpackRecords(
-  entityId: EntityId,
-  records: InventoryRecord[],
-): InventoryRecord[] {
-  return findTopLevelStowedContainerRecords(entityId, records);
-}
-
-export function hasBackpack(
-  entityId: EntityId,
-  records: InventoryRecord[],
-): boolean {
-  return findBackpackRecords(entityId, records).length > 0;
 }
 
 export function findTopLevelStowedContainerRecords(
@@ -590,7 +576,7 @@ function validateContainment(records: InventoryRecord[]): ValidationIssue[] {
   return issues;
 }
 
-function validateBackpackRules(
+function validateTopLevelStowedContainerRules(
   entities: Entity[],
   records: InventoryRecord[],
 ): ValidationIssue[] {

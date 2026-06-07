@@ -1,7 +1,7 @@
 import { createEmptyCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
 import { getUsableContainerRecords } from "../model/inventoryRecords";
-import { findBackpackRecords } from "../model/validation";
+import { findTopLevelStowedContainerRecords } from "../model/validation";
 import { useAppStore } from "./useAppStore";
 
 useAppStore.getState().resetLocalState();
@@ -61,7 +61,7 @@ export const PHASE_3_STORE_MANUAL_FIXTURES = [
       entityCount: phase3State.entities.length,
       characterName: characterEntity?.name,
       characterBackpacks: characterId
-        ? findBackpackRecords(characterId, phase3State.inventoryRecords).length
+        ? findTopLevelStowedContainerRecords(characterId, phase3State.inventoryRecords).length
         : 0,
       blankEntityCreated: blankEntityId !== undefined,
     },
@@ -76,7 +76,7 @@ export const PHASE_3_STORE_MANUAL_FIXTURES = [
     name: "non-character entity creation does not create backpacks",
     actual: {
       mountBackpacks: mountId
-        ? findBackpackRecords(mountId, phase3State.inventoryRecords).length
+        ? findTopLevelStowedContainerRecords(mountId, phase3State.inventoryRecords).length
         : 0,
       mountActive: mountEntity?.active,
     },
@@ -194,7 +194,7 @@ let phase5NestedContainerId: string | undefined;
 let phase5SpareBagId: string | undefined;
 
 if (phase5CharacterId) {
-  const phase5BackpackRecord = findBackpackRecords(
+  const phase5BackpackRecord = findTopLevelStowedContainerRecords(
     phase5CharacterId,
     useAppStore.getState().appState.inventoryRecords,
   )[0];
@@ -228,7 +228,7 @@ if (phase5CharacterId) {
 
   const noBackpackRecord =
     phase5NoBackpackCharacterId !== undefined
-      ? findBackpackRecords(
+      ? findTopLevelStowedContainerRecords(
           phase5NoBackpackCharacterId,
           useAppStore.getState().appState.inventoryRecords,
         )[0]

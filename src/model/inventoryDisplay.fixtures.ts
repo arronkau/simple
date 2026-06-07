@@ -314,9 +314,9 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         characterSections.mode === "characterLike"
           ? characterSections.coinRecord?.id
           : undefined,
-      backpackContents:
+      topLevelStowedContainerContents:
         characterSections.mode === "characterLike"
-          ? characterSections.backpackContents.map((record) => record.id)
+          ? characterSections.topLevelStowedContainerContents.map((record) => record.id)
           : [],
       sackContents: getContainerContents(sackRecord, sampleRecords).map(
         (record) => record.id,
@@ -331,7 +331,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
       rightHand: "sword-1",
       otherEquipped: ["armor-1"],
       coinRecord: "coins-1",
-      backpackContents: ["rope-1", "sack-1"],
+      topLevelStowedContainerContents: ["rope-1", "sack-1"],
       sackContents: ["rations-1"],
       encumbrance: {
         equippedItems: 3,
@@ -358,9 +358,9 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
     name: "retainer inventory uses character-like sections",
     actual: {
       mode: retainerSections.mode,
-      backpackContents:
+      topLevelStowedContainerContents:
         retainerSections.mode === "characterLike"
-          ? retainerSections.backpackContents.length
+          ? retainerSections.topLevelStowedContainerContents.length
           : undefined,
       hand:
         retainerSections.mode === "characterLike"
@@ -369,7 +369,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
     },
     expected: {
       mode: "characterLike",
-      backpackContents: 0,
+      topLevelStowedContainerContents: 0,
       hand: "retainer-dagger-1",
     },
   },

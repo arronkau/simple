@@ -202,7 +202,6 @@ const legacyBackpackFlagAppState = {
       handsRequired: 0,
       container: {
         capacitySlots: 16,
-        isBackpack: true,
       },
     },
   ],

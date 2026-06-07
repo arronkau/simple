@@ -969,10 +969,7 @@ function isOptionalContainerData(value: unknown): boolean {
     return false;
   }
 
-  return (
-    isNonNegativeNumber(value.capacitySlots) &&
-    (value.isBackpack === undefined || typeof value.isBackpack === "boolean")
-  );
+  return isNonNegativeNumber(value.capacitySlots);
 }
 
 function isOptionalIdentificationData(value: unknown): boolean {

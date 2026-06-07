@@ -158,7 +158,7 @@ const coinsRecord: InventoryRecord = {
   },
 };
 
-const backpackRecord: InventoryRecord = {
+const topLevelStowedContainerRecord: InventoryRecord = {
   id: "backpack-1",
   entityId,
   recordType: "equipment",
@@ -172,14 +172,14 @@ const backpackRecord: InventoryRecord = {
   },
 };
 
-const backpackContentsRecord: InventoryRecord = {
+const topLevelStowedContainerContentsRecord: InventoryRecord = {
   id: "backpack-rope-1",
   entityId,
   recordType: "equipment",
   name: "Rope",
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 0,
   quantity: 7,
@@ -227,8 +227,8 @@ const allRecords = [
   gemsRecord,
   zeroValueTreasureRecord,
   coinsRecord,
-  backpackRecord,
-  backpackContentsRecord,
+  topLevelStowedContainerRecord,
+  topLevelStowedContainerContentsRecord,
   overloadedSackRecord,
   overloadedSackContentsRecord,
 ];
@@ -347,7 +347,7 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
   },
   {
     name: "container row uses right used/capacity slots",
-    actual: getInventoryRowDisplay(backpackRecord, allRecords),
+    actual: getInventoryRowDisplay(topLevelStowedContainerRecord, allRecords),
     expected: {
       primaryText: "Backpack",
       statusIcons: [],

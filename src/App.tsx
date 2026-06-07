@@ -3299,12 +3299,12 @@ function CharacterInventoryDisplay({
           )}
         </SlotDropZone>
 
-        {sections.backpackRecord ? (
+        {sections.topLevelStowedContainerRecord ? (
           <ContainerBlock
             entityId={entityId}
-            containerRecord={sections.backpackRecord}
+            containerRecord={sections.topLevelStowedContainerRecord}
             records={records}
-            nestedRecords={sections.backpackContents}
+            nestedRecords={sections.topLevelStowedContainerContents}
             collapsedContainerIds={collapsedContainerIds}
             onDeleteRecord={onDeleteRecord}
             onEditRecord={onEditRecord}

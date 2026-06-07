@@ -38,7 +38,7 @@ const mountEntity: Entity = {
   sortOrder: 2000,
 };
 
-const backpackRecord = createDefaultBackpack({
+const topLevelStowedContainerRecord = createDefaultBackpack({
   entityId: characterEntity.id,
   id: "backpack-1",
 });
@@ -118,7 +118,7 @@ const ropeRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 2000,
   quantity: 1,
@@ -412,7 +412,7 @@ const nestedScrollCaseRecord: InventoryRecord = {
   entityId: characterEntity.id,
   location: {
     kind: "container",
-    containerId: backpackRecord.id,
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 3000,
   quantity: 1,
@@ -487,7 +487,7 @@ const treasureContainerRecord = {
 
 const validCharacterResult = validateInventoryState(
   [characterEntity],
-  [backpackRecord, ropeRecord, characterCoinsRecord],
+  [topLevelStowedContainerRecord, ropeRecord, characterCoinsRecord],
 );
 
 const missingBackpackResult = validateInventoryState(
@@ -497,18 +497,18 @@ const missingBackpackResult = validateInventoryState(
 
 const duplicateBackpackResult = validateInventoryState(
   [characterEntity],
-  [backpackRecord, duplicateBackpackRecord],
+  [topLevelStowedContainerRecord, duplicateBackpackRecord],
 );
 
 const duplicateStowedRootResult = validateInventoryState(
   [characterEntity],
-  [backpackRecord, stowedRootChestRecord, stowedRootChestContentsRecord],
+  [topLevelStowedContainerRecord, stowedRootChestRecord, stowedRootChestContentsRecord],
 );
 
 const carriedBackpackResult = validateInventoryState(
   [characterEntity],
   [
-    backpackRecord,
+    topLevelStowedContainerRecord,
     ropeRecord,
     carriedBackpackRecord,
     carriedBackpackContentsRecord,
@@ -523,7 +523,7 @@ const nonCharacterCoinsResult = validateInventoryState(
 const invalidLocationAndHandsResult = validateInventoryState(
   [characterEntity, mountEntity],
   [
-    backpackRecord,
+    topLevelStowedContainerRecord,
     leftHandSword,
     leftHandShield,
     bothHandsBow,
@@ -537,13 +537,13 @@ const invalidLocationAndHandsResult = validateInventoryState(
 
 const generalHandRequirementResult = validateInventoryState(
   [characterEntity],
-  [backpackRecord, ringInHandRecord, leftHandPoleRecord],
+  [topLevelStowedContainerRecord, ringInHandRecord, leftHandPoleRecord],
 );
 
 const invalidContainmentResult = validateInventoryState(
   [characterEntity, storageEntity],
   [
-    backpackRecord,
+    topLevelStowedContainerRecord,
     storageCrateRecord,
     nonContainerRecord,
     insideNonContainerRecord,
@@ -559,7 +559,7 @@ const invalidContainmentResult = validateInventoryState(
 const validNestedContainmentResult = validateInventoryState(
   [characterEntity, storageEntity],
   [
-    backpackRecord,
+    topLevelStowedContainerRecord,
     nestedScrollCaseRecord,
     scrollInsideCaseRecord,
     storageCrateRecord,

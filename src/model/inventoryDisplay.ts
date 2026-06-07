@@ -2,7 +2,6 @@ import { getDirectChildRecords } from "./calculations";
 import { sortInventoryRecordsBySortOrder } from "./inventoryRecords";
 import type { Entity, EntityId, InventoryRecord } from "./types";
 import {
-  findBackpackRecords,
   findTopLevelStowedContainerRecords,
   getHandOccupancy,
   isCharacterLikeEntity,
@@ -17,9 +16,9 @@ export type CharacterInventorySections = {
   };
   otherEquipped: InventoryRecord[];
   coinRecord?: InventoryRecord;
-  backpackRecord?: InventoryRecord;
-  backpackRecords: InventoryRecord[];
-  backpackContents: InventoryRecord[];
+  topLevelStowedContainerRecord?: InventoryRecord;
+  topLevelStowedContainerRecords: InventoryRecord[];
+  topLevelStowedContainerContents: InventoryRecord[];
 };
 
 export type ContentsInventorySections = {
@@ -46,13 +45,13 @@ export function getInventorySections(
     };
   }
 
-  const backpackRecords = findBackpackRecords(entity.id, ownedRecords);
-  const backpackRecord = findTopLevelStowedContainerRecords(
+  const topLevelStowedContainerRecords = findTopLevelStowedContainerRecords(
     entity.id,
     ownedRecords,
-  )[0];
-  const backpackRecordIds = new Set(
-    backpackRecord ? [backpackRecord.id] : [],
+  );
+  const topLevelStowedContainerRecord = topLevelStowedContainerRecords[0];
+  const topLevelStowedContainerRecordIds = new Set(
+    topLevelStowedContainerRecord ? [topLevelStowedContainerRecord.id] : [],
   );
 
   return {
@@ -63,7 +62,7 @@ export function getInventorySections(
         (record) =>
           record.location.kind === "equipped" &&
           record.location.placement === "loose" &&
-          !backpackRecordIds.has(record.id),
+          !topLevelStowedContainerRecordIds.has(record.id),
       ),
     ),
     coinRecord: ownedRecords.find(
@@ -71,11 +70,11 @@ export function getInventorySections(
         record.recordType === "coins" &&
         record.location.kind === "coinPurse",
     ),
-    backpackRecord,
-    backpackRecords,
-    backpackContents: backpackRecord
+    topLevelStowedContainerRecord,
+    topLevelStowedContainerRecords,
+    topLevelStowedContainerContents: topLevelStowedContainerRecord
       ? sortInventoryRecordsBySortOrder(
-          getDirectChildRecords(backpackRecord.id, ownedRecords),
+          getDirectChildRecords(topLevelStowedContainerRecord.id, ownedRecords),
         )
       : [],
   };
