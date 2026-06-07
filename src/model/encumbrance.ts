@@ -3,6 +3,7 @@ import {
   getContentsSlots,
   getDirectChildRecords,
   getEffectiveRecordSlotBurden,
+  isActiveArmorRecord,
   isInsideHeldContainer,
 } from "./calculations";
 import type {
@@ -298,6 +299,7 @@ export function getEncumbranceWarnings(
     ...getBackpackWarnings(entity, records),
     ...getHandsRequiredContainerWarnings(entity, records),
     ...getCharacterMovementWarnings(entity, records),
+    ...getArmorClassWarnings(entity, records),
   ];
 }
 
@@ -345,7 +347,7 @@ function getContainerCapacityWarnings(
     return [
       {
         code: "containerOverCapacity",
-        message: `${record.name} is over capacity.`,
+        message: `${record.name} capacity exceeded (${slotUsage.usedSlots}/${slotUsage.capacitySlots} slots).`,
         entityId: entity.id,
         recordId: record.id,
         usedSlots: slotUsage.usedSlots,
@@ -397,7 +399,7 @@ function getHandsRequiredContainerWarnings(
     return [
       {
         code: "handsRequiredContainerNotHeld",
-        message: `${record.name} contains records but is not held.`,
+        message: `${record.name} must be held to move.`,
         entityId: entity.id,
         recordId: record.id,
       },
@@ -413,21 +415,62 @@ function getCharacterMovementWarnings(
     return [];
   }
 
-  const encumbrance = getCharacterEncumbrance(entity, records);
-  const totalSlots = encumbrance.equippedItems + encumbrance.stowedItems;
+  const { equippedItems, stowedItems } = getCharacterEncumbrance(entity, records);
+  const totalSlots = equippedItems + stowedItems;
+  const warnings: EncumbranceWarning[] = [];
 
-  if (totalSlots > 16) {
-    return [
-      {
-        code: "entityOverloaded",
-        message: `${entity.name} is overloaded: capacity (${totalSlots}/16 slots).`,
-        entityId: entity.id,
-        usedSlots: totalSlots,
-      },
-    ];
+  if (equippedItems > 9) {
+    warnings.push({
+      code: "entityOverloaded",
+      message: `Equipped burden exceeded (${equippedItems}/9 slots).`,
+      entityId: entity.id,
+      usedSlots: equippedItems,
+      capacitySlots: 9,
+    });
   }
 
-  return [];
+  if (stowedItems > 16) {
+    warnings.push({
+      code: "entityOverloaded",
+      message: `Stowed burden exceeded (${stowedItems}/16 slots).`,
+      entityId: entity.id,
+      usedSlots: stowedItems,
+      capacitySlots: 16,
+    });
+  }
+
+  if (totalSlots > 16 && equippedItems <= 9 && stowedItems <= 16) {
+    warnings.push({
+      code: "entityOverloaded",
+      message: `Total capacity exceeded (${totalSlots}/16 slots).`,
+      entityId: entity.id,
+      usedSlots: totalSlots,
+      capacitySlots: 16,
+    });
+  }
+
+  return warnings;
+}
+
+function getArmorClassWarnings(
+  entity: Entity,
+  records: InventoryRecord[],
+): EncumbranceWarning[] {
+  const activeArmorCount = records.filter(
+    (record) => record.entityId === entity.id && isActiveArmorRecord(record),
+  ).length;
+
+  if (activeArmorCount <= 1) {
+    return [];
+  }
+
+  return [
+    {
+      code: "multipleArmorsEquipped",
+      message: "Multiple armors equipped.",
+      entityId: entity.id,
+    },
+  ];
 }
 
 function getOverloadedReason(

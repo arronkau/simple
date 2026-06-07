@@ -452,6 +452,28 @@ const globalOverloadRecords = [
   equippedEightSlotsRecord,
   nineSlotBackpackContentsRecord,
 ];
+
+const armorRecord1: InventoryRecord = {
+  id: "armor-1",
+  recordType: "armor",
+  name: "Leather Armor",
+  entityId: characterEntity.id,
+  location: { kind: "equipped", placement: "loose" },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  armor: { baseArmorClass: 12 },
+};
+
+const armorRecord2: InventoryRecord = {
+  ...armorRecord1,
+  id: "armor-2",
+  name: "Chain Mail",
+  armor: { baseArmorClass: 14 },
+};
+
+const multipleArmorsRecords = [backpackRecord, armorRecord1, armorRecord2];
+const equippedOverloadWarningRecords = [backpackRecord, equippedTenSlotsRecord, fiveSlotCoinsRecord];
 const movementReducedRecords = [
   backpackRecord,
   equippedSixSlotsRecord,
@@ -858,6 +880,45 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       warnings: {
         containerOverCapacity: 1,
         entityOverCapacity: 1,
+      },
+    },
+  },
+  {
+    name: "equipped overload creates a movement warning",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, equippedOverloadWarningRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        entityOverloaded: 1,
+      },
+    },
+  },
+  {
+    name: "global overload creates a movement warning",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, globalOverloadRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        entityOverloaded: 1,
+      },
+    },
+  },
+  {
+    name: "multiple armors equipped creates a warning",
+    actual: {
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, multipleArmorsRecords),
+      ),
+    },
+    expected: {
+      warnings: {
+        multipleArmorsEquipped: 1,
       },
     },
   },

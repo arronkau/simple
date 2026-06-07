@@ -2095,14 +2095,7 @@ export function getPartyOverviewCards(
       appState.inventoryRecords,
       character,
     );
-    const warnings = [
-      ...getEncumbranceWarnings(entity, appState.inventoryRecords),
-      ...armorClass.warnings.map((warning) => ({
-        code: warning.code,
-        entityId: warning.entityId,
-        message: warning.message,
-      })),
-    ];
+    const warnings = getEncumbranceWarnings(entity, appState.inventoryRecords);
     const validationIssues = getDisplayValidationIssues([
       ...validationResult.errors,
       ...validationResult.warnings,
