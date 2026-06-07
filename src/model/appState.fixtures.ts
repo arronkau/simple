@@ -57,6 +57,125 @@ const firebaseCoinRecord: InventoryRecord = {
   },
 };
 
+const coinRecordWithQuantity = {
+  id: "coins-invalid-1",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  quantity: 5,
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const coinRecordWithBurden = {
+  id: "coins-invalid-2",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const coinRecordWithTreasure = {
+  id: "coins-invalid-3",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  treasure: { value: "uncommon" },
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const coinRecordWithWeapon = {
+  id: "coins-invalid-4",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  weapon: { hands: "oneHand" },
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const coinRecordWithArmor = {
+  id: "coins-invalid-5",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  armor: {},
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const coinRecordWithContainer = {
+  id: "coins-invalid-6",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  container: { capacitySlots: 10 },
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const coinRecordWithIdentification = {
+  id: "coins-invalid-7",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "coinPurse",
+  },
+  sortOrder: 1000,
+  identification: { identified: true },
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
 const auditLogEntry: AuditLogEntry = {
   id: "audit-1",
   actorLabel: "Local user",
@@ -445,6 +564,69 @@ export const APP_STATE_MANUAL_FIXTURES = [
         },
       ],
     },
+  },
+  {
+    name: "coin record with quantity field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithQuantity as unknown as InventoryRecord],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "coin record with burden field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithBurden as unknown as InventoryRecord],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "coin record with treasure field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithTreasure as unknown as InventoryRecord],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "coin record with weapon field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithWeapon as unknown as InventoryRecord],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "coin record with armor field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithArmor as unknown as InventoryRecord],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "coin record with container field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithContainer as unknown as InventoryRecord],
+    }),
+    expected: undefined,
+  },
+  {
+    name: "coin record with identification field rejects app state",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [coinRecordWithIdentification as unknown as InventoryRecord],
+    }),
+    expected: undefined,
   },
   {
     name: "invalid local app state falls back to empty state",

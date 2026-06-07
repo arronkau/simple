@@ -657,9 +657,67 @@ function validateInventoryRecordShape(
   }
 
   if (value.recordType === "coins") {
-    return isCoinData(value.coins)
-      ? { ok: true, value }
-      : { ok: false, path: `${path}.coins`, message: "Invalid coin data." };
+    if (!isCoinData(value.coins)) {
+      return { ok: false, path: `${path}.coins`, message: "Invalid coin data." };
+    }
+
+    if (value.quantity !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.quantity`,
+        message: "Coin records must not have quantity.",
+      };
+    }
+
+    if (value.burden !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.burden`,
+        message: "Coin records must not have burden.",
+      };
+    }
+
+    if (value.treasure !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.treasure`,
+        message: "Coin records must not have treasure data.",
+      };
+    }
+
+    if (value.weapon !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.weapon`,
+        message: "Coin records must not have weapon data.",
+      };
+    }
+
+    if (value.armor !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.armor`,
+        message: "Coin records must not have armor data.",
+      };
+    }
+
+    if (value.container !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.container`,
+        message: "Coin records must not have container data.",
+      };
+    }
+
+    if (value.identification !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.identification`,
+        message: "Coin records must not have identification data.",
+      };
+    }
+
+    return { ok: true, value };
   }
 
   const hasCurrentBurden =
