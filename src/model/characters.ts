@@ -171,6 +171,15 @@ function createEmptyAbilityScores(): AbilityScores {
   };
 }
 
+const LEGACY_ABILITY_SCORE_KEY: Record<AbilityScoreKey, string> = {
+  strength: "str",
+  intelligence: "int",
+  wisdom: "wis",
+  dexterity: "dex",
+  constitution: "con",
+  charisma: "cha",
+};
+
 function normalizeAbilityScores(value: unknown): AbilityScores {
   if (!isRecord(value)) {
     return createEmptyAbilityScores();
@@ -179,7 +188,7 @@ function normalizeAbilityScores(value: unknown): AbilityScores {
   return ABILITY_SCORE_KEYS.reduce<AbilityScores>(
     (abilityScores, key) => ({
       ...abilityScores,
-      [key]: getNullableInteger(value[key], 1),
+      [key]: getNullableInteger(value[key] ?? value[LEGACY_ABILITY_SCORE_KEY[key]], 1),
     }),
     createEmptyAbilityScores(),
   );
