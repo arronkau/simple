@@ -154,6 +154,7 @@ type AuditLogEntryInput = Omit<CreateAuditLogEntryInput, "createdAt" | "id">;
 
 const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
 const LOCAL_USER_ID_STORAGE_KEY = "simple.inventory.localUserId.v1";
+const LAST_PARTY_ID_STORAGE_KEY = "simple.inventory.lastPartyId.v1";
 
 const firebaseConfig = getRuntimeFirebaseConfig();
 const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
@@ -202,6 +203,7 @@ export const useAppStore = create<AppStore>((set) => ({
     }));
   },
   setCurrentParty: (partyId) => {
+    writeLastPartyId(partyId);
     set((state) => {
       if (state.partyId === partyId) {
         return state;
@@ -2074,7 +2076,7 @@ function getInitialPartyId(): PartyId {
     return createPartyId();
   }
 
-  return getPartyIdFromPathname(window.location.pathname) ?? createPartyId();
+  return getPartyIdFromPathname(window.location.pathname) ?? readLastPartyId() ?? createPartyId();
 }
 
 function getPartyIdFromPathname(pathname: string): PartyId | undefined {
@@ -2093,6 +2095,31 @@ export function createPartyId(): PartyId {
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
   return `party-${randomId.replaceAll("-", "")}`;
+}
+
+function readLastPartyId(): PartyId | undefined {
+  if (typeof window === "undefined" || !("localStorage" in window)) {
+    return undefined;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(LAST_PARTY_ID_STORAGE_KEY);
+    return stored && stored.trim().length > 0 ? (stored as PartyId) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeLastPartyId(partyId: PartyId): void {
+  if (typeof window === "undefined" || !("localStorage" in window)) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(LAST_PARTY_ID_STORAGE_KEY, partyId);
+  } catch {
+    // Storage can fail in private contexts or when quota is exceeded.
+  }
 }
 
 function readLocalUserId(): UserId {
