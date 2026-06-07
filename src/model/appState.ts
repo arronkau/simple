@@ -98,7 +98,7 @@ const KNOWN_MODIFIER_TARGETS: KnownModifierTarget[] = [
   "movement",
 ];
 
-const ABILITY_SCORE_KEYS = ["str", "int", "wis", "dex", "con", "cha"] as const;
+const ABILITY_SCORE_KEYS = ["strength", "intelligence", "wisdom", "dexterity", "constitution", "charisma"] as const;
 const CHARACTER_ALIGNMENTS = ["Law", "Neutrality", "Chaos", ""] as const;
 const USER_ROLES: UserRole[] = ["GM", "Player"];
 
@@ -1147,7 +1147,7 @@ function isCharacterFeatures(value: unknown): boolean {
       (feature) =>
         isRecordLike(feature) &&
         typeof feature.id === "string" &&
-        typeof feature.title === "string" &&
+        typeof feature.name === "string" &&
         typeof feature.description === "string",
     )
   );

@@ -48,12 +48,12 @@ export type EntityType =
   | "storage";
 
 export type AbilityScores = {
-  str: number | null;
-  int: number | null;
-  wis: number | null;
-  dex: number | null;
-  con: number | null;
-  cha: number | null;
+  strength: number | null;
+  intelligence: number | null;
+  wisdom: number | null;
+  dexterity: number | null;
+  constitution: number | null;
+  charisma: number | null;
 };
 
 export type CharacterAlignment = "Law" | "Neutrality" | "Chaos" | "";
@@ -67,7 +67,7 @@ export type CharacterSkill = {
 
 export type CharacterFeature = {
   id: string;
-  title: string;
+  name: string;
   description: string;
 };
 
