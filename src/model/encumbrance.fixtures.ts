@@ -922,6 +922,58 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       },
     },
   },
+  {
+    name: "equipped overload warning includes code, message, entityId, and usedSlots/capacitySlots",
+    actual: getEncumbranceWarnings(characterEntity, equippedOverloadWarningRecords),
+    expected: [
+      {
+        code: "entityOverloaded",
+        message: "Equipped burden exceeded (10/9 slots).",
+        entityId: characterEntity.id,
+        usedSlots: 10,
+        capacitySlots: 9,
+      },
+    ],
+  },
+  {
+    name: "multiple armors warning includes recordIds for each equipped armor",
+    actual: getEncumbranceWarnings(characterEntity, multipleArmorsRecords),
+    expected: [
+      {
+        code: "multipleArmorsEquipped",
+        message: "Multiple armors equipped.",
+        entityId: characterEntity.id,
+        recordIds: [armorRecord1.id, armorRecord2.id],
+      },
+    ],
+  },
+  {
+    name: "container over-capacity warning includes container name, usedSlots, and capacitySlots",
+    actual: getEncumbranceWarnings(characterEntity, heldOverfilledSackWithBackpackRecords),
+    expected: [
+      {
+        code: "containerOverCapacity",
+        message: "Sack capacity exceeded (7/6 slots).",
+        entityId: characterEntity.id,
+        recordId: heldSackRecord.id,
+        usedSlots: 7,
+        capacitySlots: 6,
+      },
+    ],
+  },
+  {
+    name: "global-only overload warning (not equipped or stowed alone)",
+    actual: getEncumbranceWarnings(characterEntity, globalOverloadRecords),
+    expected: [
+      {
+        code: "entityOverloaded",
+        message: "Total capacity exceeded (18/16 slots).",
+        entityId: characterEntity.id,
+        usedSlots: 18,
+        capacitySlots: 16,
+      },
+    ],
+  },
 ];
 
 function summarizeWarnings(warnings: EncumbranceWarning[]): WarningSummary {

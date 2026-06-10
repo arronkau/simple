@@ -75,7 +75,7 @@ export function getCharacterArmorClass(
   characterData?: CharacterData,
 ): CharacterArmorClassResult {
   const ownedRecords = records.filter((record) => record.entityId === entity.id);
-  const activeArmorRecords = ownedRecords.filter(isActiveArmorRecord);
+  const activeArmorRecords = getActiveArmorRecords(entity, records);
   const bestArmor = [...activeArmorRecords].sort(
     (leftRecord, rightRecord) =>
       getArmorRecordArmorClass(rightRecord) - getArmorRecordArmorClass(leftRecord),
@@ -133,6 +133,15 @@ export function isActiveArmorRecord(
     record.location.kind === "equipped" &&
     record.armor.baseArmorClass !== undefined
   );
+}
+
+export function getActiveArmorRecords(
+  entity: Entity,
+  records: InventoryRecord[],
+): Extract<InventoryRecord, { recordType: "armor" }>[] {
+  return records.filter(
+    (r) => r.entityId === entity.id && isActiveArmorRecord(r),
+  ) as Extract<InventoryRecord, { recordType: "armor" }>[];
 }
 
 export function isArmorClassActiveRecord(record: InventoryRecord): boolean {

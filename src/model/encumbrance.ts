@@ -1,4 +1,5 @@
 import {
+  getActiveArmorRecords,
   getContainerSlotUsage,
   getContentsSlots,
   getDirectChildRecords,
@@ -66,6 +67,7 @@ export type EncumbranceWarning = {
   message: string;
   entityId: EntityId;
   recordId?: InventoryRecordId;
+  recordIds?: InventoryRecordId[];
   usedSlots?: number;
   capacitySlots?: number;
 };
@@ -456,11 +458,9 @@ function getArmorClassWarnings(
   entity: Entity,
   records: InventoryRecord[],
 ): EncumbranceWarning[] {
-  const activeArmorCount = records.filter(
-    (record) => record.entityId === entity.id && isActiveArmorRecord(record),
-  ).length;
+  const activeArmorRecords = getActiveArmorRecords(entity, records);
 
-  if (activeArmorCount <= 1) {
+  if (activeArmorRecords.length <= 1) {
     return [];
   }
 
@@ -469,6 +469,7 @@ function getArmorClassWarnings(
       code: "multipleArmorsEquipped",
       message: "Multiple armors equipped.",
       entityId: entity.id,
+      recordIds: activeArmorRecords.map((record) => record.id),
     },
   ];
 }
