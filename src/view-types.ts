@@ -114,6 +114,7 @@ export type RecordFormState = {
   isContainer: boolean;
   capacitySlots: string;
   handsRequired: "0" | "1" | "2";
+  isMagic: boolean;
   isUnidentified: boolean;
   secretName: string;
   secretDescription: string;

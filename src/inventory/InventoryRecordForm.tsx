@@ -442,6 +442,21 @@ export function InventoryRecordForm({
                   <span>Unidentified</span>
                 </label>
               ) : null}
+              {showNonCoinFields ? (
+                <label className="checkbox-field">
+                  <input
+                    checked={formState.isMagic}
+                    type="checkbox"
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        isMagic: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Magic item</span>
+                </label>
+              ) : null}
               <label className="checkbox-field">
                 <input
                   checked={formState.isLight}
@@ -1044,6 +1059,7 @@ export function createEmptyRecordForm(entity: Entity): RecordFormState {
     isContainer: false,
     capacitySlots: "0",
     handsRequired: "0",
+    isMagic: false,
     isUnidentified: false,
     secretName: "",
     secretDescription: "",
@@ -1107,6 +1123,7 @@ export function createRecordFormFromRecord(record: InventoryRecord): RecordFormS
       | "0"
       | "1"
       | "2",
+    isMagic: record.recordType !== "coins" && record.isMagic === true,
     isUnidentified: record.identification?.identified === false,
     secretName: record.identification?.secretName ?? "",
     secretDescription: record.identification?.secretDescription ?? "",
@@ -1211,6 +1228,7 @@ export function applyInventoryRecordInputToFormState(
     isContainer: Boolean(input.container),
     capacitySlots: (input.container?.capacitySlots ?? 0).toString(),
     handsRequired,
+    isMagic: false,
     isUnidentified: false,
     secretName: "",
     secretDescription: "",
@@ -1301,6 +1319,7 @@ export function toInventoryRecordFormInput(
       ? { modifiers: formState.modifiers.map(toModifierInput) }
       : {}),
     ...(formState.notesEnabled ? { notes: formState.notes } : {}),
+    ...(formState.isMagic ? { isMagic: true } : {}),
   };
   const container =
     formState.isContainer &&
