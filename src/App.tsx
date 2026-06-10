@@ -66,16 +66,11 @@ import {
   type PartyId,
 } from "./model/appState";
 import {
-  DEFAULT_AUDIT_ACTOR_LABEL,
   AUDIT_EVENT_TYPE_LABELS,
-  getAuditEventTypeLabel,
   getNewestAuditLogEntries,
 } from "./model/auditLog";
 import {
-  getCoinCount,
-  getCoinGpValue,
   getCharacterArmorClass,
-  getDirectChildRecords,
   getRecordSlotBurden,
 } from "./model/calculations";
 import {
@@ -117,7 +112,6 @@ import {
 } from "./model/inventoryDisplay";
 import {
   getInventoryRowDisplay,
-  formatCoinDenominations as formatCoinDenominationsValue,
   type InventoryRowStatus,
 } from "./model/inventoryRowDisplay";
 import type { AppState } from "./model/appState";
@@ -137,7 +131,6 @@ import type {
   InventoryRecord,
   InventoryRecordId,
   InventoryRecordType,
-  KnownModifierTarget,
   Modifier,
   UserProfile,
   UserRole,
@@ -155,179 +148,59 @@ import {
   type InventoryMutationResult,
 } from "./store/useAppStore";
 import type { CoinDenomination } from "./store/useAppStore";
-
-type EntityFormState = {
-  name: string;
-  entityType: EntityType;
-};
-
-const EMPTY_ENTITY_FORM: EntityFormState = {
-  name: "",
-  entityType: "character",
-};
-
-const RECORD_TYPE_LABELS: Record<InventoryRecordType, string> = {
-  coins: "Coins",
-  treasure: "Treasure",
-  weapon: "Weapon",
-  armor: "Armor",
-  equipment: "Equipment",
-};
-
-const RECORD_TYPES: InventoryRecordType[] = [
-  "equipment",
-  "coins",
-  "treasure",
-  "weapon",
-  "armor",
-];
-
-const COIN_DENOMINATIONS: CoinDenomination[] = ["pp", "gp", "sp", "cp"];
-const EMPTY_COINS: CoinData = {
-  pp: 0,
-  gp: 0,
-  sp: 0,
-  cp: 0,
-};
-
-const MODIFIER_TARGET_OPTIONS: Array<{
-  label: string;
-  value: KnownModifierTarget | "ability:str" | "ability:int" | "ability:wis" | "ability:dex" | "ability:con" | "ability:cha" | "other";
-}> = [
-  { label: "AC", value: "armorClass" },
-  { label: "Attack", value: "attack" },
-  { label: "Damage", value: "damage" },
-  { label: "Saves", value: "savingThrow" },
-  { label: "Strength", value: "ability:str" },
-  { label: "Intelligence", value: "ability:int" },
-  { label: "Wisdom", value: "ability:wis" },
-  { label: "Dexterity", value: "ability:dex" },
-  { label: "Constitution", value: "ability:con" },
-  { label: "Charisma", value: "ability:cha" },
-  { label: "Movement", value: "movement" },
-  { label: "Other", value: "other" },
-];
-
-type ModifierFormRow = {
-  id: string;
-  target: string;
-  value: string;
-  label: string;
-};
-
-type RecordFormState = {
-  mode: "create" | "edit";
-  entityId: EntityId;
-  recordId?: InventoryRecordId;
-  recordType: InventoryRecordType;
-  targetEntityId: EntityId;
-  placement: InventoryRecordPlacementKey;
-  containerId: InventoryRecordId | "";
-  name: string;
-  description: string;
-  pp: string;
-  gp: string;
-  sp: string;
-  cp: string;
-  gpValue: string;
-  damage: string;
-  range: string;
-  baseArmorClass: string;
-  armorBonus: string;
-  stackable: boolean;
-  quantity: string;
-  slotsPerItem: string;
-  itemsPerSlot: string;
-  showMovement: boolean;
-  isContainer: boolean;
-  capacitySlots: string;
-  handsRequired: "0" | "1" | "2";
-  isUnidentified: boolean;
-  secretName: string;
-  secretDescription: string;
-  isLight: boolean;
-  lightDescription: string;
-  isLit: boolean;
-  trackUses: boolean;
-  usesCurrent: string;
-  usesMax: string;
-  addModifiers: boolean;
-  modifiers: ModifierFormRow[];
-  notesEnabled: boolean;
-  notes: string;
-  addWeaponQualities: boolean;
-  qualities: string;
-};
-
-type AbilityScoreKey = (typeof ABILITY_SCORE_KEYS)[number];
-
-type CharacterSkillFormState = {
-  id: string;
-  name: string;
-  chanceInSix: string;
-  description: string;
-};
-
-type CharacterFeatureFormState = {
-  id: string;
-  name: string;
-  description: string;
-};
-
-type CharacterSheetFormState = {
-  className: string;
-  level: string;
-  alignment: CharacterAlignment;
-  xp: string;
-  hpCurrent: string;
-  hpMax: string;
-  armorClassModifier: string;
-  armorClassOverride: string;
-  abilityScores: Record<AbilityScoreKey, string>;
-  skills: CharacterSkillFormState[];
-  languagesText: string;
-  description: string;
-  features: CharacterFeatureFormState[];
-};
-
-type CoinSpendFormState = {
-  recordId: InventoryRecordId;
-  amounts: Record<CoinDenomination, string>;
-  note: string;
-};
-
-type CoinTransferFormState = {
-  sourceEntityId: EntityId;
-  destinationEntityId: EntityId;
-  amounts: Record<CoinDenomination, string>;
-  note: string;
-};
-
-type ManageMessage = {
-  tone: "error" | "success";
-  text: string;
-};
-
-type UserProfileFormState = {
-  displayName: string;
-  role: UserRole;
-};
-
-type DeleteConfirmationState =
-  | {
-      kind: "entity";
-      entity: Entity;
-    }
-  | {
-      kind: "record";
-      record: InventoryRecord;
-    };
-
-type AppStateExport = {
-  version: 1;
-  exportedAt: string;
-  data: AppState;
-};
+import {
+  COIN_DENOMINATIONS,
+  EMPTY_COINS,
+  EMPTY_ENTITY_FORM,
+  MODIFIER_TARGET_OPTIONS,
+  RECORD_TYPE_LABELS,
+  RECORD_TYPES,
+  type AbilityScoreKey,
+  type AppStateExport,
+  type CharacterFeatureFormState,
+  type CharacterSheetFormState,
+  type CharacterSkillFormState,
+  type CoinSpendFormState,
+  type CoinTransferFormState,
+  type DeleteConfirmationState,
+  type EntityFormState,
+  type ManageMessage,
+  type ModifierFormRow,
+  type PartyAbilityScoreDisplay,
+  type PartyOverviewCard,
+  type RecordFormState,
+  type UserProfileFormState,
+} from "./view-types";
+import {
+  formatCapacity,
+  formatGpValue,
+  formatMovementFeet,
+  formatNullableNumberInput,
+  formatNullablePartyNumber,
+  formatPartyAbilityScores,
+  formatPartyAlignment,
+  formatPartyArmorClass,
+  formatPartyClassLevel,
+  formatPartyHands,
+  formatPartyHp,
+  formatPartyLanguages,
+  formatSignedNumber,
+  formatSlots,
+  formatWarningState,
+  getAuditEntryDisplay,
+  getCollapsedContainerStatusIcons,
+  getDeleteConfirmationMessage,
+  getInventoryRecordTypeIcon,
+  getInventoryRecordTypeIconTone,
+  getInventoryRowStatusIcon,
+  getInventoryRowStatusTitle,
+  getInventoryRowStatusTone,
+  getInventoryRowStatusText,
+  getRecordDisplayName,
+  getUniqueInventoryRowStatuses,
+  isMagicInventoryRecord,
+  isPartyMemberHurt,
+} from "./formatters";
 
 function LocalAppShell() {
   const location = useLocation();
@@ -1965,30 +1838,6 @@ function EntityStatusSummary({ status }: { status: EntityInventoryStatus }) {
   );
 }
 
-type PartyOverviewCard = {
-  abilityScores: PartyAbilityScoreDisplay[];
-  ac: string;
-  id: EntityId;
-  name: string;
-  entityType: EntityType;
-  classLevel: string;
-  hp: string;
-  hurt: boolean;
-  movement: string;
-  movementFeet: number;
-  languages: string;
-  hands: string[];
-  validationIssues: ValidationIssue[];
-  warningCount: number;
-  warningSummary: string;
-  warnings: EncumbranceWarning[];
-};
-
-type PartyAbilityScoreDisplay = {
-  label: string;
-  value: string;
-};
-
 function PartyPage({
   appState,
   inventoryPath,
@@ -2128,118 +1977,6 @@ export function getPartyOverviewCards(
       warnings,
     };
   });
-}
-
-function formatPartyClassLevel(character: CharacterData): string {
-  const className = character.className.trim() || "No class";
-  const alignment = formatPartyAlignment(character.alignment);
-  const classLabel = alignment ? `${alignment} ${className}` : className;
-
-  if (character.level === null) {
-    return classLabel;
-  }
-
-  return `${classLabel} ${character.level}`;
-}
-
-function formatPartyArmorClass(armorClass: number): string {
-  return `AC ${formatNullablePartyNumber(armorClass)}`;
-}
-
-function formatPartyAlignment(alignment: CharacterAlignment): string {
-  switch (alignment) {
-    case "Law":
-      return "Lawful";
-    case "Neutrality":
-      return "Neutral";
-    case "Chaos":
-      return "Chaotic";
-    case "":
-      return "";
-  }
-}
-
-function formatPartyHp(character: CharacterData): string {
-  return `${formatNullablePartyNumber(character.hp.current)}/${formatNullablePartyNumber(
-    character.hp.max,
-  )}`;
-}
-
-function isPartyMemberHurt(character: CharacterData): boolean {
-  return (
-    character.hp.current !== null &&
-    character.hp.max !== null &&
-    character.hp.current < character.hp.max
-  );
-}
-
-function formatPartyLanguages(character: CharacterData): string {
-  return character.languages.length > 0 ? character.languages.join(", ") : "None";
-}
-
-function formatPartyAbilityScores(
-  character: CharacterData,
-): PartyAbilityScoreDisplay[] {
-  const scores = character.abilityScores;
-
-  return [
-    { label: "S", value: formatNullablePartyNumber(scores.strength) },
-    { label: "I", value: formatNullablePartyNumber(scores.intelligence) },
-    { label: "W", value: formatNullablePartyNumber(scores.wisdom) },
-    { label: "D", value: formatNullablePartyNumber(scores.dexterity) },
-    { label: "C", value: formatNullablePartyNumber(scores.constitution) },
-    { label: "Ch", value: formatNullablePartyNumber(scores.charisma) },
-  ];
-}
-
-function formatPartyHands(
-  sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
-  records: InventoryRecord[],
-): string[] {
-  const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
-
-  if (bothHandsRecord) {
-    return [`Both: ${getPartyRecordLabel(bothHandsRecord, records, true)}`];
-  }
-
-  const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
-  const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
-
-  return [
-    `L: ${
-      leftHandRecord ? getPartyRecordLabel(leftHandRecord, records, true) : "Empty"
-    }`,
-    `R: ${
-      rightHandRecord
-        ? getPartyRecordLabel(rightHandRecord, records, true)
-        : "Empty"
-    }`,
-  ];
-}
-
-function getPartyRecordLabel(
-  record: InventoryRecord,
-  records: InventoryRecord[],
-  includeStatuses = false,
-): string {
-  const display = getInventoryRowDisplay(record, records);
-  const statuses = includeStatuses
-    ? display.statusIcons.map((status) => `[${getInventoryRowStatusText(status)}]`)
-    : [];
-
-  return [display.primaryText, ...statuses].join(" ");
-}
-
-function formatNullablePartyNumber(value: number | null): string {
-  return value === null ? "—" : value.toString();
-}
-
-function formatSignedNumber(value: number): string {
-  return value > 0 ? `+${value}` : value.toString();
-}
-
-function formatMovementFeet(feet: number): string {
-  return `${feet}'`;
 }
 
 function CharactersPage({
@@ -5188,153 +4925,6 @@ function getSlotPipContent(slots: number): ReactNode {
   );
 }
 
-const INVENTORY_ROW_STATUS_ORDER: InventoryRowStatus[] = [
-  "lit",
-  "unidentified",
-  "activeAc",
-  "overCapacity",
-];
-
-function getCollapsedContainerStatusIcons(
-  containerRecord: InventoryRecord,
-  records: InventoryRecord[],
-): InventoryRowStatus[] {
-  const descendantStatuses = getContainerDescendantRecords(
-    containerRecord,
-    records,
-  ).flatMap((record) => getInventoryRowDisplay(record, records).statusIcons);
-
-  return getUniqueInventoryRowStatuses(descendantStatuses);
-}
-
-function getContainerDescendantRecords(
-  containerRecord: InventoryRecord,
-  records: InventoryRecord[],
-  visitedContainerIds = new Set<InventoryRecordId>(),
-): InventoryRecord[] {
-  if (visitedContainerIds.has(containerRecord.id)) {
-    return [];
-  }
-
-  visitedContainerIds.add(containerRecord.id);
-
-  return getContainerContents(containerRecord, records).flatMap((record) => [
-    record,
-    ...(record.container
-      ? getContainerDescendantRecords(record, records, visitedContainerIds)
-      : []),
-  ]);
-}
-
-function getUniqueInventoryRowStatuses(
-  statuses: InventoryRowStatus[],
-): InventoryRowStatus[] {
-  const statusSet = new Set(statuses);
-
-  return INVENTORY_ROW_STATUS_ORDER.filter((status) => statusSet.has(status));
-}
-
-function getInventoryRowStatusIcon(
-  status: InventoryRowStatus,
-): ItemStatusIconName {
-  switch (status) {
-    case "lit":
-      return "lit";
-    case "unidentified":
-      return "unidentified";
-    case "activeAc":
-      return "activeAc";
-    case "overCapacity":
-      return "overCapacity";
-  }
-}
-
-function getInventoryRowStatusTone(status: InventoryRowStatus): IconTone {
-  switch (status) {
-    case "lit":
-      return "lit";
-    case "unidentified":
-      return "unidentified";
-    case "activeAc":
-      return "active";
-    case "overCapacity":
-      return "critical";
-  }
-}
-
-function getInventoryRowStatusTitle(status: InventoryRowStatus): string {
-  switch (status) {
-    case "lit":
-      return "Light source is lit";
-    case "unidentified":
-      return "Unidentified item";
-    case "activeAc":
-      return "Contributes to armor class";
-    case "overCapacity":
-      return "Container is over capacity";
-  }
-}
-
-function getInventoryRowStatusText(status: InventoryRowStatus): string {
-  switch (status) {
-    case "lit":
-      return "lit";
-    case "unidentified":
-      return "unidentified";
-    case "activeAc":
-      return "active AC";
-    case "overCapacity":
-      return "over capacity";
-  }
-}
-
-function getInventoryRecordTypeIcon(record: InventoryRecord): ItemTypeIconName {
-  if (record.recordType === "coins") {
-    return "coins";
-  }
-
-  if (record.recordType === "treasure") {
-    return "treasure";
-  }
-
-  if (record.recordType === "weapon") {
-    return "weapon";
-  }
-
-  if (record.recordType === "armor") {
-    return "armor";
-  }
-
-  if (record.container) {
-    return "container";
-  }
-
-  if (record.light) {
-    return "light";
-  }
-
-  return "equipment";
-}
-
-function getInventoryRecordTypeIconTone(record: InventoryRecord): IconTone {
-  return isMagicInventoryRecord(record) ? "magic" : "muted";
-}
-
-function isMagicInventoryRecord(record: InventoryRecord): boolean {
-  if (record.modifiers && record.modifiers.length > 0) {
-    return true;
-  }
-
-  if (
-    record.recordType === "weapon" &&
-    record.weapon.qualities?.some((quality) => quality.toLowerCase() === "magic")
-  ) {
-    return true;
-  }
-
-  return record.recordType === "armor" && (record.armor.armorBonus ?? 0) > 0;
-}
-
 function WarningDetailsButton({
   validationIssues,
   warnings,
@@ -5670,20 +5260,8 @@ export function getAuditEntityFilterOptions(
   return [...optionsById.entries()].map(([value, label]) => ({ label, value }));
 }
 
-function formatRecordCount(count: number) {
-  return count === 1 ? "1 record" : `${count} records`;
-}
-
 function formatAuditEntryCount(count: number) {
   return count === 1 ? "1 entry" : `${count} entries`;
-}
-
-export function getRecordDisplayName(record: InventoryRecord) {
-  if (record.recordType === "coins") {
-    return "Coins";
-  }
-
-  return record.name;
 }
 
 function canIdentifyRecord(record: InventoryRecord): boolean {
@@ -5696,63 +5274,6 @@ function canIdentifyRecord(record: InventoryRecord): boolean {
     (Boolean(record.identification.secretName?.trim()) ||
       Boolean(record.identification.secretDescription?.trim()))
   );
-}
-
-export function getDeleteConfirmationMessage(
-  record: InventoryRecord,
-  allRecords: InventoryRecord[] = [],
-) {
-  if (record.recordType === "coins") {
-    if (getCoinCount(record.coins) > 0) {
-      return `Confirm delete coin record containing ${formatCoinDenominations(record)} worth ${formatGpValue(
-        getCoinGpValue(record.coins),
-      )} gp?`;
-    }
-
-    return "Confirm delete empty coin record?";
-  }
-
-  const displayName = getRecordDisplayName(record);
-
-  if (record.recordType === "treasure") {
-    if (record.treasure.gpValue > 0) {
-      return `Confirm delete treasure "${displayName}" worth ${formatGpValue(
-        record.treasure.gpValue,
-      )} gp?`;
-    }
-
-    return `Confirm delete treasure "${displayName}" with no recorded gp value?`;
-  }
-
-  if (record.container && record.location.kind === "stowedRoot") {
-    return `Confirm delete stowed container "${displayName}" with ${formatSlots(
-      record.container.capacitySlots,
-    )} capacity? This may make stowed inventory invalid.`;
-  }
-
-  if (record.container) {
-    const childCount = getDirectChildRecords(record.id, allRecords).length;
-
-    if (childCount > 0) {
-      return `Confirm delete non-empty container "${displayName}" containing ${formatRecordCount(
-        childCount,
-      )}? This is blocked until the contents are moved.`;
-    }
-
-    return `Confirm delete empty container "${displayName}" with ${formatSlots(
-      record.container.capacitySlots,
-    )} capacity?`;
-  }
-
-  return `Confirm delete "${displayName}"?`;
-}
-
-function formatCoinDenominations(record: InventoryRecord) {
-  if (record.recordType !== "coins") {
-    return "Coins";
-  }
-
-  return formatCoinDenominationsValue(record.coins);
 }
 
 function createEmptyCoinSpendAmounts(): Record<CoinDenomination, string> {
@@ -5867,64 +5388,6 @@ function getDefaultCoinRecordForEntity(
 
 function toCoinSpendNumber(value: string): number {
   return value.trim().length === 0 ? 0 : Number(value);
-}
-
-function formatSlots(slots: number) {
-  return slots === 1 ? "1 slot" : `${slots} slots`;
-}
-
-function formatCapacity(usedSlots: number, capacitySlots: number | undefined) {
-  if (capacitySlots === undefined) {
-    return `${formatSlots(usedSlots)} used`;
-  }
-
-  return `${usedSlots}/${capacitySlots} slots`;
-}
-
-function formatGpValue(value: number) {
-  return Number.isInteger(value)
-    ? value.toString()
-    : Number(value.toFixed(2)).toString();
-}
-
-function formatWarningState(
-  warnings: EncumbranceWarning[],
-  validationIssues: ValidationIssue[],
-) {
-  const count = warnings.length + validationIssues.length;
-
-  if (count === 0) {
-    return "No warnings";
-  }
-
-  return count === 1 ? "1 warning" : `${count} warnings`;
-}
-
-export function getAuditEntryDisplay(entry: AuditLogEntry) {
-  const metaLabels = [getAuditEventTypeLabel(entry.eventType)];
-
-  if (entry.actorLabel !== DEFAULT_AUDIT_ACTOR_LABEL) {
-    metaLabels.push(entry.actorLabel);
-  }
-
-  return {
-    summary: entry.summary,
-    timestamp: formatAuditTimestamp(entry.createdAt),
-    metaLabels,
-  };
-}
-
-function formatAuditTimestamp(createdAt: string): string {
-  const date = new Date(createdAt);
-
-  if (Number.isNaN(date.getTime())) {
-    return createdAt;
-  }
-
-  return date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function createCharacterSheetFormState(
@@ -6065,10 +5528,6 @@ function parseIntegerInput(value: string): number {
   const parsedValue = Number(value);
 
   return Number.isInteger(parsedValue) ? parsedValue : Number.NaN;
-}
-
-function formatNullableNumberInput(value: number | null): string {
-  return value === null ? "" : value.toString();
 }
 
 function createFormRowId(prefix: "feature" | "modifier" | "skill"): string {
