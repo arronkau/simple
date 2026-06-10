@@ -579,6 +579,37 @@ function validateEntityShape(
   return { ok: true, value: value as Entity };
 }
 
+type ForbiddenFieldConfig = {
+  key: string;
+  label: string;
+};
+
+const FORBIDDEN_COIN_RECORD_FIELDS: ForbiddenFieldConfig[] = [
+  { key: "quantity", label: "quantity" },
+  { key: "burden", label: "burden" },
+  { key: "treasure", label: "treasure data" },
+  { key: "weapon", label: "weapon data" },
+  { key: "armor", label: "armor data" },
+  { key: "container", label: "container data" },
+  { key: "identification", label: "identification data" },
+];
+
+function validateCoinRecordFields(
+  value: Record<string, unknown>,
+  path: string,
+): ParseResult<void> {
+  for (const field of FORBIDDEN_COIN_RECORD_FIELDS) {
+    if (value[field.key] !== undefined) {
+      return {
+        ok: false,
+        path: `${path}.${field.key}`,
+        message: `Coin records must not have ${field.label}.`,
+      };
+    }
+  }
+  return { ok: true, value: undefined };
+}
+
 function validateInventoryRecordShape(
   value: unknown,
   path: string,
@@ -661,60 +692,9 @@ function validateInventoryRecordShape(
       return { ok: false, path: `${path}.coins`, message: "Invalid coin data." };
     }
 
-    if (value.quantity !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.quantity`,
-        message: "Coin records must not have quantity.",
-      };
-    }
-
-    if (value.burden !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.burden`,
-        message: "Coin records must not have burden.",
-      };
-    }
-
-    if (value.treasure !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.treasure`,
-        message: "Coin records must not have treasure data.",
-      };
-    }
-
-    if (value.weapon !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.weapon`,
-        message: "Coin records must not have weapon data.",
-      };
-    }
-
-    if (value.armor !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.armor`,
-        message: "Coin records must not have armor data.",
-      };
-    }
-
-    if (value.container !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.container`,
-        message: "Coin records must not have container data.",
-      };
-    }
-
-    if (value.identification !== undefined) {
-      return {
-        ok: false,
-        path: `${path}.identification`,
-        message: "Coin records must not have identification data.",
-      };
+    const forbiddenFieldResult = validateCoinRecordFields(value, path);
+    if (!forbiddenFieldResult.ok) {
+      return forbiddenFieldResult;
     }
 
     return { ok: true, value };
