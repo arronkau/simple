@@ -168,8 +168,9 @@ export function EntityEditModal({
           </label>
 
           <p className="form-help">
-            Type controls whether this entity is treated as a character or
-            retainer. Class and level stay on the character sheet.
+            {canEditEntityType
+              ? "Type controls whether this entity is treated as a character or retainer. Class and level remain character-sheet data."
+              : "This entity type cannot be changed here."}
           </p>
 
           <div className="entity-modal-summary">

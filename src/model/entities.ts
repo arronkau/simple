@@ -42,7 +42,7 @@ export function applyEntityUpdate(
 ): Entity {
   const nextName =
     input.name !== undefined ? input.name.trim() : existingEntity.name;
-  const nextEntityType = input.entityType ?? existingEntity.entityType;
+  const nextEntityType = getValidUpdatedEntityType(existingEntity, input.entityType);
   const nextEntity: Entity = {
     ...existingEntity,
     ...(nextName.length > 0 ? { name: nextName } : {}),
@@ -62,6 +62,23 @@ export function applyEntityUpdate(
 
   const { character: _character, ...nonCharacterEntity } = nextEntity;
   return nonCharacterEntity;
+}
+
+function getValidUpdatedEntityType(
+  existingEntity: Entity,
+  requestedEntityType: EntityType | undefined,
+): EntityType {
+  if (requestedEntityType === undefined) {
+    return existingEntity.entityType;
+  }
+
+  if (isCharacterLikeEntityType(existingEntity.entityType)) {
+    return isCharacterLikeEntityType(requestedEntityType)
+      ? requestedEntityType
+      : existingEntity.entityType;
+  }
+
+  return existingEntity.entityType;
 }
 
 export function getEditableEntityTypes(entity: Entity): EntityType[] {
