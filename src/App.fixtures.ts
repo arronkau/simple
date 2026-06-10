@@ -1,4 +1,4 @@
-import { getPartyOverviewCards } from "./App";
+import { getPartyOverviewCards } from "./pages/PartyPage";
 import {
   getAuditEntityFilterOptions,
   getFilteredAuditLogEntries,
