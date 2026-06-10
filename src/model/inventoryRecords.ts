@@ -60,6 +60,7 @@ export type InventoryRecordFormInput = {
   light?: Partial<LightData>;
   modifiers?: Modifier[];
   notes?: string;
+  isMagic?: boolean;
   location?: InventoryRecordLocationInput;
 };
 
@@ -585,6 +586,7 @@ function buildInventoryRecord({
     ...(light ? { light } : {}),
     ...(modifiers.length > 0 ? { modifiers } : {}),
     ...(notes ? { notes } : {}),
+    ...(input.isMagic === true ? { isMagic: true } : {}),
   };
   const identification = normalizeIdentification(input.identification);
 

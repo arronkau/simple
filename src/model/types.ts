@@ -248,6 +248,7 @@ type NonCoinInventoryRecordShared = InventoryRecordShared & {
   quantity: number;
   burden: InventoryBurden;
   handsRequired?: HandsRequired;
+  isMagic?: boolean;
 };
 
 export type CoinsRecord = InventoryRecordShared & {

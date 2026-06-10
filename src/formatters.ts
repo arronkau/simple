@@ -270,18 +270,7 @@ export function getInventoryRecordTypeIconTone(record: InventoryRecord): IconTon
 }
 
 export function isMagicInventoryRecord(record: InventoryRecord): boolean {
-  if (record.modifiers && record.modifiers.length > 0) {
-    return true;
-  }
-
-  if (
-    record.recordType === "weapon" &&
-    record.weapon.qualities?.some((quality) => quality.toLowerCase() === "magic")
-  ) {
-    return true;
-  }
-
-  return record.recordType === "armor" && (record.armor.armorBonus ?? 0) > 0;
+  return record.recordType !== "coins" && record.isMagic === true;
 }
 
 // ---- Record display ----
