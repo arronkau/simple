@@ -2,6 +2,7 @@ import { type FormEvent } from "react";
 import {
   ENTITY_TYPE_LABELS,
   ENTITY_TYPES,
+  getEditableEntityTypes,
 } from "../model/entities";
 import type { AppState } from "../model/appState";
 import type { Entity, EntityId, EntityType } from "../model/types";
@@ -96,24 +97,30 @@ export function EntityCreateModal({
 
 export function EntityEditModal({
   appState,
+  editingEntityType,
   editingName,
   entity,
   onCancel,
+  onChangeEditingEntityType,
   onChangeEditingName,
   onDeleteEntity,
   onSaveEditing,
   onSetEntityActive,
 }: {
   appState: AppState;
+  editingEntityType: EntityType;
   editingName: string;
   entity: Entity;
   onCancel: () => void;
+  onChangeEditingEntityType: (entityType: EntityType) => void;
   onChangeEditingName: (name: string) => void;
   onDeleteEntity: (entity: Entity) => void;
   onSaveEditing: (entityId: EntityId) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
 }) {
   const status = getEntityInventoryStatus(entity, appState);
+  const editableEntityTypes = getEditableEntityTypes(entity);
+  const canEditEntityType = editableEntityTypes.length > 1;
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -142,6 +149,28 @@ export function EntityEditModal({
               onChange={(event) => onChangeEditingName(event.target.value)}
             />
           </label>
+
+          <label>
+            <span>Type</span>
+            <select
+              disabled={!canEditEntityType}
+              value={editingEntityType}
+              onChange={(event) =>
+                onChangeEditingEntityType(event.target.value as EntityType)
+              }
+            >
+              {editableEntityTypes.map((entityType) => (
+                <option key={entityType} value={entityType}>
+                  {ENTITY_TYPE_LABELS[entityType]}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <p className="form-help">
+            Type controls whether this entity is treated as a character or
+            retainer. Class and level stay on the character sheet.
+          </p>
 
           <div className="entity-modal-summary">
             {status.movement ? <span>{status.movement}</span> : null}

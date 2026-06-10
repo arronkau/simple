@@ -31,9 +31,46 @@ export type CreateEntityInput = {
 
 export type UpdateEntityInput = {
   name?: string;
+  entityType?: EntityType;
   active?: boolean;
   notes?: string;
 };
+
+export function applyEntityUpdate(
+  existingEntity: Entity,
+  input: UpdateEntityInput,
+): Entity {
+  const nextName =
+    input.name !== undefined ? input.name.trim() : existingEntity.name;
+  const nextEntityType = input.entityType ?? existingEntity.entityType;
+  const nextEntity: Entity = {
+    ...existingEntity,
+    ...(nextName.length > 0 ? { name: nextName } : {}),
+    entityType: nextEntityType,
+    ...(input.active !== undefined ? { active: input.active } : {}),
+    ...(input.notes !== undefined
+      ? { notes: input.notes.trim() || undefined }
+      : {}),
+  };
+
+  if (isCharacterLikeEntityType(nextEntityType)) {
+    return {
+      ...nextEntity,
+      character: nextEntity.character ?? createEmptyCharacterData(),
+    };
+  }
+
+  const { character: _character, ...nonCharacterEntity } = nextEntity;
+  return nonCharacterEntity;
+}
+
+export function getEditableEntityTypes(entity: Entity): EntityType[] {
+  if (isCharacterLikeEntityType(entity.entityType)) {
+    return ["character", "retainer"];
+  }
+
+  return [entity.entityType];
+}
 
 export function createEntity({
   id,

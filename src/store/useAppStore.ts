@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  applyEntityUpdate,
   createEntity,
   getNextEntitySortOrder,
   getSortedEntities,
@@ -288,16 +289,7 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const nextName =
-        input.name !== undefined ? input.name.trim() : existingEntity.name;
-      const nextEntity: Entity = {
-        ...existingEntity,
-        ...(nextName.length > 0 ? { name: nextName } : {}),
-        ...(input.active !== undefined ? { active: input.active } : {}),
-        ...(input.notes !== undefined
-          ? { notes: input.notes.trim() || undefined }
-          : {}),
-      };
+      const nextEntity = applyEntityUpdate(existingEntity, input);
       const nextAppState = {
         ...state.appState,
         entities: state.appState.entities.map((entity) =>

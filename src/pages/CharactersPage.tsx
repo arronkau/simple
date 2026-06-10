@@ -42,10 +42,12 @@ import { EntityInventoryHeader } from "../inventory/InventoryDisplay";
 export function CharactersPage({
   appState,
   sortedEntities,
+  onEditEntity,
   onSaveCharacterData,
 }: {
   appState: AppState;
   sortedEntities: Entity[];
+  onEditEntity: (entity: Entity) => void;
   onSaveCharacterData: (
     entityId: EntityId,
     characterData: CharacterData,
@@ -104,7 +106,12 @@ export function CharactersPage({
               className="character-detail"
               data-inactive={!selectedEntity.active}
             >
-              <EntitySummary appState={appState} entity={selectedEntity} />
+              <div className="character-entity-settings">
+                <EntitySummary appState={appState} entity={selectedEntity} />
+                <button type="button" onClick={() => onEditEntity(selectedEntity)}>
+                  Edit entity
+                </button>
+              </div>
               <CharacterInventorySummary appState={appState} entity={selectedEntity} />
               <CharacterSheetPanel
                 appState={appState}

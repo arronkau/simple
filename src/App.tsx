@@ -37,6 +37,7 @@ import {
   type RecordFormState,
   type UserProfileFormState,
 } from "./view-types";
+import { EntityEditModal } from "./entity/EntityModals";
 import { InventoryPage } from "./inventory/InventoryPage";
 import { PartyPage } from "./pages/PartyPage";
 import { CharactersPage } from "./pages/CharactersPage";
@@ -97,6 +98,7 @@ function LocalAppShell() {
     useState<EntityFormState>(EMPTY_ENTITY_FORM);
   const [editingEntityId, setEditingEntityId] = useState<EntityId | undefined>();
   const [editingName, setEditingName] = useState("");
+  const [editingEntityType, setEditingEntityType] = useState<Entity["entityType"]>("character");
   const [recordForm, setRecordForm] = useState<RecordFormState | undefined>();
   const [coinSpendForm, setCoinSpendForm] = useState<
     CoinSpendFormState | undefined
@@ -191,17 +193,23 @@ function LocalAppShell() {
   function startEditing(entity: Entity) {
     setEditingEntityId(entity.id);
     setEditingName(entity.name);
+    setEditingEntityType(entity.entityType);
   }
 
   function saveEditing(entityId: EntityId) {
-    updateEntity(entityId, { name: editingName });
+    updateEntity(entityId, {
+      name: editingName,
+      entityType: editingEntityType,
+    });
     setEditingEntityId(undefined);
     setEditingName("");
+    setEditingEntityType("character");
   }
 
   function cancelEditing() {
     setEditingEntityId(undefined);
     setEditingName("");
+    setEditingEntityType("character");
   }
 
   function requestDeleteEntity(entity: Entity) {
@@ -259,6 +267,7 @@ function LocalAppShell() {
       if (editingEntityId === deleteConfirmation.entity.id) {
         setEditingEntityId(undefined);
         setEditingName("");
+        setEditingEntityType("character");
       }
       setDeleteConfirmation(undefined);
       return;
@@ -374,6 +383,10 @@ function LocalAppShell() {
     setCoinSpendMessage(undefined);
   }
 
+  const editingEntity = editingEntityId
+    ? appState.entities.find((entity) => entity.id === editingEntityId)
+    : undefined;
+
   const isWideWorkspaceRoute = [
     `/party/${partyId}`,
     `/party/${partyId}/inventory`,
@@ -438,17 +451,13 @@ function LocalAppShell() {
                 appState={appState}
                 collapsedContainerIds={collapsedContainerIds}
                 entityCreateModalOpen={entityCreateModalOpen}
-                editingEntityId={editingEntityId}
-                editingName={editingName}
                 formState={formState}
                 recordForm={recordForm}
                 recordFormMessage={recordFormMessage}
                 sortedEntities={sortedEntities}
-                onCancelEditing={cancelEditing}
                 onCancelCreateEntity={cancelCreatingEntity}
                 onCancelRecordForm={cancelRecordForm}
                 onChangeEntityForm={setFormState}
-                onChangeEditingName={setEditingName}
                 onChangeRecordForm={setRecordForm}
                 onCreateEntity={handleCreateEntity}
                 onDeleteEntity={requestDeleteEntity}
@@ -456,9 +465,7 @@ function LocalAppShell() {
                 onEditEntity={startEditing}
                 onEditRecord={startEditingRecord}
                 onIdentifyRecord={identifyInventoryRecord}
-                onSaveEditing={saveEditing}
                 onSaveRecordForm={saveRecordForm}
-                onSetEntityActive={setEntityActive}
                 onSpendCoins={startSpendingCoins}
                 onTransferCoins={startTransferringCoins}
                 onStartCreateEntity={startCreatingEntity}
@@ -473,6 +480,7 @@ function LocalAppShell() {
               <CharactersPage
                 appState={appState}
                 sortedEntities={sortedEntities}
+                onEditEntity={startEditing}
                 onSaveCharacterData={updateCharacterData}
               />
             }
@@ -538,6 +546,22 @@ function LocalAppShell() {
             onCancel={cancelSpendingCoins}
             onChange={setCoinSpendForm}
             onSubmit={saveCoinSpendForm}
+          />
+        ) : null}
+
+
+        {editingEntity ? (
+          <EntityEditModal
+            appState={appState}
+            editingEntityType={editingEntityType}
+            editingName={editingName}
+            entity={editingEntity}
+            onCancel={cancelEditing}
+            onChangeEditingEntityType={setEditingEntityType}
+            onChangeEditingName={setEditingName}
+            onDeleteEntity={requestDeleteEntity}
+            onSaveEditing={saveEditing}
+            onSetEntityActive={setEntityActive}
           />
         ) : null}
 
