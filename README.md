@@ -12,6 +12,7 @@ A small TTRPG character, party, and inventory tracker built for table use.
 - Movement warnings for overloaded characters and containers.
 - Character-like inventory sections for hands, equipped gear, coin purse, backpack, and stowed containers.
 - Simpler contents inventory for mounts, vehicles, and storage.
+- A "Party Gear" board (Ready / Stowed) with drag-and-drop repacking and a "Floor" loot-staging bar. Drag-and-drop is an intended feature that reuses the same validated move and encumbrance logic as the non-drag workflows.
 - Add and edit modals for entities and inventory records.
 - Audit log for significant party and inventory changes.
 - Local-only mode with `localStorage`.
@@ -87,6 +88,7 @@ The main project documents are:
 - `APP_SPEC.md` — app goals, constraints, stack, and persistence behavior.
 - `MODEL_SPEC.md` — canonical data model and rule calculations.
 - `ENCUMBRANCE_SPEC.md` — encumbrance rules and expected behavior.
+- `GEAR_VIEW_SPEC.md` — the Party Gear board, the Floor, and the drag-and-drop contract (view + interaction only).
 - `TASKS.md` — current implementation priorities and sequencing.
 
 Use these documents as the source of truth when changing behavior.

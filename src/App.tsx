@@ -39,6 +39,7 @@ import {
 } from "./view-types";
 import { EntityEditModal } from "./entity/EntityModals";
 import { InventoryPage } from "./inventory/InventoryPage";
+import { PartyGearPage } from "./party-gear/PartyGearPage";
 import { PartyPage } from "./pages/PartyPage";
 import { CharactersPage } from "./pages/CharactersPage";
 import {
@@ -395,6 +396,7 @@ function LocalAppShell() {
   const isWideWorkspaceRoute = [
     `/party/${partyId}`,
     `/party/${partyId}/inventory`,
+    `/party/${partyId}/gear`,
     `/party/${partyId}/characters`,
     `/party/${partyId}/audit`,
   ].some((routePath) => location.pathname.startsWith(routePath));
@@ -434,6 +436,7 @@ function LocalAppShell() {
             Party
           </NavLink>
           <NavLink to={`/party/${partyId}/inventory`}>Inventory</NavLink>
+          <NavLink to={`/party/${partyId}/gear`}>Gear</NavLink>
           <NavLink to={`/party/${partyId}/characters`}>Characters</NavLink>
           <NavLink to={`/party/${partyId}/audit`}>Audit Log</NavLink>
         </nav>
@@ -480,6 +483,7 @@ function LocalAppShell() {
               />
             }
           />
+          <Route path="gear" element={<PartyGearPage />} />
           <Route
             path="characters"
             element={
