@@ -493,8 +493,10 @@ export const useAppStore = create<AppStore>((set) => ({
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
 
-    // Players cannot set GM-only identification fields
-    if (role !== "gm") {
+    // Only explicit players are blocked from GM-only identification fields.
+    // Null role means the party is uninitialized/unresolved — treat as GM to
+    // avoid locking out the owner before Firebase Auth resolves.
+    if (role === "player") {
       const violations = getProtectedFormInputViolations(input);
       if (violations.length > 0) {
         return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
@@ -650,7 +652,7 @@ export const useAppStore = create<AppStore>((set) => ({
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
 
-    if (role !== "gm") {
+    if (role === "player") {
       const violations = getProtectedFormInputViolations(input);
       if (violations.length > 0) {
         return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };

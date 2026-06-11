@@ -290,13 +290,15 @@ export function parseAppStateResult(value: unknown): ParseResult<AppState> {
   }
 
   const appState = validationResult.value;
+  const entities = normalizeEntities(appState.entities);
+  const inventoryRecords = normalizeInventoryRecords(appState.inventoryRecords);
 
   return {
     ok: true,
     value: {
       schemaVersion: 1,
-      entities: normalizeEntities(appState.entities),
-      inventoryRecords: normalizeInventoryRecords(appState.inventoryRecords),
+      entities,
+      inventoryRecords: fixRecordLocations(entities, inventoryRecords),
       auditLog: normalizeAuditLog(appState.auditLog),
     },
   };
@@ -341,6 +343,30 @@ export function normalizePartyDisplayName(displayName: string): string {
   const trimmedName = displayName.trim();
 
   return trimmedName.length > 0 ? trimmedName : "New Party";
+}
+
+// Records on non-character-like entities must use "contents" or "container" locations.
+// Records that violate this (e.g. from an entity-type change before transition guards
+// were enforced) are remapped to "contents" so they don't permanently block operations.
+function fixRecordLocations(entities: Entity[], records: InventoryRecord[]): InventoryRecord[] {
+  const entitiesById = new Map(entities.map((e) => [e.id, e]));
+  let changed = false;
+  const fixed = records.map((record) => {
+    const entity = entitiesById.get(record.entityId);
+    if (!entity) return record;
+    const isCharacterLike =
+      entity.entityType === "character" || entity.entityType === "retainer";
+    if (
+      !isCharacterLike &&
+      record.location.kind !== "contents" &&
+      record.location.kind !== "container"
+    ) {
+      changed = true;
+      return { ...record, location: { kind: "contents" as const } };
+    }
+    return record;
+  });
+  return changed ? fixed : records;
 }
 
 function normalizeEntities(entities: Entity[]): Entity[] {
