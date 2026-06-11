@@ -110,6 +110,9 @@ type AppStore = {
     recordId: InventoryRecordId,
     location: InventoryRecordLocationInput,
   ) => InventoryMutationResult;
+  moveInventoryRecords: (
+    moves: { recordId: InventoryRecordId; location: InventoryRecordLocationInput }[],
+  ) => InventoryMutationResult;
   swapInventoryRecords: (
     recordIdA: InventoryRecordId,
     recordIdB: InventoryRecordId,
@@ -837,6 +840,114 @@ export const useAppStore = create<AppStore>((set) => ({
                   nextLocation: nextRecord.location,
                 }),
               ],
+        ),
+      };
+    });
+
+    return result;
+  },
+  moveInventoryRecords: (moves) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "No moves to apply.",
+    };
+
+    if (moves.length === 0) {
+      return result;
+    }
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "moveItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
+    // Apply every move in one mutation so the board re-renders once, with no
+    // intermediate hand-occupancy states flashing. Only the final state is
+    // validated, so legal end states with illegal intermediates are allowed.
+    set((state) => {
+      let workingRecords = state.appState.inventoryRecords;
+      const auditEntries: AuditLogEntryInput[] = [];
+
+      for (const move of moves) {
+        const record = workingRecords.find(
+          (candidateRecord) => candidateRecord.id === move.recordId,
+        );
+        const entity = state.appState.entities.find(
+          (candidateEntity) => candidateEntity.id === move.location.entityId,
+        );
+
+        if (!record || !entity) {
+          result = { ok: false, message: "Inventory record was not found." };
+          return state;
+        }
+
+        const locationResult = createInventoryLocation({
+          entity,
+          recordType: record.recordType,
+          records: workingRecords,
+          location: move.location,
+          isContainer: Boolean(record.container),
+          editingRecordId: move.recordId,
+        });
+
+        if (!locationResult.ok) {
+          result = locationResult;
+          return state;
+        }
+
+        const previousEntityId = record.entityId;
+        const previousLocation = record.location;
+
+        workingRecords = moveInventoryRecord({
+          recordId: move.recordId,
+          records: workingRecords,
+          entityId: entity.id,
+          location: locationResult.location,
+          targetIndex: move.location.targetIndex,
+        });
+
+        const nextRecord = workingRecords.find(
+          (candidateRecord) => candidateRecord.id === move.recordId,
+        );
+
+        if (nextRecord && previousEntityId !== nextRecord.entityId) {
+          auditEntries.push(
+            createInventoryMoveAuditEntryInput({
+              entities: state.appState.entities,
+              record: nextRecord,
+              previousEntityId,
+              previousLocation,
+              nextEntityId: nextRecord.entityId,
+              nextLocation: nextRecord.location,
+            }),
+          );
+        }
+      }
+
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        workingRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid move.",
+        };
+        return state;
+      }
+
+      result = { ok: true };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: workingRecords,
+          },
+          auditEntries,
         ),
       };
     });

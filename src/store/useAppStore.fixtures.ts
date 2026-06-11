@@ -1916,3 +1916,104 @@ export const FIREBASE_UID_PROMOTION_STORE_FIXTURES = [
     expected: undefined,
   },
 ];
+
+// --- Batched hand-occupancy moves (two-handed drop) ---
+
+useAppStore.getState().resetLocalState();
+
+const handBatchCharId = useAppStore.getState().createEntity({
+  name: "Brawler",
+  entityType: "character",
+});
+
+function createHandBatchRecord(
+  input: Parameters<
+    ReturnType<typeof useAppStore.getState>["createInventoryRecord"]
+  >[1],
+): string | undefined {
+  if (!handBatchCharId) {
+    return undefined;
+  }
+
+  const result = useAppStore
+    .getState()
+    .createInventoryRecord(handBatchCharId, input);
+
+  return result.ok ? result.recordId : undefined;
+}
+
+const handBatchSwordId = createHandBatchRecord({
+  recordType: "weapon",
+  name: "Sword",
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  weapon: {},
+  location: { entityId: handBatchCharId ?? "", placement: "leftHand" },
+});
+const handBatchShieldId = createHandBatchRecord({
+  recordType: "equipment",
+  name: "Shield",
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  location: { entityId: handBatchCharId ?? "", placement: "rightHand" },
+});
+const handBatchPoleId = createHandBatchRecord({
+  recordType: "weapon",
+  name: "Pole",
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 2,
+  weapon: {},
+  location: { entityId: handBatchCharId ?? "", placement: "default" },
+});
+
+const handBatchResult =
+  handBatchCharId && handBatchSwordId && handBatchShieldId && handBatchPoleId
+    ? useAppStore.getState().moveInventoryRecords([
+        {
+          recordId: handBatchSwordId,
+          location: { entityId: handBatchCharId, placement: "equippedLoose" },
+        },
+        {
+          recordId: handBatchShieldId,
+          location: { entityId: handBatchCharId, placement: "equippedLoose" },
+        },
+        {
+          recordId: handBatchPoleId,
+          location: { entityId: handBatchCharId, placement: "bothHands" },
+        },
+      ])
+    : { ok: false as const, message: "setup failed" };
+
+const handBatchState = useAppStore.getState().appState;
+const handBatchPlacement = (id: string | undefined): string | undefined => {
+  const record = handBatchState.inventoryRecords.find((r) => r.id === id);
+
+  if (!record) {
+    return undefined;
+  }
+
+  return record.location.kind === "equipped"
+    ? record.location.placement
+    : record.location.kind;
+};
+
+export const HAND_BATCH_MOVE_STORE_MANUAL_FIXTURES = [
+  {
+    name: "batched hand moves place a two-hander in both hands and displace held items in one mutation",
+    actual: {
+      ok: handBatchResult.ok,
+      pole: handBatchPlacement(handBatchPoleId),
+      sword: handBatchPlacement(handBatchSwordId),
+      shield: handBatchPlacement(handBatchShieldId),
+    },
+    expected: {
+      ok: true,
+      pole: "bothHands",
+      sword: "loose",
+      shield: "loose",
+    },
+  },
+];

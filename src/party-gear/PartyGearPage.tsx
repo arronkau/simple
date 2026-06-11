@@ -141,6 +141,9 @@ export function PartyGearPage(actions: GearActions) {
   const appState = useAppStore((state) => state.appState);
   const partyId = useAppStore((state) => state.partyId);
   const moveInventoryRecord = useAppStore((state) => state.moveInventoryRecord);
+  const moveInventoryRecords = useAppStore(
+    (state) => state.moveInventoryRecords,
+  );
   const createEntity = useAppStore((state) => state.createEntity);
   const floorByParty = useFloorUiStore((state) => state.floorByParty);
   const setFloorEntityId = useFloorUiStore((state) => state.setFloorEntityId);
@@ -286,15 +289,14 @@ export function PartyGearPage(actions: GearActions) {
         target.entityId,
         records,
       );
+      // One batched mutation → a single re-render, so the displaced hands don't
+      // flicker through intermediate states.
+      const handResult = moveInventoryRecords(sequence);
 
-      for (const step of sequence) {
-        const stepResult = moveInventoryRecord(step.recordId, step.location);
-
-        if (!stepResult.ok) {
-          setDragMessage(stepResult.message);
-          resetDrag();
-          return;
-        }
+      if (!handResult.ok) {
+        setDragMessage(handResult.message);
+        resetDrag();
+        return;
       }
 
       flashMoved(recordId);
