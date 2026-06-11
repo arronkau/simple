@@ -156,24 +156,8 @@ export function migratePartyMembership(
 ): PartyState {
   const { gmUid, members } = partyState.party;
 
-  // Already fully initialized
+  // Already fully initialized — do not auto-add unknown users
   if (gmUid && members && members[gmUid]?.role === "gm") {
-    // Ensure the current user is in members as a player if not already present
-    if (!members[currentUid]) {
-      return {
-        ...partyState,
-        party: {
-          ...partyState.party,
-          members: {
-            ...members,
-            [currentUid]: {
-              role: "player" as PartyRole,
-              joinedAt: new Date().toISOString() as ISODateTimeString,
-            },
-          },
-        },
-      };
-    }
     return partyState;
   }
 
@@ -200,10 +184,6 @@ export function migratePartyMembership(
       ...(members ?? {}),
       [gmUid]: { role: "gm" as PartyRole, joinedAt: now },
     };
-    // Add current user as player if they're not the GM and not in members
-    if (currentUid !== gmUid && !repairedMembers[currentUid]) {
-      repairedMembers[currentUid] = { role: "player" as PartyRole, joinedAt: now };
-    }
     return {
       ...partyState,
       party: { ...partyState.party, members: repairedMembers },

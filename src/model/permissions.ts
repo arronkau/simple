@@ -58,6 +58,7 @@ const GM_ONLY_PARTY_ACTIONS: Set<PartyAction> = new Set([
   "deleteParty",
   "manageMembership",
   "importParty",
+  "exportParty",
   "clearAuditLog",
 ]);
 

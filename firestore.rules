@@ -9,8 +9,8 @@ rules_version = '2';
 //   - player can perform allowed entity/inventory writes
 //   - player cannot edit party settings (displayName, gmUid, members)
 //   - player cannot edit members map
-//   - player cannot clear audit log (audit log writes are append-only at the rule level)
 //   - GM can perform administrative writes
+//   - subcollection path cannot be read or written by anyone
 // Note: deep per-item validation of identification.secretName/secretDescription within the
 // inventoryRecords array is not feasible in Firestore rules. That protection is enforced
 // at the model/store layer in src/store/useAppStore.ts.
@@ -33,34 +33,40 @@ service cloud.firestore {
       // Delete: only the GM may delete the party document
       allow delete: if isGm();
     }
-  }
 
-  // --- Helper functions ---
+    // Deny all access to any subcollection paths under parties.
+    // This app uses single documents only; this rule is defensive.
+    match /parties/{partyId}/{document=**} {
+      allow read, write: if false;
+    }
 
-  function isAuthenticatedMember() {
-    return request.auth != null
-      && resource.data.party.members != null
-      && request.auth.uid in resource.data.party.members;
-  }
+    // --- Helper functions ---
 
-  function isGm() {
-    return request.auth != null
-      && resource.data.party.gmUid == request.auth.uid;
-  }
+    function isAuthenticatedMember() {
+      return request.auth != null
+        && resource.data.party.members != null
+        && request.auth.uid in resource.data.party.members;
+    }
 
-  // Players may write the document only if they have not changed any GM-only fields.
-  // GM-only party-level fields: party.displayName, party.gmUid, party.members
-  // Note: nested inventoryRecords secretName/secretDescription cannot be validated
-  // per-item in rules — enforced in the app layer instead.
-  function isAllowedPlayerUpdate() {
-    return request.auth != null
-      // Must remain a member
-      && request.auth.uid in resource.data.party.members
-      // May not change the GM
-      && request.resource.data.party.gmUid == resource.data.party.gmUid
-      // May not change the members map
-      && request.resource.data.party.members == resource.data.party.members
-      // May not rename the party
-      && request.resource.data.party.displayName == resource.data.party.displayName;
+    function isGm() {
+      return request.auth != null
+        && resource.data.party.gmUid == request.auth.uid;
+    }
+
+    // Players may write the document only if they have not changed any GM-only fields.
+    // GM-only party-level fields: party.displayName, party.gmUid, party.members
+    // Note: nested inventoryRecords secretName/secretDescription cannot be validated
+    // per-item in rules — enforced in the app layer instead.
+    function isAllowedPlayerUpdate() {
+      return request.auth != null
+        // Must remain a member
+        && request.auth.uid in resource.data.party.members
+        // May not change the GM
+        && request.resource.data.party.gmUid == resource.data.party.gmUid
+        // May not change the members map
+        && request.resource.data.party.members == resource.data.party.members
+        // May not rename the party
+        && request.resource.data.party.displayName == resource.data.party.displayName;
+    }
   }
 }

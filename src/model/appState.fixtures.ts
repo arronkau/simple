@@ -658,17 +658,17 @@ export const APP_STATE_MANUAL_FIXTURES = [
     expected: "uid-gm",
   },
   {
-    name: "migratePartyMembership adds new user as player when party already has a GM",
+    name: "migratePartyMembership does not auto-add non-member to initialized party",
     actual: (() => {
       const party = createPartyState({
         partyId: "party-m3",
         gmUid: "uid-gm",
         members: { "uid-gm": { role: "gm" } },
       });
-      const migrated = migratePartyMembership(party, "uid-new-player");
-      return migrated.party.members?.["uid-new-player"]?.role;
+      const migrated = migratePartyMembership(party, "uid-non-member");
+      return migrated.party.members?.["uid-non-member"]?.role;
     })(),
-    expected: "player",
+    expected: undefined,
   },
   {
     name: "migratePartyMembership repairs missing GM member record",
@@ -678,6 +678,15 @@ export const APP_STATE_MANUAL_FIXTURES = [
       return migrated.party.members?.["uid-gm"]?.role;
     })(),
     expected: "gm",
+  },
+  {
+    name: "migratePartyMembership repair does not auto-add non-GM current user",
+    actual: (() => {
+      const party = createPartyState({ partyId: "party-m4b", gmUid: "uid-gm" });
+      const migrated = migratePartyMembership(party, "uid-non-member");
+      return migrated.party.members?.["uid-non-member"]?.role;
+    })(),
+    expected: undefined,
   },
   {
     name: "parsePartyState preserves gmUid and members from stored data",

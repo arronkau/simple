@@ -70,9 +70,9 @@ export const PERMISSIONS_MANUAL_FIXTURES = [
     expected: false,
   },
   {
-    name: "player can export party",
+    name: "player cannot export party",
     actual: canPerformPartyAction("player", "exportParty"),
-    expected: true,
+    expected: false,
   },
   {
     name: "player cannot clear audit log",
