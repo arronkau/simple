@@ -10,11 +10,15 @@ import type {
   Entity,
   EntityType,
   EquippedPlacement,
+  ISODateTimeString,
   InventoryBurden,
   InventoryLocation,
   InventoryRecord,
   InventoryRecordType,
   KnownModifierTarget,
+  PartyMember,
+  PartyMembers,
+  PartyRole,
   UserProfile,
   UserRole,
 } from "./types";
@@ -33,6 +37,8 @@ export type PartyState = {
   party: {
     id: PartyId;
     displayName: string;
+    gmUid?: string;
+    members?: PartyMembers;
   };
   appState: AppState;
   userProfiles: UserProfile[];
@@ -114,11 +120,15 @@ export function createEmptyAppState(): AppState {
 export function createPartyState({
   appState = createEmptyAppState(),
   displayName = "New Party",
+  gmUid,
+  members,
   partyId,
   userProfiles = [],
 }: {
   appState?: AppState;
   displayName?: string;
+  gmUid?: string;
+  members?: PartyMembers;
   partyId: PartyId;
   userProfiles?: UserProfile[];
 }): PartyState {
@@ -127,10 +137,80 @@ export function createPartyState({
     party: {
       id: partyId,
       displayName: normalizePartyDisplayName(displayName),
+      ...(gmUid !== undefined ? { gmUid } : {}),
+      ...(members !== undefined ? { members } : {}),
     },
     appState,
     userProfiles,
   };
+}
+
+/**
+ * Ensures a party has valid membership data keyed by Firebase Auth UID.
+ * Called after loading a party — assigns the current user as GM if the party
+ * has no membership yet (pragmatic migration for pre-permission parties).
+ */
+export function migratePartyMembership(
+  partyState: PartyState,
+  currentUid: string,
+): PartyState {
+  const { gmUid, members } = partyState.party;
+
+  // Already fully initialized
+  if (gmUid && members && members[gmUid]?.role === "gm") {
+    // Ensure the current user is in members as a player if not already present
+    if (!members[currentUid]) {
+      return {
+        ...partyState,
+        party: {
+          ...partyState.party,
+          members: {
+            ...members,
+            [currentUid]: {
+              role: "player" as PartyRole,
+              joinedAt: new Date().toISOString() as ISODateTimeString,
+            },
+          },
+        },
+      };
+    }
+    return partyState;
+  }
+
+  // No membership at all — assign current user as GM
+  if (!gmUid) {
+    const now = new Date().toISOString() as ISODateTimeString;
+    return {
+      ...partyState,
+      party: {
+        ...partyState.party,
+        gmUid: currentUid,
+        members: {
+          ...members,
+          [currentUid]: { role: "gm" as PartyRole, joinedAt: now },
+        },
+      },
+    };
+  }
+
+  // gmUid exists but members record for GM is missing — repair
+  if (gmUid && (!members || !members[gmUid])) {
+    const now = new Date().toISOString() as ISODateTimeString;
+    const repairedMembers: PartyMembers = {
+      ...(members ?? {}),
+      [gmUid]: { role: "gm" as PartyRole, joinedAt: now },
+    };
+    // Add current user as player if they're not the GM and not in members
+    if (currentUid !== gmUid && !repairedMembers[currentUid]) {
+      repairedMembers[currentUid] = { role: "player" as PartyRole, joinedAt: now };
+    }
+    return {
+      ...partyState,
+      party: { ...partyState.party, members: repairedMembers },
+    };
+  }
+
+  return partyState;
 }
 
 export function getLocalPartyStateStorageKey(partyId: PartyId): string {
@@ -270,6 +350,8 @@ export function parsePartyState(
     appState,
     displayName:
       typeof party.displayName === "string" ? party.displayName : "New Party",
+    gmUid: typeof party.gmUid === "string" ? party.gmUid : undefined,
+    members: normalizePartyMembers(party.members),
     partyId: party.id,
     userProfiles: normalizeUserProfiles(value.userProfiles),
   });
@@ -401,6 +483,22 @@ function normalizeAuditLog(auditLog: unknown): AuditLogEntry[] {
 
 function normalizeUserProfiles(value: unknown): UserProfile[] {
   return Array.isArray(value) ? value.filter(isUserProfile) : [];
+}
+
+function normalizePartyMembers(value: unknown): PartyMembers | undefined {
+  if (!isRecordLike(value)) return undefined;
+  const result: PartyMembers = {};
+  for (const [uid, member] of Object.entries(value)) {
+    if (typeof uid !== "string" || !isRecordLike(member)) continue;
+    const role = member.role;
+    if (role !== "gm" && role !== "player") continue;
+    result[uid] = {
+      role: role as PartyRole,
+      ...(typeof member.joinedAt === "string" ? { joinedAt: member.joinedAt as ISODateTimeString } : {}),
+      ...(typeof member.displayName === "string" ? { displayName: member.displayName } : {}),
+    } satisfies PartyMember;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 function validateAppStateShape(

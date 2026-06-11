@@ -6,6 +6,16 @@ export type AuditLogEntryId = string;
 export type UserId = string;
 export type UserRole = "GM" | "Player";
 
+export type PartyRole = "gm" | "player";
+
+export type PartyMember = {
+  role: PartyRole;
+  joinedAt?: ISODateTimeString;
+  displayName?: string;
+};
+
+export type PartyMembers = Record<string, PartyMember>;
+
 export type AuditEventType =
   | "entityCreated"
   | "entityDeleted"

@@ -2,6 +2,7 @@ import {
   APP_STATE_STORAGE_KEY,
   createEmptyAppState,
   createPartyState,
+  migratePartyMembership,
   parsePartyState,
   parseAppState,
   readLocalAppState,
@@ -632,6 +633,82 @@ export const APP_STATE_MANUAL_FIXTURES = [
     name: "invalid local app state falls back to empty state",
     actual: invalidLocalAppState,
     expected: createEmptyAppState(),
+  },
+  // --- Membership migration ---
+  {
+    name: "migratePartyMembership assigns current user as GM for unmigrated party",
+    actual: (() => {
+      const party = createPartyState({ partyId: "party-m1", displayName: "Old Party" });
+      const migrated = migratePartyMembership(party, "uid-first-user");
+      return { gmUid: migrated.party.gmUid, memberRole: migrated.party.members?.["uid-first-user"]?.role };
+    })(),
+    expected: { gmUid: "uid-first-user", memberRole: "gm" },
+  },
+  {
+    name: "migratePartyMembership does not reassign GM on already-migrated party",
+    actual: (() => {
+      const party = createPartyState({
+        partyId: "party-m2",
+        gmUid: "uid-gm",
+        members: { "uid-gm": { role: "gm" } },
+      });
+      const migrated = migratePartyMembership(party, "uid-gm");
+      return migrated.party.gmUid;
+    })(),
+    expected: "uid-gm",
+  },
+  {
+    name: "migratePartyMembership adds new user as player when party already has a GM",
+    actual: (() => {
+      const party = createPartyState({
+        partyId: "party-m3",
+        gmUid: "uid-gm",
+        members: { "uid-gm": { role: "gm" } },
+      });
+      const migrated = migratePartyMembership(party, "uid-new-player");
+      return migrated.party.members?.["uid-new-player"]?.role;
+    })(),
+    expected: "player",
+  },
+  {
+    name: "migratePartyMembership repairs missing GM member record",
+    actual: (() => {
+      const party = createPartyState({ partyId: "party-m4", gmUid: "uid-gm" });
+      const migrated = migratePartyMembership(party, "uid-gm");
+      return migrated.party.members?.["uid-gm"]?.role;
+    })(),
+    expected: "gm",
+  },
+  {
+    name: "parsePartyState preserves gmUid and members from stored data",
+    actual: (() => {
+      const parsed = parsePartyState({
+        schemaVersion: 1,
+        party: {
+          id: "party-m5",
+          displayName: "Test",
+          gmUid: "uid-gm",
+          members: { "uid-gm": { role: "gm", joinedAt: "2026-01-01T00:00:00.000Z" } },
+        },
+        appState: { schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] },
+        userProfiles: [],
+      });
+      return { gmUid: parsed?.party.gmUid, memberRole: parsed?.party.members?.["uid-gm"]?.role };
+    })(),
+    expected: { gmUid: "uid-gm", memberRole: "gm" },
+  },
+  {
+    name: "parsePartyState accepts party without gmUid (old format)",
+    actual: (() => {
+      const parsed = parsePartyState({
+        schemaVersion: 1,
+        party: { id: "party-m6", displayName: "Old" },
+        appState: { schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] },
+        userProfiles: [],
+      });
+      return { gmUid: parsed?.party.gmUid, members: parsed?.party.members };
+    })(),
+    expected: { gmUid: undefined, members: undefined },
   },
 ];
 

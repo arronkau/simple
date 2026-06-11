@@ -90,6 +90,11 @@ function LocalAppShell() {
   );
   const replaceAppState = useAppStore((state) => state.replaceAppState);
   const resetLocalState = useAppStore((state) => state.resetLocalState);
+  const gmUid = useAppStore((state) => state.gmUid);
+  const members = useAppStore((state) => state.members);
+  const currentUserPartyRole = gmUid && members
+    ? (currentUserId === gmUid ? "gm" as const : (members[currentUserId]?.role ?? null))
+    : null;
   const sortedEntities = useMemo(
     () => getSortedEntities(appState.entities),
     [appState.entities],
@@ -449,6 +454,7 @@ function LocalAppShell() {
             element={
               <InventoryPage
                 appState={appState}
+                currentUserPartyRole={currentUserPartyRole}
                 collapsedContainerIds={collapsedContainerIds}
                 entityCreateModalOpen={entityCreateModalOpen}
                 formState={formState}
@@ -517,6 +523,7 @@ function LocalAppShell() {
         {manageModalOpen ? (
           <ManageDataModal
             appState={appState}
+            currentUserPartyRole={currentUserPartyRole}
             partyDisplayName={partyDisplayName}
             partyId={activePartyId}
             onClose={() => setManageModalOpen(false)}

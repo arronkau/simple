@@ -1,7 +1,7 @@
 import { type FormEvent } from "react";
 import type { AppState } from "../model/appState";
-import type { Entity, InventoryRecord, InventoryRecordId } from "../model/types";
-import type { InventoryMutationResult } from "../store/useAppStore";
+import type { Entity, EntityId, InventoryRecord, InventoryRecordId, PartyRole } from "../model/types";
+import type { EntityMutationResult, InventoryMutationResult } from "../store/useAppStore";
 import type { EntityFormState, RecordFormState } from "../view-types";
 import { InventoryEntityBoard } from "./InventoryBoard";
 import { InventoryRecordModal } from "./InventoryRecordModal";
@@ -9,6 +9,7 @@ import { EntityCreateModal } from "../entity/EntityModals";
 
 export function InventoryPage({
   appState,
+  currentUserPartyRole,
   collapsedContainerIds,
   entityCreateModalOpen,
   formState,
@@ -33,6 +34,7 @@ export function InventoryPage({
   onToggleContainerCollapsed,
 }: {
   appState: AppState;
+  currentUserPartyRole?: PartyRole | null;
   collapsedContainerIds: Set<InventoryRecordId>;
   entityCreateModalOpen: boolean;
   formState: EntityFormState;
@@ -81,7 +83,7 @@ export function InventoryPage({
           onDeleteRecord={onDeleteRecord}
           onEditEntity={onEditEntity}
           onEditRecord={onEditRecord}
-          onIdentifyRecord={onIdentifyRecord}
+          onIdentifyRecord={currentUserPartyRole === "player" ? undefined : onIdentifyRecord}
           onSpendCoins={onSpendCoins}
           onStartAddRecord={onStartAddRecord}
           onToggleContainerCollapsed={onToggleContainerCollapsed}
@@ -91,6 +93,7 @@ export function InventoryPage({
       {recordForm && recordFormEntity ? (
         <InventoryRecordModal
           appState={appState}
+          currentUserPartyRole={currentUserPartyRole}
           entity={recordFormEntity}
           formState={recordForm}
           message={recordFormMessage}

@@ -1,5 +1,6 @@
 import { APP_MANUAL_FIXTURES } from "./App.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
+import { PERMISSIONS_MANUAL_FIXTURES } from "./model/permissions.fixtures";
 import { CALCULATION_MANUAL_FIXTURES } from "./model/calculations.fixtures";
 import { CHARACTER_MANUAL_FIXTURES } from "./model/characters.fixtures";
 import { ENTITY_MODEL_MANUAL_FIXTURES } from "./model/entities.fixtures";
@@ -21,6 +22,7 @@ import {
   PHASE_8B_STORE_MANUAL_FIXTURES,
   PHASE_DND_STORE_MANUAL_FIXTURES,
   PHASE_8_STORE_MANUAL_FIXTURES,
+  PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES,
 } from "./store/useAppStore.fixtures";
 
 type ManualFixture = {
@@ -33,6 +35,7 @@ const manualFixtures: ManualFixture[] = [
   ...APP_MANUAL_FIXTURES,
   ...APP_STATE_MANUAL_FIXTURES,
   ...AUDIT_LOG_MANUAL_FIXTURES,
+  ...PERMISSIONS_MANUAL_FIXTURES,
   ...CALCULATION_MANUAL_FIXTURES,
   ...CHARACTER_MANUAL_FIXTURES,
   ...ENTITY_MODEL_MANUAL_FIXTURES,
@@ -52,6 +55,7 @@ const manualFixtures: ManualFixture[] = [
   ...PHASE_8_STORE_MANUAL_FIXTURES,
   ...PHASE_8B_STORE_MANUAL_FIXTURES,
   ...PHASE_DND_STORE_MANUAL_FIXTURES,
+  ...PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES,
 ];
 
 for (const fixture of manualFixtures) {

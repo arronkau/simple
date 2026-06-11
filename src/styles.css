@@ -1426,6 +1426,12 @@ h5 {
   font-weight: 700;
 }
 
+.form-warning {
+  color: #6b4a00;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
 .form-help {
   color: #5a6974;
   font-size: 0.9rem;
