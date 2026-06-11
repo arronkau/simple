@@ -2,6 +2,7 @@ import { APP_MANUAL_FIXTURES } from "./App.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
 import { CALCULATION_MANUAL_FIXTURES } from "./model/calculations.fixtures";
 import { CHARACTER_MANUAL_FIXTURES } from "./model/characters.fixtures";
+import { ENTITY_MODEL_MANUAL_FIXTURES } from "./model/entities.fixtures";
 import { ENCUMBRANCE_MANUAL_FIXTURES } from "./model/encumbrance.fixtures";
 import { APP_STATE_MANUAL_FIXTURES } from "./model/appState.fixtures";
 import { INVENTORY_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryDisplay.fixtures";
@@ -12,6 +13,7 @@ import { STANDARD_ITEMS_MANUAL_FIXTURES } from "./model/standardItems.fixtures";
 import { VALIDATION_MANUAL_FIXTURES } from "./model/validation.fixtures";
 import { FIREBASE_CONFIG_MANUAL_FIXTURES } from "./persistence/firebaseConfig.fixtures";
 import {
+  ENTITY_UPDATE_STORE_MANUAL_FIXTURES,
   PHASE_2_STORE_MANUAL_FIXTURES,
   PHASE_3_STORE_MANUAL_FIXTURES,
   PHASE_5_STORE_MANUAL_FIXTURES,
@@ -33,6 +35,7 @@ const manualFixtures: ManualFixture[] = [
   ...AUDIT_LOG_MANUAL_FIXTURES,
   ...CALCULATION_MANUAL_FIXTURES,
   ...CHARACTER_MANUAL_FIXTURES,
+  ...ENTITY_MODEL_MANUAL_FIXTURES,
   ...ENCUMBRANCE_MANUAL_FIXTURES,
   ...FIREBASE_CONFIG_MANUAL_FIXTURES,
   ...INVENTORY_DISPLAY_MANUAL_FIXTURES,
@@ -41,6 +44,7 @@ const manualFixtures: ManualFixture[] = [
   ...INVENTORY_RECORDS_MANUAL_FIXTURES,
   ...STANDARD_ITEMS_MANUAL_FIXTURES,
   ...VALIDATION_MANUAL_FIXTURES,
+  ...ENTITY_UPDATE_STORE_MANUAL_FIXTURES,
   ...PHASE_2_STORE_MANUAL_FIXTURES,
   ...PHASE_3_STORE_MANUAL_FIXTURES,
   ...PHASE_5_STORE_MANUAL_FIXTURES,

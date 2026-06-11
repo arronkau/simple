@@ -119,6 +119,141 @@ export const PHASE_3_STORE_MANUAL_FIXTURES = [
 
 useAppStore.getState().resetLocalState();
 
+const entityTransitionCharacterId = useAppStore.getState().createEntity({
+  name: "Switchable Character",
+  entityType: "character",
+});
+const entityTransitionRetainerId = useAppStore.getState().createEntity({
+  name: "Switchable Retainer",
+  entityType: "retainer",
+});
+const entityTransitionMountId = useAppStore.getState().createEntity({
+  name: "Unchanged Mount",
+  entityType: "mount",
+});
+
+if (entityTransitionCharacterId) {
+  useAppStore.getState().updateCharacterData(entityTransitionCharacterId, {
+    ...createEmptyCharacterData(),
+    className: "Fighter",
+    level: 2,
+    hp: { current: 6, max: 9 },
+  });
+  useAppStore.getState().updateEntity(entityTransitionCharacterId, {
+    entityType: "retainer",
+  });
+}
+
+if (entityTransitionRetainerId) {
+  useAppStore.getState().updateCharacterData(entityTransitionRetainerId, {
+    ...createEmptyCharacterData(),
+    className: "Cleric",
+    level: 1,
+    xp: 125,
+  });
+  useAppStore.getState().updateEntity(entityTransitionRetainerId, {
+    entityType: "character",
+  });
+}
+
+const entityTransitionInvalidCharacterId = useAppStore.getState().createEntity({
+  name: "Invalid Character",
+  entityType: "character",
+});
+
+if (entityTransitionInvalidCharacterId) {
+  useAppStore.getState().updateCharacterData(entityTransitionInvalidCharacterId, {
+    ...createEmptyCharacterData(),
+    className: "Magic-User",
+    level: 3,
+    languages: ["Common", "Mythric"],
+  });
+  useAppStore.getState().updateEntity(entityTransitionInvalidCharacterId, {
+    entityType: "storage",
+  });
+}
+
+if (entityTransitionMountId) {
+  useAppStore.getState().updateEntity(entityTransitionMountId, {
+    entityType: "character",
+  });
+}
+
+const entityTransitionState = useAppStore.getState().appState;
+const entityTransitionCharacter = entityTransitionState.entities.find(
+  (entity) => entity.id === entityTransitionCharacterId,
+);
+const entityTransitionRetainer = entityTransitionState.entities.find(
+  (entity) => entity.id === entityTransitionRetainerId,
+);
+const entityTransitionInvalidCharacter = entityTransitionState.entities.find(
+  (entity) => entity.id === entityTransitionInvalidCharacterId,
+);
+const entityTransitionMount = entityTransitionState.entities.find(
+  (entity) => entity.id === entityTransitionMountId,
+);
+
+export const ENTITY_UPDATE_STORE_MANUAL_FIXTURES = [
+  {
+    name: "character to retainer preserves character-sheet data",
+    actual: {
+      entityType: entityTransitionCharacter?.entityType,
+      className: entityTransitionCharacter?.character?.className,
+      level: entityTransitionCharacter?.character?.level,
+      hp: entityTransitionCharacter?.character?.hp,
+    },
+    expected: {
+      entityType: "retainer",
+      className: "Fighter",
+      level: 2,
+      hp: { current: 6, max: 9 },
+    },
+  },
+  {
+    name: "retainer to character preserves character-sheet data",
+    actual: {
+      entityType: entityTransitionRetainer?.entityType,
+      className: entityTransitionRetainer?.character?.className,
+      level: entityTransitionRetainer?.character?.level,
+      xp: entityTransitionRetainer?.character?.xp,
+    },
+    expected: {
+      entityType: "character",
+      className: "Cleric",
+      level: 1,
+      xp: 125,
+    },
+  },
+  {
+    name: "invalid character-like to non-character entity update preserves character data",
+    actual: {
+      entityType: entityTransitionInvalidCharacter?.entityType,
+      className: entityTransitionInvalidCharacter?.character?.className,
+      level: entityTransitionInvalidCharacter?.character?.level,
+      languages: entityTransitionInvalidCharacter?.character?.languages,
+    },
+    expected: {
+      entityType: "character",
+      className: "Magic-User",
+      level: 3,
+      languages: ["Common", "Mythric"],
+    },
+  },
+  {
+    name: "non-character entity cannot become character-like through entity update",
+    actual: {
+      entityType: entityTransitionMount?.entityType,
+      hasCharacterSheet: entityTransitionMount?.character !== undefined,
+    },
+    expected: {
+      entityType: "mount",
+      hasCharacterSheet: false,
+    },
+  },
+];
+
+useAppStore.getState().resetLocalState();
+
 const phase5CharacterId = useAppStore.getState().createEntity({
   name: "Aria",
   entityType: "character",
