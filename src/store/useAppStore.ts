@@ -493,10 +493,11 @@ export const useAppStore = create<AppStore>((set) => ({
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
 
-    // Only explicit players are blocked from GM-only identification fields.
-    // Null role means the party is uninitialized/unresolved — treat as GM to
-    // avoid locking out the owner before Firebase Auth resolves.
-    if (role === "player") {
+    // Secret identification fields are GM-only. Fail closed: only a confirmed
+    // GM may write them. The UI hides these fields from non-GMs, so a non-GM
+    // can only reach here by bypassing it. (Normal creates without secret fields
+    // are unaffected — the guard only trips when secret fields are present.)
+    if (role !== "gm") {
       const violations = getProtectedFormInputViolations(input);
       if (violations.length > 0) {
         return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
@@ -652,7 +653,8 @@ export const useAppStore = create<AppStore>((set) => ({
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
 
-    if (role === "player") {
+    // Fail closed: only a confirmed GM may write secret identification fields.
+    if (role !== "gm") {
       const violations = getProtectedFormInputViolations(input);
       if (violations.length > 0) {
         return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
@@ -1514,6 +1516,11 @@ let firebaseUnsubscribe: (() => void) | undefined;
 let firebaseWritePartyState: FirebaseWritePartyState | undefined;
 let pendingFirebasePartyState: PartyState | undefined;
 let writingFirebaseAppState = false;
+// Local state must never be written to Firebase before we know the remote
+// state. Otherwise a client that just loaded (e.g. a joining player whose
+// local party is empty) would clobber the real party document. This stays
+// false until the first remote snapshot has been processed.
+let firebaseFirstSnapshotHandled = false;
 
 useAppStore.subscribe((state, previousState) => {
   if (
@@ -2066,6 +2073,8 @@ async function startConfiguredFirebaseSync(): Promise<void> {
   }
 
   stopConfiguredFirebaseSync();
+  // Re-gate writes for the new connection until its first snapshot lands.
+  firebaseFirstSnapshotHandled = false;
 
   const activePartyId = useAppStore.getState().partyId;
   const unsubscribe = await startFirebaseAppStateSync({
@@ -2150,6 +2159,7 @@ function resetFirebaseWriteQueue(): void {
   firebaseWritePartyState = undefined;
   pendingFirebasePartyState = undefined;
   writingFirebaseAppState = false;
+  firebaseFirstSnapshotHandled = false;
 }
 
 function queueFirebasePartyStateWrite(partyState: PartyState): void {
@@ -2166,7 +2176,9 @@ async function flushFirebasePartyStateWrite(): Promise<void> {
   if (
     !firebaseWritePartyState ||
     !pendingFirebasePartyState ||
-    writingFirebaseAppState
+    writingFirebaseAppState ||
+    // Never write local state before the first remote snapshot is processed.
+    !firebaseFirstSnapshotHandled
   ) {
     return;
   }
@@ -2199,6 +2211,14 @@ async function flushFirebasePartyStateWrite(): Promise<void> {
 
 function applyRemotePartyState(partyState: PartyState): void {
   setSyncMetadata("synced");
+
+  // The remote document is authoritative on first contact. Any local write
+  // queued before we saw it (e.g. an empty party from a freshly-loaded client)
+  // must be discarded so it can't overwrite the real party.
+  if (!firebaseFirstSnapshotHandled) {
+    firebaseFirstSnapshotHandled = true;
+    pendingFirebasePartyState = undefined;
+  }
 
   const currentState = useAppStore.getState();
   const migratedPartyState = migratePartyMembership(partyState, currentState.currentUserId);

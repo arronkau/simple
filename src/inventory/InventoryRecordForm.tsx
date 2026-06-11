@@ -95,7 +95,10 @@ export function InventoryRecordForm({
     formState.recordType === "weapon" ||
     formState.recordType === "armor" ||
     formState.recordType === "equipment";
-  const isGm = currentUserPartyRole === "gm" || currentUserPartyRole == null;
+  // Secret identification fields are GM-only. Fail closed: anyone whose role is
+  // not explicitly "gm" (players, and not-yet-resolved/non-member null roles)
+  // must never see secret name/description.
+  const isGm = currentUserPartyRole === "gm";
   const showGmIdentificationFields = showIdentificationFields && isGm;
   const standardItemSuggestions = getStandardItemSuggestions(formState);
   const [itemSuggestionsOpen, setItemSuggestionsOpen] = useState(false);

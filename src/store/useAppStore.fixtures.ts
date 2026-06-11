@@ -1608,6 +1608,19 @@ const appStateBeforePlayerImport = useAppStore.getState().appState;
 useAppStore.getState().replaceAppState({ schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] });
 const appStateAfterPlayerImport = useAppStore.getState().appState;
 
+// Non-member (uid not in members, not gmUid → null role): must also be blocked
+// from writing secret fields. Fail-closed guard, not just explicit players.
+useAppStore.setState({ currentUserId: "uid-stranger" });
+const nonMemberCreateSecretResult = permCharId
+  ? useAppStore.getState().createInventoryRecord(permCharId, {
+      recordType: "weapon",
+      name: "Sneaky Blade",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: { identified: false, secretName: "Leaked", secretDescription: "Leaked desc" },
+    })
+  : ({ ok: false, message: "no char" } as const);
+
 // Restore GM and verify secretName untouched
 useAppStore.setState({ currentUserId: "uid-gm" });
 const swordAfterPlayerEdit = permSwordId?.ok
@@ -1684,6 +1697,17 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     name: "player cannot import (replaceAppState) — state unchanged",
     actual: appStateAfterPlayerImport === appStateBeforePlayerImport,
     expected: true,
+  },
+  {
+    name: "non-member (null role) cannot create item with secret fields",
+    actual: {
+      ok: nonMemberCreateSecretResult.ok,
+      message: nonMemberCreateSecretResult.ok ? undefined : nonMemberCreateSecretResult.message,
+    },
+    expected: {
+      ok: false,
+      message: "Players cannot edit hidden unidentified-item fields.",
+    },
   },
 ];
 
