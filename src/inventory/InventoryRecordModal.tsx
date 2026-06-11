@@ -1,13 +1,14 @@
 import { type FormEvent } from "react";
 import { getRecordById } from "../model/inventoryDisplay";
 import type { AppState } from "../model/appState";
-import type { Entity, InventoryRecord, InventoryRecordId } from "../model/types";
+import type { Entity, InventoryRecord, InventoryRecordId, PartyRole } from "../model/types";
 import type { InventoryMutationResult } from "../store/useAppStore";
 import type { RecordFormState } from "../view-types";
 import { InventoryRecordForm } from "./InventoryRecordForm";
 
 export function InventoryRecordModal({
   appState,
+  currentUserPartyRole,
   entity,
   formState,
   message,
@@ -19,6 +20,7 @@ export function InventoryRecordModal({
   onTransferCoins,
 }: {
   appState: AppState;
+  currentUserPartyRole?: PartyRole | null;
   entity: Entity;
   formState: RecordFormState;
   message?: string;
@@ -43,6 +45,7 @@ export function InventoryRecordModal({
       >
         <InventoryRecordForm
           appState={appState}
+          currentUserPartyRole={currentUserPartyRole}
           entity={entity}
           formState={formState}
           message={message}

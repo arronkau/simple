@@ -65,7 +65,7 @@ export function InventoryDisplay({
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onStartAddRecord: (entity: Entity) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
@@ -168,7 +168,7 @@ function CharacterInventoryDisplay({
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
@@ -263,7 +263,7 @@ function ContentsInventoryDisplay({
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
@@ -321,7 +321,7 @@ function HandRows({
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" };
   records: InventoryRecord[];
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
 }) {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
@@ -456,7 +456,7 @@ function RecordList({
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
@@ -513,7 +513,7 @@ function RecordRow({
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
@@ -553,7 +553,7 @@ function RecordRow({
         allRecords={allRecords}
         onOpenRecord={onEditRecord}
       />
-      {canIdentifyRecord(record) ? (
+      {onIdentifyRecord && canIdentifyRecord(record) ? (
         <button
           className="compact-row-action"
           type="button"
@@ -616,7 +616,7 @@ function ContainerBlock({
   collapsedContainerIds: Set<InventoryRecordId>;
   onDeleteRecord: (record: InventoryRecord) => void;
   onEditRecord: (record: InventoryRecord) => void;
-  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onIdentifyRecord?: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
   onToggleContainerCollapsed: (recordId: InventoryRecordId) => void;
 }) {
@@ -648,7 +648,7 @@ function ContainerBlock({
         }
         onOpenRecord={onEditRecord}
       />
-      {canIdentifyRecord(containerRecord) ? (
+      {onIdentifyRecord && canIdentifyRecord(containerRecord) ? (
         <button
           className="compact-row-action"
           type="button"

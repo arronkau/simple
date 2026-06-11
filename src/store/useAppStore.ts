@@ -14,6 +14,7 @@ import {
 import {
   createPartyState,
   createEmptyAppState,
+  migratePartyMembership,
   normalizePartyDisplayName,
   readLocalPartyState,
   writeLocalPartyState,
@@ -21,6 +22,13 @@ import {
   type PartyId,
   type PartyState,
 } from "../model/appState";
+import {
+  PermissionError,
+  assertEntityAction,
+  assertInventoryAction,
+  assertPartyAction,
+  resolvePartyRole,
+} from "../model/permissions";
 import {
   createAuditLogEntry,
   formatCoinDelta,
@@ -50,6 +58,8 @@ import type {
   InventoryLocation,
   InventoryRecord,
   InventoryRecordId,
+  PartyMembers,
+  PartyRole,
   UserId,
   UserProfile,
   UserRole,
@@ -68,6 +78,8 @@ import type { PersistenceMode, SyncStatus } from "../persistence/types";
 type AppStore = {
   appState: AppState;
   currentUserId: UserId;
+  gmUid?: string;
+  members?: PartyMembers;
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
@@ -160,14 +172,17 @@ const LAST_PARTY_ID_STORAGE_KEY = "simple.inventory.lastPartyId.v1";
 const firebaseConfig = getRuntimeFirebaseConfig();
 const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
 const initialPartyId = getInitialPartyId();
-const initialPartyState = readLocalPartyState(initialPartyId);
 const initialCurrentUserId = readLocalUserId();
+const initialPartyStateRaw = readLocalPartyState(initialPartyId);
+const initialPartyState = migratePartyMembership(initialPartyStateRaw, initialCurrentUserId);
 
 writeLocalPartyState(initialPartyState);
 
 export const useAppStore = create<AppStore>((set) => ({
   appState: initialPartyState.appState,
   currentUserId: initialCurrentUserId,
+  gmUid: initialPartyState.party.gmUid,
+  members: initialPartyState.party.members,
   partyDisplayName: initialPartyState.party.displayName,
   partyId: initialPartyState.party.id,
   persistenceMode,
@@ -199,9 +214,15 @@ export const useAppStore = create<AppStore>((set) => ({
     });
   },
   renameParty: (displayName) => {
-    set((state) => ({
-      partyDisplayName: normalizePartyDisplayName(displayName),
-    }));
+    set((state) => {
+      const role = getStateUserRole(state);
+      try {
+        assertPartyAction(role ?? "player", "editPartySettings");
+      } catch {
+        return state;
+      }
+      return { partyDisplayName: normalizePartyDisplayName(displayName) };
+    });
   },
   setCurrentParty: (partyId) => {
     writeLastPartyId(partyId);
@@ -210,13 +231,16 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const partyState = readLocalPartyState(partyId);
+      const rawPartyState = readLocalPartyState(partyId);
+      const partyState = migratePartyMembership(rawPartyState, state.currentUserId);
 
       stopConfiguredFirebaseSync();
       resetFirebaseWriteQueue();
 
       return {
         appState: partyState.appState,
+        gmUid: partyState.party.gmUid,
+        members: partyState.party.members,
         userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
         partyId: partyState.party.id,
@@ -233,6 +257,13 @@ export const useAppStore = create<AppStore>((set) => ({
     const name = input.name.trim();
 
     if (name.length === 0) {
+      return undefined;
+    }
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertEntityAction(role ?? "player", "createEntity");
+    } catch {
       return undefined;
     }
 
@@ -281,6 +312,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   updateEntity: (entityId, input) => {
     set((state) => {
+      const role = getStateUserRole(state);
+      try {
+        assertEntityAction(role ?? "player", "editEntity");
+      } catch {
+        return state;
+      }
+
       const existingEntity = state.appState.entities.find(
         (entity) => entity.id === entityId,
       );
@@ -310,6 +348,13 @@ export const useAppStore = create<AppStore>((set) => ({
       ok: false,
       message: "Entity was not found.",
     };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertEntityAction(role ?? "player", "editEntity");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
 
     set((state) => {
       const existingEntity = state.appState.entities.find(
@@ -359,6 +404,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   setEntityActive: (entityId, active) => {
     set((state) => {
+      const role = getStateUserRole(state);
+      try {
+        assertEntityAction(role ?? "player", "editEntity");
+      } catch {
+        return state;
+      }
+
       const existingEntity = state.appState.entities.find(
         (entity) => entity.id === entityId,
       );
@@ -385,6 +437,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   deleteEntity: (entityId) => {
     set((state) => {
+      const role = getStateUserRole(state);
+      try {
+        assertEntityAction(role ?? "player", "deleteEntity");
+      } catch {
+        return state;
+      }
+
       const entity = state.appState.entities.find(
         (candidateEntity) => candidateEntity.id === entityId,
       );
@@ -426,6 +485,21 @@ export const useAppStore = create<AppStore>((set) => ({
       ok: false,
       message: "Entity was not found.",
     };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "addItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
+    // Players cannot set GM-only identification fields
+    if (role !== "gm") {
+      const violations = getProtectedFormInputViolations(input);
+      if (violations.length > 0) {
+        return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
+      }
+    }
 
     set((state) => {
       const targetEntityId = input.location?.entityId ?? entityId;
@@ -569,6 +643,20 @@ export const useAppStore = create<AppStore>((set) => ({
       message: "Inventory record was not found.",
     };
 
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "editItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
+    if (role !== "gm") {
+      const violations = getProtectedFormInputViolations(input);
+      if (violations.length > 0) {
+        return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
+      }
+    }
+
     set((state) => {
       const record = state.appState.inventoryRecords.find(
         (candidateRecord) => candidateRecord.id === recordId,
@@ -665,6 +753,13 @@ export const useAppStore = create<AppStore>((set) => ({
       message: "Inventory record was not found.",
     };
 
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "moveItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
     set((state) => {
       const record = state.appState.inventoryRecords.find(
         (candidateRecord) => candidateRecord.id === recordId,
@@ -750,6 +845,13 @@ export const useAppStore = create<AppStore>((set) => ({
       ok: false,
       message: "Inventory record was not found.",
     };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "moveItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
 
     set((state) => {
       const recordA = state.appState.inventoryRecords.find(
@@ -921,6 +1023,13 @@ export const useAppStore = create<AppStore>((set) => ({
       message: "Inventory record was not found.",
     };
 
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "identifyItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
     set((state) => {
       const record = state.appState.inventoryRecords.find(
         (candidateRecord) => candidateRecord.id === recordId,
@@ -999,6 +1108,13 @@ export const useAppStore = create<AppStore>((set) => ({
       ok: false,
       message: "Coin record was not found.",
     };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "editCoins");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
 
     set((state) => {
       const record = state.appState.inventoryRecords.find(
@@ -1099,6 +1215,13 @@ export const useAppStore = create<AppStore>((set) => ({
       ok: false,
       message: "Coin transfer could not be completed.",
     };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "editCoins");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
 
     set((state) => {
       const sourceEntity = state.appState.entities.find(
@@ -1288,6 +1411,13 @@ export const useAppStore = create<AppStore>((set) => ({
       message: "Inventory record was not found.",
     };
 
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "deleteItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
     set((state) => {
       const record = state.appState.inventoryRecords.find(
         (candidateRecord) => candidateRecord.id === recordId,
@@ -1358,9 +1488,21 @@ export const useAppStore = create<AppStore>((set) => ({
     return result;
   },
   replaceAppState: (appState) => {
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertPartyAction(role ?? "player", "importParty");
+    } catch {
+      return;
+    }
     set({ appState });
   },
   resetLocalState: () => {
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertPartyAction(role ?? "player", "editPartySettings");
+    } catch {
+      return;
+    }
     set({ appState: createEmptyAppState() });
   },
 }));
@@ -1374,6 +1516,8 @@ let writingFirebaseAppState = false;
 useAppStore.subscribe((state, previousState) => {
   if (
     state.appState === previousState.appState &&
+    state.gmUid === previousState.gmUid &&
+    state.members === previousState.members &&
     state.partyDisplayName === previousState.partyDisplayName &&
     state.partyId === previousState.partyId &&
     state.userProfiles === previousState.userProfiles
@@ -1930,7 +2074,14 @@ async function startConfiguredFirebaseSync(): Promise<void> {
       setSyncMetadata("error", message);
     },
     onAuthUserId: (userId) => {
-      useAppStore.setState({ currentUserId: userId });
+      const state = useAppStore.getState();
+      const currentPartyState = getPartyStateFromStoreState(state);
+      const migratedPartyState = migratePartyMembership(currentPartyState, userId);
+      useAppStore.setState({
+        currentUserId: userId,
+        gmUid: migratedPartyState.party.gmUid,
+        members: migratedPartyState.party.members,
+      });
     },
     onReadyToWrite: (writePartyState) => {
       if (useAppStore.getState().partyId !== activePartyId) {
@@ -2021,17 +2172,21 @@ async function flushFirebasePartyStateWrite(): Promise<void> {
 function applyRemotePartyState(partyState: PartyState): void {
   setSyncMetadata("synced");
 
-  const currentPartyState = getPartyStateFromStoreState(useAppStore.getState());
+  const currentState = useAppStore.getState();
+  const migratedPartyState = migratePartyMembership(partyState, currentState.currentUserId);
+  const currentPartyState = getPartyStateFromStoreState(currentState);
 
-  if (arePartyStatesEqual(currentPartyState, partyState)) {
+  if (arePartyStatesEqual(currentPartyState, migratedPartyState)) {
     return;
   }
 
   applyingRemotePartyState = true;
   useAppStore.setState({
-    appState: partyState.appState,
-    partyDisplayName: partyState.party.displayName,
-    userProfiles: partyState.userProfiles,
+    appState: migratedPartyState.appState,
+    gmUid: migratedPartyState.party.gmUid,
+    members: migratedPartyState.party.members,
+    partyDisplayName: migratedPartyState.party.displayName,
+    userProfiles: migratedPartyState.userProfiles,
   });
 }
 
@@ -2052,15 +2207,35 @@ function arePartyStatesEqual(
 function getPartyStateFromStoreState(
   state: Pick<
     AppStore,
-    "appState" | "partyDisplayName" | "partyId" | "userProfiles"
+    "appState" | "gmUid" | "members" | "partyDisplayName" | "partyId" | "userProfiles"
   >,
 ): PartyState {
   return createPartyState({
     appState: state.appState,
     displayName: state.partyDisplayName,
+    gmUid: state.gmUid,
+    members: state.members,
     partyId: state.partyId,
     userProfiles: state.userProfiles,
   });
+}
+
+function getStateUserRole(
+  state: Pick<AppStore, "currentUserId" | "gmUid" | "members">,
+): PartyRole | null {
+  return resolvePartyRole(state.currentUserId, state.gmUid, state.members);
+}
+
+function getProtectedFormInputViolations(input: {
+  identification?: { secretName?: unknown; secretDescription?: unknown } | null;
+}): string[] {
+  const violations: string[] = [];
+  if (input.identification !== null && typeof input.identification === "object") {
+    const id = input.identification as Record<string, unknown>;
+    if ("secretName" in id) violations.push("identification.secretName");
+    if ("secretDescription" in id) violations.push("identification.secretDescription");
+  }
+  return violations;
 }
 
 function getInitialPartyId(): PartyId {

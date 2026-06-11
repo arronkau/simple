@@ -1519,3 +1519,170 @@ export const PHASE_2_STORE_MANUAL_FIXTURES = [
     },
   },
 ];
+
+// --- Permissions Phase ---
+// Set up a fresh party with explicit GM membership
+useAppStore.setState({
+  appState: useAppStore.getState().appState,
+  currentUserId: "uid-gm",
+  gmUid: "uid-gm",
+  members: {
+    "uid-gm": { role: "gm" },
+    "uid-player": { role: "player" },
+  },
+});
+// Reset state as GM (should be allowed)
+useAppStore.setState({ appState: { schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] } });
+
+// GM: create an entity
+const permCharId = useAppStore.getState().createEntity({
+  name: "Perm Character",
+  entityType: "character",
+});
+const permCharBackpackId = permCharId
+  ? useAppStore.getState().appState.inventoryRecords.find(
+      (r) => r.recordType === "equipment" && r.entityId === permCharId,
+    )?.id
+  : undefined;
+
+// GM: create an item with identification fields (should succeed)
+const permSwordId = permCharId
+  ? useAppStore.getState().createInventoryRecord(permCharId, {
+      recordType: "weapon",
+      name: "Mystery Blade",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 1,
+      identification: {
+        identified: false,
+        secretName: "Vorpal Blade",
+        secretDescription: "Cuts through anything.",
+      },
+    })
+  : { ok: false as const, message: "no char" };
+
+const gmStateAfterSetup = useAppStore.getState().appState;
+
+// Switch to player
+useAppStore.setState({ currentUserId: "uid-player" });
+
+// Player: try to edit secretName (should fail)
+const playerEditSecretResult = permSwordId?.ok
+  ? useAppStore.getState().updateInventoryRecord(permSwordId.recordId!, {
+      recordType: "weapon",
+      name: "Mystery Blade",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 1,
+      identification: { identified: false, secretName: "Leaked name" },
+    })
+  : { ok: false as const, message: "no record" };
+
+// Player: try to rename party (should silently fail — void mutation)
+const partyNameBeforePlayerRename = useAppStore.getState().partyDisplayName;
+useAppStore.getState().renameParty("Player renamed party");
+const partyNameAfterPlayerRename = useAppStore.getState().partyDisplayName;
+
+// Player: create entity (should succeed)
+const playerCreatedEntityId = useAppStore.getState().createEntity({
+  name: "Player Entity",
+  entityType: "retainer",
+});
+
+// Player: delete entity (should succeed)
+const playerDeletedId = playerCreatedEntityId;
+if (playerCreatedEntityId) {
+  useAppStore.getState().deleteEntity(playerCreatedEntityId);
+}
+const entityExistsAfterPlayerDelete = playerDeletedId
+  ? useAppStore.getState().appState.entities.some((e) => e.id === playerDeletedId)
+  : null;
+
+// Player: try to identify item (should fail)
+const playerIdentifyResult = permSwordId?.ok
+  ? useAppStore.getState().identifyInventoryRecord(permSwordId.recordId!)
+  : { ok: false as const, message: "no record" };
+
+// Player: try to replaceAppState / import (should silently fail)
+const appStateBeforePlayerImport = useAppStore.getState().appState;
+useAppStore.getState().replaceAppState({ schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] });
+const appStateAfterPlayerImport = useAppStore.getState().appState;
+
+// Restore GM and verify secretName untouched
+useAppStore.setState({ currentUserId: "uid-gm" });
+const swordAfterPlayerEdit = permSwordId?.ok
+  ? useAppStore.getState().appState.inventoryRecords.find(
+      (r) => r.id === permSwordId.recordId,
+    )
+  : undefined;
+
+export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
+  {
+    name: "GM can create entity with GM identification fields",
+    actual: {
+      created: permSwordId?.ok,
+      secretName:
+        permSwordId?.ok && swordAfterPlayerEdit?.recordType !== "coins" && swordAfterPlayerEdit?.recordType !== "treasure"
+          ? swordAfterPlayerEdit?.identification?.secretName
+          : undefined,
+    },
+    expected: { created: true, secretName: "Vorpal Blade" },
+  },
+  {
+    name: "player cannot edit identification secretName — returns error",
+    actual: {
+      ok: playerEditSecretResult.ok,
+      message: playerEditSecretResult.ok ? undefined : playerEditSecretResult.message,
+    },
+    expected: {
+      ok: false,
+      message: "Players cannot edit hidden unidentified-item fields.",
+    },
+  },
+  {
+    name: "player edit of secretName does not mutate the record",
+    actual:
+      swordAfterPlayerEdit?.recordType !== "coins" &&
+      swordAfterPlayerEdit?.recordType !== "treasure"
+        ? swordAfterPlayerEdit?.identification?.secretName
+        : undefined,
+    expected: "Vorpal Blade",
+  },
+  {
+    name: "player cannot rename party",
+    actual: {
+      before: partyNameBeforePlayerRename,
+      after: partyNameAfterPlayerRename,
+    },
+    expected: {
+      before: partyNameBeforePlayerRename,
+      after: partyNameBeforePlayerRename,
+    },
+  },
+  {
+    name: "player can create entity",
+    actual: typeof playerCreatedEntityId === "string",
+    expected: true,
+  },
+  {
+    name: "player can delete entity",
+    actual: entityExistsAfterPlayerDelete,
+    expected: false,
+  },
+  {
+    name: "player cannot identify item",
+    actual: {
+      ok: playerIdentifyResult.ok,
+      message: playerIdentifyResult.ok ? undefined : playerIdentifyResult.message,
+    },
+    expected: {
+      ok: false,
+      message: "Players cannot perform: identifyItem.",
+    },
+  },
+  {
+    name: "player cannot import (replaceAppState) — state unchanged",
+    actual: appStateAfterPlayerImport === appStateBeforePlayerImport,
+    expected: true,
+  },
+];

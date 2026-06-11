@@ -6,10 +6,12 @@ import {
   type PartyId,
 } from "../model/appState";
 import type { AppState } from "../model/appState";
+import type { PartyRole } from "../model/types";
 import type { AppStateExport, ManageMessage } from "../view-types";
 
 export function ManageDataModal({
   appState,
+  currentUserPartyRole,
   partyDisplayName,
   partyId,
   onClose,
@@ -18,6 +20,7 @@ export function ManageDataModal({
   onReset,
 }: {
   appState: AppState;
+  currentUserPartyRole: PartyRole | null;
   partyDisplayName: string;
   partyId: PartyId;
   onClose: () => void;
@@ -32,9 +35,10 @@ export function ManageDataModal({
   const [importConfirmation, setImportConfirmation] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [editingPartyName, setEditingPartyName] = useState(partyDisplayName);
+  const isGm = currentUserPartyRole === "gm";
   const importEnabled =
-    pendingImportAppState !== undefined && importConfirmation === "import";
-  const resetEnabled = resetConfirmation === "delete";
+    isGm && pendingImportAppState !== undefined && importConfirmation === "import";
+  const resetEnabled = isGm && resetConfirmation === "delete";
   const partyUrl =
     typeof window !== "undefined"
       ? `${window.location.origin}/party/${partyId}`
@@ -152,111 +156,128 @@ export function ManageDataModal({
               <h3>Party</h3>
               <p>Rename this party or share its stable URL.</p>
             </div>
-            <label>
-              <span>Party name</span>
-              <input
-                value={editingPartyName}
-                onChange={(event) => setEditingPartyName(event.target.value)}
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() => onRenameParty(editingPartyName)}
-            >
-              Save name
-            </button>
+            {isGm && (
+              <>
+                <label>
+                  <span>Party name</span>
+                  <input
+                    value={editingPartyName}
+                    onChange={(event) => setEditingPartyName(event.target.value)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onRenameParty(editingPartyName)}
+                >
+                  Save name
+                </button>
+              </>
+            )}
             <label>
               <span>Party URL</span>
               <input readOnly value={partyUrl} />
             </label>
-          </section>
-
-          <section className="manage-section">
-            <div>
-              <h3>Export</h3>
-              <p>Download a JSON file that can be imported later.</p>
-            </div>
-            <button type="button" onClick={exportAppData}>
-              Export JSON
-            </button>
-          </section>
-
-          <section className="manage-section">
-            <div>
-              <h3>Import</h3>
-              <p>
-                Import replaces all current app data. Export a backup first.
-                Type import to continue.
+            {isGm && (
+              <p className="form-warning">
+                This party is tied to your current browser/device session.
+                Clearing browser data or switching devices may cause you to lose
+                GM access until account linking is added.
               </p>
-            </div>
-            <label className="file-button">
-              <span>Import JSON</span>
-              <input
-                accept="application/json,.json"
-                type="file"
-                onChange={importAppData}
-              />
-            </label>
-            {pendingImportAppState ? (
-              <>
-                <label>
-                  <span>Type import to confirm</span>
-                  <input
-                    autoComplete="off"
-                    value={importConfirmation}
-                    onChange={(event) =>
-                      setImportConfirmation(event.target.value)
-                    }
-                  />
-                </label>
-                <button
-                  className="danger-button"
-                  disabled={!importEnabled}
-                  type="button"
-                  onClick={confirmImport}
+            )}
+          </section>
+
+          {isGm ? (
+            <section className="manage-section">
+              <div>
+                <h3>Export</h3>
+                <p>Download a JSON file that can be imported later.</p>
+              </div>
+              <button type="button" onClick={exportAppData}>
+                Export JSON
+              </button>
+            </section>
+          ) : null}
+
+          {isGm ? (
+            <section className="manage-section">
+              <div>
+                <h3>Import</h3>
+                <p>
+                  Import replaces all current app data. Export a backup first.
+                  Type import to continue.
+                </p>
+              </div>
+              <label className="file-button">
+                <span>Import JSON</span>
+                <input
+                  accept="application/json,.json"
+                  type="file"
+                  onChange={importAppData}
+                />
+              </label>
+              {pendingImportAppState ? (
+                <>
+                  <label>
+                    <span>Type import to confirm</span>
+                    <input
+                      autoComplete="off"
+                      value={importConfirmation}
+                      onChange={(event) =>
+                        setImportConfirmation(event.target.value)
+                      }
+                    />
+                  </label>
+                  <button
+                    className="danger-button"
+                    disabled={!importEnabled}
+                    type="button"
+                    onClick={confirmImport}
+                  >
+                    Replace data
+                  </button>
+                </>
+              ) : null}
+              {importMessage ? (
+                <p
+                  className={
+                    importMessage.tone === "error"
+                      ? "form-error"
+                      : "form-success"
+                  }
                 >
-                  Replace data
-                </button>
-              </>
-            ) : null}
-            {importMessage ? (
-              <p
-                className={
-                  importMessage.tone === "error"
-                    ? "form-error"
-                    : "form-success"
-                }
-              >
-                {importMessage.text}
-              </p>
-            ) : null}
-          </section>
+                  {importMessage.text}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
-          <section className="manage-section danger-section">
-            <div>
-              <h3>Reset Data</h3>
-              <p>
-                Delete all current app data and return to the default empty
-                state.
-              </p>
-            </div>
-            <label>
-              <span>Type delete to confirm</span>
-              <input
-                autoComplete="off"
-                value={resetConfirmation}
-                onChange={(event) => setResetConfirmation(event.target.value)}
-              />
-            </label>
-            <button
-              className="danger-button"
-              disabled={!resetEnabled}
-              type="button"
-              onClick={onReset}
-            >
-              Reset data
-            </button>
-          </section>
+          {isGm ? (
+            <section className="manage-section danger-section">
+              <div>
+                <h3>Reset Data</h3>
+                <p>
+                  Delete all current app data and return to the default empty
+                  state.
+                </p>
+              </div>
+              <label>
+                <span>Type delete to confirm</span>
+                <input
+                  autoComplete="off"
+                  value={resetConfirmation}
+                  onChange={(event) => setResetConfirmation(event.target.value)}
+                />
+              </label>
+              <button
+                className="danger-button"
+                disabled={!resetEnabled}
+                type="button"
+                onClick={onReset}
+              >
+                Reset data
+              </button>
+            </section>
+          ) : null}
         </div>
       </section>
     </div>

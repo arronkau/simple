@@ -29,6 +29,7 @@ import type {
   InventoryRecordId,
   InventoryRecordType,
   Modifier,
+  PartyRole,
 } from "../model/types";
 import {
   MODIFIER_TARGET_OPTIONS,
@@ -43,6 +44,7 @@ import { NumberField } from "../ui/NumberField";
 
 export function InventoryRecordForm({
   appState,
+  currentUserPartyRole,
   entity,
   formState,
   message,
@@ -54,6 +56,7 @@ export function InventoryRecordForm({
   onTransferCoins,
 }: {
   appState: AppState;
+  currentUserPartyRole?: PartyRole | null;
   entity: Entity;
   formState: RecordFormState;
   message?: string;
@@ -92,6 +95,8 @@ export function InventoryRecordForm({
     formState.recordType === "weapon" ||
     formState.recordType === "armor" ||
     formState.recordType === "equipment";
+  const isGm = currentUserPartyRole === "gm" || currentUserPartyRole == null;
+  const showGmIdentificationFields = showIdentificationFields && isGm;
   const standardItemSuggestions = getStandardItemSuggestions(formState);
   const [itemSuggestionsOpen, setItemSuggestionsOpen] = useState(false);
   const [highlightedItemSuggestionIndex, setHighlightedItemSuggestionIndex] =
@@ -427,7 +432,7 @@ export function InventoryRecordForm({
                   <span>Container</span>
                 </label>
               ) : null}
-              {showIdentificationFields ? (
+              {showGmIdentificationFields ? (
                 <label className="checkbox-field">
                   <input
                     checked={formState.isUnidentified}
@@ -649,7 +654,7 @@ export function InventoryRecordForm({
           </section>
         ) : null}
 
-        {formState.isUnidentified && showIdentificationFields ? (
+        {formState.isUnidentified && showGmIdentificationFields ? (
           <section className="record-form-section">
             <h5>Identification details</h5>
             <div className="record-detail-grid two-column">
