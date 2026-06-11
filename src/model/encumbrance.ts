@@ -391,9 +391,9 @@ function getHandsRequiredContainerWarnings(
     if (
       record.entityId !== entity.id ||
       !record.container ||
+      !isLooseEquippedRecord(record) ||
       getRecordHandsRequired(record) === 0 ||
-      getDirectChildRecords(record.id, records).length === 0 ||
-      isHeldContainer(record)
+      getDirectChildRecords(record.id, records).length === 0
     ) {
       return [];
     }
@@ -538,9 +538,9 @@ function hasInvalidUnheldContainer(
     (record) =>
       record.entityId === entity.id &&
       Boolean(record.container) &&
+      isLooseEquippedRecord(record) &&
       getRecordHandsRequired(record) > 0 &&
-      getDirectChildRecords(record.id, records).length > 0 &&
-      !isHeldContainer(record),
+      getDirectChildRecords(record.id, records).length > 0,
   );
 }
 
@@ -575,11 +575,15 @@ function getMovementRecordSlotBurden(
   return getEffectiveRecordSlotBurden(record, records);
 }
 
-function isHeldContainer(record: InventoryRecord): boolean {
+/**
+ * Hands requirements describe carrying a container in hand. They are only
+ * enforceable at `equipped`/`loose` — a `stowedRoot` container is worn on the
+ * back, a nested container is packed cargo, non-character `contents` are
+ * carried by the entity, and hand placements satisfy the requirement.
+ */
+function isLooseEquippedRecord(record: InventoryRecord): boolean {
   return (
-    Boolean(record.container) &&
-    record.location.kind === "equipped" &&
-    isHandPlacement(record.location.placement)
+    record.location.kind === "equipped" && record.location.placement === "loose"
   );
 }
 
@@ -611,12 +615,4 @@ function getTopLevelRecord(
   }
 
   return currentRecord;
-}
-
-function isHandPlacement(placement: string): boolean {
-  return (
-    placement === "leftHand" ||
-    placement === "rightHand" ||
-    placement === "bothHands"
-  );
 }

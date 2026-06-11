@@ -37,7 +37,7 @@ Maximum load:
 - More than 16 stowed items means the character cannot move.
 - More than 16 total equipped + stowed items means the character cannot move.
 - A container over capacity on a character-like entity is an overload condition and the character cannot move.
-- A non-empty hands-required container that is not held/equipped is an overload condition and the character cannot move.
+- A non-empty hands-required container left at equipped/loose (not held in a hand) is an overload condition and the character cannot move. Hands requirements are not enforced at `stowedRoot`, inside another container, or in non-character contents.
 
 The slower of the equipped-rate lookup and stowed-rate lookup is the character's movement rate when no overload condition applies.
 
@@ -149,13 +149,13 @@ Some container records require hands via record-level `handsRequired`:
 Rules:
 
 - A container record with `handsRequired > 0` may contain items while held.
-- If it contains items and is not held/equipped, it creates an overload condition: the character cannot move.
 - If held, the container occupies the appropriate hand placement.
 - Its contents remain modeled as container contents.
 - The held container itself counts toward movement-restricting encumbrance.
 - Contents inside any hand-held container are excluded from movement-restricting encumbrance.
 - The app should still show the held container's contained slot total for visibility.
-- A non-empty hands-required container that is not held/equipped creates an overload condition: the character cannot move.
+- `handsRequired` describes carrying the container **in hand**. It is only enforceable when the container's own location is `equipped` with `placement: "loose"`: a non-empty hands-required container left at equipped/loose creates an overload condition — the character cannot move.
+- All other placements never trigger the hands requirement: a `stowedRoot` container is worn on the back (a `handsRequired: 2` backpack is fine there), a container nested inside another container is packed cargo, non-character `contents` are carried by the mount/vehicle/storage entity, and hand placements satisfy the requirement.
 
 ## Movement Lookup
 
@@ -217,7 +217,7 @@ Steps:
 6. Look up equipped movement rate.
 7. Look up stowed movement rate.
 8. Compute total equipped + stowed burden.
-9. If either side is overloaded, total burden exceeds 16, a carried container is over capacity, or a non-empty hands-required container is not held/equipped, return movement `0 / 0`.
+9. If either side is overloaded, total burden exceeds 16, a carried container is over capacity, or a non-empty hands-required container sits at equipped/loose, return movement `0 / 0`.
 10. Otherwise return the slower movement rate.
 
 ## Non-Character Capacity
@@ -449,7 +449,7 @@ The loaded held sack counts its own slot, but its contents do not count toward m
 - 17+ stowed items causes overloaded movement `0 / 0`.
 - More than 16 total equipped + stowed items causes overloaded movement `0 / 0`.
 - Container over capacity on a character-like entity causes overloaded movement `0 / 0`.
-- A non-empty hands-required container not held/equipped causes overloaded movement `0 / 0`.
+- A non-empty hands-required container at equipped/loose causes overloaded movement `0 / 0`. The same container at `stowedRoot` (worn), nested inside another container (packed cargo), in non-character contents, or in a hand does not.
 - Mounts, vehicles, and storage use contents capacity, not equipped/stowed bands.
 - Backpack is a literal inventory record and follows the same container burden rules as other containers.
 - Containers always count their own slot burden whether empty or full.
@@ -459,7 +459,7 @@ The loaded held sack counts its own slot, but its contents do not count toward m
 - Contents inside hand-held containers are excluded from equipped and stowed movement burden.
 - The held container itself still counts.
 - The app still shows held container contained slot totals for visibility.
-- A hands-required container with contents overloads the character when not held/equipped.
+- A hands-required container with contents overloads the character only when left at equipped/loose.
 
 ## Non-Goals
 

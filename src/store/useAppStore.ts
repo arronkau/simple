@@ -36,6 +36,7 @@ import {
   getCoinDeltaDetails,
   type CreateAuditLogEntryInput,
 } from "../model/auditLog";
+import { getCoinCount } from "../model/calculations";
 import {
   createInventoryRecordFromInput,
   createInventoryLocation,
@@ -109,6 +110,9 @@ type AppStore = {
     recordId: InventoryRecordId,
     location: InventoryRecordLocationInput,
   ) => InventoryMutationResult;
+  moveInventoryRecords: (
+    moves: { recordId: InventoryRecordId; location: InventoryRecordLocationInput }[],
+  ) => InventoryMutationResult;
   swapInventoryRecords: (
     recordIdA: InventoryRecordId,
     recordIdB: InventoryRecordId,
@@ -153,6 +157,8 @@ export type TransferCoinsInput = {
   destinationEntityId: EntityId;
   note?: string;
   sourceEntityId: EntityId;
+  /** Draw from this coin record instead of the entity's default one. */
+  sourceRecordId?: InventoryRecordId;
 };
 
 export type InventoryMutationResult =
@@ -840,6 +846,114 @@ export const useAppStore = create<AppStore>((set) => ({
 
     return result;
   },
+  moveInventoryRecords: (moves) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "No moves to apply.",
+    };
+
+    if (moves.length === 0) {
+      return result;
+    }
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "moveItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
+    // Apply every move in one mutation so the board re-renders once, with no
+    // intermediate hand-occupancy states flashing. Only the final state is
+    // validated, so legal end states with illegal intermediates are allowed.
+    set((state) => {
+      let workingRecords = state.appState.inventoryRecords;
+      const auditEntries: AuditLogEntryInput[] = [];
+
+      for (const move of moves) {
+        const record = workingRecords.find(
+          (candidateRecord) => candidateRecord.id === move.recordId,
+        );
+        const entity = state.appState.entities.find(
+          (candidateEntity) => candidateEntity.id === move.location.entityId,
+        );
+
+        if (!record || !entity) {
+          result = { ok: false, message: "Inventory record was not found." };
+          return state;
+        }
+
+        const locationResult = createInventoryLocation({
+          entity,
+          recordType: record.recordType,
+          records: workingRecords,
+          location: move.location,
+          isContainer: Boolean(record.container),
+          editingRecordId: move.recordId,
+        });
+
+        if (!locationResult.ok) {
+          result = locationResult;
+          return state;
+        }
+
+        const previousEntityId = record.entityId;
+        const previousLocation = record.location;
+
+        workingRecords = moveInventoryRecord({
+          recordId: move.recordId,
+          records: workingRecords,
+          entityId: entity.id,
+          location: locationResult.location,
+          targetIndex: move.location.targetIndex,
+        });
+
+        const nextRecord = workingRecords.find(
+          (candidateRecord) => candidateRecord.id === move.recordId,
+        );
+
+        if (nextRecord && previousEntityId !== nextRecord.entityId) {
+          auditEntries.push(
+            createInventoryMoveAuditEntryInput({
+              entities: state.appState.entities,
+              record: nextRecord,
+              previousEntityId,
+              previousLocation,
+              nextEntityId: nextRecord.entityId,
+              nextLocation: nextRecord.location,
+            }),
+          );
+        }
+      }
+
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        workingRecords,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Invalid move.",
+        };
+        return state;
+      }
+
+      result = { ok: true };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: workingRecords,
+          },
+          auditEntries,
+        ),
+      };
+    });
+
+    return result;
+  },
   swapInventoryRecords: (recordIdA, recordIdB) => {
     if (recordIdA === recordIdB) {
       return { ok: true, recordId: recordIdA };
@@ -1269,12 +1383,20 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const sourceRecord = getDefaultCoinRecordForEntity(
-        sourceEntity.id,
-        state.appState.inventoryRecords,
-      );
+      const sourceRecord = input.sourceRecordId
+        ? state.appState.inventoryRecords.find(
+            (record) => record.id === input.sourceRecordId,
+          )
+        : getDefaultCoinRecordForEntity(
+            sourceEntity.id,
+            state.appState.inventoryRecords,
+          );
 
-      if (!sourceRecord || sourceRecord.recordType !== "coins") {
+      if (
+        !sourceRecord ||
+        sourceRecord.recordType !== "coins" ||
+        sourceRecord.entityId !== sourceEntity.id
+      ) {
         result = {
           ok: false,
           message: "Source has no coin record.",
@@ -1368,6 +1490,23 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
+      // A fully drained coin pile on a non-character entity is removed so the
+      // Floor/storage doesn't accumulate empty "Coins" records. Character
+      // purses always stay.
+      const drainedSourceRecord: InventoryRecord = {
+        ...sourceRecord,
+        coins: nextSourceCoins,
+      };
+      const removeDrainedSourceRecord =
+        !isCharacterLikeEntityType(sourceEntity.entityType) &&
+        getCoinCount(nextSourceCoins) === 0;
+
+      if (removeDrainedSourceRecord) {
+        nextInventoryRecords = nextInventoryRecords.filter(
+          (record) => record.id !== sourceRecord.id,
+        );
+      }
+
       const validationResult = validateInventoryState(
         state.appState.entities,
         nextInventoryRecords,
@@ -1402,6 +1541,22 @@ export const useAppStore = create<AppStore>((set) => ({
               sourceEntity,
               sourceRecordId: sourceRecord.id,
             }),
+            ...(removeDrainedSourceRecord
+              ? [
+                  {
+                    entityId: sourceEntity.id,
+                    eventType: "inventoryRecordDeleted" as const,
+                    recordId: sourceRecord.id,
+                    summary: `Deleted ${getInventoryRecordAuditLabel(
+                      drainedSourceRecord,
+                    )} from ${formatEntityName(sourceEntity)} (emptied by transfer).`,
+                    details: createInventoryRecordDetails(
+                      drainedSourceRecord,
+                      state.appState.entities,
+                    ),
+                  },
+                ]
+              : []),
           ],
         ),
       };

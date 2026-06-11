@@ -1,6 +1,7 @@
 import { type FormEvent } from "react";
 import { getSortedEntities } from "../model/entities";
 import { getCharacterCoinRecord } from "../model/inventoryRecords";
+import { getRecordById } from "../model/inventoryDisplay";
 import type { AppState } from "../model/appState";
 import type { CoinData, EntityId, InventoryRecord } from "../model/types";
 import type { CoinDenomination } from "../store/useAppStore";
@@ -126,10 +127,7 @@ export function CoinTransferModal({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   const sortedEntities = getSortedEntities(appState.entities);
-  const sourceRecord = getDefaultCoinRecordForEntity(
-    formState.sourceEntityId,
-    appState.inventoryRecords,
-  );
+  const sourceRecord = getTransferSourceCoinRecord(formState, appState);
   const sourceCoins =
     sourceRecord?.recordType === "coins" ? sourceRecord.coins : EMPTY_COINS;
   const validationMessage = getCoinTransferValidationMessage(
@@ -146,7 +144,20 @@ export function CoinTransferModal({
     onChange({
       ...formState,
       sourceEntityId,
+      sourceRecordId: undefined,
       destinationEntityId,
+    });
+  }
+
+  function takeAll() {
+    onChange({
+      ...formState,
+      amounts: {
+        pp: sourceCoins.pp > 0 ? sourceCoins.pp.toString() : "",
+        gp: sourceCoins.gp > 0 ? sourceCoins.gp.toString() : "",
+        sp: sourceCoins.sp > 0 ? sourceCoins.sp.toString() : "",
+        cp: sourceCoins.cp > 0 ? sourceCoins.cp.toString() : "",
+      },
     });
   }
 
@@ -210,7 +221,12 @@ export function CoinTransferModal({
             </section>
 
             <section className="coin-spend-section">
-              <h5>Transfer amount</h5>
+              <div className="coin-transfer-amount-heading">
+                <h5>Transfer amount</h5>
+                <button type="button" className="compact-row-action" onClick={takeAll}>
+                  Take all
+                </button>
+              </div>
               <div className="coin-spend-grid">
                 <div className="coin-spend-heading">Denomination</div>
                 <div className="coin-spend-heading">Available</div>
@@ -372,10 +388,7 @@ export function getCoinTransferValidationMessage(
     return "Choose a different destination.";
   }
 
-  const sourceRecord = getDefaultCoinRecordForEntity(
-    formState.sourceEntityId,
-    appState.inventoryRecords,
-  );
+  const sourceRecord = getTransferSourceCoinRecord(formState, appState);
 
   if (!sourceRecord || sourceRecord.recordType !== "coins") {
     return "Source has no coin record.";
@@ -389,6 +402,29 @@ export function getCoinTransferValidationMessage(
   return spendValidationMessage
     ?.replace("spend", "transfer")
     .replace("Spend", "Transfer");
+}
+
+function getTransferSourceCoinRecord(
+  formState: CoinTransferFormState,
+  appState: AppState,
+): InventoryRecord | undefined {
+  if (formState.sourceRecordId) {
+    const record = getRecordById(
+      formState.sourceRecordId,
+      appState.inventoryRecords,
+    );
+
+    return record &&
+      record.recordType === "coins" &&
+      record.entityId === formState.sourceEntityId
+      ? record
+      : undefined;
+  }
+
+  return getDefaultCoinRecordForEntity(
+    formState.sourceEntityId,
+    appState.inventoryRecords,
+  );
 }
 
 export function getDefaultCoinRecordForEntity(

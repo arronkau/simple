@@ -1010,6 +1010,143 @@ export const PHASE_6_STORE_MANUAL_FIXTURES = [
   },
 ];
 
+// --- Coin drag transfer phase (Floor coin piles → character purse) ---
+
+useAppStore.getState().resetLocalState();
+
+const coinDragCharacterId = useAppStore.getState().createEntity({
+  name: "Taker",
+  entityType: "character",
+});
+const coinDragFloorId = useAppStore.getState().createEntity({
+  name: "Floor",
+  entityType: "storage",
+});
+
+if (coinDragCharacterId) {
+  useAppStore.getState().createInventoryRecord(coinDragCharacterId, {
+    recordType: "coins",
+    coins: { gp: 12 },
+  });
+}
+
+let coinDragGoldPileId: string | undefined;
+let coinDragSilverPileId: string | undefined;
+
+if (coinDragFloorId) {
+  const goldResult = useAppStore.getState().createInventoryRecord(
+    coinDragFloorId,
+    {
+      recordType: "coins",
+      coins: { gp: 300 },
+    },
+  );
+  const silverResult = useAppStore.getState().createInventoryRecord(
+    coinDragFloorId,
+    {
+      recordType: "coins",
+      coins: { sp: 50 },
+    },
+  );
+
+  coinDragGoldPileId = goldResult.ok ? goldResult.recordId : undefined;
+  coinDragSilverPileId = silverResult.ok ? silverResult.recordId : undefined;
+}
+
+// "Take some" from the silver pile — the non-default source record, so this
+// only works if sourceRecordId targeting is honored.
+const coinDragTakeSomeResult =
+  coinDragCharacterId && coinDragFloorId && coinDragSilverPileId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDragFloorId,
+        sourceRecordId: coinDragSilverPileId,
+        destinationEntityId: coinDragCharacterId,
+        amounts: { sp: 20 },
+      })
+    : { ok: false as const, message: "setup failed" };
+
+// "Take all" from the gold pile — drains it, which should remove the record.
+const coinDragTakeAllResult =
+  coinDragCharacterId && coinDragFloorId && coinDragGoldPileId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDragFloorId,
+        sourceRecordId: coinDragGoldPileId,
+        destinationEntityId: coinDragCharacterId,
+        amounts: { gp: 300 },
+      })
+    : { ok: false as const, message: "setup failed" };
+
+// A sourceRecordId owned by a different entity must be rejected.
+const coinDragWrongOwnerResult =
+  coinDragCharacterId && coinDragFloorId && coinDragSilverPileId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDragCharacterId,
+        sourceRecordId: coinDragSilverPileId,
+        destinationEntityId: coinDragFloorId,
+        amounts: { sp: 1 },
+      })
+    : { ok: false as const, message: "setup failed" };
+
+const coinDragState = useAppStore.getState().appState;
+const coinDragPurseRecord = coinDragState.inventoryRecords.find(
+  (record) =>
+    record.recordType === "coins" && record.entityId === coinDragCharacterId,
+);
+const coinDragFloorCoinRecords = coinDragState.inventoryRecords.filter(
+  (record) =>
+    record.recordType === "coins" && record.entityId === coinDragFloorId,
+);
+const coinDragDeleteAuditEntry = coinDragState.auditLog.find(
+  (entry) =>
+    entry.eventType === "inventoryRecordDeleted" &&
+    entry.recordId === coinDragGoldPileId,
+);
+
+export const COIN_DRAG_TRANSFER_STORE_MANUAL_FIXTURES = [
+  {
+    name: "coin transfer draws from the targeted source record, not the default pile",
+    actual: {
+      takeSomeOk: coinDragTakeSomeResult.ok,
+      floorPiles: coinDragFloorCoinRecords.map((record) =>
+        record.recordType === "coins" ? record.coins : undefined,
+      ),
+    },
+    expected: {
+      takeSomeOk: true,
+      floorPiles: [{ pp: 0, gp: 0, sp: 30, cp: 0 }],
+    },
+  },
+  {
+    name: "draining a non-character coin pile removes the emptied record and merges into the purse",
+    actual: {
+      takeAllOk: coinDragTakeAllResult.ok,
+      goldPileRemains: coinDragState.inventoryRecords.some(
+        (record) => record.id === coinDragGoldPileId,
+      ),
+      purseCoins:
+        coinDragPurseRecord?.recordType === "coins"
+          ? coinDragPurseRecord.coins
+          : undefined,
+      deleteAuditSummary: coinDragDeleteAuditEntry?.summary,
+    },
+    expected: {
+      takeAllOk: true,
+      goldPileRemains: false,
+      purseCoins: { pp: 0, gp: 312, sp: 20, cp: 0 },
+      deleteAuditSummary: 'Deleted coins from "Floor" (emptied by transfer).',
+    },
+  },
+  {
+    name: "coin transfer rejects a source record owned by a different entity",
+    actual: {
+      wrongOwnerOk: coinDragWrongOwnerResult.ok,
+    },
+    expected: {
+      wrongOwnerOk: false,
+    },
+  },
+];
+
 useAppStore.getState().resetLocalState();
 
 const phase8CharacterId = useAppStore.getState().createEntity({
@@ -1777,5 +1914,106 @@ export const FIREBASE_UID_PROMOTION_STORE_FIXTURES = [
     name: "identity-promoted GM is no longer keyed by old local ID",
     actual: (useAppStore.getState().members ?? {})[localGmId],
     expected: undefined,
+  },
+];
+
+// --- Batched hand-occupancy moves (two-handed drop) ---
+
+useAppStore.getState().resetLocalState();
+
+const handBatchCharId = useAppStore.getState().createEntity({
+  name: "Brawler",
+  entityType: "character",
+});
+
+function createHandBatchRecord(
+  input: Parameters<
+    ReturnType<typeof useAppStore.getState>["createInventoryRecord"]
+  >[1],
+): string | undefined {
+  if (!handBatchCharId) {
+    return undefined;
+  }
+
+  const result = useAppStore
+    .getState()
+    .createInventoryRecord(handBatchCharId, input);
+
+  return result.ok ? result.recordId : undefined;
+}
+
+const handBatchSwordId = createHandBatchRecord({
+  recordType: "weapon",
+  name: "Sword",
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  weapon: {},
+  location: { entityId: handBatchCharId ?? "", placement: "leftHand" },
+});
+const handBatchShieldId = createHandBatchRecord({
+  recordType: "equipment",
+  name: "Shield",
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  location: { entityId: handBatchCharId ?? "", placement: "rightHand" },
+});
+const handBatchPoleId = createHandBatchRecord({
+  recordType: "weapon",
+  name: "Pole",
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 2,
+  weapon: {},
+  location: { entityId: handBatchCharId ?? "", placement: "default" },
+});
+
+const handBatchResult =
+  handBatchCharId && handBatchSwordId && handBatchShieldId && handBatchPoleId
+    ? useAppStore.getState().moveInventoryRecords([
+        {
+          recordId: handBatchSwordId,
+          location: { entityId: handBatchCharId, placement: "equippedLoose" },
+        },
+        {
+          recordId: handBatchShieldId,
+          location: { entityId: handBatchCharId, placement: "equippedLoose" },
+        },
+        {
+          recordId: handBatchPoleId,
+          location: { entityId: handBatchCharId, placement: "bothHands" },
+        },
+      ])
+    : { ok: false as const, message: "setup failed" };
+
+const handBatchState = useAppStore.getState().appState;
+const handBatchPlacement = (id: string | undefined): string | undefined => {
+  const record = handBatchState.inventoryRecords.find((r) => r.id === id);
+
+  if (!record) {
+    return undefined;
+  }
+
+  return record.location.kind === "equipped"
+    ? record.location.placement
+    : record.location.kind;
+};
+
+export const HAND_BATCH_MOVE_STORE_MANUAL_FIXTURES = [
+  {
+    name: "batched hand moves place a two-hander in both hands and displace held items in one mutation",
+    actual: {
+      ok: handBatchResult.ok,
+      pole: handBatchPlacement(handBatchPoleId),
+      sword: handBatchPlacement(handBatchSwordId),
+      shield: handBatchPlacement(handBatchShieldId),
+    },
+    expected: {
+      ok: true,
+      pole: "bothHands",
+      sword: "loose",
+      shield: "loose",
+    },
   },
 ];

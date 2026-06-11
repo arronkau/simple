@@ -171,6 +171,8 @@ export type CoinSpendFormState = {
 
 export type CoinTransferFormState = {
   sourceEntityId: EntityId;
+  /** Draw from this coin record instead of the source entity's default one. */
+  sourceRecordId?: InventoryRecordId;
   destinationEntityId: EntityId;
   amounts: Record<CoinDenomination, string>;
   note: string;

@@ -338,10 +338,9 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         stowedItems: 8,
         equippedRate: { explorationFeet: 120, encounterFeet: 40 },
         stowedRate: { explorationFeet: 120, encounterFeet: 40 },
-        movement: { explorationFeet: 0, encounterFeet: 0 },
-        overloaded: true,
-        overloadedReason: "invalid",
-        band: "overloaded",
+        movement: { explorationFeet: 120, encounterFeet: 40 },
+        overloaded: false,
+        band: "normal",
       },
       backpackUsage: {
         usedSlots: 5,

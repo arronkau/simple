@@ -436,6 +436,43 @@ const heldOverfilledSackWithBackpackRecords = [
   heldSackOverfilledRationsRecord,
 ];
 const looseSackRecords = [looseSackRecord, looseSackRationsRecord];
+const nestedHandsRequiredSackRecord: InventoryRecord = {
+  ...heldSackRecord,
+  id: "sack-nested-1",
+  location: {
+    kind: "container",
+    containerId: topLevelStowedContainerRecord.id,
+  },
+};
+const nestedSackRationsRecord: InventoryRecord = {
+  ...heldSackRationsRecord,
+  id: "nested-rations-1",
+  location: {
+    kind: "container",
+    containerId: nestedHandsRequiredSackRecord.id,
+  },
+};
+const nestedHandsRequiredSackRecords = [
+  topLevelStowedContainerRecord,
+  nestedHandsRequiredSackRecord,
+  nestedSackRationsRecord,
+];
+const wornHandsRequiredBackpackRecord: InventoryRecord = {
+  id: topLevelStowedContainerRecord.id,
+  entityId: characterEntity.id,
+  recordType: "equipment",
+  name: "Backpack",
+  location: { kind: "stowedRoot" },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 2,
+  container: { capacitySlots: 16 },
+};
+const wornHandsRequiredBackpackRecords = [
+  wornHandsRequiredBackpackRecord,
+  ropeRecord,
+];
 const cappedStorageRecords = [
   storageLoadRecord,
   smallBoxRecord,
@@ -545,6 +582,14 @@ const heldOverfilledSackWithBackpackEncumbrance = getCharacterEncumbrance(
 const looseSackEncumbrance = getCharacterEncumbrance(
   characterEntity,
   looseSackRecords,
+);
+const nestedHandsRequiredSackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  nestedHandsRequiredSackRecords,
+);
+const wornHandsRequiredBackpackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  wornHandsRequiredBackpackRecords,
 );
 const storageCapacity = getContentsCapacity(
   cappedStorageEntity,
@@ -801,6 +846,44 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
         handsRequiredContainerNotHeld: 1,
         missingBackpack: 1,
       },
+    },
+  },
+  {
+    name: "a worn stowed-root backpack never needs hands, even with handsRequired 2 and contents",
+    actual: {
+      overloaded: wornHandsRequiredBackpackEncumbrance.overloaded,
+      overloadedReason: wornHandsRequiredBackpackEncumbrance.overloadedReason,
+      movement: wornHandsRequiredBackpackEncumbrance.movement,
+      stowedItems: wornHandsRequiredBackpackEncumbrance.stowedItems,
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, wornHandsRequiredBackpackRecords),
+      ),
+    },
+    expected: {
+      overloaded: false,
+      overloadedReason: undefined,
+      movement: { explorationFeet: 120, encounterFeet: 40 },
+      stowedItems: 2,
+      warnings: {},
+    },
+  },
+  {
+    name: "a hands-required container nested inside another container is packed cargo, not an overload",
+    actual: {
+      overloaded: nestedHandsRequiredSackEncumbrance.overloaded,
+      overloadedReason: nestedHandsRequiredSackEncumbrance.overloadedReason,
+      movement: nestedHandsRequiredSackEncumbrance.movement,
+      stowedItems: nestedHandsRequiredSackEncumbrance.stowedItems,
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, nestedHandsRequiredSackRecords),
+      ),
+    },
+    expected: {
+      overloaded: false,
+      overloadedReason: undefined,
+      movement: { explorationFeet: 120, encounterFeet: 40 },
+      stowedItems: 5,
+      warnings: {},
     },
   },
   {
