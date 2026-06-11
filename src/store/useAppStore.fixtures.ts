@@ -1686,3 +1686,72 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     expected: true,
   },
 ];
+
+// --- Firebase UID identity-promotion phase ---
+// Simulates the scenario where the store initialises with a locally-generated ID
+// as GM and then Firebase Auth resolves with a different UID. The onAuthUserId
+// handler must re-key membership so the Firebase UID becomes the canonical GM.
+
+useAppStore.getState().resetLocalState();
+const localGmId = "local-generated-id";
+const firebaseGmId = "firebase-uid-after-auth";
+
+useAppStore.setState({
+  currentUserId: localGmId,
+  gmUid: localGmId,
+  members: { [localGmId]: { role: "gm" as const, joinedAt: "2026-01-01T00:00:00.000Z" } },
+  appState: { schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] },
+});
+
+const promoEntityId = useAppStore.getState().createEntity({
+  name: "Promo Character",
+  entityType: "character",
+});
+
+// Simulate what the fixed onAuthUserId does when Firebase UID arrives.
+{
+  const s = useAppStore.getState();
+  const prev = s.currentUserId;
+  if (prev !== firebaseGmId && s.gmUid === prev) {
+    const { [prev]: oldEntry, ...rest } = s.members ?? {};
+    useAppStore.setState({
+      currentUserId: firebaseGmId,
+      gmUid: firebaseGmId,
+      members: {
+        ...rest,
+        [firebaseGmId]: {
+          role: "gm" as const,
+          ...(oldEntry?.joinedAt ? { joinedAt: oldEntry.joinedAt } : {}),
+        },
+      },
+    });
+  }
+}
+
+const promoUnidentifiedResult = promoEntityId
+  ? useAppStore.getState().createInventoryRecord(promoEntityId, {
+      recordType: "weapon",
+      name: "Mystery Blade",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: { identified: false, secretName: "Vorpal Edge", secretDescription: "Glows faintly." },
+    })
+  : ({ ok: false, message: "no entity" } as const);
+
+export const FIREBASE_UID_PROMOTION_STORE_FIXTURES = [
+  {
+    name: "GM can create unidentified item after Firebase UID identity promotion",
+    actual: promoUnidentifiedResult.ok,
+    expected: true,
+  },
+  {
+    name: "identity-promoted GM has gmUid matching Firebase UID",
+    actual: useAppStore.getState().gmUid,
+    expected: firebaseGmId,
+  },
+  {
+    name: "identity-promoted GM is no longer keyed by old local ID",
+    actual: (useAppStore.getState().members ?? {})[localGmId],
+    expected: undefined,
+  },
+];

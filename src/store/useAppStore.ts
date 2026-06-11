@@ -2075,8 +2075,34 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     },
     onAuthUserId: (userId) => {
       const state = useAppStore.getState();
+      const prevUserId = state.currentUserId;
       const currentPartyState = getPartyStateFromStoreState(state);
-      const migratedPartyState = migratePartyMembership(currentPartyState, userId);
+
+      // When Firebase Auth resolves a UID that differs from the locally-generated ID
+      // that was assigned as GM during store initialization, re-key membership so the
+      // Firebase UID becomes the canonical GM identity.
+      let partyStateForMigration = currentPartyState;
+      if (prevUserId !== userId && state.gmUid === prevUserId) {
+        const oldMembers = currentPartyState.party.members ?? {};
+        const { [prevUserId]: oldGmEntry, ...rest } = oldMembers;
+        partyStateForMigration = {
+          ...currentPartyState,
+          party: {
+            ...currentPartyState.party,
+            gmUid: userId,
+            members: {
+              ...rest,
+              [userId]: {
+                role: "gm" as PartyRole,
+                ...(oldGmEntry?.joinedAt ? { joinedAt: oldGmEntry.joinedAt } : {}),
+              },
+            },
+          },
+        };
+      }
+
+      const migratedPartyState = migratePartyMembership(partyStateForMigration, userId);
+      writeLocalPartyState(migratedPartyState);
       useAppStore.setState({
         currentUserId: userId,
         gmUid: migratedPartyState.party.gmUid,
