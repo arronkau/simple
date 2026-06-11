@@ -19,7 +19,6 @@ import type {
   Entity,
   EntityId,
   InventoryRecord,
-  InventoryRecordId,
 } from "./model/types";
 import { FIREBASE_PARTY_STATE_COLLECTION } from "./persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "./persistence/types";
@@ -37,8 +36,8 @@ import {
   type RecordFormState,
   type UserProfileFormState,
 } from "./view-types";
-import { EntityEditModal } from "./entity/EntityModals";
-import { InventoryPage } from "./inventory/InventoryPage";
+import { EntityCreateModal, EntityEditModal } from "./entity/EntityModals";
+import { InventoryRecordModal } from "./inventory/InventoryRecordModal";
 import { PartyGearPage } from "./party-gear/PartyGearPage";
 import { PartyPage } from "./pages/PartyPage";
 import { CharactersPage } from "./pages/CharactersPage";
@@ -133,9 +132,6 @@ function LocalAppShell() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<
     DeleteConfirmationState | undefined
   >();
-  const [collapsedContainerIds, setCollapsedContainerIds] = useState<
-    Set<InventoryRecordId>
-  >(() => new Set());
   const currentUserProfile = userProfiles.find(
     (profile) => profile.id === currentUserId,
   );
@@ -159,20 +155,6 @@ function LocalAppShell() {
   function saveIdentity(input: UserProfileFormState) {
     updateCurrentUserProfile(input);
     setIdentityModalOpen(false);
-  }
-
-  function toggleContainerCollapsed(recordId: InventoryRecordId) {
-    setCollapsedContainerIds((currentIds) => {
-      const nextIds = new Set(currentIds);
-
-      if (nextIds.has(recordId)) {
-        nextIds.delete(recordId);
-      } else {
-        nextIds.add(recordId);
-      }
-
-      return nextIds;
-    });
   }
 
   function handleCreateEntity(event: FormEvent<HTMLFormElement>) {
@@ -435,8 +417,7 @@ function LocalAppShell() {
           <NavLink to={`/party/${partyId}`} end>
             Party
           </NavLink>
-          <NavLink to={`/party/${partyId}/inventory`}>Inventory</NavLink>
-          <NavLink to={`/party/${partyId}/gear`}>Gear</NavLink>
+          <NavLink to={`/party/${partyId}/gear`}>Inventory</NavLink>
           <NavLink to={`/party/${partyId}/characters`}>Characters</NavLink>
           <NavLink to={`/party/${partyId}/audit`}>Audit Log</NavLink>
         </nav>
@@ -447,43 +428,25 @@ function LocalAppShell() {
             element={
               <PartyPage
                 appState={appState}
-                inventoryPath={`/party/${partyId}/inventory`}
+                inventoryPath={`/party/${partyId}/gear`}
                 sortedEntities={sortedEntities}
               />
             }
           />
           <Route
-            path="inventory"
+            path="gear"
             element={
-              <InventoryPage
-                appState={appState}
+              <PartyGearPage
                 currentUserPartyRole={currentUserPartyRole}
-                collapsedContainerIds={collapsedContainerIds}
-                entityCreateModalOpen={entityCreateModalOpen}
-                formState={formState}
-                recordForm={recordForm}
-                recordFormMessage={recordFormMessage}
-                sortedEntities={sortedEntities}
-                onCancelCreateEntity={cancelCreatingEntity}
-                onCancelRecordForm={cancelRecordForm}
-                onChangeEntityForm={setFormState}
-                onChangeRecordForm={setRecordForm}
-                onCreateEntity={handleCreateEntity}
-                onDeleteEntity={requestDeleteEntity}
-                onDeleteRecord={requestDeleteInventoryRecord}
+                onStartCreateEntity={startCreatingEntity}
+                onStartAddRecord={startAddingRecord}
                 onEditEntity={startEditing}
                 onEditRecord={startEditingRecord}
                 onIdentifyRecord={identifyInventoryRecord}
-                onSaveRecordForm={saveRecordForm}
                 onSpendCoins={startSpendingCoins}
-                onTransferCoins={startTransferringCoins}
-                onStartCreateEntity={startCreatingEntity}
-                onStartAddRecord={startAddingRecord}
-                onToggleContainerCollapsed={toggleContainerCollapsed}
               />
             }
           />
-          <Route path="gear" element={<PartyGearPage />} />
           <Route
             path="characters"
             element={
@@ -509,7 +472,7 @@ function LocalAppShell() {
           />
           <Route
             path="*"
-            element={<Navigate to={`/party/${partyId}/inventory`} replace />}
+            element={<Navigate to={`/party/${partyId}/gear`} replace />}
           />
         </Routes>
 
@@ -546,6 +509,39 @@ function LocalAppShell() {
             required={identityRequired}
             onCancel={() => setIdentityModalOpen(false)}
             onSubmit={saveIdentity}
+          />
+        ) : null}
+
+        {recordForm
+          ? (() => {
+              const recordFormEntity = appState.entities.find(
+                (entity) => entity.id === recordForm.entityId,
+              );
+
+              return recordFormEntity ? (
+                <InventoryRecordModal
+                  appState={appState}
+                  currentUserPartyRole={currentUserPartyRole}
+                  entity={recordFormEntity}
+                  formState={recordForm}
+                  message={recordFormMessage}
+                  onCancel={cancelRecordForm}
+                  onChange={setRecordForm}
+                  onDeleteRecord={requestDeleteInventoryRecord}
+                  onSpendCoins={startSpendingCoins}
+                  onSubmit={saveRecordForm}
+                  onTransferCoins={startTransferringCoins}
+                />
+              ) : null;
+            })()
+          : null}
+
+        {entityCreateModalOpen ? (
+          <EntityCreateModal
+            formState={formState}
+            onCancel={cancelCreatingEntity}
+            onChange={setFormState}
+            onSubmit={handleCreateEntity}
           />
         ) : null}
 

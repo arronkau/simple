@@ -391,6 +391,7 @@ function getHandsRequiredContainerWarnings(
     if (
       record.entityId !== entity.id ||
       !record.container ||
+      record.location.kind === "container" ||
       getRecordHandsRequired(record) === 0 ||
       getDirectChildRecords(record.id, records).length === 0 ||
       isHeldContainer(record)
@@ -538,6 +539,9 @@ function hasInvalidUnheldContainer(
     (record) =>
       record.entityId === entity.id &&
       Boolean(record.container) &&
+      // A container nested inside another container is packed cargo, not a
+      // held/carried load — its hands requirement does not apply while stowed.
+      record.location.kind !== "container" &&
       getRecordHandsRequired(record) > 0 &&
       getDirectChildRecords(record.id, records).length > 0 &&
       !isHeldContainer(record),

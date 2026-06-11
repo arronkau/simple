@@ -30,11 +30,7 @@ import {
   getContentsCapacity,
   type CharacterEncumbranceResult,
 } from "../model/encumbrance";
-import {
-  getCoinGpValue,
-  getContainerSlotUsage,
-  getRecordSlotBurden,
-} from "../model/calculations";
+import { getContainerSlotUsage, getRecordSlotBurden } from "../model/calculations";
 import {
   getContainerContents,
   getInventorySections,
@@ -49,9 +45,12 @@ import type {
   Entity,
   InventoryRecord,
   InventoryRecordId,
+  PartyRole,
 } from "../model/types";
-import { useAppStore } from "../store/useAppStore";
-import { SlotPipIndicator } from "../ui/SlotPipIndicator";
+import {
+  useAppStore,
+  type InventoryMutationResult,
+} from "../store/useAppStore";
 import {
   containerDropId,
   contentsDropId,
@@ -67,9 +66,32 @@ import { projectMove, type MoveProjection } from "./gearProjection";
 import { resolveFloorEntity, useFloorUiStore } from "./floorUiStore";
 
 // ---------------------------------------------------------------------------
-// Drag context — lets zones render their own hover ring + projection pill
+// Callbacks the gear board needs to drive the shared record/entity modals.
 // ---------------------------------------------------------------------------
 
+export type GearActions = {
+  currentUserPartyRole?: PartyRole | null;
+  onStartCreateEntity: () => void;
+  onStartAddRecord: (entity: Entity) => void;
+  onEditEntity: (entity: Entity) => void;
+  onEditRecord: (record: InventoryRecord) => void;
+  onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  onSpendCoins: (record: InventoryRecord) => void;
+};
+
+const GearActionsContext = createContext<GearActions | null>(null);
+
+function useGearActions(): GearActions {
+  const actions = useContext(GearActionsContext);
+
+  if (!actions) {
+    throw new Error("GearActionsContext is missing");
+  }
+
+  return actions;
+}
+
+// Drag state shared with each zone so it can render its own ring + pill.
 type GearDragState = {
   activeRecordId: InventoryRecordId | null;
   overId: string | null;
@@ -88,7 +110,7 @@ const GearDragContext = createContext<GearDragState>({
 // Page
 // ---------------------------------------------------------------------------
 
-export function PartyGearPage() {
+export function PartyGearPage(actions: GearActions) {
   const appState = useAppStore((state) => state.appState);
   const partyId = useAppStore((state) => state.partyId);
   const moveInventoryRecord = useAppStore((state) => state.moveInventoryRecord);
@@ -220,65 +242,84 @@ export function PartyGearPage() {
     : undefined;
 
   return (
-    <GearDragContext.Provider value={dragState}>
-      <DndContext
-        sensors={sensors}
-        collisionDetection={gearCollisionDetection}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => resetDrag()}
-      >
-        <section
-          className={`gear-page${dragState.activeRecordId ? " is-dragging" : ""}`}
-          aria-label="Party gear"
+    <GearActionsContext.Provider value={actions}>
+      <GearDragContext.Provider value={dragState}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={gearCollisionDetection}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => resetDrag()}
         >
-          <div className="gear-board-heading">
-            <h2>Gear</h2>
-            <p>Drag records to repack a character or hand loot between entities.</p>
-            <PartySummary
-              entities={floorEntity ? [...boardEntities, floorEntity] : boardEntities}
-              boardEntities={boardEntities}
-              records={records}
-            />
+          <div
+            className={`gear-page${dragState.activeRecordId ? " dragging" : ""}`}
+          >
+            <div className="gear-subbar">
+              <div className="gear-legend">
+                <span className="leg">
+                  Drag the <b>⠿</b> handle — across cards too
+                </span>
+                <span className="leg">
+                  <span className="dot lit" /> lit
+                </span>
+                <span className="leg">
+                  <span className="gl unid">?</span> unidentified
+                </span>
+                <span className="leg">
+                  <span className="gl">✦</span> magic
+                </span>
+                <span className="leg">
+                  <span className="loadbar" /> load
+                </span>
+              </div>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={actions.onStartCreateEntity}
+              >
+                Add entity
+              </button>
+            </div>
+
+            {boardEntities.length === 0 ? (
+              <p className="empty-state">No active entities to outfit yet.</p>
+            ) : (
+              <div className="gear-board">
+                {boardEntities.map((entity) => (
+                  <GearEntityCard
+                    key={entity.id}
+                    entity={entity}
+                    records={records}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
-          {boardEntities.length === 0 ? (
-            <p className="empty-state">No active entities to outfit yet.</p>
-          ) : (
-            <div className="gear-board">
-              {boardEntities.map((entity) => (
-                <GearEntityCard
-                  key={entity.id}
-                  entity={entity}
-                  records={records}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+          <FloorTray
+            floorEntity={floorEntity}
+            records={records}
+            onCreateFloor={handleCreateFloor}
+          />
 
-        <FloorBar
-          floorEntity={floorEntity}
-          records={records}
-          onCreateFloor={handleCreateFloor}
-        />
+          <DragOverlay>
+            {activeRecord ? (
+              <div className="item item-overlay">
+                <span className="grip">⠿</span>
+                <span className="iname">
+                  {getInventoryRowDisplay(activeRecord, records).primaryText}
+                </span>
+              </div>
+            ) : null}
+          </DragOverlay>
 
-        <DragOverlay>
-          {activeRecord ? (
-            <div className="rs-item rs-item-overlay">
-              <span className="rs-item-name">
-                {getInventoryRowDisplay(activeRecord, records).primaryText}
-              </span>
-            </div>
-          ) : null}
-        </DragOverlay>
-
-        <div className="drag-live-region" role="status" aria-live="polite">
-          {dragMessage ?? ""}
-        </div>
-      </DndContext>
-    </GearDragContext.Provider>
+          <div className="drag-live-region" role="status" aria-live="polite">
+            {dragMessage ?? ""}
+          </div>
+        </DndContext>
+      </GearDragContext.Provider>
+    </GearActionsContext.Provider>
   );
 }
 
@@ -319,34 +360,50 @@ function CharacterGearCard({
   entity: Entity;
   records: InventoryRecord[];
 }) {
+  const actions = useGearActions();
   const sections = getInventorySections(
     entity,
     records,
   ) as CharacterInventorySections;
   const encumbrance = getCharacterEncumbrance(entity, records);
+  const total = encumbrance.equippedItems + encumbrance.stowedItems;
+  const tone = loadTone(encumbrance);
   const subtitle = formatCharacterSubtitle(entity);
 
   return (
-    <article className="gear-card" data-inactive={!entity.active}>
-      <header className="gear-card-header">
-        <div className="gear-card-identity">
-          <h3 className="gear-card-name">{entity.name}</h3>
-          {subtitle ? <p className="gear-card-subtitle">{subtitle}</p> : null}
+    <article className="rs-card" data-inactive={!entity.active}>
+      <div className="rs-head">
+        <div className="top">
+          <button
+            type="button"
+            className="nm nm-button"
+            onClick={() => actions.onEditEntity(entity)}
+          >
+            {entity.name}
+          </button>
+          <span className="sub">{subtitle}</span>
+          <MovementBadge encumbrance={encumbrance} />
         </div>
-        <MovementBadge encumbrance={encumbrance} />
-      </header>
+        <div className="meter">
+          <CapBar used={total} max={16} tone={tone} />
+          <FreeBadge free={16 - total} tone={tone} />
+        </div>
+      </div>
 
-      <EncumbranceLine encumbrance={encumbrance} />
-
-      <section className="gear-zone gear-ready" aria-label="Ready">
-        <p className="gear-zone-label">Ready</p>
+      <div className="zone ready-zone">
+        <div className="zhead">
+          <span className="micro">Ready</span>
+        </div>
         <HandRows entityId={entity.id} sections={sections} records={records} />
+        <div className="worn-label micro">Worn</div>
         <WornZone entityId={entity.id} records={records} worn={sections.otherEquipped} />
-      </section>
+      </div>
 
-      <section className="gear-zone gear-stowed" aria-label="Stowed">
-        <p className="gear-zone-label">Stowed</p>
-        <CoinPurseLine record={sections.coinRecord} />
+      <div className="zone stowed-zone">
+        <div className="zhead">
+          <span className="micro">Stowed</span>
+        </div>
+        <CoinRow record={sections.coinRecord} />
         {sections.topLevelStowedContainerRecord ? (
           <ContainerBlock
             entityId={entity.id}
@@ -354,9 +411,19 @@ function CharacterGearCard({
             records={records}
           />
         ) : (
-          <p className="empty-state compact">No stowed container.</p>
+          <p className="empty-label">No stowed container.</p>
         )}
-      </section>
+      </div>
+
+      <div className="rs-foot">
+        <button
+          type="button"
+          className="add-link"
+          onClick={() => actions.onStartAddRecord(entity)}
+        >
+          + Add item
+        </button>
+      </div>
     </article>
   );
 }
@@ -368,6 +435,7 @@ function ContentsGearCard({
   entity: Entity;
   records: InventoryRecord[];
 }) {
+  const actions = useGearActions();
   const capacity = getContentsCapacity(entity, records);
   const contents = sortInventoryRecordsBySortOrder(
     getOwnedRecords(entity.id, records).filter(
@@ -376,38 +444,63 @@ function ContentsGearCard({
   );
 
   return (
-    <article className="gear-card" data-inactive={!entity.active}>
-      <header className="gear-card-header">
-        <div className="gear-card-identity">
-          <h3 className="gear-card-name">{entity.name}</h3>
-          <p className="gear-card-subtitle">
-            {capitalize(entity.entityType)}
-            {entity.baseMovementFeet !== undefined
-              ? ` · ${entity.baseMovementFeet}′`
-              : ""}
-          </p>
+    <article className="rs-card" data-inactive={!entity.active}>
+      <div className="rs-head">
+        <div className="top">
+          <button
+            type="button"
+            className="nm nm-button"
+            onClick={() => actions.onEditEntity(entity)}
+          >
+            {entity.name}
+          </button>
+          <span className="kind-pill">{entity.entityType}</span>
+          {entity.baseMovementFeet !== undefined ? (
+            <span className="mv">{entity.baseMovementFeet}′</span>
+          ) : null}
         </div>
-        <span className="gear-capacity-readout">
-          {capacity.usedSlots}
-          {capacity.capacitySlots === undefined ? "" : `/${capacity.capacitySlots}`}
-        </span>
-      </header>
+        {capacity.capacitySlots !== undefined ? (
+          <div className="meter">
+            <CapBar
+              used={capacity.usedSlots}
+              max={capacity.capacitySlots}
+              tone={capacityTone(capacity.usedSlots, capacity.capacitySlots)}
+            />
+            <FreeBadge
+              free={capacity.capacitySlots - capacity.usedSlots}
+              tone={capacityTone(capacity.usedSlots, capacity.capacitySlots)}
+            />
+          </div>
+        ) : null}
+      </div>
 
-      <section className="gear-zone gear-contents" aria-label="Contents">
-        <p className="gear-zone-label">Contents</p>
+      <div className="zone stowed-zone">
+        <div className="zhead">
+          <span className="micro">Contents</span>
+        </div>
         <GearDropZone
           dropId={contentsDropId(entity.id)}
           target={{ entityId: entity.id, placement: "contents" }}
-          className="gear-zone-body"
+          className="zone-body"
         >
           <RecordRows
             entityId={entity.id}
             records={contents}
             allRecords={records}
-            emptyLabel="Empty"
+            emptyLabel="empty — drop here"
           />
         </GearDropZone>
-      </section>
+      </div>
+
+      <div className="rs-foot">
+        <button
+          type="button"
+          className="add-link"
+          onClick={() => actions.onStartAddRecord(entity)}
+        >
+          + Add item
+        </button>
+      </div>
     </article>
   );
 }
@@ -416,91 +509,61 @@ function ContentsGearCard({
 // Header pieces
 // ---------------------------------------------------------------------------
 
-function PartySummary({
-  entities,
-  boardEntities,
-  records,
-}: {
-  entities: Entity[];
-  boardEntities: Entity[];
-  records: InventoryRecord[];
-}) {
-  const entityIds = new Set(entities.map((entity) => entity.id));
-  const treasureGp = records.reduce((total, record) => {
-    if (!entityIds.has(record.entityId)) {
-      return total;
-    }
+function loadTone(encumbrance: CharacterEncumbranceResult): LoadTone {
+  if (encumbrance.overloaded) {
+    return "crit";
+  }
 
-    if (record.recordType === "treasure") {
-      return total + record.treasure.gpValue;
-    }
-
-    if (record.recordType === "coins") {
-      return total + getCoinGpValue(record.coins);
-    }
-
-    return total;
-  }, 0);
-
-  const stowedHeadroom = boardEntities.reduce((headroom, entity) => {
-    if (!isCharacterLikeEntity(entity)) {
-      return headroom;
-    }
-
-    const { stowedItems } = getCharacterEncumbrance(entity, records);
-
-    return headroom + Math.max(0, 16 - stowedItems);
-  }, 0);
-
-  return (
-    <p className="gear-party-summary">
-      <span>{formatGp(treasureGp)} gp on the table</span>
-      <span aria-hidden="true">·</span>
-      <span>{stowedHeadroom} stowed slots free across the party</span>
-    </p>
-  );
+  return encumbrance.band === "normal" ? "ok" : "warn";
 }
 
-function formatGp(value: number): string {
-  return Number.isInteger(value)
-    ? value.toLocaleString("en-US")
-    : Number(value.toFixed(2)).toLocaleString("en-US");
+function capacityTone(used: number, max: number): LoadTone {
+  if (used > max) {
+    return "crit";
+  }
+
+  return used / max >= 0.85 ? "warn" : "ok";
 }
+
+type LoadTone = "ok" | "warn" | "crit";
 
 function MovementBadge({
   encumbrance,
 }: {
   encumbrance: CharacterEncumbranceResult;
 }) {
-  const tone = encumbrance.overloaded
-    ? "crit"
+  const cls = encumbrance.overloaded
+    ? "zero"
     : encumbrance.band === "normal"
-      ? "ok"
-      : "warn";
+      ? ""
+      : "reduced";
   const text = encumbrance.overloaded
     ? "0′"
     : `${encumbrance.movement.explorationFeet}′ (${encumbrance.movement.encounterFeet}′)`;
 
-  return <span className={`gear-move-badge tone-${tone}`}>{text}</span>;
+  return <span className={`mv ${cls}`}>{encumbrance.overloaded ? "⚠ " : ""}{text}</span>;
 }
 
-function EncumbranceLine({
-  encumbrance,
-}: {
-  encumbrance: CharacterEncumbranceResult;
-}) {
-  const total = encumbrance.equippedItems + encumbrance.stowedItems;
-  const reason = encumbrance.overloaded
-    ? ` — overloaded${encumbrance.overloadedReason ? ` (${encumbrance.overloadedReason})` : ""}`
-    : "";
+function CapBar({ used, max, tone }: { used: number; max: number; tone: LoadTone }) {
+  const pct = max > 0 ? Math.min(100, Math.round((100 * used) / max)) : 0;
 
   return (
-    <p
-      className={`gear-enc-line${encumbrance.overloaded ? " is-overloaded" : ""}`}
-    >
-      equipped {encumbrance.equippedItems} · stowed {encumbrance.stowedItems} ·
-      total {total}/16{reason}
-    </p>
+    <span className={`cap ${tone === "ok" ? "" : tone}`}>
+      <span className="track">
+        <i style={{ width: `${pct}%` }} />
+      </span>
+      <span className="capnum">
+        {used}/{max}
+      </span>
+    </span>
+  );
+}
+
+function FreeBadge({ free, tone }: { free: number; tone: LoadTone }) {
+  return (
+    <span className={`free ${tone === "ok" ? "" : tone}`}>
+      {free >= 0 ? `${free} free` : `${-free} over`}
+    </span>
   );
 }
 
@@ -524,20 +587,18 @@ function HandRows({
 
   if (bothHandsRecord) {
     return (
-      <div className="gear-hands">
-        <HandSlot
-          entityId={entityId}
-          placement="bothHands"
-          label="Both hands"
-          record={bothHandsRecord}
-          records={records}
-        />
-      </div>
+      <HandSlot
+        entityId={entityId}
+        placement="bothHands"
+        label="Both hands"
+        record={bothHandsRecord}
+        records={records}
+      />
     );
   }
 
   return (
-    <div className="gear-hands">
+    <>
       <HandSlot
         entityId={entityId}
         placement="leftHand"
@@ -552,7 +613,7 @@ function HandRows({
         record={getRecordById(sections.handRecordIds.rightHand, records)}
         records={records}
       />
-    </div>
+    </>
   );
 }
 
@@ -569,17 +630,19 @@ function HandSlot({
   record?: InventoryRecord;
   records: InventoryRecord[];
 }) {
+  const isBoth = placement === "bothHands";
+
   return (
     <GearDropZone
       dropId={handDropId(entityId, placement)}
       target={{ entityId, placement }}
-      className="gear-hand-slot"
+      className={`hand${record ? "" : " empty"}${isBoth ? " both" : ""}`}
     >
-      <span className="gear-hand-label">{label}</span>
+      <span className="hlabel">{isBoth ? "Both hands" : label}</span>
       {record ? (
         <DraggableRecordRow record={record} allRecords={records} />
       ) : (
-        <span className="gear-slot-empty">empty</span>
+        <span className="empty-label">empty</span>
       )}
     </GearDropZone>
   );
@@ -595,35 +658,47 @@ function WornZone({
   records: InventoryRecord[];
 }) {
   return (
-    <div className="gear-worn">
-      <p className="gear-subzone-label">Worn</p>
-      <GearDropZone
-        dropId={looseDropId(entityId)}
-        target={{ entityId, placement: "equippedLoose" }}
-        className="gear-zone-body"
-      >
-        <RecordRows
-          entityId={entityId}
-          records={worn}
-          allRecords={records}
-          emptyLabel="Nothing worn"
-        />
-      </GearDropZone>
-    </div>
+    <GearDropZone
+      dropId={looseDropId(entityId)}
+      target={{ entityId, placement: "equippedLoose" }}
+      className={`worn${worn.length === 0 ? " empty" : ""}`}
+    >
+      {worn.length === 0 ? (
+        <span className="empty-label">nothing worn — drop here</span>
+      ) : (
+        worn.map((record) => (
+          <DraggableRecordRow
+            key={record.id}
+            record={record}
+            allRecords={records}
+          />
+        ))
+      )}
+    </GearDropZone>
   );
 }
 
-function CoinPurseLine({ record }: { record?: InventoryRecord }) {
+function CoinRow({ record }: { record?: InventoryRecord }) {
+  const actions = useGearActions();
+
   if (!record || record.recordType !== "coins") {
-    return <p className="empty-state compact">No coins</p>;
+    return null;
   }
 
   const display = getInventoryRowDisplay(record, [record]);
 
   return (
-    <div className="rs-item rs-item-static gear-coin-line">
-      <span className="rs-item-name">{display.primaryText}</span>
-      <SlotPipIndicator slots={getRecordSlotBurden(record)} />
+    <div className="coinrow">
+      <span className="micro coins-label">Coins</span>
+      <span className="coins">{display.primaryText}</span>
+      <Pips slots={getRecordSlotBurden(record)} />
+      <button
+        type="button"
+        className="act"
+        onClick={() => actions.onSpendCoins(record)}
+      >
+        Spend
+      </button>
     </div>
   );
 }
@@ -641,22 +716,49 @@ function ContainerBlock({
   container: InventoryRecord;
   records: InventoryRecord[];
 }) {
+  const actions = useGearActions();
   const contents = getContainerContents(container, records);
+  const usage = getContainerSlotUsage(container, records);
+  const overCapacity =
+    usage.capacitySlots !== undefined && usage.usedSlots > usage.capacitySlots;
+  const tone: LoadTone =
+    usage.capacitySlots === undefined
+      ? "ok"
+      : capacityTone(usage.usedSlots, usage.capacitySlots);
 
   return (
-    <div className="gear-container">
-      <DraggableRecordRow record={container} allRecords={records} />
+    <div className="cont">
+      <div className="chead">
+        <ContainerHandle record={container} allRecords={records} />
+        {usage.capacitySlots !== undefined ? (
+          <>
+            <CapBar
+              used={usage.usedSlots}
+              max={usage.capacitySlots}
+              tone={tone}
+            />
+            <FreeBadge
+              free={usage.capacitySlots - usage.usedSlots}
+              tone={overCapacity ? "crit" : tone}
+            />
+          </>
+        ) : null}
+      </div>
       <GearDropZone
         dropId={containerDropId(entityId, container.id)}
         target={{ entityId, placement: "container", containerId: container.id }}
-        className="gear-container-body"
+        className={`cbody${contents.length === 0 ? " empty" : ""}`}
       >
-        <RecordRows
-          entityId={entityId}
-          records={contents}
-          allRecords={records}
-          emptyLabel="Empty"
-        />
+        {contents.length === 0 ? (
+          <span className="empty-label">empty — drop here</span>
+        ) : (
+          <RecordRows
+            entityId={entityId}
+            records={contents}
+            allRecords={records}
+            emptyLabel="empty — drop here"
+          />
+        )}
       </GearDropZone>
     </div>
   );
@@ -674,7 +776,7 @@ function RecordRows({
   emptyLabel: string;
 }) {
   if (records.length === 0) {
-    return <p className="gear-slot-empty">{emptyLabel}</p>;
+    return <span className="empty-label">{emptyLabel}</span>;
   }
 
   return (
@@ -688,9 +790,7 @@ function RecordRows({
             records={allRecords}
           />
         ) : record.recordType === "coins" ? (
-          <div className="rs-item rs-item-static" key={record.id}>
-            <RecordRowContent record={record} allRecords={allRecords} />
-          </div>
+          <StaticRecordRow key={record.id} record={record} allRecords={allRecords} />
         ) : (
           <DraggableRecordRow
             key={record.id}
@@ -712,15 +812,15 @@ function DraggableRecordRow({
 }) {
   const drag = useContext(GearDragContext);
   const data: GearDragData = { type: "gear-record", recordId: record.id };
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
     useDraggable({ id: recordDraggableId(record.id), data });
   const style = transform
     ? { transform: CSS.Translate.toString(transform) }
     : undefined;
   const className = [
-    "rs-item",
-    isDragging ? "is-dragging" : "",
-    drag.justMovedId === record.id ? "just-moved" : "",
+    "item",
+    isDragging ? "drag-ghost" : "",
+    drag.justMovedId === record.id ? "justmoved" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -728,93 +828,164 @@ function DraggableRecordRow({
   return (
     <div ref={setNodeRef} style={style} className={className} data-record-id={record.id}>
       <button
+        ref={setActivatorNodeRef}
         type="button"
-        className="rs-grip grip"
+        className="grip"
         aria-label={`Move ${getInventoryRowDisplay(record, allRecords).primaryText}`}
         {...attributes}
         {...listeners}
       >
         ⠿
       </button>
-      <RecordRowContent record={record} allRecords={allRecords} />
+      <RecordRowBody record={record} allRecords={allRecords} />
     </div>
   );
 }
 
-function RecordRowContent({
+function StaticRecordRow({
   record,
   allRecords,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
 }) {
+  return (
+    <div className="item item-static" data-record-id={record.id}>
+      <span className="grip grip-static" aria-hidden="true">
+        ⠿
+      </span>
+      <RecordRowBody record={record} allRecords={allRecords} />
+    </div>
+  );
+}
+
+function ContainerHandle({
+  record,
+  allRecords,
+}: {
+  record: InventoryRecord;
+  allRecords: InventoryRecord[];
+}) {
+  const actions = useGearActions();
+  const drag = useContext(GearDragContext);
+  const data: GearDragData = { type: "gear-record", recordId: record.id };
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
+    useDraggable({ id: recordDraggableId(record.id), data });
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform) }
+    : undefined;
+  const className = [
+    "cname-row",
+    isDragging ? "drag-ghost" : "",
+    drag.justMovedId === record.id ? "justmoved" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div ref={setNodeRef} style={style} className={className} data-record-id={record.id}>
+      <button
+        ref={setActivatorNodeRef}
+        type="button"
+        className="grip"
+        aria-label={`Move ${getInventoryRowDisplay(record, allRecords).primaryText}`}
+        {...attributes}
+        {...listeners}
+      >
+        ⠿
+      </button>
+      <button
+        type="button"
+        className="cname"
+        onClick={() => actions.onEditRecord(record)}
+      >
+        {getInventoryRowDisplay(record, allRecords).primaryText}
+      </button>
+    </div>
+  );
+}
+
+function RecordRowBody({
+  record,
+  allRecords,
+}: {
+  record: InventoryRecord;
+  allRecords: InventoryRecord[];
+}) {
+  const actions = useGearActions();
   const display = getInventoryRowDisplay(record, allRecords);
-  const isLit = record.recordType !== "coins" && record.light?.isLit === true;
-  const isUnidentified =
-    record.recordType !== "coins" &&
-    record.recordType !== "treasure" &&
-    record.identification?.identified === false;
+  const canIdentify =
+    actions.currentUserPartyRole !== "player" && isUnidentified(record);
 
   return (
     <>
-      <span className="rs-item-name">{display.primaryText}</span>
-      {isUnidentified ? (
-        <span className="rs-tag rs-tag-unid" title="Unidentified item">
-          ?
-        </span>
-      ) : null}
-      {isLit ? <LitMarker record={record} /> : null}
+      <button
+        type="button"
+        className="iname iname-button"
+        onClick={() => actions.onEditRecord(record)}
+      >
+        {display.primaryText}
+        <StateGlyphs record={record} />
+      </button>
       {display.secondaryText ? (
-        <span className="rs-item-secondary">· {display.secondaryText}</span>
+        <span className="isecondary">{display.secondaryText}</span>
       ) : null}
-      <span className="rs-item-right">
-        {record.container ? (
-          <ContainerCapacity record={record} allRecords={allRecords} />
-        ) : (
-          <SlotPipIndicator slots={getRecordSlotBurden(record)} />
-        )}
-      </span>
+      {canIdentify ? (
+        <button
+          type="button"
+          className="act"
+          onClick={() => actions.onIdentifyRecord(record.id)}
+        >
+          Identify
+        </button>
+      ) : null}
+      <Pips slots={getRecordSlotBurden(record)} />
     </>
   );
 }
 
-function ContainerCapacity({
-  record,
-  allRecords,
-}: {
-  record: InventoryRecord;
-  allRecords: InventoryRecord[];
-}) {
-  const usage = getContainerSlotUsage(record, allRecords);
-  const overCapacity =
-    usage.capacitySlots !== undefined && usage.usedSlots > usage.capacitySlots;
-
-  return (
-    <span className={`rs-capacity${overCapacity ? " is-over" : ""}`}>
-      {usage.usedSlots}
-      {usage.capacitySlots === undefined ? "" : `/${usage.capacitySlots}`}
-    </span>
-  );
-}
-
-function LitMarker({ record }: { record: InventoryRecord }) {
+function StateGlyphs({ record }: { record: InventoryRecord }) {
   if (record.recordType === "coins") {
     return null;
   }
 
-  const description = record.light?.lightDescription?.trim();
-  const uses = record.uses;
-  const usesText = uses
-    ? uses.max !== undefined
-      ? `${uses.current}/${uses.max}`
-      : `${uses.current}`
-    : undefined;
+  const lit = record.light?.isLit === true;
+  const unidentified = isUnidentified(record);
+  const magic = record.isMagic === true;
+  const litTitle = lit ? buildLitTitle(record) : undefined;
 
   return (
-    <span className="rs-lit" title="Light source is lit">
-      <span aria-hidden="true">🔥</span>
-      {description ? <span className="rs-lit-desc">{description}</span> : null}
-      {usesText ? <span className="rs-lit-uses">{usesText}</span> : null}
+    <>
+      {lit ? <span className="dot lit" title={litTitle} /> : null}
+      {unidentified ? (
+        <span className="gl unid" title="unidentified">
+          ?
+        </span>
+      ) : magic ? (
+        <span className="gl" title="magical">
+          ✦
+        </span>
+      ) : null}
+    </>
+  );
+}
+
+function Pips({ slots }: { slots: number }) {
+  if (slots <= 0) {
+    return <span className="islots faint">·</span>;
+  }
+
+  if (slots <= 3) {
+    return (
+      <span className="islots">
+        <b>{"■".repeat(slots)}</b>
+      </span>
+    );
+  }
+
+  return (
+    <span className="islots">
+      ■<b>×{slots}</b>
     </span>
   );
 }
@@ -842,10 +1013,10 @@ function GearDropZone({
   return (
     <div
       ref={setNodeRef}
-      className={`dropzone ${className}${isOver ? " is-over" : ""}${
-        projection?.invalid ? " is-invalid" : ""
+      className={`dropzone ${className}${isOver ? " over" : ""}${
+        projection?.invalid ? " over-bad" : ""
       }`}
-      data-projection={projection?.text ?? undefined}
+      data-proj={projection?.text ?? undefined}
     >
       {children}
     </div>
@@ -853,10 +1024,10 @@ function GearDropZone({
 }
 
 // ---------------------------------------------------------------------------
-// Floor
+// The Floor (treasure tray)
 // ---------------------------------------------------------------------------
 
-function FloorBar({
+function FloorTray({
   floorEntity,
   records,
   onCreateFloor,
@@ -869,15 +1040,17 @@ function FloorBar({
 
   if (!floorEntity) {
     return (
-      <div className="gear-floor">
-        <div className="gear-floor-header">
-          <span className="gear-floor-title">The Floor</span>
-          <span className="gear-floor-summary">not set up</span>
-          <button type="button" className="gear-floor-toggle" onClick={onCreateFloor}>
-            Create the Floor
-          </button>
+      <aside className="tray">
+        <div className="tinner">
+          <div className="thead">
+            <span className="tt">The Floor</span>
+            <span className="tmeta">not set up</span>
+            <button type="button" className="collapse" onClick={onCreateFloor}>
+              Create the Floor
+            </button>
+          </div>
         </div>
-      </div>
+      </aside>
     );
   }
 
@@ -889,34 +1062,36 @@ function FloorBar({
   );
 
   return (
-    <div className={`gear-floor${collapsed ? " is-collapsed" : ""}`}>
-      <div className="gear-floor-header">
-        <span className="gear-floor-title">The Floor</span>
-        <span className="gear-floor-summary">
-          {contents.length} {contents.length === 1 ? "lot" : "lots"} ·{" "}
-          {capacity.usedSlots} {capacity.usedSlots === 1 ? "slot" : "slots"}
-        </span>
-        <button
-          type="button"
-          className="gear-floor-toggle"
-          aria-expanded={!collapsed}
-          onClick={() => setCollapsed((value) => !value)}
-        >
-          {collapsed ? "Expand" : "Collapse"}
-        </button>
-      </div>
-
-      {collapsed ? null : (
-        <GearDropZone
-          dropId={contentsDropId(floorEntity.id)}
-          target={{ entityId: floorEntity.id, placement: "contents" }}
-          className="gear-floor-body"
-        >
-          {contents.length === 0 ? (
-            <p className="gear-slot-empty">nothing on the floor</p>
-          ) : (
-            <div className="gear-floor-chips">
-              {contents.map((record) =>
+    <aside className={`tray${collapsed ? " collapsed" : ""}`}>
+      <div className="tinner">
+        <div className="thead">
+          <span className="tt">The Floor</span>
+          <span className="tmeta">
+            <b>{contents.length}</b> {contents.length === 1 ? "lot" : "lots"} ·{" "}
+            <b>{capacity.usedSlots}</b>{" "}
+            {capacity.usedSlots === 1 ? "slot" : "slots"} to place
+          </span>
+          <button
+            type="button"
+            className="collapse"
+            aria-expanded={!collapsed}
+            onClick={() => setCollapsed((value) => !value)}
+          >
+            {collapsed ? "Show" : "Hide"}
+          </button>
+        </div>
+        {collapsed ? null : (
+          <GearDropZone
+            dropId={contentsDropId(floorEntity.id)}
+            target={{ entityId: floorEntity.id, placement: "contents" }}
+            className="tbody"
+          >
+            {contents.length === 0 ? (
+              <span className="hint-empty">
+                All treasure distributed — the party can move out.
+              </span>
+            ) : (
+              contents.map((record) =>
                 record.container ? (
                   <ContainerBlock
                     key={record.id}
@@ -925,9 +1100,7 @@ function FloorBar({
                     records={records}
                   />
                 ) : record.recordType === "coins" ? (
-                  <div className="rs-item rs-item-static" key={record.id}>
-                    <RecordRowContent record={record} allRecords={records} />
-                  </div>
+                  <StaticRecordRow key={record.id} record={record} allRecords={records} />
                 ) : (
                   <DraggableRecordRow
                     key={record.id}
@@ -935,12 +1108,12 @@ function FloorBar({
                     allRecords={records}
                   />
                 ),
-              )}
-            </div>
-          )}
-        </GearDropZone>
-      )}
-    </div>
+              )
+            )}
+          </GearDropZone>
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -948,11 +1121,42 @@ function FloorBar({
 // Helpers
 // ---------------------------------------------------------------------------
 
+function isUnidentified(record: InventoryRecord): boolean {
+  return (
+    record.recordType !== "coins" &&
+    record.recordType !== "treasure" &&
+    record.identification?.identified === false
+  );
+}
+
+function buildLitTitle(record: InventoryRecord): string {
+  if (record.recordType === "coins") {
+    return "lit";
+  }
+
+  const parts = ["lit"];
+  const description = record.light?.lightDescription?.trim();
+
+  if (description) {
+    parts.push(description);
+  }
+
+  if (record.uses) {
+    parts.push(
+      record.uses.max !== undefined
+        ? `${record.uses.current}/${record.uses.max} uses`
+        : `${record.uses.current} uses`,
+    );
+  }
+
+  return parts.join(" · ");
+}
+
 function formatCharacterSubtitle(entity: Entity): string {
   const character = entity.character;
 
   if (!character) {
-    return capitalize(entity.entityType);
+    return entity.entityType;
   }
 
   const className = character.className.trim();
@@ -963,12 +1167,8 @@ function formatCharacterSubtitle(entity: Entity): string {
   }
 
   if (character.level !== null) {
-    parts.push(`level ${character.level}`);
+    parts.push(`lvl ${character.level}`);
   }
 
-  return parts.length > 0 ? parts.join(" · ") : capitalize(entity.entityType);
-}
-
-function capitalize(value: string): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+  return parts.length > 0 ? parts.join(", ") : entity.entityType;
 }

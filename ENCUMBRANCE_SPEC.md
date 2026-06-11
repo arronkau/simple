@@ -156,6 +156,7 @@ Rules:
 - Contents inside any hand-held container are excluded from movement-restricting encumbrance.
 - The app should still show the held container's contained slot total for visibility.
 - A non-empty hands-required container that is not held/equipped creates an overload condition: the character cannot move.
+- This overload applies only to a container at a top-level/root carry position (`equipped`, `stowedRoot`, or `contents`). A hands-required container that is itself **nested inside another container** (`location.kind === "container"`) is packed cargo; its hands requirement does not apply while stowed, so it does not create an overload condition.
 
 ## Movement Lookup
 
@@ -449,7 +450,7 @@ The loaded held sack counts its own slot, but its contents do not count toward m
 - 17+ stowed items causes overloaded movement `0 / 0`.
 - More than 16 total equipped + stowed items causes overloaded movement `0 / 0`.
 - Container over capacity on a character-like entity causes overloaded movement `0 / 0`.
-- A non-empty hands-required container not held/equipped causes overloaded movement `0 / 0`.
+- A non-empty hands-required container not held/equipped causes overloaded movement `0 / 0`, except when that container is nested inside another container (packed cargo), which does not overload.
 - Mounts, vehicles, and storage use contents capacity, not equipped/stowed bands.
 - Backpack is a literal inventory record and follows the same container burden rules as other containers.
 - Containers always count their own slot burden whether empty or full.

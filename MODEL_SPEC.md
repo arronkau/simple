@@ -501,7 +501,7 @@ export type ContainerData = {
 - A character-like entity may not have more than one top-level stowed container.
 - An existing character-like entity with zero top-level stowed containers should warn.
 - The default top-level stowed container should normally use record-level `handsRequired: 0`.
-- A non-empty container with nonzero record-level `handsRequired` creates an overload condition if it is not being held or equipped.
+- A non-empty container with nonzero record-level `handsRequired` creates an overload condition if it is not being held or equipped — but only when that container sits at a top-level/root carry position. A hands-required container nested inside another container (`location.kind === "container"`) is packed cargo and does not create an overload condition.
 - A non-empty hands-required container may contain records even while the container itself is equipped.
 - Containers always count their own slot burden whether empty or full.
 - Contents inside containers also count toward movement encumbrance, except when the container is carried in hand.

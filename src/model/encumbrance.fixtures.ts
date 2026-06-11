@@ -436,6 +436,27 @@ const heldOverfilledSackWithBackpackRecords = [
   heldSackOverfilledRationsRecord,
 ];
 const looseSackRecords = [looseSackRecord, looseSackRationsRecord];
+const nestedHandsRequiredSackRecord: InventoryRecord = {
+  ...heldSackRecord,
+  id: "sack-nested-1",
+  location: {
+    kind: "container",
+    containerId: topLevelStowedContainerRecord.id,
+  },
+};
+const nestedSackRationsRecord: InventoryRecord = {
+  ...heldSackRationsRecord,
+  id: "nested-rations-1",
+  location: {
+    kind: "container",
+    containerId: nestedHandsRequiredSackRecord.id,
+  },
+};
+const nestedHandsRequiredSackRecords = [
+  topLevelStowedContainerRecord,
+  nestedHandsRequiredSackRecord,
+  nestedSackRationsRecord,
+];
 const cappedStorageRecords = [
   storageLoadRecord,
   smallBoxRecord,
@@ -545,6 +566,10 @@ const heldOverfilledSackWithBackpackEncumbrance = getCharacterEncumbrance(
 const looseSackEncumbrance = getCharacterEncumbrance(
   characterEntity,
   looseSackRecords,
+);
+const nestedHandsRequiredSackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  nestedHandsRequiredSackRecords,
 );
 const storageCapacity = getContentsCapacity(
   cappedStorageEntity,
@@ -801,6 +826,25 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
         handsRequiredContainerNotHeld: 1,
         missingBackpack: 1,
       },
+    },
+  },
+  {
+    name: "a hands-required container nested inside another container is packed cargo, not an overload",
+    actual: {
+      overloaded: nestedHandsRequiredSackEncumbrance.overloaded,
+      overloadedReason: nestedHandsRequiredSackEncumbrance.overloadedReason,
+      movement: nestedHandsRequiredSackEncumbrance.movement,
+      stowedItems: nestedHandsRequiredSackEncumbrance.stowedItems,
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, nestedHandsRequiredSackRecords),
+      ),
+    },
+    expected: {
+      overloaded: false,
+      overloadedReason: undefined,
+      movement: { explorationFeet: 120, encounterFeet: 40 },
+      stowedItems: 5,
+      warnings: {},
     },
   },
   {
