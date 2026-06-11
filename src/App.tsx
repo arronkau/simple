@@ -377,7 +377,6 @@ function LocalAppShell() {
 
   const isWideWorkspaceRoute = [
     `/party/${partyId}`,
-    `/party/${partyId}/inventory`,
     `/party/${partyId}/gear`,
     `/party/${partyId}/characters`,
     `/party/${partyId}/audit`,

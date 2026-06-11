@@ -500,8 +500,8 @@ export type ContainerData = {
 - On character or retainer creation, create exactly one default top-level stowed container record, normally named Backpack.
 - A character-like entity may not have more than one top-level stowed container.
 - An existing character-like entity with zero top-level stowed containers should warn.
-- The default top-level stowed container should normally use record-level `handsRequired: 0`.
-- A non-empty container with nonzero record-level `handsRequired` creates an overload condition if it is not being held or equipped — but only when that container sits at a top-level/root carry position. A hands-required container nested inside another container (`location.kind === "container"`) is packed cargo and does not create an overload condition.
+- A top-level stowed container may carry any `handsRequired` value (a backpack legitimately needs two hands to carry in hand); hands requirements are not enforced at `stowedRoot`, so the value is informational there.
+- `handsRequired` on a container describes carrying it in hand. A non-empty container with nonzero record-level `handsRequired` creates an overload condition only when its own location is `equipped` with `placement: "loose"`. It is never enforced at `stowedRoot` (worn on the back), inside another container (packed cargo), in non-character contents, or in a hand placement.
 - A non-empty hands-required container may contain records even while the container itself is equipped.
 - Containers always count their own slot burden whether empty or full.
 - Contents inside containers also count toward movement encumbrance, except when the container is carried in hand.
@@ -776,7 +776,7 @@ The following are overload conditions and set movement to `0 / 0`:
 - Stowed burden above the stowed limit.
 - Total equipped + stowed burden above 16 slots.
 - Container over capacity on a character-like entity.
-- Non-empty hands-required container not currently held/equipped.
+- Non-empty hands-required container left at equipped/loose (not held in a hand).
 
 For v1, keep the movement tier logic in one calculation module.
 

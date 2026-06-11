@@ -2144,6 +2144,21 @@ h5 {
 .gear-page {
   padding-bottom: 150px; /* clear the fixed Floor tray */
   color: var(--gear-ink);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.tray {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* The app-wide button rule sets min-height: 2.5rem and a shadow on focus;
+   the gear rows are built from buttons and must size to their content. */
+.gear-page button,
+.tray button {
+  min-height: 0;
+  box-shadow: none;
 }
 
 /* ---- sub bar (legend + add entity) ---- */
@@ -2275,7 +2290,7 @@ h5 {
   display: flex;
   align-items: center;
   gap: 11px;
-  margin-top: 10px;
+  margin-top: 9px;
 }
 .rs-head .meter .cap {
   flex: 1;
@@ -2391,7 +2406,7 @@ h5 {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 8px;
+  padding: 5px 8px;
   border-radius: 7px;
   margin-bottom: 5px;
   border: 1px solid var(--gear-line);
@@ -2429,6 +2444,9 @@ h5 {
 }
 
 /* ---- worn ---- */
+.gear-page .worn {
+  margin-top: 3px;
+}
 .gear-page .worn .item {
   border-bottom: 1px solid var(--gear-line);
   border-radius: 0;
@@ -2652,6 +2670,23 @@ h5 {
 }
 .gear-page .act:hover {
   background: #dde9fd;
+}
+
+/* ---- warning popover in card header ---- */
+.gear-page .rs-head .warning-details {
+  align-self: center;
+}
+.gear-page .warning-details summary {
+  width: 18px;
+  min-height: 18px;
+  font-size: 11px;
+}
+.gear-page .warning-details summary .inventory-icon {
+  width: 12px;
+  height: 12px;
+}
+.gear-page .warning-details-panel {
+  font-size: 12.5px;
 }
 
 /* ---- card footer ---- */

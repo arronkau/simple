@@ -23,7 +23,6 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { getSortedEntities } from "../model/entities";
 import {
   getCharacterEncumbrance,
@@ -41,6 +40,9 @@ import {
 import { getInventoryRowDisplay } from "../model/inventoryRowDisplay";
 import { isCharacterLikeEntity } from "../model/validation";
 import { sortInventoryRecordsBySortOrder } from "../model/inventoryRecords";
+import type { AppState } from "../model/appState";
+import { getEntityInventoryStatus } from "../entity/EntityStatus";
+import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import type {
   Entity,
   InventoryRecord,
@@ -289,6 +291,7 @@ export function PartyGearPage(actions: GearActions) {
                 {boardEntities.map((entity) => (
                   <GearEntityCard
                     key={entity.id}
+                    appState={appState}
                     entity={entity}
                     records={records}
                   />
@@ -303,7 +306,7 @@ export function PartyGearPage(actions: GearActions) {
             onCreateFloor={handleCreateFloor}
           />
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={null}>
             {activeRecord ? (
               <div className="item item-overlay">
                 <span className="grip">⠿</span>
@@ -340,23 +343,31 @@ const gearCollisionDetection: CollisionDetection = (args) => {
 // ---------------------------------------------------------------------------
 
 function GearEntityCard({
+  appState,
   entity,
   records,
 }: {
+  appState: AppState;
   entity: Entity;
   records: InventoryRecord[];
 }) {
   if (isCharacterLikeEntity(entity)) {
-    return <CharacterGearCard entity={entity} records={records} />;
+    return (
+      <CharacterGearCard appState={appState} entity={entity} records={records} />
+    );
   }
 
-  return <ContentsGearCard entity={entity} records={records} />;
+  return (
+    <ContentsGearCard appState={appState} entity={entity} records={records} />
+  );
 }
 
 function CharacterGearCard({
+  appState,
   entity,
   records,
 }: {
+  appState: AppState;
   entity: Entity;
   records: InventoryRecord[];
 }) {
@@ -366,6 +377,7 @@ function CharacterGearCard({
     records,
   ) as CharacterInventorySections;
   const encumbrance = getCharacterEncumbrance(entity, records);
+  const status = getEntityInventoryStatus(entity, appState);
   const total = encumbrance.equippedItems + encumbrance.stowedItems;
   const tone = loadTone(encumbrance);
   const subtitle = formatCharacterSubtitle(entity);
@@ -383,6 +395,10 @@ function CharacterGearCard({
           </button>
           <span className="sub">{subtitle}</span>
           <MovementBadge encumbrance={encumbrance} />
+          <WarningDetailsButton
+            validationIssues={status.validationIssues}
+            warnings={status.warnings}
+          />
         </div>
         <div className="meter">
           <CapBar used={total} max={16} tone={tone} />
@@ -429,14 +445,17 @@ function CharacterGearCard({
 }
 
 function ContentsGearCard({
+  appState,
   entity,
   records,
 }: {
+  appState: AppState;
   entity: Entity;
   records: InventoryRecord[];
 }) {
   const actions = useGearActions();
   const capacity = getContentsCapacity(entity, records);
+  const status = getEntityInventoryStatus(entity, appState);
   const contents = sortInventoryRecordsBySortOrder(
     getOwnedRecords(entity.id, records).filter(
       (record) => record.location.kind === "contents",
@@ -458,6 +477,10 @@ function ContentsGearCard({
           {entity.baseMovementFeet !== undefined ? (
             <span className="mv">{entity.baseMovementFeet}′</span>
           ) : null}
+          <WarningDetailsButton
+            validationIssues={status.validationIssues}
+            warnings={status.warnings}
+          />
         </div>
         {capacity.capacitySlots !== undefined ? (
           <div className="meter">
@@ -812,11 +835,10 @@ function DraggableRecordRow({
 }) {
   const drag = useContext(GearDragContext);
   const data: GearDragData = { type: "gear-record", recordId: record.id };
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
+  // The DragOverlay is the only moving preview — never transform the source
+  // row, or it tears out of its container mid-drag.
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
     useDraggable({ id: recordDraggableId(record.id), data });
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
   const className = [
     "item",
     isDragging ? "drag-ghost" : "",
@@ -826,7 +848,7 @@ function DraggableRecordRow({
     .join(" ");
 
   return (
-    <div ref={setNodeRef} style={style} className={className} data-record-id={record.id}>
+    <div ref={setNodeRef} className={className} data-record-id={record.id}>
       <button
         ref={setActivatorNodeRef}
         type="button"
@@ -869,11 +891,8 @@ function ContainerHandle({
   const actions = useGearActions();
   const drag = useContext(GearDragContext);
   const data: GearDragData = { type: "gear-record", recordId: record.id };
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
     useDraggable({ id: recordDraggableId(record.id), data });
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
   const className = [
     "cname-row",
     isDragging ? "drag-ghost" : "",
@@ -883,7 +902,7 @@ function ContainerHandle({
     .join(" ");
 
   return (
-    <div ref={setNodeRef} style={style} className={className} data-record-id={record.id}>
+    <div ref={setNodeRef} className={className} data-record-id={record.id}>
       <button
         ref={setActivatorNodeRef}
         type="button"
