@@ -2485,19 +2485,45 @@ h5 {
   font-size: 12px;
   color: var(--gear-ink-2);
 }
+.gear-page .coins-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  min-height: 0;
+  font-weight: 400;
+  cursor: pointer;
+}
+.gear-page .coins-button:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--gear-line-3);
+  text-underline-offset: 2px;
+}
+
+/* ---- ordered-list zone bodies ---- */
+.gear-page .zone-body {
+  padding: 2px;
+  min-height: 18px;
+}
 
 /* ---- containers ---- */
 .gear-page .cont {
-  margin-bottom: 11px;
+  margin-bottom: 8px;
 }
 .gear-page .cont:last-child {
   margin-bottom: 0;
 }
+/* A container that is itself an item in a list keeps tight spacing. */
+.gear-page .record-list > .cont {
+  margin: 2px 0;
+}
 .gear-page .chead {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 5px;
+  padding: 3px 4px;
+  border-radius: 7px;
+  cursor: grab;
 }
 .gear-page .cname-row {
   display: inline-flex;
@@ -2536,7 +2562,7 @@ h5 {
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 6px 9px 6px 6px;
+  padding: 6px 9px 6px 5px;
   border-radius: 7px;
   cursor: grab;
   position: relative;
@@ -2546,27 +2572,61 @@ h5 {
   background: #f1f4f8;
   border-color: var(--gear-line);
 }
+/* The whole row / container header is the drag handle, so suppress text
+   selection while grabbing and keep the grab cursor across the row. */
+.gear-page .drag-row {
+  touch-action: none;
+  user-select: none;
+}
 .gear-page .grip,
 .item-overlay .grip {
-  border: 0;
-  background: none;
-  padding: 0;
   font-family: var(--gear-mono);
   color: var(--gear-line-3);
   font-size: 13px;
   line-height: 1;
-  width: 11px;
+  width: 14px;
   flex: none;
-  cursor: grab;
-  opacity: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.4;
   transition: opacity 0.12s;
 }
-.gear-page .item:hover .grip,
-.gear-page .grip:focus-visible {
+.gear-page .drag-row:hover .grip,
+.gear-page .drag-row:focus-visible .grip {
   opacity: 1;
 }
-.gear-page .item.drag-ghost {
+.gear-page .drag-row:focus-visible {
+  outline: 2px solid var(--gear-accent);
+  outline-offset: -2px;
+}
+.gear-page .item.drag-ghost,
+.gear-page .chead.drag-ghost {
   opacity: 0.35;
+}
+
+/* ---- ordered list + reorder gaps ---- */
+.gear-page .record-list {
+  display: flex;
+  flex-direction: column;
+}
+.gear-page .gear-gap {
+  position: relative;
+  height: 8px;
+  margin: -4px 0;
+  z-index: 1;
+}
+.gear-page .gear-gap.over::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-1px);
+  background: var(--gear-accent);
+  border-radius: 2px;
 }
 @keyframes gearflashin {
   0% {
@@ -2611,24 +2671,32 @@ h5 {
 }
 
 /* ---- state glyphs ---- */
-.gear-page .gl {
+.gear-page .rs-glyphs {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+}
+.gear-page .rs-glyphs:empty {
+  display: none;
+}
+.gear-page .gl,
+.tray .gl {
   font-size: 12px;
   color: var(--gear-ink-2);
-  margin-left: 5px;
-  vertical-align: baseline;
+  line-height: 1;
 }
 .gear-page .gl.unid,
 .tray .gl.unid {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1.3px solid var(--gear-ink-2);
   border-radius: 50%;
   width: 14px;
   height: 14px;
-  line-height: 12px;
-  text-align: center;
   font-size: 9px;
   color: var(--gear-ink-2);
-  margin-left: 6px;
 }
 .gear-page .dot,
 .tray .dot {
@@ -2636,19 +2704,26 @@ h5 {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  margin-left: 6px;
-  vertical-align: middle;
+  flex: none;
 }
 .gear-page .dot.lit,
-.tray .dot.lit {
+.tray .dot.lit,
+.gear-legend .dot.lit {
   background: var(--gear-fire);
   box-shadow: 0 0 0 2px var(--gear-fire-tint);
-  margin-left: 0;
 }
-.gear-legend .dot.lit,
-.gear-legend .gl.unid,
-.gear-legend .gl {
-  margin-left: 0;
+.gear-page .rs-ac {
+  display: inline-flex;
+  align-items: center;
+  width: 13px;
+  height: 13px;
+}
+.gear-page .rs-ac .inventory-icon {
+  width: 13px;
+  height: 13px;
+}
+.gear-legend {
+  align-items: center;
 }
 
 /* ---- inline action button (Identify / Spend) ---- */
@@ -2714,7 +2789,7 @@ h5 {
   position: relative;
   transition: background 0.12s, box-shadow 0.12s;
 }
-.gear-page.dragging .dropzone {
+.gear-page.dragging .dropzone:not(.no-reveal) {
   outline: 1px dashed var(--gear-line-3);
   outline-offset: -3px;
   border-radius: 7px;

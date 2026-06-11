@@ -1,5 +1,6 @@
 import {
   createContext,
+  Fragment,
   useContext,
   useMemo,
   useRef,
@@ -29,7 +30,11 @@ import {
   getContentsCapacity,
   type CharacterEncumbranceResult,
 } from "../model/encumbrance";
-import { getContainerSlotUsage, getRecordSlotBurden } from "../model/calculations";
+import {
+  getContainerSlotUsage,
+  getRecordSlotBurden,
+  isArmorClassActiveRecord,
+} from "../model/calculations";
 import {
   getContainerContents,
   getInventorySections,
@@ -43,6 +48,7 @@ import { sortInventoryRecordsBySortOrder } from "../model/inventoryRecords";
 import type { AppState } from "../model/appState";
 import { getEntityInventoryStatus } from "../entity/EntityStatus";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
+import { ItemStatusIcon } from "../components/InventoryIcons";
 import type {
   Entity,
   EntityId,
@@ -58,12 +64,16 @@ import {
   containerDropId,
   contentsDropId,
   dropTargetToLocationInput,
+  gapDropId,
   handDropId,
   looseDropId,
   recordDraggableId,
+  zoneKeyForTarget,
   type GearDragData,
   type GearDropData,
   type GearDropTarget,
+  type GearGapData,
+  type GearOverData,
 } from "./gearDnd";
 import { projectMove, type MoveProjection } from "./gearProjection";
 import { resolveFloorEntity, useFloorUiStore } from "./floorUiStore";
@@ -184,9 +194,7 @@ export function PartyGearPage(actions: GearActions) {
     targetEntityId: EntityId,
   ): boolean {
     const record = getRecordById(recordId, records);
-    const targetEntity = entities.find(
-      (entity) => entity.id === targetEntityId,
-    );
+    const targetEntity = entities.find((entity) => entity.id === targetEntityId);
 
     return (
       record?.recordType === "coins" &&
@@ -197,16 +205,15 @@ export function PartyGearPage(actions: GearActions) {
 
   function handleDragOver(event: DragOverEvent) {
     const activeData = event.active.data.current as GearDragData | undefined;
-    const overData = event.over?.data.current as GearDropData | undefined;
+    const overData = event.over?.data.current as GearOverData | undefined;
     const overId = event.over ? String(event.over.id) : null;
 
+    // Only zone drops show the projection pill; reorder gaps just show a line.
     if (!activeData || !overData || overData.type !== "gear-zone" || !overId) {
       setDragState((state) => ({ ...state, overId: null, projection: null }));
       return;
     }
 
-    // Coins dropped on a character open the take-all/take-some transfer
-    // modal instead of moving the record, so don't project a blocked move.
     const projection = isCoinDropOnCharacter(
       activeData.recordId,
       overData.target.entityId,
@@ -217,29 +224,26 @@ export function PartyGearPage(actions: GearActions) {
     setDragState((state) => ({ ...state, overId, projection }));
   }
 
-  function handleDragEnd(event: DragEndEvent) {
-    const activeData = event.active.data.current as GearDragData | undefined;
-    const overData = event.over?.data.current as GearDropData | undefined;
-
-    if (!activeData || !overData || overData.type !== "gear-zone") {
-      resetDrag();
-      return;
-    }
-
-    if (isCoinDropOnCharacter(activeData.recordId, overData.target.entityId)) {
-      const record = getRecordById(activeData.recordId, records);
+  function applyMove(
+    recordId: InventoryRecordId,
+    target: GearDropTarget,
+    targetIndex: number | undefined,
+  ) {
+    if (isCoinDropOnCharacter(recordId, target.entityId)) {
+      const record = getRecordById(recordId, records);
 
       if (record) {
-        actions.onRequestCoinTransfer(record, overData.target.entityId);
+        actions.onRequestCoinTransfer(record, target.entityId);
       }
 
       resetDrag();
       return;
     }
 
+    const location = dropTargetToLocationInput(target);
     const result = moveInventoryRecord(
-      activeData.recordId,
-      dropTargetToLocationInput(overData.target),
+      recordId,
+      targetIndex === undefined ? location : { ...location, targetIndex },
     );
 
     if (!result.ok) {
@@ -249,7 +253,7 @@ export function PartyGearPage(actions: GearActions) {
     }
 
     setDragMessage(undefined);
-    resetDrag(activeData.recordId);
+    resetDrag(recordId);
 
     if (justMovedTimer.current) {
       clearTimeout(justMovedTimer.current);
@@ -257,11 +261,45 @@ export function PartyGearPage(actions: GearActions) {
 
     justMovedTimer.current = setTimeout(() => {
       setDragState((state) =>
-        state.justMovedId === activeData.recordId
+        state.justMovedId === recordId
           ? { ...state, justMovedId: null }
           : state,
       );
     }, 800);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const activeData = event.active.data.current as GearDragData | undefined;
+    const overData = event.over?.data.current as GearOverData | undefined;
+
+    if (!activeData || !overData) {
+      resetDrag();
+      return;
+    }
+
+    if (overData.type === "gear-gap") {
+      let targetIndex = overData.index;
+
+      // Same-list reorder: the gap index counts the dragged row, so adjust.
+      if (
+        activeData.zoneKey === overData.zoneKey &&
+        activeData.index !== undefined
+      ) {
+        if (overData.index > activeData.index) {
+          targetIndex -= 1;
+        }
+
+        if (targetIndex === activeData.index) {
+          resetDrag();
+          return;
+        }
+      }
+
+      applyMove(activeData.recordId, overData.target, targetIndex);
+      return;
+    }
+
+    applyMove(activeData.recordId, overData.target, undefined);
   }
 
   function handleCreateFloor() {
@@ -295,7 +333,7 @@ export function PartyGearPage(actions: GearActions) {
             <div className="gear-subbar">
               <div className="gear-legend">
                 <span className="leg">
-                  Drag the <b>⠿</b> handle — across cards too
+                  Drag a row — across cards too
                 </span>
                 <span className="leg">
                   <span className="dot lit" /> lit
@@ -305,9 +343,6 @@ export function PartyGearPage(actions: GearActions) {
                 </span>
                 <span className="leg">
                   <span className="gl">✦</span> magic
-                </span>
-                <span className="leg">
-                  <span className="loadbar" /> load
                 </span>
               </div>
               <button
@@ -344,7 +379,9 @@ export function PartyGearPage(actions: GearActions) {
           <DragOverlay dropAnimation={null}>
             {activeRecord ? (
               <div className="item item-overlay">
-                <span className="grip">⠿</span>
+                <span className="grip" aria-hidden="true">
+                  ⠿
+                </span>
                 <span className="iname">
                   {getInventoryRowDisplay(activeRecord, records).primaryText}
                 </span>
@@ -362,15 +399,29 @@ export function PartyGearPage(actions: GearActions) {
 }
 
 const gearCollisionDetection: CollisionDetection = (args) => {
-  const droppableContainers = args.droppableContainers.filter(
-    (container) => container.data.current?.type === "gear-zone",
-  );
+  const droppableContainers = args.droppableContainers.filter((container) => {
+    const type = container.data.current?.type;
+    return type === "gear-zone" || type === "gear-gap";
+  });
   const scopedArgs = { ...args, droppableContainers };
   const pointerCollisions = pointerWithin(scopedArgs);
 
-  return pointerCollisions.length > 0
-    ? pointerCollisions
-    : closestCenter(scopedArgs);
+  if (pointerCollisions.length === 0) {
+    return closestCenter(scopedArgs);
+  }
+
+  // Prefer a reorder gap when the pointer is between rows; otherwise the zone.
+  const gapContainers = droppableContainers.filter(
+    (container) =>
+      container.data.current?.type === "gear-gap" &&
+      pointerCollisions.some((collision) => collision.id === container.id),
+  );
+
+  if (gapContainers.length > 0) {
+    return closestCenter({ ...args, droppableContainers: gapContainers });
+  }
+
+  return pointerCollisions;
 };
 
 // ---------------------------------------------------------------------------
@@ -414,12 +465,16 @@ function CharacterGearCard({
   const encumbrance = getCharacterEncumbrance(entity, records);
   const status = getEntityInventoryStatus(entity, appState);
   const total = encumbrance.equippedItems + encumbrance.stowedItems;
-  const tone = loadTone(encumbrance);
+  const tone = capacityTone(total, 16);
   const subtitle = formatCharacterSubtitle(entity);
+  const backpack = sections.topLevelStowedContainerRecord;
+  const defaultTarget: GearDropTarget = backpack
+    ? { entityId: entity.id, placement: "container", containerId: backpack.id }
+    : { entityId: entity.id, placement: "equippedLoose" };
 
   return (
     <article className="rs-card" data-inactive={!entity.active}>
-      <div className="rs-head">
+      <EntityHeaderDrop entityId={entity.id} target={defaultTarget}>
         <div className="top">
           <button
             type="button"
@@ -439,7 +494,7 @@ function CharacterGearCard({
           <CapBar used={total} max={16} tone={tone} />
           <FreeBadge free={16 - total} tone={tone} />
         </div>
-      </div>
+      </EntityHeaderDrop>
 
       <div className="zone ready-zone">
         <div className="zhead">
@@ -447,7 +502,11 @@ function CharacterGearCard({
         </div>
         <HandRows entityId={entity.id} sections={sections} records={records} />
         <div className="worn-label micro">Worn</div>
-        <WornZone entityId={entity.id} records={records} worn={sections.otherEquipped} />
+        <WornZone
+          entityId={entity.id}
+          records={records}
+          worn={sections.otherEquipped}
+        />
       </div>
 
       <div className="zone stowed-zone">
@@ -455,10 +514,10 @@ function CharacterGearCard({
           <span className="micro">Stowed</span>
         </div>
         <CoinRow record={sections.coinRecord} />
-        {sections.topLevelStowedContainerRecord ? (
+        {backpack ? (
           <ContainerBlock
             entityId={entity.id}
-            container={sections.topLevelStowedContainerRecord}
+            container={backpack}
             records={records}
           />
         ) : (
@@ -491,6 +550,10 @@ function ContentsGearCard({
   const actions = useGearActions();
   const capacity = getContentsCapacity(entity, records);
   const status = getEntityInventoryStatus(entity, appState);
+  const contentsTarget: GearDropTarget = {
+    entityId: entity.id,
+    placement: "contents",
+  };
   const contents = sortInventoryRecordsBySortOrder(
     getOwnedRecords(entity.id, records).filter(
       (record) => record.location.kind === "contents",
@@ -499,7 +562,7 @@ function ContentsGearCard({
 
   return (
     <article className="rs-card" data-inactive={!entity.active}>
-      <div className="rs-head">
+      <EntityHeaderDrop entityId={entity.id} target={contentsTarget}>
         <div className="top">
           <button
             type="button"
@@ -530,7 +593,7 @@ function ContentsGearCard({
             />
           </div>
         ) : null}
-      </div>
+      </EntityHeaderDrop>
 
       <div className="zone stowed-zone">
         <div className="zhead">
@@ -538,11 +601,12 @@ function ContentsGearCard({
         </div>
         <GearDropZone
           dropId={contentsDropId(entity.id)}
-          target={{ entityId: entity.id, placement: "contents" }}
+          target={contentsTarget}
           className="zone-body"
         >
-          <RecordRows
+          <RecordList
             entityId={entity.id}
+            target={contentsTarget}
             records={contents}
             allRecords={records}
             emptyLabel="empty — drop here"
@@ -563,17 +627,39 @@ function ContentsGearCard({
   );
 }
 
+function EntityHeaderDrop({
+  entityId,
+  target,
+  children,
+}: {
+  entityId: EntityId;
+  target: GearDropTarget;
+  children: ReactNode;
+}) {
+  const drag = useContext(GearDragContext);
+  const dropId = `drop:${entityId}:header`;
+  const data: GearDropData = { type: "gear-zone", target };
+  const { setNodeRef, isOver } = useDroppable({ id: dropId, data });
+  const projection = isOver && drag.overId === dropId ? drag.projection : null;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rs-head dropzone no-reveal${isOver ? " over" : ""}${
+        projection?.invalid ? " over-bad" : ""
+      }`}
+      data-proj={projection?.text ?? undefined}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Header pieces
 // ---------------------------------------------------------------------------
 
-function loadTone(encumbrance: CharacterEncumbranceResult): LoadTone {
-  if (encumbrance.overloaded) {
-    return "crit";
-  }
-
-  return encumbrance.band === "normal" ? "ok" : "warn";
-}
+type LoadTone = "ok" | "warn" | "crit";
 
 function capacityTone(used: number, max: number): LoadTone {
   if (used > max) {
@@ -583,26 +669,39 @@ function capacityTone(used: number, max: number): LoadTone {
   return used / max >= 0.85 ? "warn" : "ok";
 }
 
-type LoadTone = "ok" | "warn" | "crit";
-
 function MovementBadge({
   encumbrance,
 }: {
   encumbrance: CharacterEncumbranceResult;
 }) {
+  // Keep movement colors restrained: only the bottom tier (30') is amber and
+  // overloaded (0') is red; 120'/90'/60' read as neutral.
   const cls = encumbrance.overloaded
     ? "zero"
-    : encumbrance.band === "normal"
-      ? ""
-      : "reduced";
+    : encumbrance.band === "heavilyEncumbered"
+      ? "reduced"
+      : "";
   const text = encumbrance.overloaded
     ? "0′"
     : `${encumbrance.movement.explorationFeet}′ (${encumbrance.movement.encounterFeet}′)`;
 
-  return <span className={`mv ${cls}`}>{encumbrance.overloaded ? "⚠ " : ""}{text}</span>;
+  return (
+    <span className={`mv ${cls}`}>
+      {encumbrance.overloaded ? "⚠ " : ""}
+      {text}
+    </span>
+  );
 }
 
-function CapBar({ used, max, tone }: { used: number; max: number; tone: LoadTone }) {
+function CapBar({
+  used,
+  max,
+  tone,
+}: {
+  used: number;
+  max: number;
+  tone: LoadTone;
+}) {
   const pct = max > 0 ? Math.min(100, Math.round((100 * used) / max)) : 0;
 
   return (
@@ -698,7 +797,7 @@ function HandSlot({
     >
       <span className="hlabel">{isBoth ? "Both hands" : label}</span>
       {record ? (
-        <DraggableRecordRow record={record} allRecords={records} />
+        <DraggableRow record={record} allRecords={records} />
       ) : (
         <span className="empty-label">empty</span>
       )}
@@ -715,23 +814,21 @@ function WornZone({
   worn: InventoryRecord[];
   records: InventoryRecord[];
 }) {
+  const target: GearDropTarget = { entityId, placement: "equippedLoose" };
+
   return (
     <GearDropZone
       dropId={looseDropId(entityId)}
-      target={{ entityId, placement: "equippedLoose" }}
+      target={target}
       className={`worn${worn.length === 0 ? " empty" : ""}`}
     >
-      {worn.length === 0 ? (
-        <span className="empty-label">nothing worn — drop here</span>
-      ) : (
-        worn.map((record) => (
-          <DraggableRecordRow
-            key={record.id}
-            record={record}
-            allRecords={records}
-          />
-        ))
-      )}
+      <RecordList
+        entityId={entityId}
+        target={target}
+        records={worn}
+        allRecords={records}
+        emptyLabel="nothing worn — drop here"
+      />
     </GearDropZone>
   );
 }
@@ -748,33 +845,36 @@ function CoinRow({ record }: { record?: InventoryRecord }) {
   return (
     <div className="coinrow">
       <span className="micro coins-label">Coins</span>
-      <span className="coins">{display.primaryText}</span>
-      <Pips slots={getRecordSlotBurden(record)} />
       <button
         type="button"
-        className="act"
-        onClick={() => actions.onSpendCoins(record)}
+        className="coins coins-button"
+        onClick={() => actions.onEditRecord(record)}
       >
-        Spend
+        {display.primaryText}
       </button>
+      <Pips slots={getRecordSlotBurden(record)} />
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Containers + record rows
+// Containers + ordered record lists
 // ---------------------------------------------------------------------------
 
 function ContainerBlock({
   entityId,
   container,
   records,
+  zoneKey,
+  index,
 }: {
   entityId: string;
   container: InventoryRecord;
   records: InventoryRecord[];
+  /** Parent list key + index, present when this container can be reordered. */
+  zoneKey?: string;
+  index?: number;
 }) {
-  const actions = useGearActions();
   const contents = getContainerContents(container, records);
   const usage = getContainerSlotUsage(container, records);
   const overCapacity =
@@ -783,134 +883,224 @@ function ContainerBlock({
     usage.capacitySlots === undefined
       ? "ok"
       : capacityTone(usage.usedSlots, usage.capacitySlots);
+  const containerTarget: GearDropTarget = {
+    entityId,
+    placement: "container",
+    containerId: container.id,
+  };
 
   return (
     <div className="cont">
-      <div className="chead">
-        <ContainerHandle record={container} allRecords={records} />
+      <ContainerHeader
+        container={container}
+        allRecords={records}
+        target={containerTarget}
+        zoneKey={zoneKey}
+        index={index}
+      >
         {usage.capacitySlots !== undefined ? (
           <>
-            <CapBar
-              used={usage.usedSlots}
-              max={usage.capacitySlots}
-              tone={tone}
-            />
+            <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
             <FreeBadge
               free={usage.capacitySlots - usage.usedSlots}
               tone={overCapacity ? "crit" : tone}
             />
           </>
         ) : null}
-      </div>
+      </ContainerHeader>
       <GearDropZone
         dropId={containerDropId(entityId, container.id)}
-        target={{ entityId, placement: "container", containerId: container.id }}
+        target={containerTarget}
         className={`cbody${contents.length === 0 ? " empty" : ""}`}
       >
-        {contents.length === 0 ? (
-          <span className="empty-label">empty — drop here</span>
-        ) : (
-          <RecordRows
-            entityId={entityId}
-            records={contents}
-            allRecords={records}
-            emptyLabel="empty — drop here"
-          />
-        )}
+        <RecordList
+          entityId={entityId}
+          target={containerTarget}
+          records={contents}
+          allRecords={records}
+          emptyLabel="empty — drop here"
+        />
       </GearDropZone>
     </div>
   );
 }
 
-function RecordRows({
+function ContainerHeader({
+  container,
+  allRecords,
+  target,
+  zoneKey,
+  index,
+  children,
+}: {
+  container: InventoryRecord;
+  allRecords: InventoryRecord[];
+  target: GearDropTarget;
+  zoneKey?: string;
+  index?: number;
+  children: ReactNode;
+}) {
+  const actions = useGearActions();
+  const drag = useContext(GearDragContext);
+  const dragData: GearDragData = {
+    type: "gear-record",
+    recordId: container.id,
+    zoneKey,
+    index,
+  };
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging,
+  } = useDraggable({ id: recordDraggableId(container.id), data: dragData });
+  const dropData: GearDropData = { type: "gear-zone", target };
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `${containerDropId(target.entityId, container.id)}:head`,
+    data: dropData,
+  });
+  const projection =
+    isOver && drag.overId === `${containerDropId(target.entityId, container.id)}:head`
+      ? drag.projection
+      : null;
+  const setRef = (node: HTMLElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
+  };
+  const className = [
+    "chead",
+    "drag-row",
+    "dropzone",
+    "no-reveal",
+    isDragging ? "drag-ghost" : "",
+    isOver ? "over" : "",
+    projection?.invalid ? "over-bad" : "",
+    drag.justMovedId === container.id ? "justmoved" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div
+      ref={setRef}
+      className={className}
+      data-proj={projection?.text ?? undefined}
+      {...attributes}
+      {...listeners}
+    >
+      <span className="grip" aria-hidden="true">
+        ⠿
+      </span>
+      <button
+        type="button"
+        className="cname"
+        onClick={() => actions.onEditRecord(container)}
+      >
+        {getInventoryRowDisplay(container, allRecords).primaryText}
+      </button>
+      {children}
+    </div>
+  );
+}
+
+function RecordList({
   entityId,
+  target,
   records,
   allRecords,
   emptyLabel,
 }: {
   entityId: string;
+  target: GearDropTarget;
   records: InventoryRecord[];
   allRecords: InventoryRecord[];
   emptyLabel: string;
 }) {
+  const zoneKey = zoneKeyForTarget(target);
+
   if (records.length === 0) {
     return <span className="empty-label">{emptyLabel}</span>;
   }
 
   return (
-    <>
-      {records.map((record) =>
-        record.container ? (
-          <ContainerBlock
-            key={record.id}
-            entityId={entityId}
-            container={record}
-            records={allRecords}
-          />
-        ) : (
-          <DraggableRecordRow
-            key={record.id}
-            record={record}
-            allRecords={allRecords}
-          />
-        ),
-      )}
-    </>
-  );
-}
-
-function DraggableRecordRow({
-  record,
-  allRecords,
-}: {
-  record: InventoryRecord;
-  allRecords: InventoryRecord[];
-}) {
-  const drag = useContext(GearDragContext);
-  const data: GearDragData = { type: "gear-record", recordId: record.id };
-  // The DragOverlay is the only moving preview — never transform the source
-  // row, or it tears out of its container mid-drag.
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
-    useDraggable({ id: recordDraggableId(record.id), data });
-  const className = [
-    "item",
-    isDragging ? "drag-ghost" : "",
-    drag.justMovedId === record.id ? "justmoved" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <div ref={setNodeRef} className={className} data-record-id={record.id}>
-      <button
-        ref={setActivatorNodeRef}
-        type="button"
-        className="grip"
-        aria-label={`Move ${getInventoryRowDisplay(record, allRecords).primaryText}`}
-        {...attributes}
-        {...listeners}
-      >
-        ⠿
-      </button>
-      <RecordRowBody record={record} allRecords={allRecords} />
+    <div className="record-list">
+      <GapDrop target={target} zoneKey={zoneKey} index={0} />
+      {records.map((record, recordIndex) => (
+        <Fragment key={record.id}>
+          {record.container ? (
+            <ContainerBlock
+              entityId={entityId}
+              container={record}
+              records={allRecords}
+              zoneKey={zoneKey}
+              index={recordIndex}
+            />
+          ) : (
+            <DraggableRow
+              record={record}
+              allRecords={allRecords}
+              zoneKey={zoneKey}
+              index={recordIndex}
+            />
+          )}
+          <GapDrop target={target} zoneKey={zoneKey} index={recordIndex + 1} />
+        </Fragment>
+      ))}
     </div>
   );
 }
 
-function ContainerHandle({
+function GapDrop({
+  target,
+  zoneKey,
+  index,
+}: {
+  target: GearDropTarget;
+  zoneKey: string;
+  index: number;
+}) {
+  const data: GearGapData = { type: "gear-gap", target, zoneKey, index };
+  const { setNodeRef, isOver } = useDroppable({
+    id: gapDropId(zoneKey, index),
+    data,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`gear-gap${isOver ? " over" : ""}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+function DraggableRow({
   record,
   allRecords,
+  zoneKey,
+  index,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
+  zoneKey?: string;
+  index?: number;
 }) {
-  const actions = useGearActions();
   const drag = useContext(GearDragContext);
-  const data: GearDragData = { type: "gear-record", recordId: record.id };
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } =
-    useDraggable({ id: recordDraggableId(record.id), data });
+  const data: GearDragData = {
+    type: "gear-record",
+    recordId: record.id,
+    zoneKey,
+    index,
+  };
+  // The whole row is the drag handle (the small grip was too hard to hit).
+  // The DragOverlay is the only moving preview — never transform the source.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: recordDraggableId(record.id),
+    data,
+  });
   const className = [
-    "cname-row",
+    "item",
+    "drag-row",
     isDragging ? "drag-ghost" : "",
     drag.justMovedId === record.id ? "justmoved" : "",
   ]
@@ -918,24 +1108,17 @@ function ContainerHandle({
     .join(" ");
 
   return (
-    <div ref={setNodeRef} className={className} data-record-id={record.id}>
-      <button
-        ref={setActivatorNodeRef}
-        type="button"
-        className="grip"
-        aria-label={`Move ${getInventoryRowDisplay(record, allRecords).primaryText}`}
-        {...attributes}
-        {...listeners}
-      >
+    <div
+      ref={setNodeRef}
+      className={className}
+      data-record-id={record.id}
+      {...attributes}
+      {...listeners}
+    >
+      <span className="grip" aria-hidden="true">
         ⠿
-      </button>
-      <button
-        type="button"
-        className="cname"
-        onClick={() => actions.onEditRecord(record)}
-      >
-        {getInventoryRowDisplay(record, allRecords).primaryText}
-      </button>
+      </span>
+      <RecordRowBody record={record} allRecords={allRecords} />
     </div>
   );
 }
@@ -960,8 +1143,8 @@ function RecordRowBody({
         onClick={() => actions.onEditRecord(record)}
       >
         {display.primaryText}
-        <StateGlyphs record={record} />
       </button>
+      <StateGlyphs record={record} />
       {display.secondaryText ? (
         <span className="isecondary">{display.secondaryText}</span>
       ) : null}
@@ -987,11 +1170,18 @@ function StateGlyphs({ record }: { record: InventoryRecord }) {
   const lit = record.light?.isLit === true;
   const unidentified = isUnidentified(record);
   const magic = record.isMagic === true;
-  const litTitle = lit ? buildLitTitle(record) : undefined;
+  const activeAc = isArmorClassActiveRecord(record);
 
   return (
-    <>
-      {lit ? <span className="dot lit" title={litTitle} /> : null}
+    <span className="rs-glyphs">
+      {lit ? (
+        <span className="dot lit" title={buildLitTitle(record)} />
+      ) : null}
+      {activeAc ? (
+        <span className="rs-ac" title="Contributes to armor class">
+          <ItemStatusIcon name="activeAc" tone="active" />
+        </span>
+      ) : null}
       {unidentified ? (
         <span className="gl unid" title="unidentified">
           ?
@@ -1001,7 +1191,7 @@ function StateGlyphs({ record }: { record: InventoryRecord }) {
           ✦
         </span>
       ) : null}
-    </>
+    </span>
   );
 }
 
@@ -1135,7 +1325,7 @@ function FloorTray({
                     records={records}
                   />
                 ) : (
-                  <DraggableRecordRow
+                  <DraggableRow
                     key={record.id}
                     record={record}
                     allRecords={records}

@@ -24,6 +24,10 @@ export type GearDropTarget =
 export type GearDragData = {
   type: "gear-record";
   recordId: InventoryRecordId;
+  /** The list this record sits in, for same-list reorder detection. */
+  zoneKey?: string;
+  /** Index within that list. */
+  index?: number;
 };
 
 export type GearDropData = {
@@ -31,8 +35,31 @@ export type GearDropData = {
   target: GearDropTarget;
 };
 
+/** An insertion point between rows in an ordered list (for reordering). */
+export type GearGapData = {
+  type: "gear-gap";
+  target: GearDropTarget;
+  zoneKey: string;
+  index: number;
+};
+
+export type GearOverData = GearDropData | GearGapData;
+
 export function recordDraggableId(recordId: InventoryRecordId): string {
   return `rec:${recordId}`;
+}
+
+/** Stable key identifying an ordered list (worn / contents / a container). */
+export function zoneKeyForTarget(target: GearDropTarget): string {
+  if (target.placement === "container") {
+    return `container:${target.containerId}`;
+  }
+
+  return `${target.entityId}:${target.placement}`;
+}
+
+export function gapDropId(zoneKey: string, index: number): string {
+  return `gap:${zoneKey}:${index}`;
 }
 
 export function handDropId(
