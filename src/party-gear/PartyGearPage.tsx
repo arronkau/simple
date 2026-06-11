@@ -45,7 +45,11 @@ import {
 } from "../model/inventoryDisplay";
 import { getInventoryRowDisplay } from "../model/inventoryRowDisplay";
 import { isCharacterLikeEntity } from "../model/validation";
-import { sortInventoryRecordsBySortOrder } from "../model/inventoryRecords";
+import {
+  sortInventoryRecordsBySortOrder,
+  type InventoryRecordLocationInput,
+} from "../model/inventoryRecords";
+import { getRecordHandsRequired } from "../model/types";
 import type { AppState } from "../model/appState";
 import { getEntityInventoryStatus } from "../entity/EntityStatus";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
@@ -237,6 +241,23 @@ export function PartyGearPage(actions: GearActions) {
     setDragState((state) => ({ ...state, overId, projection }));
   }
 
+  function flashMoved(recordId: InventoryRecordId) {
+    setDragMessage(undefined);
+    resetDrag(recordId);
+
+    if (justMovedTimer.current) {
+      clearTimeout(justMovedTimer.current);
+    }
+
+    justMovedTimer.current = setTimeout(() => {
+      setDragState((state) =>
+        state.justMovedId === recordId
+          ? { ...state, justMovedId: null }
+          : state,
+      );
+    }, 800);
+  }
+
   function applyMove(
     recordId: InventoryRecordId,
     target: GearDropTarget,
@@ -253,6 +274,33 @@ export function PartyGearPage(actions: GearActions) {
       return;
     }
 
+    const record = getRecordById(recordId, records);
+
+    // Dropping onto a hand manages hand occupancy like the original design: a
+    // two-handed record takes both hands (displacing held items to worn), and a
+    // one-hander displaces a two-hander that was occupying both hands.
+    if (record && isHandPlacement(target.placement)) {
+      const sequence = buildHandDropSequence(
+        record,
+        target.placement,
+        target.entityId,
+        records,
+      );
+
+      for (const step of sequence) {
+        const stepResult = moveInventoryRecord(step.recordId, step.location);
+
+        if (!stepResult.ok) {
+          setDragMessage(stepResult.message);
+          resetDrag();
+          return;
+        }
+      }
+
+      flashMoved(recordId);
+      return;
+    }
+
     const location = dropTargetToLocationInput(target);
     const result = moveInventoryRecord(
       recordId,
@@ -265,20 +313,7 @@ export function PartyGearPage(actions: GearActions) {
       return;
     }
 
-    setDragMessage(undefined);
-    resetDrag(recordId);
-
-    if (justMovedTimer.current) {
-      clearTimeout(justMovedTimer.current);
-    }
-
-    justMovedTimer.current = setTimeout(() => {
-      setDragState((state) =>
-        state.justMovedId === recordId
-          ? { ...state, justMovedId: null }
-          : state,
-      );
-    }, 800);
+    flashMoved(recordId);
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -1353,6 +1388,79 @@ function FloorTray({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+const HAND_PLACEMENTS = ["leftHand", "rightHand", "bothHands"] as const;
+type HandPlacement = (typeof HAND_PLACEMENTS)[number];
+
+function isHandPlacement(
+  placement: GearDropTarget["placement"],
+): placement is HandPlacement {
+  return (
+    placement === "leftHand" ||
+    placement === "rightHand" ||
+    placement === "bothHands"
+  );
+}
+
+/**
+ * Hand-occupancy management for a drop onto a hand slot, mirroring the original
+ * design: a two-handed record takes both hands (any held items move to worn),
+ * and a one-hander frees a two-hander that was occupying both hands. The
+ * displacements run before the main placement so each validated move is legal.
+ */
+function buildHandDropSequence(
+  record: InventoryRecord,
+  placement: HandPlacement,
+  entityId: EntityId,
+  records: InventoryRecord[],
+): { recordId: InventoryRecordId; location: InventoryRecordLocationInput }[] {
+  const occupant = (hand: HandPlacement) =>
+    records.find(
+      (candidate) =>
+        candidate.id !== record.id &&
+        candidate.entityId === entityId &&
+        candidate.location.kind === "equipped" &&
+        candidate.location.placement === hand,
+    );
+  const loose: InventoryRecordLocationInput = {
+    entityId,
+    placement: "equippedLoose",
+  };
+  const moves: {
+    recordId: InventoryRecordId;
+    location: InventoryRecordLocationInput;
+  }[] = [];
+
+  if (getRecordHandsRequired(record) === 2) {
+    for (const hand of HAND_PLACEMENTS) {
+      const held = occupant(hand);
+
+      if (held) {
+        moves.push({ recordId: held.id, location: loose });
+      }
+    }
+
+    moves.push({ recordId: record.id, location: { entityId, placement: "bothHands" } });
+    return moves;
+  }
+
+  const bothHander = occupant("bothHands");
+
+  if (bothHander) {
+    moves.push({ recordId: bothHander.id, location: loose });
+  }
+
+  const targetHand: HandPlacement =
+    placement === "bothHands" ? "rightHand" : placement;
+  const held = occupant(targetHand);
+
+  if (held) {
+    moves.push({ recordId: held.id, location: loose });
+  }
+
+  moves.push({ recordId: record.id, location: { entityId, placement: targetHand } });
+  return moves;
+}
 
 function isUnidentified(record: InventoryRecord): boolean {
   return (
