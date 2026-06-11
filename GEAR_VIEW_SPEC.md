@@ -76,6 +76,13 @@ The Floor is a `storage` entity. Its identity is held in a **UI-only** setting
 in `AppState` or `Entity`. A "create the Floor if missing" action creates a
 `storage` entity (default name "Floor") through the normal entity-creation path.
 
+Because that setting is per-device while the entity is shared party data, a
+client with no local mapping (e.g. a second player on a Firebase party)
+deterministically falls back to the first `storage` entity literally named
+"Floor", then records that id locally. This keeps the Floor recoverable across
+clients and prevents a second client from creating a duplicate; "create the
+Floor" is only offered when no such entity exists.
+
 It renders as a fixed bottom bar on the Party Gear page (page content is given
 bottom padding so nothing hides behind it):
 

@@ -2,6 +2,7 @@ import {
   createContext,
   Fragment,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -76,7 +77,11 @@ import {
   type GearOverData,
 } from "./gearDnd";
 import { projectMove, type MoveProjection } from "./gearProjection";
-import { resolveFloorEntity, useFloorUiStore } from "./floorUiStore";
+import {
+  findDefaultFloorEntity,
+  resolveFloorEntity,
+  useFloorUiStore,
+} from "./floorUiStore";
 
 // ---------------------------------------------------------------------------
 // Callbacks the gear board needs to drive the shared record/entity modals.
@@ -144,6 +149,14 @@ export function PartyGearPage(actions: GearActions) {
   const boardEntities = sortedEntities.filter(
     (entity) => entity.active && entity.id !== floorEntity?.id,
   );
+
+  // When the Floor was found by the cross-client name fallback (no local
+  // mapping yet), record its id so the designation survives a later rename.
+  useEffect(() => {
+    if (floorEntity && floorByParty[partyId] !== floorEntity.id) {
+      setFloorEntityId(partyId, floorEntity.id);
+    }
+  }, [floorEntity, floorByParty, partyId, setFloorEntityId]);
 
   const [dragState, setDragState] = useState<GearDragState>({
     activeRecordId: null,
@@ -303,6 +316,14 @@ export function PartyGearPage(actions: GearActions) {
   }
 
   function handleCreateFloor() {
+    // Adopt an existing shared Floor rather than creating a duplicate.
+    const existing = findDefaultFloorEntity(entities);
+
+    if (existing) {
+      setFloorEntityId(partyId, existing.id);
+      return;
+    }
+
     const floorId = createEntity({ name: "Floor", entityType: "storage" });
 
     if (floorId) {
@@ -1122,7 +1143,7 @@ function RecordRowBody({
   const actions = useGearActions();
   const display = getInventoryRowDisplay(record, allRecords);
   const canIdentify =
-    actions.currentUserPartyRole !== "player" && isUnidentified(record);
+    actions.currentUserPartyRole !== "player" && canIdentifyRecord(record);
 
   return (
     <>
@@ -1338,6 +1359,21 @@ function isUnidentified(record: InventoryRecord): boolean {
     record.recordType !== "coins" &&
     record.recordType !== "treasure" &&
     record.identification?.identified === false
+  );
+}
+
+// The Identify action only applies when there is a secret payload to reveal;
+// the store rejects identify on records without one. (The "?" glyph still
+// shows for any unidentified record.)
+function canIdentifyRecord(record: InventoryRecord): boolean {
+  if (record.recordType === "coins" || record.recordType === "treasure") {
+    return false;
+  }
+
+  return (
+    record.identification?.identified === false &&
+    (Boolean(record.identification.secretName?.trim()) ||
+      Boolean(record.identification.secretDescription?.trim()))
   );
 }
 

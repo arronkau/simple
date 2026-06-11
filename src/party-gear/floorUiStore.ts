@@ -54,9 +54,16 @@ export const useFloorUiStore = create<FloorUiStore>((set) => ({
     }),
 }));
 
+const DEFAULT_FLOOR_NAME = "Floor";
+
 /**
- * Resolve the recorded Floor entity for a party. Returns undefined when no
- * Floor is set or the recorded id no longer points to a storage entity.
+ * Resolve the Floor entity for a party.
+ *
+ * The Floor designation lives in per-device localStorage, but the Floor entity
+ * is shared party data. So a client without a local mapping (e.g. a second
+ * player on a Firebase party) deterministically falls back to a `storage`
+ * entity literally named "Floor". This keeps the Floor recoverable across
+ * clients and prevents a second client from creating a duplicate.
  */
 export function resolveFloorEntity(
   partyId: string,
@@ -64,12 +71,27 @@ export function resolveFloorEntity(
   entities: Entity[],
 ): Entity | undefined {
   const floorEntityId = floorByParty[partyId];
+  const recorded = floorEntityId
+    ? entities.find(
+        (entity) =>
+          entity.id === floorEntityId && entity.entityType === "storage",
+      )
+    : undefined;
 
-  if (!floorEntityId) {
-    return undefined;
+  if (recorded) {
+    return recorded;
   }
 
-  return entities.find(
-    (entity) => entity.id === floorEntityId && entity.entityType === "storage",
-  );
+  return findDefaultFloorEntity(entities);
+}
+
+/** The first `storage` entity named "Floor", used as the cross-client fallback. */
+export function findDefaultFloorEntity(entities: Entity[]): Entity | undefined {
+  return entities
+    .filter(
+      (entity) =>
+        entity.entityType === "storage" &&
+        entity.name.trim().toLowerCase() === DEFAULT_FLOOR_NAME.toLowerCase(),
+    )
+    .sort((left, right) => left.sortOrder - right.sortOrder)[0];
 }
