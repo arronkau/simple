@@ -2485,15 +2485,14 @@ h5 {
   font-size: 12px;
   color: var(--gear-ink-2);
 }
-.gear-page .coins-button {
+.gear-page .coins-label-button {
   border: 0;
   background: none;
   padding: 0;
-  min-height: 0;
-  font-weight: 400;
+  border-radius: 0;
   cursor: pointer;
 }
-.gear-page .coins-button:hover {
+.gear-page .coins-label-button:hover {
   text-decoration: underline;
   text-decoration-color: var(--gear-line-3);
   text-underline-offset: 2px;
@@ -2508,6 +2507,8 @@ h5 {
 /* ---- containers ---- */
 .gear-page .cont {
   margin-bottom: 8px;
+  padding: 3px;
+  border-radius: 8px;
 }
 .gear-page .cont:last-child {
   margin-bottom: 0;
@@ -2820,6 +2821,12 @@ h5 {
 }
 .gear-page .dropzone.over.over-bad[data-proj]::after {
   background: var(--gear-load-crit);
+}
+/* The card clips its top edge, so the entity-header pill sits below the header
+   instead of above it. */
+.gear-page .rs-head.over[data-proj]::after {
+  top: auto;
+  bottom: -9px;
 }
 
 /* ---- drag overlay preview ---- */

@@ -410,7 +410,7 @@ const gearCollisionDetection: CollisionDetection = (args) => {
     return closestCenter(scopedArgs);
   }
 
-  // Prefer a reorder gap when the pointer is between rows; otherwise the zone.
+  // Prefer a reorder gap when the pointer is between rows.
   const gapContainers = droppableContainers.filter(
     (container) =>
       container.data.current?.type === "gear-gap" &&
@@ -421,7 +421,22 @@ const gearCollisionDetection: CollisionDetection = (args) => {
     return closestCenter({ ...args, droppableContainers: gapContainers });
   }
 
-  return pointerCollisions;
+  // Otherwise prefer the innermost (smallest) zone — e.g. a container over the
+  // contents root it sits in, or a nested container over its parent.
+  let best = pointerCollisions[0];
+  let bestArea = Number.POSITIVE_INFINITY;
+
+  for (const collision of pointerCollisions) {
+    const rect = args.droppableRects.get(collision.id);
+    const area = rect ? rect.width * rect.height : Number.POSITIVE_INFINITY;
+
+    if (area < bestArea) {
+      bestArea = area;
+      best = collision;
+    }
+  }
+
+  return [best];
 };
 
 // ---------------------------------------------------------------------------
@@ -844,14 +859,14 @@ function CoinRow({ record }: { record?: InventoryRecord }) {
 
   return (
     <div className="coinrow">
-      <span className="micro coins-label">Coins</span>
       <button
         type="button"
-        className="coins coins-button"
+        className="micro coins-label coins-label-button"
         onClick={() => actions.onEditRecord(record)}
       >
-        {display.primaryText}
+        Coins
       </button>
+      <span className="coins">{display.primaryText}</span>
       <Pips slots={getRecordSlotBurden(record)} />
     </div>
   );
@@ -889,12 +904,17 @@ function ContainerBlock({
     containerId: container.id,
   };
 
+  // The whole container block (header + contents) is a single drop target, so
+  // hovering anywhere over it outlines the entire block with one indicator.
   return (
-    <div className="cont">
+    <GearDropZone
+      dropId={containerDropId(entityId, container.id)}
+      target={containerTarget}
+      className="cont"
+    >
       <ContainerHeader
         container={container}
         allRecords={records}
-        target={containerTarget}
         zoneKey={zoneKey}
         index={index}
       >
@@ -908,11 +928,7 @@ function ContainerBlock({
           </>
         ) : null}
       </ContainerHeader>
-      <GearDropZone
-        dropId={containerDropId(entityId, container.id)}
-        target={containerTarget}
-        className={`cbody${contents.length === 0 ? " empty" : ""}`}
-      >
+      <div className={`cbody${contents.length === 0 ? " empty" : ""}`}>
         <RecordList
           entityId={entityId}
           target={containerTarget}
@@ -920,22 +936,20 @@ function ContainerBlock({
           allRecords={records}
           emptyLabel="empty — drop here"
         />
-      </GearDropZone>
-    </div>
+      </div>
+    </GearDropZone>
   );
 }
 
 function ContainerHeader({
   container,
   allRecords,
-  target,
   zoneKey,
   index,
   children,
 }: {
   container: InventoryRecord;
   allRecords: InventoryRecord[];
-  target: GearDropTarget;
   zoneKey?: string;
   index?: number;
   children: ReactNode;
@@ -948,46 +962,21 @@ function ContainerHeader({
     zoneKey,
     index,
   };
-  const {
-    attributes,
-    listeners,
-    setNodeRef: setDragRef,
-    isDragging,
-  } = useDraggable({ id: recordDraggableId(container.id), data: dragData });
-  const dropData: GearDropData = { type: "gear-zone", target };
-  const { setNodeRef: setDropRef, isOver } = useDroppable({
-    id: `${containerDropId(target.entityId, container.id)}:head`,
-    data: dropData,
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: recordDraggableId(container.id),
+    data: dragData,
   });
-  const projection =
-    isOver && drag.overId === `${containerDropId(target.entityId, container.id)}:head`
-      ? drag.projection
-      : null;
-  const setRef = (node: HTMLElement | null) => {
-    setDragRef(node);
-    setDropRef(node);
-  };
   const className = [
     "chead",
     "drag-row",
-    "dropzone",
-    "no-reveal",
     isDragging ? "drag-ghost" : "",
-    isOver ? "over" : "",
-    projection?.invalid ? "over-bad" : "",
     drag.justMovedId === container.id ? "justmoved" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div
-      ref={setRef}
-      className={className}
-      data-proj={projection?.text ?? undefined}
-      {...attributes}
-      {...listeners}
-    >
+    <div ref={setNodeRef} className={className} {...attributes} {...listeners}>
       <span className="grip" aria-hidden="true">
         ⠿
       </span>
