@@ -305,6 +305,25 @@ function LocalAppShell() {
 
     setCoinTransferForm({
       sourceEntityId: record.entityId,
+      sourceRecordId: record.id,
+      destinationEntityId,
+      amounts: createEmptyCoinSpendAmounts(),
+      note: "",
+    });
+    setCoinTransferMessage(undefined);
+  }
+
+  function requestCoinTransfer(
+    record: InventoryRecord,
+    destinationEntityId: EntityId,
+  ) {
+    if (record.recordType !== "coins") {
+      return;
+    }
+
+    setCoinTransferForm({
+      sourceEntityId: record.entityId,
+      sourceRecordId: record.id,
       destinationEntityId,
       amounts: createEmptyCoinSpendAmounts(),
       note: "",
@@ -326,6 +345,7 @@ function LocalAppShell() {
 
     const result = transferCoins({
       sourceEntityId: coinTransferForm.sourceEntityId,
+      sourceRecordId: coinTransferForm.sourceRecordId,
       destinationEntityId: coinTransferForm.destinationEntityId,
       amounts: toCoinSpendAmounts(coinTransferForm.amounts),
       note: coinTransferForm.note,
@@ -443,6 +463,7 @@ function LocalAppShell() {
                 onEditRecord={startEditingRecord}
                 onIdentifyRecord={identifyInventoryRecord}
                 onSpendCoins={startSpendingCoins}
+                onRequestCoinTransfer={requestCoinTransfer}
               />
             }
           />

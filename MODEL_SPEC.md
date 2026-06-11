@@ -409,6 +409,8 @@ export type CoinData = {
 - Adding coins to a non-character entity may create a new coin record or update a selected existing coin record, depending on the chosen valid contents/container location.
 - Non-character entities may contain coin records in contents or inside ordinary containers.
 - Non-character entities do not require a coin purse.
+- Coin transfers may target a specific source coin record (instead of the source entity's default coin record) so that a chosen pile on a non-character entity can be drawn down.
+- A transfer that fully drains a coin record on a **non-character** entity removes the emptied record as part of the transfer (with an audit entry). Character-like coin records are never auto-removed.
 
 ## Treasure Data
 

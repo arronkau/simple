@@ -45,6 +45,7 @@ import { getEntityInventoryStatus } from "../entity/EntityStatus";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import type {
   Entity,
+  EntityId,
   InventoryRecord,
   InventoryRecordId,
   PartyRole,
@@ -79,6 +80,11 @@ export type GearActions = {
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
   onSpendCoins: (record: InventoryRecord) => void;
+  /** Open the take-all/take-some coin transfer modal for a dragged coin pile. */
+  onRequestCoinTransfer: (
+    record: InventoryRecord,
+    destinationEntityId: EntityId,
+  ) => void;
 };
 
 const GearActionsContext = createContext<GearActions | null>(null);
@@ -173,6 +179,22 @@ export function PartyGearPage(actions: GearActions) {
     });
   }
 
+  function isCoinDropOnCharacter(
+    recordId: InventoryRecordId,
+    targetEntityId: EntityId,
+  ): boolean {
+    const record = getRecordById(recordId, records);
+    const targetEntity = entities.find(
+      (entity) => entity.id === targetEntityId,
+    );
+
+    return (
+      record?.recordType === "coins" &&
+      targetEntity !== undefined &&
+      isCharacterLikeEntity(targetEntity)
+    );
+  }
+
   function handleDragOver(event: DragOverEvent) {
     const activeData = event.active.data.current as GearDragData | undefined;
     const overData = event.over?.data.current as GearDropData | undefined;
@@ -183,12 +205,14 @@ export function PartyGearPage(actions: GearActions) {
       return;
     }
 
-    const projection = projectMove(
-      records,
+    // Coins dropped on a character open the take-all/take-some transfer
+    // modal instead of moving the record, so don't project a blocked move.
+    const projection = isCoinDropOnCharacter(
       activeData.recordId,
-      overData.target,
-      entities,
-    );
+      overData.target.entityId,
+    )
+      ? { text: "→ purse", invalid: false }
+      : projectMove(records, activeData.recordId, overData.target, entities);
 
     setDragState((state) => ({ ...state, overId, projection }));
   }
@@ -198,6 +222,17 @@ export function PartyGearPage(actions: GearActions) {
     const overData = event.over?.data.current as GearDropData | undefined;
 
     if (!activeData || !overData || overData.type !== "gear-zone") {
+      resetDrag();
+      return;
+    }
+
+    if (isCoinDropOnCharacter(activeData.recordId, overData.target.entityId)) {
+      const record = getRecordById(activeData.recordId, records);
+
+      if (record) {
+        actions.onRequestCoinTransfer(record, overData.target.entityId);
+      }
+
       resetDrag();
       return;
     }
@@ -812,8 +847,6 @@ function RecordRows({
             container={record}
             records={allRecords}
           />
-        ) : record.recordType === "coins" ? (
-          <StaticRecordRow key={record.id} record={record} allRecords={allRecords} />
         ) : (
           <DraggableRecordRow
             key={record.id}
@@ -859,23 +892,6 @@ function DraggableRecordRow({
       >
         ⠿
       </button>
-      <RecordRowBody record={record} allRecords={allRecords} />
-    </div>
-  );
-}
-
-function StaticRecordRow({
-  record,
-  allRecords,
-}: {
-  record: InventoryRecord;
-  allRecords: InventoryRecord[];
-}) {
-  return (
-    <div className="item item-static" data-record-id={record.id}>
-      <span className="grip grip-static" aria-hidden="true">
-        ⠿
-      </span>
       <RecordRowBody record={record} allRecords={allRecords} />
     </div>
   );
@@ -1118,8 +1134,6 @@ function FloorTray({
                     container={record}
                     records={records}
                   />
-                ) : record.recordType === "coins" ? (
-                  <StaticRecordRow key={record.id} record={record} allRecords={records} />
                 ) : (
                   <DraggableRecordRow
                     key={record.id}

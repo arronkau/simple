@@ -1492,6 +1492,13 @@ h5 {
   font-size: 1rem;
 }
 
+.coin-transfer-amount-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .coin-spend-grid {
   display: grid;
   grid-template-columns: minmax(7rem, 1fr) minmax(5rem, 0.75fr) minmax(7rem, 1fr);
@@ -2539,13 +2546,6 @@ h5 {
   background: #f1f4f8;
   border-color: var(--gear-line);
 }
-.gear-page .item.item-static {
-  cursor: default;
-}
-.gear-page .item.item-static:hover {
-  background: transparent;
-  border-color: transparent;
-}
 .gear-page .grip,
 .item-overlay .grip {
   border: 0;
@@ -2564,9 +2564,6 @@ h5 {
 .gear-page .item:hover .grip,
 .gear-page .grip:focus-visible {
   opacity: 1;
-}
-.gear-page .grip-static {
-  visibility: hidden;
 }
 .gear-page .item.drag-ghost {
   opacity: 0.35;

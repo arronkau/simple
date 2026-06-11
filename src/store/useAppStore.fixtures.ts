@@ -1010,6 +1010,143 @@ export const PHASE_6_STORE_MANUAL_FIXTURES = [
   },
 ];
 
+// --- Coin drag transfer phase (Floor coin piles → character purse) ---
+
+useAppStore.getState().resetLocalState();
+
+const coinDragCharacterId = useAppStore.getState().createEntity({
+  name: "Taker",
+  entityType: "character",
+});
+const coinDragFloorId = useAppStore.getState().createEntity({
+  name: "Floor",
+  entityType: "storage",
+});
+
+if (coinDragCharacterId) {
+  useAppStore.getState().createInventoryRecord(coinDragCharacterId, {
+    recordType: "coins",
+    coins: { gp: 12 },
+  });
+}
+
+let coinDragGoldPileId: string | undefined;
+let coinDragSilverPileId: string | undefined;
+
+if (coinDragFloorId) {
+  const goldResult = useAppStore.getState().createInventoryRecord(
+    coinDragFloorId,
+    {
+      recordType: "coins",
+      coins: { gp: 300 },
+    },
+  );
+  const silverResult = useAppStore.getState().createInventoryRecord(
+    coinDragFloorId,
+    {
+      recordType: "coins",
+      coins: { sp: 50 },
+    },
+  );
+
+  coinDragGoldPileId = goldResult.ok ? goldResult.recordId : undefined;
+  coinDragSilverPileId = silverResult.ok ? silverResult.recordId : undefined;
+}
+
+// "Take some" from the silver pile — the non-default source record, so this
+// only works if sourceRecordId targeting is honored.
+const coinDragTakeSomeResult =
+  coinDragCharacterId && coinDragFloorId && coinDragSilverPileId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDragFloorId,
+        sourceRecordId: coinDragSilverPileId,
+        destinationEntityId: coinDragCharacterId,
+        amounts: { sp: 20 },
+      })
+    : { ok: false as const, message: "setup failed" };
+
+// "Take all" from the gold pile — drains it, which should remove the record.
+const coinDragTakeAllResult =
+  coinDragCharacterId && coinDragFloorId && coinDragGoldPileId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDragFloorId,
+        sourceRecordId: coinDragGoldPileId,
+        destinationEntityId: coinDragCharacterId,
+        amounts: { gp: 300 },
+      })
+    : { ok: false as const, message: "setup failed" };
+
+// A sourceRecordId owned by a different entity must be rejected.
+const coinDragWrongOwnerResult =
+  coinDragCharacterId && coinDragFloorId && coinDragSilverPileId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDragCharacterId,
+        sourceRecordId: coinDragSilverPileId,
+        destinationEntityId: coinDragFloorId,
+        amounts: { sp: 1 },
+      })
+    : { ok: false as const, message: "setup failed" };
+
+const coinDragState = useAppStore.getState().appState;
+const coinDragPurseRecord = coinDragState.inventoryRecords.find(
+  (record) =>
+    record.recordType === "coins" && record.entityId === coinDragCharacterId,
+);
+const coinDragFloorCoinRecords = coinDragState.inventoryRecords.filter(
+  (record) =>
+    record.recordType === "coins" && record.entityId === coinDragFloorId,
+);
+const coinDragDeleteAuditEntry = coinDragState.auditLog.find(
+  (entry) =>
+    entry.eventType === "inventoryRecordDeleted" &&
+    entry.recordId === coinDragGoldPileId,
+);
+
+export const COIN_DRAG_TRANSFER_STORE_MANUAL_FIXTURES = [
+  {
+    name: "coin transfer draws from the targeted source record, not the default pile",
+    actual: {
+      takeSomeOk: coinDragTakeSomeResult.ok,
+      floorPiles: coinDragFloorCoinRecords.map((record) =>
+        record.recordType === "coins" ? record.coins : undefined,
+      ),
+    },
+    expected: {
+      takeSomeOk: true,
+      floorPiles: [{ pp: 0, gp: 0, sp: 30, cp: 0 }],
+    },
+  },
+  {
+    name: "draining a non-character coin pile removes the emptied record and merges into the purse",
+    actual: {
+      takeAllOk: coinDragTakeAllResult.ok,
+      goldPileRemains: coinDragState.inventoryRecords.some(
+        (record) => record.id === coinDragGoldPileId,
+      ),
+      purseCoins:
+        coinDragPurseRecord?.recordType === "coins"
+          ? coinDragPurseRecord.coins
+          : undefined,
+      deleteAuditSummary: coinDragDeleteAuditEntry?.summary,
+    },
+    expected: {
+      takeAllOk: true,
+      goldPileRemains: false,
+      purseCoins: { pp: 0, gp: 312, sp: 20, cp: 0 },
+      deleteAuditSummary: 'Deleted coins from "Floor" (emptied by transfer).',
+    },
+  },
+  {
+    name: "coin transfer rejects a source record owned by a different entity",
+    actual: {
+      wrongOwnerOk: coinDragWrongOwnerResult.ok,
+    },
+    expected: {
+      wrongOwnerOk: false,
+    },
+  },
+];
+
 useAppStore.getState().resetLocalState();
 
 const phase8CharacterId = useAppStore.getState().createEntity({

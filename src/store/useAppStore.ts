@@ -36,6 +36,7 @@ import {
   getCoinDeltaDetails,
   type CreateAuditLogEntryInput,
 } from "../model/auditLog";
+import { getCoinCount } from "../model/calculations";
 import {
   createInventoryRecordFromInput,
   createInventoryLocation,
@@ -153,6 +154,8 @@ export type TransferCoinsInput = {
   destinationEntityId: EntityId;
   note?: string;
   sourceEntityId: EntityId;
+  /** Draw from this coin record instead of the entity's default one. */
+  sourceRecordId?: InventoryRecordId;
 };
 
 export type InventoryMutationResult =
@@ -1269,12 +1272,20 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const sourceRecord = getDefaultCoinRecordForEntity(
-        sourceEntity.id,
-        state.appState.inventoryRecords,
-      );
+      const sourceRecord = input.sourceRecordId
+        ? state.appState.inventoryRecords.find(
+            (record) => record.id === input.sourceRecordId,
+          )
+        : getDefaultCoinRecordForEntity(
+            sourceEntity.id,
+            state.appState.inventoryRecords,
+          );
 
-      if (!sourceRecord || sourceRecord.recordType !== "coins") {
+      if (
+        !sourceRecord ||
+        sourceRecord.recordType !== "coins" ||
+        sourceRecord.entityId !== sourceEntity.id
+      ) {
         result = {
           ok: false,
           message: "Source has no coin record.",
@@ -1368,6 +1379,23 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
+      // A fully drained coin pile on a non-character entity is removed so the
+      // Floor/storage doesn't accumulate empty "Coins" records. Character
+      // purses always stay.
+      const drainedSourceRecord: InventoryRecord = {
+        ...sourceRecord,
+        coins: nextSourceCoins,
+      };
+      const removeDrainedSourceRecord =
+        !isCharacterLikeEntityType(sourceEntity.entityType) &&
+        getCoinCount(nextSourceCoins) === 0;
+
+      if (removeDrainedSourceRecord) {
+        nextInventoryRecords = nextInventoryRecords.filter(
+          (record) => record.id !== sourceRecord.id,
+        );
+      }
+
       const validationResult = validateInventoryState(
         state.appState.entities,
         nextInventoryRecords,
@@ -1402,6 +1430,22 @@ export const useAppStore = create<AppStore>((set) => ({
               sourceEntity,
               sourceRecordId: sourceRecord.id,
             }),
+            ...(removeDrainedSourceRecord
+              ? [
+                  {
+                    entityId: sourceEntity.id,
+                    eventType: "inventoryRecordDeleted" as const,
+                    recordId: sourceRecord.id,
+                    summary: `Deleted ${getInventoryRecordAuditLabel(
+                      drainedSourceRecord,
+                    )} from ${formatEntityName(sourceEntity)} (emptied by transfer).`,
+                    details: createInventoryRecordDetails(
+                      drainedSourceRecord,
+                      state.appState.entities,
+                    ),
+                  },
+                ]
+              : []),
           ],
         ),
       };

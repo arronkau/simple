@@ -114,6 +114,24 @@ Two-handed records dropped on `leftHand`/`rightHand` are passed straight
 through to the action (placement is allowed; hands-required never prohibits
 placement). The UI does not auto-displace items.
 
+### Coin drag
+
+Coin records on **non-character** entities (the Floor, mounts, storage) are
+draggable like any other record:
+
+- Dropped on a non-character zone → a whole-record validated move (non-character
+  entities may hold multiple coin records).
+- Dropped anywhere on a **character/retainer** card → no move. Instead the coin
+  **transfer modal** opens pre-filled (source = the dragged coin record,
+  destination = the character) with a **Take all** shortcut and per-denomination
+  amounts ("take some"); the remainder stays on the source. The transfer goes
+  through the validated `transferCoins` action, which merges into the
+  character's single purse record and removes a fully drained non-character
+  source record.
+
+The character coin-purse line itself is display-only (not draggable); partial
+amounts always go through the Spend/Transfer modals.
+
 ### Live projection
 
 On `onDragOver`, the hovered zone shows a projection pill computed by the
@@ -125,6 +143,8 @@ pure `moveInventoryRecord` the store uses):
   move would overload (equipped > 9, stowed > 16, total > 16, a carried
   container over capacity, or a non-empty hands-required container left unheld).
 - contents target → `used/capacity`; red if it would exceed `capacitySlots`.
+- coins over a character-like target → a neutral `→ purse` pill (the drop opens
+  the transfer modal rather than moving the record).
 
 Projection is display-only and must use the shared module — never hardcode the
 tables. A `DragOverlay` shows the dragged record's name; the dropped row briefly
@@ -132,6 +152,7 @@ flashes in its new location.
 
 ## Non-goals (first pass)
 
-- Within-zone sortable reordering, coin-amount drag/splitting, multi-select drag.
+- Within-zone sortable reordering, multi-select drag, dragging the character
+  coin purse.
 - The referee Party HUD and the Character detail sheet.
 - Any restyle of screens other than Party Gear.
