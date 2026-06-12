@@ -72,6 +72,11 @@ function LocalAppShell() {
   const createEntity = useAppStore((state) => state.createEntity);
   const updateEntity = useAppStore((state) => state.updateEntity);
   const updateCharacterData = useAppStore((state) => state.updateCharacterData);
+  const adjustCharacterHp = useAppStore((state) => state.adjustCharacterHp);
+  const adjustCharacterXp = useAppStore((state) => state.adjustCharacterXp);
+  const adjustCharacterSpellMemorized = useAppStore(
+    (state) => state.adjustCharacterSpellMemorized,
+  );
   const setEntityActive = useAppStore((state) => state.setEntityActive);
   const deleteEntity = useAppStore((state) => state.deleteEntity);
   const createInventoryRecord = useAppStore(
@@ -475,6 +480,9 @@ function LocalAppShell() {
                 sortedEntities={sortedEntities}
                 onEditEntity={startEditing}
                 onSaveCharacterData={updateCharacterData}
+                onAdjustHp={adjustCharacterHp}
+                onAdjustXp={adjustCharacterXp}
+                onAdjustSpellMemorized={adjustCharacterSpellMemorized}
               />
             }
           />

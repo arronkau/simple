@@ -22,6 +22,22 @@ UI layout belongs outside this model spec.
 - Use current canonical terminology in new model code and UI.
 - Use `entity` terminology everywhere.
 
+## Content Libraries
+
+Rule content (class reference tables, spell lists, per-class content, ability-score modifiers) lives in bundled, audited JSON files under `src/model/`, read by pure lookup functions:
+
+- `ose_class_reference.json` — per-class, per-level progression (xp, attack, saves, spell slots). See Class Progression Derivations.
+- `ose_spell_library.json` — spell lists by list id and spell level (`src/model/spellLibrary.ts`).
+- `ose_class_content.json` — per-class prime requisites, class abilities, and generic level-indexed tables such as class skills and turn undead (`src/model/classContent.ts`).
+- `ose_ability_modifiers.json` — shared ability-score modifier bands (`src/model/abilityModifiers.ts`).
+
+Rules:
+
+- Content libraries are **never part of `PartyState`** and are never persisted per party.
+- Characters reference content by **name** (e.g. `className`, spell `name`); lookups fuzzy-match (lowercase, strip non-alphanumerics) against `id` or `displayName` and return `ok: false` results when unmatched.
+- Missing or partially authored content degrades gracefully (placeholders / hidden sections); it is never an error and never blocks editing.
+- Authoring format and provenance requirements are documented in `CONTENT_GUIDE.md`.
+
 ## App State
 
 ```ts
@@ -209,6 +225,14 @@ export type CharacterFeature = {
   description: string;
 };
 
+export type CharacterSpell = {
+  id: string;
+  name: string;
+  level: number;
+  memorized: number;
+  notes?: string;
+};
+
 export type CharacterData = {
   className: string;
   level: number | null;
@@ -224,6 +248,7 @@ export type CharacterData = {
   };
   abilityScores: AbilityScores;
   skills: CharacterSkill[];
+  spells: CharacterSpell[];
   languages: string[];
   description: string;
   features: CharacterFeature[];
@@ -239,6 +264,10 @@ Character data supports a lightweight character-sheet layer in addition to inven
 `CharacterSkill.chanceInSix` is an integer from 1 through 6 representing a 1-in-6 chance skill system. It is not nullable.
 
 `CharacterFeature.name` is the feature's display name. Legacy stored data may use `title` as an alias; parsers should accept both and normalize to `name`.
+
+`CharacterSpell` rows are the character's spell state. `name` is fuzzy-matched against the spell library for display details; an unmatched name is allowed and simply renders without library details. `level` is the spell's level (integer, at least 1) and is stored, not looked up — the model never silently corrects a stored level that disagrees with the library. `memorized` is the number of copies currently memorized/prepared (integer, at least 0). A magic-user's spellbook is the full row set including `memorized: 0` entries (known but not prepared); divine casters typically only carry rows for what is memorized today. Older stored data without `spells` normalizes to an empty array.
+
+Memorized totals exceeding the class's derived spell slots are a soft warning, never a block (scrolls, bonuses, and house rules are table-adjudicated).
 
 Character-sheet fields may be displayed, edited, and validated, but inventory ownership and encumbrance semantics must not depend on ability scores, skills, features, description, or languages unless a later task explicitly adds that behavior.
 
@@ -812,6 +841,17 @@ Rules:
 - If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
 - Hand occupancy does not validate whether `handsRequired` is satisfied for active/use effects.
 
+### Class Progression Derivations
+
+Derived from `ose_class_reference.json` via class name + level lookup; never stored on the entity:
+
+- **Attack bonus** — per-class, per-level value (existing save lookup).
+- **THAC0** — `19 - attackBonus`. A pure presentation derivation; ascending attack bonus remains the canonical value.
+- **XP progress** — the current level's `xpThreshold`, the next level's `xpThreshold` (or `null` at the class's maximum level), and the remaining XP to the next level clamped at 0 (or `null` when the character's XP is unset or there is no next level).
+- **Spell slots** — the level entry's `spellSlots` map as a sorted `{ spellLevel, count }[]` (empty for non-casters) plus `maxSpellLevel`.
+
+Unknown class names or out-of-range levels return `ok: false` results; the UI renders placeholders and never blocks on missing rule data.
+
 ## Hard Invariants
 
 The app should prevent state that violates these invariants:
@@ -853,3 +893,4 @@ The app may warn without blocking for:
 - Attempting to stow a non-coin character-like record when no top-level stowed container exists.
 - Missing optional metadata.
 - Unidentified equipment, armor, or weapon lacking an unidentified name.
+- Memorized spells exceeding the class's derived spell slots at a given spell level, or a spell above the class's maximum castable spell level.

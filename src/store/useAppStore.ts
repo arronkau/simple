@@ -8,6 +8,9 @@ import {
   type UpdateEntityInput,
 } from "../model/entities";
 import {
+  adjustCharacterHp,
+  adjustCharacterSpellMemorized,
+  adjustCharacterXp,
   normalizeCharacterData,
   validateCharacterData,
 } from "../model/characters";
@@ -95,6 +98,13 @@ type AppStore = {
   updateCharacterData: (
     entityId: EntityId,
     characterData: CharacterData,
+  ) => EntityMutationResult;
+  adjustCharacterHp: (entityId: EntityId, delta: number) => EntityMutationResult;
+  adjustCharacterXp: (entityId: EntityId, delta: number) => EntityMutationResult;
+  adjustCharacterSpellMemorized: (
+    entityId: EntityId,
+    spellId: string,
+    delta: number,
   ) => EntityMutationResult;
   setEntityActive: (entityId: EntityId, active: boolean) => void;
   deleteEntity: (entityId: EntityId) => void;
@@ -408,6 +418,18 @@ export const useAppStore = create<AppStore>((set) => ({
 
     return result;
   },
+  adjustCharacterHp: (entityId, delta) =>
+    applyCharacterDataAdjustment(entityId, (characterData) =>
+      adjustCharacterHp(characterData, delta),
+    ),
+  adjustCharacterXp: (entityId, delta) =>
+    applyCharacterDataAdjustment(entityId, (characterData) =>
+      adjustCharacterXp(characterData, delta),
+    ),
+  adjustCharacterSpellMemorized: (entityId, spellId, delta) =>
+    applyCharacterDataAdjustment(entityId, (characterData) =>
+      adjustCharacterSpellMemorized(characterData, spellId, delta),
+    ),
   setEntityActive: (entityId, active) => {
     set((state) => {
       const role = getStateUserRole(state);
@@ -2427,6 +2449,37 @@ function getStateUserRole(
   state: Pick<AppStore, "currentUserId" | "gmUid" | "members">,
 ): PartyRole | null {
   return resolvePartyRole(state.currentUserId, state.gmUid, state.members);
+}
+
+/**
+ * Quick-control mutations read the latest store state at mutation time and
+ * rewrite only the adjusted field, so they cannot clobber concurrent edits to
+ * unrelated character-sheet fields.
+ */
+function applyCharacterDataAdjustment(
+  entityId: EntityId,
+  adjust: (characterData: CharacterData) => CharacterData,
+): EntityMutationResult {
+  const state = useAppStore.getState();
+  const existingEntity = state.appState.entities.find(
+    (entity) => entity.id === entityId,
+  );
+
+  if (!existingEntity) {
+    return { ok: false, message: "Entity was not found." };
+  }
+
+  if (!isCharacterLikeEntityType(existingEntity.entityType)) {
+    return {
+      ok: false,
+      message: "Character sheets are only available for characters and retainers.",
+    };
+  }
+
+  return state.updateCharacterData(
+    entityId,
+    adjust(normalizeCharacterData(existingEntity.character)),
+  );
 }
 
 function getProtectedFormInputViolations(input: {

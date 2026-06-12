@@ -81,6 +81,14 @@ export type CharacterFeature = {
   description: string;
 };
 
+export type CharacterSpell = {
+  id: string;
+  name: string;
+  level: number;
+  memorized: number;
+  notes?: string;
+};
+
 export type CharacterData = {
   className: string;
   level: number | null;
@@ -96,6 +104,7 @@ export type CharacterData = {
   };
   abilityScores: AbilityScores;
   skills: CharacterSkill[];
+  spells: CharacterSpell[];
   languages: string[];
   description: string;
   features: CharacterFeature[];

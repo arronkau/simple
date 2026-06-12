@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "0.1.0",
+  "ruleset": "Old-School Essentials ability score modifier bands (shared by all six ability scores)",
+  "sourceBasis": [
+    "Old-School Essentials Classic Fantasy / Advanced Fantasy, Ability Scores: shared ability score modifier table. Exact printed page not verified in this file."
+  ],
+  "authoringStatus": "Complete: standard OSE shared ability score modifier bands authored for ordinary scores 3-18.",
+  "modifierBands": [
+    {
+      "minScore": 3,
+      "maxScore": 3,
+      "modifier": -3
+    },
+    {
+      "minScore": 4,
+      "maxScore": 5,
+      "modifier": -2
+    },
+    {
+      "minScore": 6,
+      "maxScore": 8,
+      "modifier": -1
+    },
+    {
+      "minScore": 9,
+      "maxScore": 12,
+      "modifier": 0
+    },
+    {
+      "minScore": 13,
+      "maxScore": 15,
+      "modifier": 1
+    },
+    {
+      "minScore": 16,
+      "maxScore": 17,
+      "modifier": 2
+    },
+    {
+      "minScore": 18,
+      "maxScore": 18,
+      "modifier": 3
+    }
+  ]
+}
+

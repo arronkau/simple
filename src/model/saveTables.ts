@@ -23,6 +23,40 @@ export type CharacterSaveLookupResult =
       saves: SavingThrowDisplay[];
     };
 
+export type XpProgressResult =
+  | {
+      ok: true;
+      classId: string;
+      className: string;
+      level: number;
+      currentLevelXp: number;
+      nextLevelXp: number | null;
+      xpToNext: number | null;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+export type ClassSpellSlot = {
+  spellLevel: number;
+  count: number;
+};
+
+export type ClassSpellSlotsResult =
+  | {
+      ok: true;
+      classId: string;
+      className: string;
+      level: number;
+      slots: ClassSpellSlot[];
+      maxSpellLevel: number | null;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 type ClassReference = {
   saveLabels: Record<
     SavingThrowKey,
@@ -38,9 +72,12 @@ type ClassReference = {
       id: string;
       displayName: string;
       levels: Array<{
-        attackBonus: number;
         level: number;
+        xpThreshold: number;
+        attackBonus: number;
         saves: Record<SavingThrowKey, number>;
+        spellSlots: Record<string, number>;
+        maxSpellLevel: number | null;
       }>;
     }
   >;
@@ -64,13 +101,119 @@ export function getCharacterSaveLookup(
   className: string,
   level: number | null,
 ): CharacterSaveLookupResult {
+  const lookup = findClassLevelEntry(className, level);
+
+  if (!lookup.ok) {
+    return {
+      ok: false,
+      message: lookup.message,
+      saves: EMPTY_SAVES,
+    };
+  }
+
+  return {
+    ok: true,
+    attackBonus: lookup.levelEntry.attackBonus,
+    classId: lookup.classId,
+    className: lookup.className,
+    level: lookup.level,
+    saves: SAVE_KEYS.map((key) => ({
+      key,
+      label: reference.saveLabels[key].label,
+      value: lookup.levelEntry.saves[key],
+    })),
+  };
+}
+
+export function getThac0(attackBonus: number): number {
+  return 19 - attackBonus;
+}
+
+export function getXpProgress(
+  className: string,
+  level: number | null,
+  xp: number | null,
+): XpProgressResult {
+  const lookup = findClassLevelEntry(className, level);
+
+  if (!lookup.ok) {
+    return {
+      ok: false,
+      message: lookup.message,
+    };
+  }
+
+  const nextLevelEntry = lookup.classEntry.levels.find(
+    (candidateLevel) => candidateLevel.level === lookup.level + 1,
+  );
+  const nextLevelXp = nextLevelEntry ? nextLevelEntry.xpThreshold : null;
+
+  return {
+    ok: true,
+    classId: lookup.classId,
+    className: lookup.className,
+    level: lookup.level,
+    currentLevelXp: lookup.levelEntry.xpThreshold,
+    nextLevelXp,
+    xpToNext:
+      nextLevelXp === null || xp === null
+        ? null
+        : Math.max(0, nextLevelXp - xp),
+  };
+}
+
+export function getClassSpellSlots(
+  className: string,
+  level: number | null,
+): ClassSpellSlotsResult {
+  const lookup = findClassLevelEntry(className, level);
+
+  if (!lookup.ok) {
+    return {
+      ok: false,
+      message: lookup.message,
+    };
+  }
+
+  return {
+    ok: true,
+    classId: lookup.classId,
+    className: lookup.className,
+    level: lookup.level,
+    slots: Object.entries(lookup.levelEntry.spellSlots)
+      .map(([spellLevel, count]) => ({
+        spellLevel: Number(spellLevel),
+        count,
+      }))
+      .sort((left, right) => left.spellLevel - right.spellLevel),
+    maxSpellLevel: lookup.levelEntry.maxSpellLevel,
+  };
+}
+
+type ClassLevelEntryLookup =
+  | {
+      ok: true;
+      classId: string;
+      className: string;
+      level: number;
+      classEntry: ClassReference["classes"][string];
+      levelEntry: ClassReference["classes"][string]["levels"][number];
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+function findClassLevelEntry(
+  className: string,
+  level: number | null,
+): ClassLevelEntryLookup {
   const normalizedClassName = normalizeClassName(className);
 
   if (!normalizedClassName) {
     return {
       ok: false,
       message: "Enter a supported class to calculate saves.",
-      saves: EMPTY_SAVES,
     };
   }
 
@@ -80,7 +223,6 @@ export function getCharacterSaveLookup(
     return {
       ok: false,
       message: "Saves unavailable for this class.",
-      saves: EMPTY_SAVES,
     };
   }
 
@@ -88,7 +230,6 @@ export function getCharacterSaveLookup(
     return {
       ok: false,
       message: "Enter level 1 or higher to calculate saves.",
-      saves: EMPTY_SAVES,
     };
   }
 
@@ -101,21 +242,16 @@ export function getCharacterSaveLookup(
     return {
       ok: false,
       message: `Saves unavailable for ${classEntry.displayName} level ${level}.`,
-      saves: EMPTY_SAVES,
     };
   }
 
   return {
     ok: true,
-    attackBonus: levelEntry.attackBonus,
     classId,
     className: classEntry.displayName,
     level,
-    saves: SAVE_KEYS.map((key) => ({
-      key,
-      label: reference.saveLabels[key].label,
-      value: levelEntry.saves[key],
-    })),
+    classEntry,
+    levelEntry,
   };
 }
 

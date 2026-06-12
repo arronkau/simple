@@ -2017,3 +2017,138 @@ export const HAND_BATCH_MOVE_STORE_MANUAL_FIXTURES = [
     },
   },
 ];
+
+const quickAdjustCharId = useAppStore.getState().createEntity({
+  name: "Quill the Quick",
+  entityType: "character",
+});
+const quickAdjustMountId = useAppStore.getState().createEntity({
+  name: "Quill's Pony",
+  entityType: "mount",
+});
+
+const quickAdjustBaseline = {
+  ...createEmptyCharacterData(),
+  className: "Magic-User",
+  level: 3,
+  alignment: "Law" as const,
+  xp: 2500,
+  hp: { current: 4, max: 6 },
+  armorClass: { modifier: 1, override: null },
+  skills: [
+    { id: "skill-1", name: "Lore", chanceInSix: 2, description: "Old tales" },
+  ],
+  spells: [
+    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, notes: "at dawn" },
+    { id: "spell-web", name: "Web", level: 2, memorized: 1 },
+  ],
+  languages: ["Common", "Elvish"],
+  description: "Apprentice of the Grey Tower.",
+  features: [{ id: "feature-1", name: "Read Magic", description: "At will." }],
+};
+
+const quickAdjustResults = quickAdjustCharId
+  ? (() => {
+      useAppStore
+        .getState()
+        .updateCharacterData(quickAdjustCharId, quickAdjustBaseline);
+
+      // Each call must read the previous call's result from the store, so
+      // a stale-snapshot implementation would lose earlier adjustments.
+      return {
+        hp: useAppStore.getState().adjustCharacterHp(quickAdjustCharId, -1),
+        xp: useAppStore.getState().adjustCharacterXp(quickAdjustCharId, 350),
+        memorized: useAppStore
+          .getState()
+          .adjustCharacterSpellMemorized(quickAdjustCharId, "spell-sleep", 1),
+      };
+    })()
+  : undefined;
+
+const quickAdjustCharacterAfter = useAppStore
+  .getState()
+  .appState.entities.find((entity) => entity.id === quickAdjustCharId)?.character;
+
+const quickAdjustClampResults = quickAdjustCharId
+  ? {
+      hp: useAppStore.getState().adjustCharacterHp(quickAdjustCharId, -99),
+      xp: useAppStore.getState().adjustCharacterXp(quickAdjustCharId, -99999),
+      memorized: useAppStore
+        .getState()
+        .adjustCharacterSpellMemorized(quickAdjustCharId, "spell-sleep", -99),
+    }
+  : undefined;
+
+const quickAdjustCharacterClamped = useAppStore
+  .getState()
+  .appState.entities.find((entity) => entity.id === quickAdjustCharId)?.character;
+
+export const QUICK_ADJUST_STORE_MANUAL_FIXTURES = [
+  {
+    name: "quick adjustments apply sequentially from latest store state and preserve unrelated fields",
+    actual: {
+      results: quickAdjustResults,
+      character: quickAdjustCharacterAfter,
+    },
+    expected: {
+      results: {
+        hp: { ok: true },
+        xp: { ok: true },
+        memorized: { ok: true },
+      },
+      character: {
+        ...quickAdjustBaseline,
+        xp: 2850,
+        hp: { current: 3, max: 6 },
+        spells: [
+          {
+            id: "spell-sleep",
+            name: "Sleep",
+            level: 1,
+            memorized: 2,
+            notes: "at dawn",
+          },
+          { id: "spell-web", name: "Web", level: 2, memorized: 1 },
+        ],
+      },
+    },
+  },
+  {
+    name: "quick adjustments clamp hp, xp, and memorized counts at zero",
+    actual: {
+      results: quickAdjustClampResults,
+      hp: quickAdjustCharacterClamped?.hp,
+      xp: quickAdjustCharacterClamped?.xp,
+      memorized: quickAdjustCharacterClamped?.spells[0]?.memorized,
+      webUntouched: quickAdjustCharacterClamped?.spells[1]?.memorized,
+    },
+    expected: {
+      results: {
+        hp: { ok: true },
+        xp: { ok: true },
+        memorized: { ok: true },
+      },
+      hp: { current: 0, max: 6 },
+      xp: 0,
+      memorized: 0,
+      webUntouched: 1,
+    },
+  },
+  {
+    name: "quick adjustments reject non-character entities and missing entities",
+    actual: {
+      mount: quickAdjustMountId
+        ? useAppStore.getState().adjustCharacterHp(quickAdjustMountId, -1)
+        : undefined,
+      missing: useAppStore.getState().adjustCharacterHp("missing-entity", -1),
+    },
+    expected: {
+      mount: {
+        ok: false,
+        message:
+          "Character sheets are only available for characters and retainers.",
+      },
+      missing: { ok: false, message: "Entity was not found." },
+    },
+  },
+];

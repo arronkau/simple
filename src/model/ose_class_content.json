@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "0.1.0-skeleton",
+  "ruleset": "Old-School Essentials Advanced Fantasy per-class content: prime requisites, class abilities, and level-indexed tables (class skills, turn undead)",
+  "sourceBasis": [
+    "TODO: cite the printed pages for each authored class, matching the ose_class_reference.json sourceBasis style."
+  ],
+  "authoringStatus": "Skeleton: format reference only. The sampleClass entry demonstrates the shape and may be deleted once real classes are authored; real class keys must match ose_class_reference.json ids. See CONTENT_GUIDE.md.",
+  "classes": {
+    "sampleClass": {
+      "id": "sampleClass",
+      "displayName": "Sample Class",
+      "primeRequisites": ["dexterity"],
+      "spellListId": "sampleList",
+      "abilities": [
+        {
+          "id": "sampleAbility",
+          "name": "Sample Ability",
+          "description": "Format reference only — not a real ability. Replace with authored content per CONTENT_GUIDE.md."
+        }
+      ],
+      "levelTables": [
+        {
+          "id": "sampleTable",
+          "name": "Sample Table",
+          "columns": ["First Column", "Second Column"],
+          "rowsByLevel": {
+            "1": ["sample", 0]
+          }
+        }
+      ]
+    }
+  }
+}
