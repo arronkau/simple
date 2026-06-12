@@ -812,6 +812,17 @@ Rules:
 - If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
 - Hand occupancy does not validate whether `handsRequired` is satisfied for active/use effects.
 
+### Class Progression Derivations
+
+Derived from `ose_class_reference.json` via class name + level lookup; never stored on the entity:
+
+- **Attack bonus** — per-class, per-level value (existing save lookup).
+- **THAC0** — `19 - attackBonus`. A pure presentation derivation; ascending attack bonus remains the canonical value.
+- **XP progress** — the current level's `xpThreshold`, the next level's `xpThreshold` (or `null` at the class's maximum level), and the remaining XP to the next level clamped at 0 (or `null` when the character's XP is unset or there is no next level).
+- **Spell slots** — the level entry's `spellSlots` map as a sorted `{ spellLevel, count }[]` (empty for non-casters) plus `maxSpellLevel`.
+
+Unknown class names or out-of-range levels return `ok: false` results; the UI renders placeholders and never blocks on missing rule data.
+
 ## Hard Invariants
 
 The app should prevent state that violates these invariants:

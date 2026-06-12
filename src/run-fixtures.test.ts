@@ -10,6 +10,7 @@ import { INVENTORY_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryDisplay.fixt
 import { INVENTORY_DND_MANUAL_FIXTURES } from "./model/inventoryDnd.fixtures";
 import { INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryRowDisplay.fixtures";
 import { INVENTORY_RECORDS_MANUAL_FIXTURES } from "./model/inventoryRecords.fixtures";
+import { SAVE_TABLES_MANUAL_FIXTURES } from "./model/saveTables.fixtures";
 import { STANDARD_ITEMS_MANUAL_FIXTURES } from "./model/standardItems.fixtures";
 import { VALIDATION_MANUAL_FIXTURES } from "./model/validation.fixtures";
 import { FIREBASE_CONFIG_MANUAL_FIXTURES } from "./persistence/firebaseConfig.fixtures";
@@ -48,6 +49,7 @@ const manualFixtures: ManualFixture[] = [
   ...INVENTORY_DND_MANUAL_FIXTURES,
   ...INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_RECORDS_MANUAL_FIXTURES,
+  ...SAVE_TABLES_MANUAL_FIXTURES,
   ...STANDARD_ITEMS_MANUAL_FIXTURES,
   ...VALIDATION_MANUAL_FIXTURES,
   ...ENTITY_UPDATE_STORE_MANUAL_FIXTURES,
