@@ -5,10 +5,10 @@ import {
 
 const testTable: AbilityModifierTable = {
   modifierBands: [
-    { min: 3, max: 3, modifier: -3 },
-    { min: 4, max: 5, modifier: -2 },
-    { min: 9, max: 12, modifier: 0 },
-    { min: 18, max: 18, modifier: 3 },
+    { minScore: 3, maxScore: 3, modifier: -3 },
+    { minScore: 4, maxScore: 5, modifier: -2 },
+    { minScore: 9, maxScore: 12, modifier: 0 },
+    { minScore: 18, maxScore: 18, modifier: 3 },
   ],
 };
 
@@ -34,8 +34,13 @@ export const ABILITY_MODIFIERS_MANUAL_FIXTURES = [
     expected: { ok: false },
   },
   {
-    name: "bundled ability modifier table is unauthored and fails gracefully",
+    name: "bundled ability modifier table resolves an average score",
     actual: getAbilityModifier(10),
+    expected: { ok: true, modifier: 0 },
+  },
+  {
+    name: "bundled ability modifier table fails gracefully outside authored bands",
+    actual: getAbilityModifier(19),
     expected: { ok: false },
   },
 ];

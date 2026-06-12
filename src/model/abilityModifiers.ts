@@ -1,8 +1,8 @@
 import bundledAbilityModifiers from "./ose_ability_modifiers.json";
 
 export type AbilityModifierBand = {
-  min: number;
-  max: number;
+  minScore: number;
+  maxScore: number;
   modifier: number;
 };
 
@@ -30,7 +30,8 @@ export function getAbilityModifier(
   }
 
   const band = table.modifierBands.find(
-    (candidateBand) => score >= candidateBand.min && score <= candidateBand.max,
+    (candidateBand) =>
+      score >= candidateBand.minScore && score <= candidateBand.maxScore,
   );
 
   if (!band) {

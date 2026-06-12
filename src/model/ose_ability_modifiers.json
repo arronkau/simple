@@ -1,9 +1,46 @@
 {
-  "schemaVersion": "0.1.0-skeleton",
+  "schemaVersion": "0.1.0",
   "ruleset": "Old-School Essentials ability score modifier bands (shared by all six ability scores)",
   "sourceBasis": [
-    "TODO: cite the printed page for the ability modifier table, matching the ose_class_reference.json sourceBasis style."
+    "Old-School Essentials Classic Fantasy / Advanced Fantasy, Ability Scores: shared ability score modifier table. Exact printed page not verified in this file."
   ],
-  "authoringStatus": "Skeleton: no bands authored yet; every score renders without a modifier until modifierBands is filled in. See CONTENT_GUIDE.md for the band format.",
-  "modifierBands": []
+  "authoringStatus": "Complete: standard OSE shared ability score modifier bands authored for ordinary scores 3-18.",
+  "modifierBands": [
+    {
+      "minScore": 3,
+      "maxScore": 3,
+      "modifier": -3
+    },
+    {
+      "minScore": 4,
+      "maxScore": 5,
+      "modifier": -2
+    },
+    {
+      "minScore": 6,
+      "maxScore": 8,
+      "modifier": -1
+    },
+    {
+      "minScore": 9,
+      "maxScore": 12,
+      "modifier": 0
+    },
+    {
+      "minScore": 13,
+      "maxScore": 15,
+      "modifier": 1
+    },
+    {
+      "minScore": 16,
+      "maxScore": 17,
+      "modifier": 2
+    },
+    {
+      "minScore": 18,
+      "maxScore": 18,
+      "modifier": 3
+    }
+  ]
 }
+

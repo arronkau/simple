@@ -93,18 +93,12 @@ The shared −3…+3 modifier table shown beside each ability score. Read via `s
 ```json
 {
   "modifierBands": [
-    { "min": 3, "max": 3, "modifier": -3 },
-    { "min": 4, "max": 5, "modifier": -2 },
-    { "min": 6, "max": 8, "modifier": -1 },
-    { "min": 9, "max": 12, "modifier": 0 },
-    { "min": 13, "max": 15, "modifier": 1 },
-    { "min": 16, "max": 17, "modifier": 2 },
-    { "min": 18, "max": 18, "modifier": 3 }
+    { "minScore": 3, "maxScore": 3, "modifier": -3 },
+    { "minScore": 9, "maxScore": 12, "modifier": 0 },
+    { "minScore": 18, "maxScore": 18, "modifier": 3 }
   ]
 }
 ```
-
-(The band boundaries above show the **format**; fill in the audited values from the book.)
 
 - Bands are inclusive on both ends; scores outside every band show no modifier.
 - One table serves all six scores. Per-ability extras (CHA retainer count/morale, INT languages) are deliberately not modeled yet — when wanted, they can be added to this file as an ability-keyed section without changing the band format.
