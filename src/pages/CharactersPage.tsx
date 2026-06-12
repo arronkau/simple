@@ -668,6 +668,7 @@ export function createCharacterSheetFormState(
       chanceInSix: skill.chanceInSix.toString(),
       description: skill.description ?? "",
     })),
+    spells: normalizedCharacterData.spells,
     languagesText: normalizedCharacterData.languages.join("\n"),
     description: normalizedCharacterData.description,
     features: normalizedCharacterData.features.map((feature) => ({
@@ -718,6 +719,7 @@ export function toCharacterDataFormInput(
         ? { description: skill.description.trim() }
         : {}),
     })),
+    spells: formState.spells,
     languages: parseLanguagesInput(formState.languagesText),
     description: formState.description.trim(),
     features: formState.features

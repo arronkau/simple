@@ -6,6 +6,7 @@ import type {
 } from "./model/inventoryRecords";
 import type {
   CharacterAlignment,
+  CharacterSpell,
   CoinData,
   Entity,
   EntityId,
@@ -158,6 +159,8 @@ export type CharacterSheetFormState = {
   armorClassOverride: string;
   abilityScores: Record<AbilityScoreKey, string>;
   skills: CharacterSkillFormState[];
+  /** Pass-through until the edit form gains spell rows; preserved on save. */
+  spells: CharacterSpell[];
   languagesText: string;
   description: string;
   features: CharacterFeatureFormState[];

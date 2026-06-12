@@ -2,6 +2,7 @@ import { createEntity } from "./entities";
 import { parseAppState } from "./appState";
 import {
   createEmptyCharacterData,
+  getSpellMemorizationWarnings,
   normalizeCharacterData,
   validateCharacterData,
 } from "./characters";
@@ -98,6 +99,58 @@ const invalidSkillCharacterData: CharacterData = {
   ],
 };
 
+const legacySpellsCharacterData = normalizeCharacterData({
+  className: "Magic-User",
+  spells: [
+    { name: "Sleep", level: 1, memorized: 1, notes: "memorized at dawn" },
+    { id: "spell-keep", name: "Charm Person", level: 1, memorized: 0 },
+    { name: "", level: 2, memorized: 1 },
+    { name: "Web", level: "two", memorized: -3 },
+    "not a spell",
+  ],
+});
+
+const invalidSpellCharacterData: CharacterData = {
+  ...emptyCharacterData,
+  spells: [
+    {
+      id: "spell-1",
+      name: "Sleep",
+      level: 0,
+      memorized: 1.5,
+    },
+  ],
+};
+
+const overMemorizedCharacterData: CharacterData = {
+  ...emptyCharacterData,
+  className: "Magic-User",
+  level: 3,
+  spells: [
+    { id: "spell-1", name: "Sleep", level: 1, memorized: 2 },
+    { id: "spell-2", name: "Magic Missile", level: 1, memorized: 1 },
+    { id: "spell-3", name: "Fireball", level: 3, memorized: 1 },
+  ],
+};
+
+const withinSlotsCharacterData: CharacterData = {
+  ...emptyCharacterData,
+  className: "Magic-User",
+  level: 3,
+  spells: [
+    { id: "spell-1", name: "Sleep", level: 1, memorized: 1 },
+    { id: "spell-2", name: "Charm Person", level: 1, memorized: 0 },
+    { id: "spell-3", name: "Web", level: 2, memorized: 1 },
+  ],
+};
+
+const nonCasterSpellCharacterData: CharacterData = {
+  ...emptyCharacterData,
+  className: "Fighter",
+  level: 3,
+  spells: [{ id: "spell-1", name: "Sleep", level: 1, memorized: 1 }],
+};
+
 export const CHARACTER_MANUAL_FIXTURES = [
   {
     name: "character-like entity creation initializes empty character sheets",
@@ -182,6 +235,76 @@ export const CHARACTER_MANUAL_FIXTURES = [
       valid: false,
       errors: ["Open Doors chance must be an integer from 1 through 6."],
     },
+  },
+  {
+    name: "missing spells field normalizes to an empty array",
+    actual: normalizeCharacterData({ className: "Fighter" }).spells,
+    expected: [],
+  },
+  {
+    name: "legacy spell rows normalize ids, levels, counts, and drop unnamed rows",
+    actual: legacySpellsCharacterData.spells,
+    expected: [
+      {
+        id: "spell-1",
+        name: "Sleep",
+        level: 1,
+        memorized: 1,
+        notes: "memorized at dawn",
+      },
+      {
+        id: "spell-keep",
+        name: "Charm Person",
+        level: 1,
+        memorized: 0,
+      },
+      {
+        id: "spell-4",
+        name: "Web",
+        level: 1,
+        memorized: 0,
+      },
+    ],
+  },
+  {
+    name: "character sheet validation rejects structurally impossible spell rows",
+    actual: validateCharacterData(invalidSpellCharacterData),
+    expected: {
+      valid: false,
+      errors: [
+        "Sleep level must be an integer of at least 1.",
+        "Sleep memorized count must be a non-negative integer.",
+      ],
+    },
+  },
+  {
+    name: "memorization warnings flag over-slot levels and over-max spells",
+    actual: getSpellMemorizationWarnings(overMemorizedCharacterData),
+    expected: [
+      "Fireball is level 3, above the Magic-User maximum of 2.",
+      "Level 1 spells memorized (3) exceed the available slots (2).",
+      "Level 3 spells memorized (1) exceed the available slots (0).",
+    ],
+  },
+  {
+    name: "memorization within derived slots produces no warnings",
+    actual: getSpellMemorizationWarnings(withinSlotsCharacterData),
+    expected: [],
+  },
+  {
+    name: "memorized spells on a non-caster class warn",
+    actual: getSpellMemorizationWarnings(nonCasterSpellCharacterData),
+    expected: ["Sleep is memorized but Fighter has no spell slots."],
+  },
+  {
+    name: "memorization warnings stay silent for unknown classes",
+    actual: getSpellMemorizationWarnings({
+      ...emptyCharacterData,
+      className: "Custom Adventurer",
+      level: 1,
+      spells: [{ id: "spell-1", name: "Sleep", level: 1, memorized: 9 }],
+    }),
+    expected: [],
   },
   {
     name: "save lookup calculates supported class saves by exact class and level",

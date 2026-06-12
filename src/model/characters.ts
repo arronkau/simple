@@ -1,9 +1,11 @@
+import { getClassSpellSlots } from "./saveTables";
 import type {
   AbilityScores,
   CharacterAlignment,
   CharacterData,
   CharacterFeature,
   CharacterSkill,
+  CharacterSpell,
   Entity,
   EntityType,
 } from "./types";
@@ -55,6 +57,7 @@ export function createEmptyCharacterData(): CharacterData {
     },
     abilityScores: createEmptyAbilityScores(),
     skills: [],
+    spells: [],
     languages: [],
     description: "",
     features: [],
@@ -94,6 +97,7 @@ export function normalizeCharacterData(value: unknown): CharacterData {
     armorClass: normalizeArmorClass(candidate.armorClass),
     abilityScores: normalizeAbilityScores(candidate.abilityScores),
     skills: normalizeSkills(candidate.skills),
+    spells: normalizeSpells(candidate.spells),
     languages: normalizeLanguages(candidate.languages),
     description: getString(candidate.description),
     features: normalizeFeatures(candidate.features),
@@ -151,9 +155,78 @@ export function validateCharacterData(
     }
   });
 
+  characterData.spells.forEach((spell) => {
+    if (!isIntegerAtLeast(spell.level, 1)) {
+      errors.push(
+        `${spell.name.trim() || "Spell"} level must be an integer of at least 1.`,
+      );
+    }
+
+    if (!isIntegerAtLeast(spell.memorized, 0)) {
+      errors.push(
+        `${spell.name.trim() || "Spell"} memorized count must be a non-negative integer.`,
+      );
+    }
+  });
+
   return errors.length === 0
     ? { valid: true, errors: [] }
     : { valid: false, errors };
+}
+
+export function getSpellMemorizationWarnings(
+  characterData: CharacterData,
+): string[] {
+  const slotsLookup = getClassSpellSlots(
+    characterData.className,
+    characterData.level,
+  );
+
+  if (!slotsLookup.ok) {
+    return [];
+  }
+
+  const warnings: string[] = [];
+  const memorizedByLevel = new Map<number, number>();
+
+  characterData.spells.forEach((spell) => {
+    memorizedByLevel.set(
+      spell.level,
+      (memorizedByLevel.get(spell.level) ?? 0) + spell.memorized,
+    );
+
+    if (
+      slotsLookup.maxSpellLevel !== null &&
+      spell.level > slotsLookup.maxSpellLevel
+    ) {
+      warnings.push(
+        `${spell.name.trim() || "Spell"} is level ${spell.level}, above the ${slotsLookup.className} maximum of ${slotsLookup.maxSpellLevel}.`,
+      );
+    }
+
+    if (slotsLookup.maxSpellLevel === null && spell.memorized > 0) {
+      warnings.push(
+        `${spell.name.trim() || "Spell"} is memorized but ${slotsLookup.className} has no spell slots.`,
+      );
+    }
+  });
+
+  [...memorizedByLevel.entries()]
+    .sort(([leftLevel], [rightLevel]) => leftLevel - rightLevel)
+    .forEach(([spellLevel, memorized]) => {
+      const slot = slotsLookup.slots.find(
+        (candidateSlot) => candidateSlot.spellLevel === spellLevel,
+      );
+      const available = slot?.count ?? 0;
+
+      if (slotsLookup.maxSpellLevel !== null && memorized > available) {
+        warnings.push(
+          `Level ${spellLevel} spells memorized (${memorized}) exceed the available slots (${available}).`,
+        );
+      }
+    });
+
+  return warnings;
 }
 
 export function isCharacterLikeEntityType(entityType: EntityType): boolean {
@@ -226,6 +299,34 @@ function normalizeSkills(value: unknown): CharacterSkill[] {
         ...(getString(skill.description)
           ? { description: getString(skill.description) }
           : {}),
+      },
+    ];
+  });
+}
+
+function normalizeSpells(value: unknown): CharacterSpell[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((spell, index) => {
+    if (!isRecord(spell)) {
+      return [];
+    }
+
+    const name = getString(spell.name);
+
+    if (!name.trim()) {
+      return [];
+    }
+
+    return [
+      {
+        id: getString(spell.id) || `spell-${index + 1}`,
+        name,
+        level: getNullableInteger(spell.level, 1) ?? 1,
+        memorized: getNullableInteger(spell.memorized, 0) ?? 0,
+        ...(getString(spell.notes) ? { notes: getString(spell.notes) } : {}),
       },
     ];
   });

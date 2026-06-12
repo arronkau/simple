@@ -225,6 +225,14 @@ export type CharacterFeature = {
   description: string;
 };
 
+export type CharacterSpell = {
+  id: string;
+  name: string;
+  level: number;
+  memorized: number;
+  notes?: string;
+};
+
 export type CharacterData = {
   className: string;
   level: number | null;
@@ -240,6 +248,7 @@ export type CharacterData = {
   };
   abilityScores: AbilityScores;
   skills: CharacterSkill[];
+  spells: CharacterSpell[];
   languages: string[];
   description: string;
   features: CharacterFeature[];
@@ -255,6 +264,10 @@ Character data supports a lightweight character-sheet layer in addition to inven
 `CharacterSkill.chanceInSix` is an integer from 1 through 6 representing a 1-in-6 chance skill system. It is not nullable.
 
 `CharacterFeature.name` is the feature's display name. Legacy stored data may use `title` as an alias; parsers should accept both and normalize to `name`.
+
+`CharacterSpell` rows are the character's spell state. `name` is fuzzy-matched against the spell library for display details; an unmatched name is allowed and simply renders without library details. `level` is the spell's level (integer, at least 1) and is stored, not looked up — the model never silently corrects a stored level that disagrees with the library. `memorized` is the number of copies currently memorized/prepared (integer, at least 0). A magic-user's spellbook is the full row set including `memorized: 0` entries (known but not prepared); divine casters typically only carry rows for what is memorized today. Older stored data without `spells` normalizes to an empty array.
+
+Memorized totals exceeding the class's derived spell slots are a soft warning, never a block (scrolls, bonuses, and house rules are table-adjudicated).
 
 Character-sheet fields may be displayed, edited, and validated, but inventory ownership and encumbrance semantics must not depend on ability scores, skills, features, description, or languages unless a later task explicitly adds that behavior.
 
@@ -880,3 +893,4 @@ The app may warn without blocking for:
 - Attempting to stow a non-coin character-like record when no top-level stowed container exists.
 - Missing optional metadata.
 - Unidentified equipment, armor, or weapon lacking an unidentified name.
+- Memorized spells exceeding the class's derived spell slots at a given spell level, or a spell above the class's maximum castable spell level.
