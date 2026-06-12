@@ -14,6 +14,9 @@ export function CharactersPage({
   sortedEntities,
   onEditEntity,
   onSaveCharacterData,
+  onAdjustHp,
+  onAdjustXp,
+  onAdjustSpellMemorized,
 }: {
   appState: AppState;
   sortedEntities: Entity[];
@@ -21,6 +24,13 @@ export function CharactersPage({
   onSaveCharacterData: (
     entityId: EntityId,
     characterData: CharacterData,
+  ) => EntityMutationResult;
+  onAdjustHp: (entityId: EntityId, delta: number) => EntityMutationResult;
+  onAdjustXp: (entityId: EntityId, delta: number) => EntityMutationResult;
+  onAdjustSpellMemorized: (
+    entityId: EntityId,
+    spellId: string,
+    delta: number,
   ) => EntityMutationResult;
 }) {
   const characterEntities = sortedEntities.filter(isCharacterLikeEntity);
@@ -92,8 +102,10 @@ export function CharactersPage({
                 <CharacterSheet
                   appState={appState}
                   entity={selectedEntity}
+                  onAdjustHp={onAdjustHp}
+                  onAdjustXp={onAdjustXp}
+                  onAdjustSpellMemorized={onAdjustSpellMemorized}
                   onEdit={() => setSheetMode("edit")}
-                  onSaveCharacterData={onSaveCharacterData}
                 />
               ) : (
                 <CharacterSheetEditForm

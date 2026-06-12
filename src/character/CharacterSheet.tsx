@@ -40,14 +40,19 @@ import { CharacterSheetInventory } from "./CharacterSheetInventory";
 export function CharacterSheet({
   appState,
   entity,
-  onSaveCharacterData,
+  onAdjustHp,
+  onAdjustXp,
+  onAdjustSpellMemorized,
   onEdit,
 }: {
   appState: AppState;
   entity: Entity;
-  onSaveCharacterData: (
+  onAdjustHp: (entityId: EntityId, delta: number) => EntityMutationResult;
+  onAdjustXp: (entityId: EntityId, delta: number) => EntityMutationResult;
+  onAdjustSpellMemorized: (
     entityId: EntityId,
-    characterData: CharacterData,
+    spellId: string,
+    delta: number,
   ) => EntityMutationResult;
   onEdit: () => void;
 }) {
@@ -70,31 +75,16 @@ export function CharacterSheet({
   const levelTables = getClassLevelTables(character.className, character.level);
   const memorizationWarnings = getSpellMemorizationWarnings(character);
 
-  function saveCharacterPatch(patch: Partial<CharacterData>) {
-    const result = onSaveCharacterData(entity.id, { ...character, ...patch });
-
+  function reportQuickResult(result: EntityMutationResult) {
     setQuickError(result.ok ? undefined : result.message);
   }
 
   function adjustCurrentHp(delta: number) {
-    const currentHp = character.hp.current ?? 0;
-
-    saveCharacterPatch({
-      hp: {
-        current: Math.max(0, currentHp + delta),
-        max: character.hp.max,
-      },
-    });
+    reportQuickResult(onAdjustHp(entity.id, delta));
   }
 
   function adjustMemorized(spellId: string, delta: number) {
-    saveCharacterPatch({
-      spells: character.spells.map((spell) =>
-        spell.id === spellId
-          ? { ...spell, memorized: Math.max(0, spell.memorized + delta) }
-          : spell,
-      ),
-    });
+    reportQuickResult(onAdjustSpellMemorized(entity.id, spellId, delta));
   }
 
   const primeRequisiteText = classContent.ok
@@ -116,9 +106,7 @@ export function CharacterSheet({
         <div className="sheet-header-actions">
           <XpQuickAdd
             character={character}
-            onAddXp={(amount) =>
-              saveCharacterPatch({ xp: (character.xp ?? 0) + amount })
-            }
+            onAddXp={(amount) => reportQuickResult(onAdjustXp(entity.id, amount))}
           />
           <button type="button" onClick={onEdit}>
             Edit sheet

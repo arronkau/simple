@@ -1,6 +1,9 @@
 import { createEntity } from "./entities";
 import { parseAppState } from "./appState";
 import {
+  adjustCharacterHp,
+  adjustCharacterSpellMemorized,
+  adjustCharacterXp,
   createEmptyCharacterData,
   getSpellMemorizationWarnings,
   normalizeCharacterData,
@@ -149,6 +152,32 @@ const nonCasterSpellCharacterData: CharacterData = {
   className: "Fighter",
   level: 3,
   spells: [{ id: "spell-1", name: "Sleep", level: 1, memorized: 1 }],
+};
+
+// Rich sheet used to prove quick adjustments rewrite only their own field.
+const richCharacterData: CharacterData = {
+  className: "Magic-User",
+  level: 3,
+  alignment: "Law",
+  xp: 2500,
+  hp: { current: 4, max: 6 },
+  armorClass: { modifier: 1, override: null },
+  abilityScores: {
+    strength: 9,
+    intelligence: 16,
+    wisdom: 11,
+    dexterity: 13,
+    constitution: 10,
+    charisma: 8,
+  },
+  skills: [{ id: "skill-1", name: "Lore", chanceInSix: 2, description: "Old tales" }],
+  spells: [
+    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, notes: "at dawn" },
+    { id: "spell-web", name: "Web", level: 2, memorized: 1 },
+  ],
+  languages: ["Common", "Elvish"],
+  description: "Apprentice of the Grey Tower.",
+  features: [{ id: "feature-1", name: "Read Magic", description: "At will." }],
 };
 
 export const CHARACTER_MANUAL_FIXTURES = [
@@ -305,6 +334,67 @@ export const CHARACTER_MANUAL_FIXTURES = [
       spells: [{ id: "spell-1", name: "Sleep", level: 1, memorized: 9 }],
     }),
     expected: [],
+  },
+  {
+    name: "hp adjustment rewrites only current hp and preserves the rest of the sheet",
+    actual: adjustCharacterHp(richCharacterData, -1),
+    expected: {
+      ...richCharacterData,
+      hp: { current: 3, max: 6 },
+    },
+  },
+  {
+    name: "hp adjustment clamps at zero and treats missing hp as zero",
+    actual: {
+      clamped: adjustCharacterHp(richCharacterData, -99).hp,
+      fromNull: adjustCharacterHp(emptyCharacterData, 2).hp,
+    },
+    expected: {
+      clamped: { current: 0, max: 6 },
+      fromNull: { current: 2, max: null },
+    },
+  },
+  {
+    name: "xp adjustment rewrites only xp and preserves the rest of the sheet",
+    actual: adjustCharacterXp(richCharacterData, 350),
+    expected: {
+      ...richCharacterData,
+      xp: 2850,
+    },
+  },
+  {
+    name: "xp adjustment clamps at zero and treats missing xp as zero",
+    actual: {
+      clamped: adjustCharacterXp(richCharacterData, -99999).xp,
+      fromNull: adjustCharacterXp(emptyCharacterData, 100).xp,
+    },
+    expected: {
+      clamped: 0,
+      fromNull: 100,
+    },
+  },
+  {
+    name: "memorized adjustment rewrites only the matching spell row",
+    actual: adjustCharacterSpellMemorized(richCharacterData, "spell-sleep", 1),
+    expected: {
+      ...richCharacterData,
+      spells: [
+        { id: "spell-sleep", name: "Sleep", level: 1, memorized: 2, notes: "at dawn" },
+        { id: "spell-web", name: "Web", level: 2, memorized: 1 },
+      ],
+    },
+  },
+  {
+    name: "memorized adjustment clamps at zero and ignores unknown spell ids",
+    actual: {
+      clamped: adjustCharacterSpellMemorized(richCharacterData, "spell-sleep", -99)
+        .spells[0]?.memorized,
+      unknownId: adjustCharacterSpellMemorized(richCharacterData, "spell-missing", 1),
+    },
+    expected: {
+      clamped: 0,
+      unknownId: richCharacterData,
+    },
   },
   {
     name: "save lookup calculates supported class saves by exact class and level",

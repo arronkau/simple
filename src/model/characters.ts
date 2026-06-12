@@ -174,6 +174,44 @@ export function validateCharacterData(
     : { valid: false, errors };
 }
 
+export function adjustCharacterHp(
+  characterData: CharacterData,
+  delta: number,
+): CharacterData {
+  return {
+    ...characterData,
+    hp: {
+      current: Math.max(0, (characterData.hp.current ?? 0) + delta),
+      max: characterData.hp.max,
+    },
+  };
+}
+
+export function adjustCharacterXp(
+  characterData: CharacterData,
+  delta: number,
+): CharacterData {
+  return {
+    ...characterData,
+    xp: Math.max(0, (characterData.xp ?? 0) + delta),
+  };
+}
+
+export function adjustCharacterSpellMemorized(
+  characterData: CharacterData,
+  spellId: string,
+  delta: number,
+): CharacterData {
+  return {
+    ...characterData,
+    spells: characterData.spells.map((spell) =>
+      spell.id === spellId
+        ? { ...spell, memorized: Math.max(0, spell.memorized + delta) }
+        : spell,
+    ),
+  };
+}
+
 export function getSpellMemorizationWarnings(
   characterData: CharacterData,
 ): string[] {
