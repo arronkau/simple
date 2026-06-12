@@ -1,5 +1,8 @@
 import { APP_MANUAL_FIXTURES } from "./App.fixtures";
+import { ABILITY_MODIFIERS_MANUAL_FIXTURES } from "./model/abilityModifiers.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
+import { CLASS_CONTENT_MANUAL_FIXTURES } from "./model/classContent.fixtures";
+import { SPELL_LIBRARY_MANUAL_FIXTURES } from "./model/spellLibrary.fixtures";
 import { PERMISSIONS_MANUAL_FIXTURES } from "./model/permissions.fixtures";
 import { CALCULATION_MANUAL_FIXTURES } from "./model/calculations.fixtures";
 import { CHARACTER_MANUAL_FIXTURES } from "./model/characters.fixtures";
@@ -37,8 +40,11 @@ type ManualFixture = {
 
 const manualFixtures: ManualFixture[] = [
   ...APP_MANUAL_FIXTURES,
+  ...ABILITY_MODIFIERS_MANUAL_FIXTURES,
   ...APP_STATE_MANUAL_FIXTURES,
   ...AUDIT_LOG_MANUAL_FIXTURES,
+  ...CLASS_CONTENT_MANUAL_FIXTURES,
+  ...SPELL_LIBRARY_MANUAL_FIXTURES,
   ...PERMISSIONS_MANUAL_FIXTURES,
   ...CALCULATION_MANUAL_FIXTURES,
   ...CHARACTER_MANUAL_FIXTURES,

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.1.0-skeleton",
+  "ruleset": "Old-School Essentials ability score modifier bands (shared by all six ability scores)",
+  "sourceBasis": [
+    "TODO: cite the printed page for the ability modifier table, matching the ose_class_reference.json sourceBasis style."
+  ],
+  "authoringStatus": "Skeleton: no bands authored yet; every score renders without a modifier until modifierBands is filled in. See CONTENT_GUIDE.md for the band format.",
+  "modifierBands": []
+}

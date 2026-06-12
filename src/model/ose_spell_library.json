@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "0.1.0-skeleton",
+  "ruleset": "Old-School Essentials Advanced Fantasy spell lists",
+  "sourceBasis": [
+    "TODO: cite the printed pages for each authored spell list, matching the ose_class_reference.json sourceBasis style."
+  ],
+  "authoringStatus": "Skeleton: format reference only. The sampleList entry demonstrates the shape and may be deleted once real lists are authored. See CONTENT_GUIDE.md.",
+  "spellLists": {
+    "sampleList": {
+      "id": "sampleList",
+      "displayName": "Sample List",
+      "levels": {
+        "1": [
+          {
+            "id": "sampleSpell",
+            "displayName": "Sample Spell",
+            "reversible": false,
+            "duration": "1 turn",
+            "range": "60'",
+            "description": "Format reference only — not a real spell. Replace with authored content per CONTENT_GUIDE.md."
+          }
+        ]
+      }
+    }
+  }
+}

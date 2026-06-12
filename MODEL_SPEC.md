@@ -22,6 +22,22 @@ UI layout belongs outside this model spec.
 - Use current canonical terminology in new model code and UI.
 - Use `entity` terminology everywhere.
 
+## Content Libraries
+
+Rule content (class reference tables, spell lists, per-class content, ability-score modifiers) lives in bundled, audited JSON files under `src/model/`, read by pure lookup functions:
+
+- `ose_class_reference.json` — per-class, per-level progression (xp, attack, saves, spell slots). See Class Progression Derivations.
+- `ose_spell_library.json` — spell lists by list id and spell level (`src/model/spellLibrary.ts`).
+- `ose_class_content.json` — per-class prime requisites, class abilities, and generic level-indexed tables such as class skills and turn undead (`src/model/classContent.ts`).
+- `ose_ability_modifiers.json` — shared ability-score modifier bands (`src/model/abilityModifiers.ts`).
+
+Rules:
+
+- Content libraries are **never part of `PartyState`** and are never persisted per party.
+- Characters reference content by **name** (e.g. `className`, spell `name`); lookups fuzzy-match (lowercase, strip non-alphanumerics) against `id` or `displayName` and return `ok: false` results when unmatched.
+- Missing or partially authored content degrades gracefully (placeholders / hidden sections); it is never an error and never blocks editing.
+- Authoring format and provenance requirements are documented in `CONTENT_GUIDE.md`.
+
 ## App State
 
 ```ts
