@@ -19,7 +19,7 @@ import {
 } from "./model/inventoryRowDisplay";
 import type { IconTone, ItemStatusIconName, ItemTypeIconName } from "./components/InventoryIcons";
 import type { AuditLogEntry, CharacterAlignment, CharacterData, InventoryRecord, InventoryRecordId } from "./model/types";
-import type { PartyAbilityScoreDisplay } from "./view-types";
+import type { PartyAbilityScoreDisplay, PartyHandDisplay } from "./view-types";
 
 // ---- Party display ----
 
@@ -33,10 +33,6 @@ export function formatPartyClassLevel(character: CharacterData): string {
   }
 
   return `${classLabel} ${character.level}`;
-}
-
-export function formatPartyArmorClass(armorClass: number): string {
-  return `AC ${formatNullablePartyNumber(armorClass)}`;
 }
 
 export function formatPartyAlignment(alignment: CharacterAlignment): string {
@@ -88,39 +84,39 @@ export function formatPartyAbilityScores(
 export function formatPartyHands(
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
   records: InventoryRecord[],
-): string[] {
+): PartyHandDisplay[] {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
 
   if (bothHandsRecord) {
-    return [`Both: ${getPartyRecordLabel(bothHandsRecord, records, true)}`];
+    return [getPartyHandDisplay("Both", bothHandsRecord, records)];
   }
 
-  const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
-  const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
-
   return [
-    `L: ${
-      leftHandRecord ? getPartyRecordLabel(leftHandRecord, records, true) : "Empty"
-    }`,
-    `R: ${
-      rightHandRecord
-        ? getPartyRecordLabel(rightHandRecord, records, true)
-        : "Empty"
-    }`,
+    getPartyHandDisplay(
+      "L",
+      getRecordById(sections.handRecordIds.leftHand, records),
+      records,
+    ),
+    getPartyHandDisplay(
+      "R",
+      getRecordById(sections.handRecordIds.rightHand, records),
+      records,
+    ),
   ];
 }
 
-export function getPartyRecordLabel(
-  record: InventoryRecord,
+function getPartyHandDisplay(
+  label: string,
+  record: InventoryRecord | undefined,
   records: InventoryRecord[],
-  includeStatuses = false,
-): string {
-  const display = getInventoryRowDisplay(record, records);
-  const statuses = includeStatuses
-    ? display.statusIcons.map((status) => `[${getInventoryRowStatusText(status)}]`)
-    : [];
+): PartyHandDisplay {
+  if (!record) {
+    return { label, text: null, statuses: [] };
+  }
 
-  return [display.primaryText, ...statuses].join(" ");
+  const display = getInventoryRowDisplay(record, records);
+
+  return { label, text: display.primaryText, statuses: display.statusIcons };
 }
 
 export function formatNullablePartyNumber(value: number | null): string {

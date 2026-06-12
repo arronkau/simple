@@ -452,7 +452,6 @@ function LocalAppShell() {
             element={
               <PartyPage
                 appState={appState}
-                inventoryPath={`/party/${partyId}/gear`}
                 sortedEntities={sortedEntities}
               />
             }

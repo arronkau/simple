@@ -1,4 +1,3 @@
-import { NavLink } from "react-router-dom";
 import { getCharacterArmorClass } from "../model/calculations";
 import { normalizeCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
@@ -18,26 +17,30 @@ import type { AppState } from "../model/appState";
 import type { Entity } from "../model/types";
 import {
   formatMovementFeet,
+  formatNullablePartyNumber,
   formatPartyAbilityScores,
-  formatPartyArmorClass,
   formatPartyClassLevel,
   formatPartyHands,
   formatPartyHp,
   formatPartyLanguages,
   formatWarningState,
+  getInventoryRowStatusIcon,
+  getInventoryRowStatusTitle,
+  getInventoryRowStatusTone,
   isPartyMemberHurt,
 } from "../formatters";
-import type { PartyOverviewCard } from "../view-types";
+import type { PartyHandDisplay, PartyOverviewCard } from "../view-types";
+import { ItemStatusIcon } from "../components/InventoryIcons";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { getDisplayValidationIssues } from "../entity/EntityStatus";
 
+const ABILITY_COLUMN_LABELS = ["S", "I", "W", "D", "C", "Ch"];
+
 export function PartyPage({
   appState,
-  inventoryPath,
   sortedEntities,
 }: {
   appState: AppState;
-  inventoryPath: string;
   sortedEntities: Entity[];
 }) {
   const cards = getPartyOverviewCards(appState, sortedEntities);
@@ -47,74 +50,111 @@ export function PartyPage({
   );
 
   return (
-    <section className="entity-workspace" aria-labelledby="party-title">
+    <section
+      className="entity-workspace party-page"
+      aria-labelledby="party-title"
+    >
       <div className="section-heading">
         <div>
-          <h2 id="party-title">
-            Party {cards.length > 0 ? `(${formatMovementFeet(movementFeet)})` : ""}
-          </h2>
+          <h2 id="party-title">Party</h2>
           <p>Table-facing character and retainer status.</p>
         </div>
-        <NavLink className="text-link-button" to={inventoryPath}>
-          Inventory
-        </NavLink>
+        {cards.length > 0 ? (
+          <span className="party-move-summary">
+            Party move <b>{formatMovementFeet(movementFeet)}</b>
+          </span>
+        ) : null}
       </div>
 
       {cards.length === 0 ? (
         <p className="empty-state">No characters or retainers yet.</p>
       ) : (
-        <ul className="party-card-grid" aria-label="Party overview">
-          {cards.map((card) => (
-            <li
-              className="party-card"
-              data-warning-state={card.warningCount > 0}
-              key={card.id}
-            >
-              <div className="party-card-heading">
-                <div>
-                  <h3>{card.name}</h3>
-                  <p>{card.classLevel}</p>
-                </div>
-                <div className="party-card-status">
-                  <span>{card.movement}</span>
-                  <WarningDetailsButton
-                    validationIssues={card.validationIssues}
-                    warnings={card.warnings}
-                  />
-                </div>
-              </div>
-
-              <div className="party-stat-grid">
-                <span>HP {card.hp}</span>
-                <span>{card.ac}</span>
-              </div>
-
-              <div className="party-ability-row" aria-label="Ability scores">
-                {card.abilityScores.map((score) => (
-                  <span key={score.label}>
-                    <strong>{score.label}</strong>
-                    {score.value}
-                  </span>
+        <div className="party-table-scroll">
+          <table className="party-table" aria-label="Party overview">
+            <thead>
+              <tr>
+                <th className="pt-name">Name</th>
+                <th className="pt-num">HP</th>
+                <th className="pt-num">AC</th>
+                <th className="pt-num">MV</th>
+                {ABILITY_COLUMN_LABELS.map((label) => (
+                  <th className="pt-num pt-ability" key={label}>
+                    {label}
+                  </th>
                 ))}
-              </div>
-
-              <div className="party-card-section">
-                <span>Hands</span>
-                <div className="party-hands-list">
-                  {[0, 1].map((index) => (
-                    <span key={index}>{card.hands[index] ?? " "}</span>
+                <th className="pt-hands">Hands</th>
+                <th className="pt-languages">Languages</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cards.map((card) => (
+                <tr key={card.id}>
+                  <td className="pt-name">
+                    <div className="pt-name-cell">
+                      <span className="pt-char-name">{card.name}</span>
+                      <WarningDetailsButton
+                        validationIssues={card.validationIssues}
+                        warnings={card.warnings}
+                      />
+                    </div>
+                    <div className="pt-class">{card.classLevel}</div>
+                  </td>
+                  <td className="pt-num" data-hurt={card.hurt}>
+                    {card.hp}
+                  </td>
+                  <td className="pt-num">{card.ac}</td>
+                  <td className="pt-num">
+                    <span className={`mv ${card.movementTone}`}>
+                      {card.movement}
+                    </span>
+                  </td>
+                  {card.abilityScores.map((score) => (
+                    <td className="pt-num pt-ability" key={score.label}>
+                      {score.value}
+                    </td>
                   ))}
-                </div>
-              </div>
-              <div className="party-card-section">
-                <span>Languages</span>
-                <p>{card.languages}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
+                  <td className="pt-hands">
+                    {card.hands.map((hand) => (
+                      <PartyHandRow hand={hand} key={hand.label} />
+                    ))}
+                  </td>
+                  <td className="pt-languages">{card.languages}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
+  );
+}
+
+function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
+  return (
+    <div className="pt-hand">
+      <span className="pt-hlabel">{hand.label}</span>
+      {hand.text === null ? (
+        <span className="empty-label">empty</span>
+      ) : (
+        <span className="pt-hand-item">{hand.text}</span>
+      )}
+      {hand.statuses.map((status) =>
+        status === "lit" ? (
+          <span className="dot lit" key={status} title="Lit" />
+        ) : (
+          <span
+            className="pt-glyph"
+            key={status}
+            title={getInventoryRowStatusTitle(status)}
+          >
+            <ItemStatusIcon
+              name={getInventoryRowStatusIcon(status)}
+              tone={getInventoryRowStatusTone(status)}
+            />
+          </span>
+        ),
+      )}
+    </div>
   );
 }
 
@@ -155,7 +195,12 @@ export function getPartyOverviewCards(
       classLevel: formatPartyClassLevel(character),
       hp: formatPartyHp(character),
       hurt: isPartyMemberHurt(character),
-      movement: formatMovementFeet(encumbrance.movement.explorationFeet),
+      movement: `${formatMovementFeet(encumbrance.movement.explorationFeet)} (${formatMovementFeet(encumbrance.movement.encounterFeet)})`,
+      movementTone: encumbrance.overloaded
+        ? ("zero" as const)
+        : encumbrance.band === "heavilyEncumbered"
+          ? ("reduced" as const)
+          : ("" as const),
       movementFeet: encumbrance.movement.explorationFeet,
       languages: formatPartyLanguages(character),
       hands:
@@ -163,7 +208,7 @@ export function getPartyOverviewCards(
           ? formatPartyHands(sections, appState.inventoryRecords)
           : [],
       abilityScores: formatPartyAbilityScores(character),
-      ac: formatPartyArmorClass(armorClass.armorClass),
+      ac: formatNullablePartyNumber(armorClass.armorClass),
       validationIssues,
       warningCount: warnings.length + validationIssues.length,
       warningSummary: formatWarningState(warnings, validationIssues),

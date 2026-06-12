@@ -16,6 +16,7 @@ import type {
   KnownModifierTarget,
   UserRole,
 } from "./model/types";
+import type { InventoryRowStatus } from "./model/inventoryRowDisplay";
 import type { ValidationIssue } from "./model/validation";
 import type { CoinDenomination } from "./store/useAppStore";
 
@@ -218,6 +219,12 @@ export type PartyAbilityScoreDisplay = {
   value: string;
 };
 
+export type PartyHandDisplay = {
+  label: string;
+  text: string | null;
+  statuses: InventoryRowStatus[];
+};
+
 export type PartyOverviewCard = {
   abilityScores: PartyAbilityScoreDisplay[];
   ac: string;
@@ -228,9 +235,10 @@ export type PartyOverviewCard = {
   hp: string;
   hurt: boolean;
   movement: string;
+  movementTone: "" | "reduced" | "zero";
   movementFeet: number;
   languages: string;
-  hands: string[];
+  hands: PartyHandDisplay[];
   validationIssues: ValidationIssue[];
   warningCount: number;
   warningSummary: string;
