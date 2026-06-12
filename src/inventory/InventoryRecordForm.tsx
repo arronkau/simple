@@ -87,7 +87,6 @@ export function InventoryRecordForm({
       placementOption.value !== "container" || containerOptions.length > 0,
   );
   const showLocationControls = formState.showMovement;
-  const showContainerSelect = formState.placement === "container";
   const showNonCoinFields = formState.recordType !== "coins";
   const showContainerFields =
     formState.recordType !== "coins" && formState.recordType !== "treasure";
@@ -947,51 +946,65 @@ export function InventoryRecordForm({
               <label>
                 <span>Location</span>
                 <select
-                  value={formState.placement}
-                  onChange={(event) =>
+                  required
+                  value={
+                    formState.placement === "container"
+                      ? formState.containerId
+                        ? `container:${formState.containerId}`
+                        : ""
+                      : formState.placement
+                  }
+                  onChange={(event) => {
+                    const value = event.target.value;
+
+                    if (value.startsWith("container:")) {
+                      onChange({
+                        ...formState,
+                        placement: "container",
+                        containerId: value.slice("container:".length),
+                      });
+                      return;
+                    }
+
                     onChange({
                       ...formState,
-                      placement: event.target
-                        .value as InventoryRecordPlacementKey,
+                      placement: value as InventoryRecordPlacementKey,
                       containerId: "",
-                    })
-                  }
+                    });
+                  }}
                 >
-                  {placementOptions.map((placementOption) => (
+                  {formState.placement === "container" &&
+                  !formState.containerId ? (
+                    <option disabled value="">
+                      Choose a location
+                    </option>
+                  ) : null}
+                  {formState.placement === "default" ? (
+                    <option value="default">Default</option>
+                  ) : null}
+                  {placementOptions
+                    .filter(
+                      (placementOption) =>
+                        placementOption.value !== "container",
+                    )
+                    .map((placementOption) => (
+                      <option
+                        key={placementOption.value}
+                        value={placementOption.value}
+                      >
+                        {placementOption.label}
+                      </option>
+                    ))}
+                  {containerOptions.map((containerRecord) => (
                     <option
-                      key={placementOption.value}
-                      value={placementOption.value}
+                      key={containerRecord.id}
+                      value={`container:${containerRecord.id}`}
                     >
-                      {placementOption.label}
+                      Inside {getRecordDisplayName(containerRecord)}
                     </option>
                   ))}
                 </select>
               </label>
-              {showContainerSelect ? (
-                <label>
-                  <span>Container</span>
-                  <select
-                    required
-                    value={formState.containerId}
-                    onChange={(event) =>
-                      onChange({
-                        ...formState,
-                        containerId: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="">Select container</option>
-                    {containerOptions.map((containerRecord) => (
-                      <option
-                        key={containerRecord.id}
-                        value={containerRecord.id}
-                      >
-                        {getRecordDisplayName(containerRecord)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
             </div>
           ) : null}
         </section>

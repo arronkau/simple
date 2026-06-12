@@ -1,4 +1,20 @@
 import { Link, useParams } from "react-router-dom";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { getCharacterArmorClass } from "../model/calculations";
 import { normalizeCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
@@ -20,11 +36,11 @@ import {
   formatMovementFeet,
   formatMovementPair,
   formatNullablePartyNumber,
-  formatPartyAbilityScores,
   formatPartyClassLevel,
   formatPartyHands,
   formatPartyHp,
   formatPartyLanguages,
+  formatPartySpellLines,
   formatWarningState,
   getInventoryRowStatusIcon,
   getInventoryRowStatusTitle,
@@ -36,8 +52,6 @@ import type { PartyHandDisplay, PartyOverviewCard } from "../view-types";
 import { ItemStatusIcon } from "../components/InventoryIcons";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { getDisplayValidationIssues } from "../entity/EntityStatus";
-
-const ABILITY_COLUMN_LABELS = ["S", "I", "W", "D", "C", "Ch"];
 
 export function PartyPage({
   appState,
@@ -56,23 +70,32 @@ export function PartyPage({
   const includeSecrets = currentUserPartyRole !== "player";
   const cards = getPartyOverviewCards(appState, sortedEntities, includeSecrets);
   const activeCards = cards.filter((card) => card.active);
+  const benchedCards = cards.filter((card) => !card.active);
 
-  // Marching-order moves swap with the neighboring character-like row, using
-  // positions in the full sorted entity list (reorderEntity's frame).
-  function moveCard(cardIndex: number, direction: -1 | 1) {
-    const neighborCard = activeCards[cardIndex + direction];
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor),
+  );
 
-    if (!neighborCard) {
+  // Dropping on a row moves the dragged character to that row's position in
+  // the full sorted entity list (reorderEntity's frame).
+  function handleDragEnd(event: DragEndEvent) {
+    const activeId = String(event.active.id);
+    const overId = event.over ? String(event.over.id) : null;
+
+    if (!overId || overId === activeId) {
       return;
     }
 
-    const movedId = activeCards[cardIndex].id;
     const targetIndex = sortedEntities.findIndex(
-      (entity) => entity.id === neighborCard.id,
+      (entity) => entity.id === overId,
     );
 
     if (targetIndex !== -1) {
-      onReorderEntity(movedId, targetIndex);
+      onReorderEntity(activeId, targetIndex);
     }
   }
 
@@ -90,114 +113,185 @@ export function PartyPage({
       ) : (
         <>
           <PartySummary cards={activeCards} />
-          <div className="party-table-scroll">
-            <table className="party-table" aria-label="Party overview">
-              <thead>
-                <tr>
-                  <th className="pt-name">Name</th>
-                  <th className="pt-num">HP</th>
-                  <th className="pt-num">AC</th>
-                  <th className="pt-num">MV</th>
-                  {ABILITY_COLUMN_LABELS.map((label) => (
-                    <th className="pt-num pt-ability" key={label}>
-                      {label}
-                    </th>
-                  ))}
-                  <th className="pt-hands">Hands</th>
-                  <th className="pt-languages">Languages</th>
-                  <th className="pt-controls">
-                    <span className="visually-hidden">Order / bench</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {cards.map((card) => {
-                  const activeIndex = activeCards.findIndex(
-                    (activeCard) => activeCard.id === card.id,
-                  );
 
-                  return (
-                    <tr data-inactive={!card.active} key={card.id}>
-                      <td className="pt-name">
-                        <div className="pt-name-cell">
-                          <Link
-                            className="pt-char-name"
-                            to={`/party/${partyId}/characters?c=${card.id}`}
-                          >
-                            {card.name}
-                          </Link>
-                          <WarningDetailsButton
-                            validationIssues={card.validationIssues}
-                            warnings={card.warnings}
-                          />
-                        </div>
-                        <div className="pt-class">{card.classLevel}</div>
-                      </td>
-                      <td className="pt-num" data-hurt={card.hurt}>
-                        {card.hp}
-                      </td>
-                      <td className="pt-num">{card.ac}</td>
-                      <td className="pt-num">
-                        <span className={`mv ${card.movementTone}`}>
-                          {card.movement}
-                        </span>
-                      </td>
-                      {card.abilityScores.map((score) => (
-                        <td className="pt-num pt-ability" key={score.label}>
-                          {score.value}
-                        </td>
+          {activeCards.length > 0 ? (
+            <div className="party-table-scroll">
+              <DndContext
+                collisionDetection={closestCenter}
+                sensors={sensors}
+                onDragEnd={handleDragEnd}
+              >
+                <table className="party-table" aria-label="Party overview">
+                  <thead>
+                    <tr>
+                      <th className="pt-grip-cell">
+                        <span className="visually-hidden">Marching order</span>
+                      </th>
+                      <PartyHeaderCells />
+                      <th className="pt-controls">
+                        <span className="visually-hidden">Bench</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <SortableContext
+                      items={activeCards.map((card) => card.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {activeCards.map((card) => (
+                        <SortablePartyRow card={card} key={card.id}>
+                          <PartyRowCells card={card} partyId={partyId} />
+                          <td className="pt-controls">
+                            <button
+                              className="pt-control pt-bench"
+                              type="button"
+                              onClick={() => onSetEntityActive(card.id, false)}
+                            >
+                              Bench
+                            </button>
+                          </td>
+                        </SortablePartyRow>
                       ))}
-                      <td className="pt-hands">
-                        {card.hands.map((hand) => (
-                          <PartyHandRow hand={hand} key={hand.label} />
-                        ))}
-                      </td>
-                      <td className="pt-languages">{card.languages}</td>
-                      <td className="pt-controls">
-                        <div className="pt-control-group">
-                          {card.active ? (
-                            <>
-                              <button
-                                aria-label={`Move ${card.name} up in marching order`}
-                                className="pt-control"
-                                disabled={activeIndex <= 0}
-                                type="button"
-                                onClick={() => moveCard(activeIndex, -1)}
-                              >
-                                ↑
-                              </button>
-                              <button
-                                aria-label={`Move ${card.name} down in marching order`}
-                                className="pt-control"
-                                disabled={
-                                  activeIndex === -1 ||
-                                  activeIndex >= activeCards.length - 1
-                                }
-                                type="button"
-                                onClick={() => moveCard(activeIndex, 1)}
-                              >
-                                ↓
-                              </button>
-                            </>
-                          ) : null}
+                    </SortableContext>
+                  </tbody>
+                </table>
+              </DndContext>
+            </div>
+          ) : null}
+
+          {benchedCards.length > 0 ? (
+            <div className="party-benched">
+              <h3 className="micro">Benched</h3>
+              <div className="party-table-scroll">
+                <table className="party-table" aria-label="Benched characters">
+                  <tbody>
+                    {benchedCards.map((card) => (
+                      <tr data-inactive="true" key={card.id}>
+                        <PartyRowCells card={card} partyId={partyId} />
+                        <td className="pt-controls">
                           <button
                             className="pt-control pt-bench"
                             type="button"
-                            onClick={() => onSetEntityActive(card.id, !card.active)}
+                            onClick={() => onSetEntityActive(card.id, true)}
                           >
-                            {card.active ? "Bench" : "Activate"}
+                            Activate
                           </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
         </>
       )}
     </section>
+  );
+}
+
+function PartyHeaderCells() {
+  return (
+    <>
+      <th className="pt-name">Name</th>
+      <th className="pt-num">HP</th>
+      <th className="pt-num">AC</th>
+      <th className="pt-num">MV</th>
+      <th className="pt-hands">Hands</th>
+      <th className="pt-spells">Spells</th>
+      <th className="pt-languages">Languages</th>
+    </>
+  );
+}
+
+function SortablePartyRow({
+  card,
+  children,
+}: {
+  card: PartyOverviewCard;
+  children: React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: card.id });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      className={isDragging ? "pt-dragging" : undefined}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+    >
+      <td className="pt-grip-cell">
+        <button
+          aria-label={`Reorder ${card.name}`}
+          className="pt-grip"
+          type="button"
+          {...attributes}
+          {...listeners}
+        >
+          ⠿
+        </button>
+      </td>
+      {children}
+    </tr>
+  );
+}
+
+/** The shared data cells (everything between the grip and the controls). */
+function PartyRowCells({
+  card,
+  partyId,
+}: {
+  card: PartyOverviewCard;
+  partyId: string | undefined;
+}) {
+  return (
+    <>
+      <td className="pt-name">
+        <div className="pt-name-cell">
+          <Link
+            className="pt-char-name"
+            to={`/party/${partyId}/characters?c=${card.id}`}
+          >
+            {card.name}
+          </Link>
+          <WarningDetailsButton
+            validationIssues={card.validationIssues}
+            warnings={card.warnings}
+          />
+        </div>
+        <div className="pt-class">{card.classLevel}</div>
+      </td>
+      <td className="pt-num" data-hurt={card.hurt}>
+        {card.hp}
+      </td>
+      <td className="pt-num">{card.ac}</td>
+      <td className="pt-num">
+        <span className={`mv ${card.movementTone}`}>{card.movement}</span>
+      </td>
+      <td className="pt-hands">
+        {card.hands.map((hand) => (
+          <PartyHandRow hand={hand} key={hand.label} />
+        ))}
+      </td>
+      <td className="pt-spells">
+        {card.spellLines.map((line) => (
+          <div className="pt-spell-line" key={line.label}>
+            <span className="pt-hlabel">{line.label}</span>
+            <span className="pt-spell-names">{line.text}</span>
+          </div>
+        ))}
+      </td>
+      <td className="pt-languages">{card.languages}</td>
+    </>
   );
 }
 
@@ -381,11 +475,11 @@ export function getPartyOverviewCards(
       languages: formatPartyLanguages(character),
       languagesList: character.languages,
       litSources: getPartyLitSources(ownedRecords),
+      spellLines: formatPartySpellLines(character),
       hands:
         sections.mode === "characterLike"
           ? formatPartyHands(sections, appState.inventoryRecords, includeSecrets)
           : [],
-      abilityScores: formatPartyAbilityScores(character),
       ac: formatNullablePartyNumber(armorClass.armorClass),
       validationIssues,
       warningCount: warnings.length + validationIssues.length,

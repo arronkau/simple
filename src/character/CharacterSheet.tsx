@@ -170,44 +170,44 @@ export function CharacterSheet({
         </div>
       </div>
 
-      <div className="sheet-vitals">
-        <div className="sheet-vitals-group" aria-label="Saving throws">
-          <h5>Saving Throws</h5>
-          <div className="stat-box-row">
-            {saveLookup.saves.map((save) => (
-              <div className="stat-box" key={save.key}>
-                <span>{save.label}</span>
-                <strong>{Number.isFinite(save.value) ? save.value : "—"}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="sheet-vitals-group" aria-label="Ability scores">
-          <h5>Ability Scores</h5>
-          <div className="stat-box-row">
-            {ABILITY_SCORE_KEYS.map((key) => {
-              const score = character.abilityScores[key];
-              const modifier = getAbilityModifier(score);
-
-              return (
-                <div className="stat-box" key={key}>
-                  <span>{ABILITY_SCORE_LABELS[key]}</span>
-                  <strong>{formatNullablePartyNumber(score)}</strong>
-                  <em className="stat-sub">
-                    {modifier.ok ? formatSignedNumber(modifier.modifier) : " "}
-                  </em>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
       {!saveLookup.ok ? (
         <p className="sheet-lookup-note">{saveLookup.message}</p>
       ) : null}
 
       <div className="sheet-grid">
         <div className="sheet-column">
+          <section className="sheet-panel">
+            <h5>Saving Throws</h5>
+            <div className="sheet-stat-lines" aria-label="Saving throws">
+              {saveLookup.saves.map((save) => (
+                <div className="sheet-stat-line" key={save.key}>
+                  <span>{save.label}</span>
+                  <strong>
+                    {Number.isFinite(save.value) ? save.value : "—"}
+                  </strong>
+                </div>
+              ))}
+            </div>
+            <h5>Ability Scores</h5>
+            <div className="sheet-stat-lines" aria-label="Ability scores">
+              {ABILITY_SCORE_KEYS.map((key) => {
+                const score = character.abilityScores[key];
+                const modifier = getAbilityModifier(score);
+
+                return (
+                  <div className="sheet-stat-line" key={key}>
+                    <span>{ABILITY_SCORE_LABELS[key]}</span>
+                    <strong>
+                      {formatNullablePartyNumber(score)}
+                      {modifier.ok ? (
+                        <em> {formatSignedNumber(modifier.modifier)}</em>
+                      ) : null}
+                    </strong>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
           {character.skills.length > 0 || levelTables.length > 0 ? (
             <section className="sheet-panel">
               <h5>Skills</h5>

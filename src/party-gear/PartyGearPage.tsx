@@ -163,6 +163,9 @@ export function PartyGearPage(actions: GearActions) {
   const boardEntities = sortedEntities.filter(
     (entity) => entity.active && entity.id !== floorEntity?.id,
   );
+  const benchedEntities = sortedEntities.filter(
+    (entity) => !entity.active && entity.id !== floorEntity?.id,
+  );
 
   // When the Floor was found by the cross-client name fallback (no local
   // mapping yet), record its id so the designation survives a later rename.
@@ -433,6 +436,22 @@ export function PartyGearPage(actions: GearActions) {
                 ))}
               </div>
             )}
+
+            {benchedEntities.length > 0 ? (
+              <div className="gear-benched">
+                <h3 className="micro">Benched</h3>
+                <div className="gear-board">
+                  {benchedEntities.map((entity) => (
+                    <GearEntityCard
+                      key={entity.id}
+                      appState={appState}
+                      entity={entity}
+                      records={records}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <FloorTray

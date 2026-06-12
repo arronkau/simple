@@ -102,11 +102,16 @@ function AuditLogPanel({
       {filteredEntries.length === 0 ? (
         <p className="empty-state compact">No audit entries</p>
       ) : (
-        <ul className="audit-list" aria-label="Audit entries">
-          {filteredEntries.map((entry) => (
-            <AuditLogRow key={entry.id} entry={entry} />
-          ))}
-        </ul>
+        groupAuditEntriesByDay(filteredEntries).map((group) => (
+          <section className="audit-day" key={group.key}>
+            <h4 className="micro">{group.label}</h4>
+            <ul className="audit-list" aria-label={`Entries for ${group.label}`}>
+              {group.entries.map((entry) => (
+                <AuditLogRow key={entry.id} entry={entry} />
+              ))}
+            </ul>
+          </section>
+        ))
       )}
     </section>
   );
@@ -117,20 +122,51 @@ function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
 
   return (
     <li className="audit-entry">
+      <time className="audit-time" dateTime={entry.createdAt}>
+        {display.timestamp}
+      </time>
       <div className="audit-entry-body">
         <p className="audit-entry-summary">{display.summary}</p>
-        <p className="audit-entry-meta">
-          <time dateTime={entry.createdAt}>{display.timestamp}</time>
-          {display.metaLabels.length > 0 ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <span>{display.metaLabels.join(" · ")}</span>
-            </>
-          ) : null}
-        </p>
+        {display.metaLabels.length > 0 ? (
+          <p className="audit-entry-meta">{display.metaLabels.join(" · ")}</p>
+        ) : null}
       </div>
     </li>
   );
+}
+
+/** Newest-first entries arrive pre-sorted; chunk consecutive same-day runs. */
+function groupAuditEntriesByDay(
+  entries: AuditLogEntry[],
+): Array<{ key: string; label: string; entries: AuditLogEntry[] }> {
+  const groups: Array<{ key: string; label: string; entries: AuditLogEntry[] }> =
+    [];
+
+  for (const entry of entries) {
+    const date = new Date(entry.createdAt);
+    const isValidDate = !Number.isNaN(date.getTime());
+    const key = isValidDate ? date.toDateString() : "unknown";
+    const lastGroup = groups[groups.length - 1];
+
+    if (lastGroup && lastGroup.key === key) {
+      lastGroup.entries.push(entry);
+      continue;
+    }
+
+    groups.push({
+      key,
+      label: isValidDate
+        ? date.toLocaleDateString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+          })
+        : "Unknown date",
+      entries: [entry],
+    });
+  }
+
+  return groups;
 }
 
 export function getFilteredAuditLogEntries(

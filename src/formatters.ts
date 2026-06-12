@@ -20,10 +20,10 @@ import {
 import type { IconTone, ItemStatusIconName, ItemTypeIconName } from "./components/InventoryIcons";
 import type { AuditLogEntry, CharacterAlignment, CharacterData, InventoryRecord, InventoryRecordId } from "./model/types";
 import type {
-  PartyAbilityScoreDisplay,
   PartyHandDetail,
   PartyHandDisplay,
   PartyLitSource,
+  PartySpellLine,
 } from "./view-types";
 
 // ---- Party display ----
@@ -71,19 +71,28 @@ export function formatPartyLanguages(character: CharacterData): string {
   return character.languages.length > 0 ? character.languages.join(", ") : "None";
 }
 
-export function formatPartyAbilityScores(
+/** Memorized spells grouped by level for the party table, tightest form:
+ * counts only when above one, spellbook-only entries omitted. */
+export function formatPartySpellLines(
   character: CharacterData,
-): PartyAbilityScoreDisplay[] {
-  const scores = character.abilityScores;
+): PartySpellLine[] {
+  const memorizedSpells = character.spells.filter(
+    (spell) => spell.memorized > 0,
+  );
+  const levels = [
+    ...new Set(memorizedSpells.map((spell) => spell.level)),
+  ].sort((left, right) => left - right);
 
-  return [
-    { label: "S", value: formatNullablePartyNumber(scores.strength) },
-    { label: "I", value: formatNullablePartyNumber(scores.intelligence) },
-    { label: "W", value: formatNullablePartyNumber(scores.wisdom) },
-    { label: "D", value: formatNullablePartyNumber(scores.dexterity) },
-    { label: "C", value: formatNullablePartyNumber(scores.constitution) },
-    { label: "Ch", value: formatNullablePartyNumber(scores.charisma) },
-  ];
+  return levels.map((level) => ({
+    label: `L${level}`,
+    text: memorizedSpells
+      .filter((spell) => spell.level === level)
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map((spell) =>
+        spell.memorized > 1 ? `${spell.name} ×${spell.memorized}` : spell.name,
+      )
+      .join(", "),
+  }));
 }
 
 export function formatPartyHands(

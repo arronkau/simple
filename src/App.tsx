@@ -148,6 +148,25 @@ function LocalAppShell() {
     }
   }, [partyId, setCurrentParty]);
 
+  // Details-based popovers (hand details, warning chips) close when clicking
+  // anywhere outside them.
+  useEffect(() => {
+    function closeOpenPopovers(event: PointerEvent) {
+      document
+        .querySelectorAll<HTMLDetailsElement>(
+          "details.pt-hand-pop[open], details.warning-details[open]",
+        )
+        .forEach((details) => {
+          if (event.target instanceof Node && !details.contains(event.target)) {
+            details.open = false;
+          }
+        });
+    }
+
+    document.addEventListener("pointerdown", closeOpenPopovers);
+    return () => document.removeEventListener("pointerdown", closeOpenPopovers);
+  }, []);
+
   if (!partyId) {
     return <Navigate to={`/party/${createPartyId()}`} replace />;
   }

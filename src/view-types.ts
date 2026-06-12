@@ -214,9 +214,10 @@ export type AppStateExport = {
   data: AppState;
 };
 
-export type PartyAbilityScoreDisplay = {
+/** One level's worth of memorized spells, e.g. label "L1", text "Sleep ×2". */
+export type PartySpellLine = {
   label: string;
-  value: string;
+  text: string;
 };
 
 /** Extra hand-item facts surfaced by the party table popover. Secret fields
@@ -243,7 +244,6 @@ export type PartyLitSource = {
 };
 
 export type PartyOverviewCard = {
-  abilityScores: PartyAbilityScoreDisplay[];
   ac: string;
   id: EntityId;
   name: string;
@@ -258,6 +258,7 @@ export type PartyOverviewCard = {
   languages: string;
   languagesList: string[];
   litSources: PartyLitSource[];
+  spellLines: PartySpellLine[];
   hands: PartyHandDisplay[];
   validationIssues: ValidationIssue[];
   warningCount: number;
