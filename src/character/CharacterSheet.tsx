@@ -177,17 +177,6 @@ export function CharacterSheet({
       <div className="sheet-grid">
         <div className="sheet-column">
           <section className="sheet-panel">
-            <h5>Saving Throws</h5>
-            <div className="sheet-stat-lines" aria-label="Saving throws">
-              {saveLookup.saves.map((save) => (
-                <div className="sheet-stat-line" key={save.key}>
-                  <span>{save.label}</span>
-                  <strong>
-                    {Number.isFinite(save.value) ? save.value : "—"}
-                  </strong>
-                </div>
-              ))}
-            </div>
             <h5>Ability Scores</h5>
             <div className="sheet-stat-lines" aria-label="Ability scores">
               {ABILITY_SCORE_KEYS.map((key) => {
@@ -206,6 +195,17 @@ export function CharacterSheet({
                   </div>
                 );
               })}
+            </div>
+            <h5>Saving Throws</h5>
+            <div className="sheet-stat-lines" aria-label="Saving throws">
+              {saveLookup.saves.map((save) => (
+                <div className="sheet-stat-line" key={save.key}>
+                  <span>{save.label}</span>
+                  <strong>
+                    {Number.isFinite(save.value) ? save.value : "—"}
+                  </strong>
+                </div>
+              ))}
             </div>
           </section>
           {character.skills.length > 0 || levelTables.length > 0 ? (

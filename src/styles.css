@@ -571,7 +571,8 @@ h5 {
 
 .warning-details-panel {
   position: absolute;
-  z-index: 10;
+  /* Above the fixed Floor tray (45) and any transformed rows. */
+  z-index: 50;
   top: calc(100% + 5px);
   right: 0;
   width: min(18rem, calc(100vw - 2rem));
@@ -659,8 +660,9 @@ h5 {
   color: var(--gear-muted);
 }
 
+/* No overflow clipping at desktop widths: the hand popovers must escape the
+   card. Narrow screens trade them for horizontal scrolling (see media). */
 .party-table-scroll {
-  overflow-x: auto;
   border: 1px solid var(--gear-line-2);
   border-radius: var(--gear-r);
   background: var(--gear-surface);
@@ -723,14 +725,6 @@ h5 {
   font-weight: 600;
 }
 
-.party-table tbody tr[data-inactive="true"] td {
-  opacity: 0.45;
-}
-
-.party-table tbody tr[data-inactive="true"] td.pt-controls {
-  opacity: 1;
-}
-
 /* ---- marching-order drag handles ---- */
 
 .pt-grip-cell {
@@ -767,11 +761,27 @@ tr.pt-dragging {
   box-shadow: 0 6px 18px rgb(15 23 42 / 0.18);
 }
 
-/* ---- benched section ---- */
+/* ---- benched section: also the deactivation drop zone ---- */
 
 .party-benched {
   display: grid;
   gap: 6px;
+  border-radius: var(--gear-r);
+}
+
+.party-benched.drop-over {
+  outline: 2px solid var(--gear-accent);
+  outline-offset: 3px;
+}
+
+.party-drop-strip {
+  text-align: center;
+}
+
+.party-drop-strip.drop-over {
+  border-color: var(--gear-accent);
+  background: var(--gear-accent-tint);
+  color: var(--gear-ink-2);
 }
 
 /* ---- memorized spells column ---- */
@@ -907,7 +917,8 @@ tr.pt-dragging {
 
 .pt-hand-pop-panel {
   position: absolute;
-  z-index: 10;
+  /* Above the fixed Floor tray (45) and any transformed rows. */
+  z-index: 50;
   top: calc(100% + 5px);
   left: 0;
   display: grid;
@@ -946,29 +957,6 @@ tr.pt-dragging {
   line-height: 1.45;
 }
 
-/* ---- order / bench controls ---- */
-
-.pt-controls {
-  width: 1%;
-  white-space: nowrap;
-}
-
-.pt-control-group {
-  display: inline-flex;
-  gap: 3px;
-  align-items: center;
-}
-
-.pt-control {
-  min-height: 22px;
-  padding: 0 7px;
-  font-size: 11px;
-  color: var(--gear-muted);
-}
-
-.pt-control:hover {
-  color: var(--gear-ink-2);
-}
 
 /* ============================================================
    Characters page — selector + read-first sheet
@@ -987,40 +975,79 @@ tr.pt-dragging {
   align-content: start;
 }
 
-.character-selector button {
-  display: grid;
+.character-selector-item {
+  display: flex;
   gap: 1px;
-  min-height: 0;
-  justify-items: start;
+  align-items: center;
   border: 1px solid transparent;
   border-radius: 7px;
-  padding: 7px 10px;
+}
+
+.character-selector-item:hover {
+  border-color: var(--gear-line);
+  background: #f1f4f8;
+}
+
+.character-selector-item[data-active="true"] {
+  border-color: var(--gear-line-2);
+  background: var(--gear-surface);
+  box-shadow: inset 2px 0 0 var(--gear-accent);
+}
+
+.character-selector-item .pt-grip {
+  align-self: stretch;
+  min-height: 0;
+}
+
+.character-select-button {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-height: 0;
+  min-width: 0;
+  justify-items: start;
+  border: 0;
+  border-radius: 7px;
+  padding: 7px 10px 7px 2px;
   color: var(--gear-ink);
   background: transparent;
   text-align: left;
   font-weight: 400;
 }
 
-.character-selector button:hover {
-  border-color: var(--gear-line);
-  background: #f1f4f8;
+.character-select-button:hover {
+  border-color: transparent;
+  background: transparent;
 }
 
-.character-selector button[data-active="true"] {
-  border-color: var(--gear-line-2);
-  background: var(--gear-surface);
-  box-shadow: inset 2px 0 0 var(--gear-accent);
-}
-
-.character-selector span {
+.character-select-button span {
   font-family: var(--gear-serif);
   font-size: 15px;
   line-height: 1.2;
 }
 
-.character-selector small {
+.character-select-button small {
   color: var(--gear-muted);
   font-size: 11.5px;
+}
+
+.selector-benched {
+  display: grid;
+  gap: 3px;
+  border-top: 1px solid var(--gear-line);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+
+.selector-benched > h3 {
+  padding: 0 2px 2px;
+}
+
+.selector-benched.drop-over {
+  outline: 2px solid var(--gear-accent);
+  outline-offset: -2px;
+  border-radius: 7px;
+  background: var(--gear-accent-tint);
 }
 
 .character-detail {
@@ -1031,10 +1058,6 @@ tr.pt-dragging {
   padding: 12px 14px 14px;
   background: var(--gear-surface);
   box-shadow: 0 1px 2px rgb(20 25 30 / 0.05);
-}
-
-.character-detail[data-inactive="true"] {
-  opacity: 0.55;
 }
 
 .character-entity-settings {
@@ -2466,6 +2489,10 @@ tr.pt-dragging {
     padding: 12px 16px 20px;
   }
 
+  .party-table-scroll {
+    overflow-x: auto;
+  }
+
   .character-page-layout {
     grid-template-columns: 1fr;
   }
@@ -2709,9 +2736,6 @@ tr.pt-dragging {
   border-radius: var(--gear-r);
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(20, 25, 30, 0.05);
-}
-.rs-card[data-inactive="true"] {
-  opacity: 0.55;
 }
 .rs-head {
   padding: 11px 14px 12px;

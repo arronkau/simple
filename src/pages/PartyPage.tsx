@@ -5,6 +5,8 @@ import {
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
+  useDraggable,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -53,6 +55,9 @@ import { ItemStatusIcon } from "../components/InventoryIcons";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { getDisplayValidationIssues } from "../entity/EntityStatus";
 
+export const PARTY_BENCH_DROP_ID = "party-bench-zone";
+export const PARTY_ACTIVE_DROP_ID = "party-active-zone";
+
 export function PartyPage({
   appState,
   sortedEntities,
@@ -71,6 +76,7 @@ export function PartyPage({
   const cards = getPartyOverviewCards(appState, sortedEntities, includeSecrets);
   const activeCards = cards.filter((card) => card.active);
   const benchedCards = cards.filter((card) => !card.active);
+  const activeById = new Map(cards.map((card) => [card.id, card.active]));
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -80,22 +86,49 @@ export function PartyPage({
     useSensor(KeyboardSensor),
   );
 
-  // Dropping on a row moves the dragged character to that row's position in
-  // the full sorted entity list (reorderEntity's frame).
+  // One drag interaction drives both marching order and benching: drop on a
+  // row to take its place (activating first if dragged from the bench), drop
+  // on the bench zone to deactivate.
   function handleDragEnd(event: DragEndEvent) {
-    const activeId = String(event.active.id);
+    const draggedId = String(event.active.id);
     const overId = event.over ? String(event.over.id) : null;
 
-    if (!overId || overId === activeId) {
+    if (!overId || overId === draggedId) {
       return;
     }
 
+    const draggedIsActive = activeById.get(draggedId) ?? false;
+
+    if (overId === PARTY_BENCH_DROP_ID) {
+      if (draggedIsActive) {
+        onSetEntityActive(draggedId, false);
+      }
+      return;
+    }
+
+    if (overId === PARTY_ACTIVE_DROP_ID) {
+      if (!draggedIsActive) {
+        onSetEntityActive(draggedId, true);
+      }
+      return;
+    }
+
+    if (activeById.get(overId) === undefined || !activeById.get(overId)) {
+      return;
+    }
+
+    if (!draggedIsActive) {
+      onSetEntityActive(draggedId, true);
+    }
+
+    // Rows above the drop target keep their indices through activation, so
+    // the pre-change position of the target row is a stable target index.
     const targetIndex = sortedEntities.findIndex(
       (entity) => entity.id === overId,
     );
 
     if (targetIndex !== -1) {
-      onReorderEntity(activeId, targetIndex);
+      onReorderEntity(draggedId, targetIndex);
     }
   }
 
@@ -114,13 +147,13 @@ export function PartyPage({
         <>
           <PartySummary cards={activeCards} />
 
-          {activeCards.length > 0 ? (
-            <div className="party-table-scroll">
-              <DndContext
-                collisionDetection={closestCenter}
-                sensors={sensors}
-                onDragEnd={handleDragEnd}
-              >
+          <DndContext
+            collisionDetection={closestCenter}
+            sensors={sensors}
+            onDragEnd={handleDragEnd}
+          >
+            {activeCards.length > 0 ? (
+              <div className="party-table-scroll">
                 <table className="party-table" aria-label="Party overview">
                   <thead>
                     <tr>
@@ -128,9 +161,6 @@ export function PartyPage({
                         <span className="visually-hidden">Marching order</span>
                       </th>
                       <PartyHeaderCells />
-                      <th className="pt-controls">
-                        <span className="visually-hidden">Bench</span>
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -141,52 +171,72 @@ export function PartyPage({
                       {activeCards.map((card) => (
                         <SortablePartyRow card={card} key={card.id}>
                           <PartyRowCells card={card} partyId={partyId} />
-                          <td className="pt-controls">
-                            <button
-                              className="pt-control pt-bench"
-                              type="button"
-                              onClick={() => onSetEntityActive(card.id, false)}
-                            >
-                              Bench
-                            </button>
-                          </td>
                         </SortablePartyRow>
                       ))}
                     </SortableContext>
                   </tbody>
                 </table>
-              </DndContext>
-            </div>
-          ) : null}
-
-          {benchedCards.length > 0 ? (
-            <div className="party-benched">
-              <h3 className="micro">Benched</h3>
-              <div className="party-table-scroll">
-                <table className="party-table" aria-label="Benched characters">
-                  <tbody>
-                    {benchedCards.map((card) => (
-                      <tr data-inactive="true" key={card.id}>
-                        <PartyRowCells card={card} partyId={partyId} />
-                        <td className="pt-controls">
-                          <button
-                            className="pt-control pt-bench"
-                            type="button"
-                            onClick={() => onSetEntityActive(card.id, true)}
-                          >
-                            Activate
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               </div>
-            </div>
-          ) : null}
+            ) : (
+              <ActivateDropZone />
+            )}
+
+            <BenchedSection benchedCards={benchedCards} partyId={partyId} />
+          </DndContext>
         </>
       )}
     </section>
+  );
+}
+
+/** Drop target shown when everyone is benched. */
+function ActivateDropZone() {
+  const { setNodeRef, isOver } = useDroppable({ id: PARTY_ACTIVE_DROP_ID });
+
+  return (
+    <p
+      ref={setNodeRef}
+      className={`empty-state party-drop-strip${isOver ? " drop-over" : ""}`}
+    >
+      No active characters — drag someone here to activate.
+    </p>
+  );
+}
+
+function BenchedSection({
+  benchedCards,
+  partyId,
+}: {
+  benchedCards: PartyOverviewCard[];
+  partyId: string | undefined;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: PARTY_BENCH_DROP_ID });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`party-benched${isOver ? " drop-over" : ""}`}
+    >
+      <h3 className="micro">Benched</h3>
+      {benchedCards.length === 0 ? (
+        <p className="empty-state party-drop-strip">
+          Drag a character here to bench them — splitting the party, staying in
+          town, and so on.
+        </p>
+      ) : (
+        <div className="party-table-scroll">
+          <table className="party-table" aria-label="Benched characters">
+            <tbody>
+              {benchedCards.map((card) => (
+                <DraggablePartyRow card={card} key={card.id}>
+                  <PartyRowCells card={card} partyId={partyId} />
+                </DraggablePartyRow>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -231,7 +281,7 @@ function SortablePartyRow({
     >
       <td className="pt-grip-cell">
         <button
-          aria-label={`Reorder ${card.name}`}
+          aria-label={`Reorder or bench ${card.name}`}
           className="pt-grip"
           type="button"
           {...attributes}
@@ -245,7 +295,40 @@ function SortablePartyRow({
   );
 }
 
-/** The shared data cells (everything between the grip and the controls). */
+/** Benched rows aren't sortable among themselves; they just drag out. */
+function DraggablePartyRow({
+  card,
+  children,
+}: {
+  card: PartyOverviewCard;
+  children: React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: card.id });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      className={isDragging ? "pt-dragging" : undefined}
+      style={{ transform: CSS.Translate.toString(transform) }}
+    >
+      <td className="pt-grip-cell">
+        <button
+          aria-label={`Activate ${card.name} by dragging into the party`}
+          className="pt-grip"
+          type="button"
+          {...attributes}
+          {...listeners}
+        >
+          ⠿
+        </button>
+      </td>
+      {children}
+    </tr>
+  );
+}
+
+/** The shared data cells (everything after the grip column). */
 function PartyRowCells({
   card,
   partyId,
@@ -299,11 +382,7 @@ function PartyRowCells({
  * light source, and the languages the active party can read or speak. */
 function PartySummary({ cards }: { cards: PartyOverviewCard[] }) {
   if (cards.length === 0) {
-    return (
-      <p className="empty-state compact">
-        No active characters. Activate someone below.
-      </p>
-    );
+    return null;
   }
 
   const slowestFeet = cards.reduce(

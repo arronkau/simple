@@ -495,6 +495,8 @@ function LocalAppShell() {
                 onAdjustSpellMemorized={adjustCharacterSpellMemorized}
                 onStartAddRecord={startAddingRecord}
                 onEditRecord={startEditingRecord}
+                onSetEntityActive={setEntityActive}
+                onReorderEntity={reorderEntity}
               />
             }
           />
