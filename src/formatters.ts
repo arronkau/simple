@@ -19,7 +19,12 @@ import {
 } from "./model/inventoryRowDisplay";
 import type { IconTone, ItemStatusIconName, ItemTypeIconName } from "./components/InventoryIcons";
 import type { AuditLogEntry, CharacterAlignment, CharacterData, InventoryRecord, InventoryRecordId } from "./model/types";
-import type { PartyAbilityScoreDisplay, PartyHandDisplay } from "./view-types";
+import type {
+  PartyAbilityScoreDisplay,
+  PartyHandDetail,
+  PartyHandDisplay,
+  PartyLitSource,
+} from "./view-types";
 
 // ---- Party display ----
 
@@ -84,11 +89,12 @@ export function formatPartyAbilityScores(
 export function formatPartyHands(
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
   records: InventoryRecord[],
+  includeSecrets = false,
 ): PartyHandDisplay[] {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
 
   if (bothHandsRecord) {
-    return [getPartyHandDisplay("Both", bothHandsRecord, records)];
+    return [getPartyHandDisplay("Both", bothHandsRecord, records, includeSecrets)];
   }
 
   return [
@@ -96,11 +102,13 @@ export function formatPartyHands(
       "L",
       getRecordById(sections.handRecordIds.leftHand, records),
       records,
+      includeSecrets,
     ),
     getPartyHandDisplay(
       "R",
       getRecordById(sections.handRecordIds.rightHand, records),
       records,
+      includeSecrets,
     ),
   ];
 }
@@ -109,14 +117,91 @@ function getPartyHandDisplay(
   label: string,
   record: InventoryRecord | undefined,
   records: InventoryRecord[],
+  includeSecrets: boolean,
 ): PartyHandDisplay {
   if (!record) {
     return { label, text: null, statuses: [] };
   }
 
   const display = getInventoryRowDisplay(record, records);
+  const detail = getPartyHandDetail(record, includeSecrets);
 
-  return { label, text: display.primaryText, statuses: display.statusIcons };
+  return {
+    label,
+    text: display.primaryText,
+    statuses: display.statusIcons,
+    ...(detail ? { detail } : {}),
+  };
+}
+
+function getPartyHandDetail(
+  record: InventoryRecord,
+  includeSecrets: boolean,
+): PartyHandDetail | undefined {
+  const detail: PartyHandDetail = {};
+
+  if (record.recordType === "weapon") {
+    const weaponParts = [
+      record.weapon.damage,
+      record.weapon.range,
+      ...(record.weapon.qualities ?? []),
+    ].filter((part): part is string => Boolean(part && part.trim()));
+
+    if (weaponParts.length > 0) {
+      detail.weapon = weaponParts.join(" · ");
+    }
+  }
+
+  if (record.recordType !== "coins" && record.uses) {
+    detail.uses = formatUses(record.uses);
+  }
+
+  if (record.light?.lightDescription?.trim()) {
+    detail.light = record.light.lightDescription;
+  }
+
+  if (record.description?.trim()) {
+    detail.description = record.description;
+  }
+
+  if (
+    includeSecrets &&
+    record.recordType !== "coins" &&
+    record.recordType !== "treasure" &&
+    record.identification?.identified === false
+  ) {
+    if (record.identification.secretName?.trim()) {
+      detail.secretName = record.identification.secretName;
+    }
+
+    if (record.identification.secretDescription?.trim()) {
+      detail.secretDescription = record.identification.secretDescription;
+    }
+  }
+
+  return Object.keys(detail).length > 0 ? detail : undefined;
+}
+
+export function formatUses(uses: { current: number; max?: number }): string {
+  return uses.max !== undefined
+    ? `${uses.current}/${uses.max} uses`
+    : `${uses.current} uses`;
+}
+
+/** Lit light sources among an entity's records, wherever they are carried. */
+export function getPartyLitSources(
+  ownedRecords: InventoryRecord[],
+): PartyLitSource[] {
+  return ownedRecords
+    .filter(
+      (record) => record.recordType !== "coins" && record.light?.isLit === true,
+    )
+    .map((record) => ({
+      name: getRecordDisplayName(record),
+      ...(record.recordType !== "coins" && record.uses
+        ? { uses: formatUses(record.uses) }
+        : {}),
+    }));
 }
 
 export function formatNullablePartyNumber(value: number | null): string {
@@ -128,7 +213,17 @@ export function formatSignedNumber(value: number): string {
 }
 
 export function formatMovementFeet(feet: number): string {
-  return `${feet}'`;
+  return `${feet}′`;
+}
+
+/** Exploration + encounter rate in the shared `120′ (40′)` form. */
+export function formatMovementPair(movement: {
+  explorationFeet: number;
+  encounterFeet: number;
+}): string {
+  return `${formatMovementFeet(movement.explorationFeet)} (${formatMovementFeet(
+    movement.encounterFeet,
+  )})`;
 }
 
 // ---- Inventory row status / type icons ----

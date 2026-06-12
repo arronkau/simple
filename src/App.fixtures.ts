@@ -273,6 +273,48 @@ const partyOverviewAppState: AppState = {
   ],
   auditLog: [],
 };
+const secretWandCharacterId = "secret-wand-character";
+const secretWandAppState: AppState = {
+  schemaVersion: 1,
+  entities: [
+    {
+      id: secretWandCharacterId,
+      active: true,
+      entityType: "character",
+      name: "Zinnia",
+      sortOrder: 0,
+      character: createEmptyCharacterData(),
+    },
+  ],
+  inventoryRecords: [
+    createDefaultBackpack({
+      entityId: secretWandCharacterId,
+      id: "secret-wand-backpack",
+    }),
+    {
+      id: "secret-wand",
+      recordType: "equipment",
+      name: "Ivory wand",
+      description: "Faintly warm.",
+      entityId: secretWandCharacterId,
+      location: {
+        kind: "equipped",
+        placement: "leftHand",
+      },
+      sortOrder: 1,
+      quantity: 1,
+      burden: { kind: "none" },
+      handsRequired: 1,
+      identification: {
+        identified: false,
+        secretName: "Wand of Magic Missiles",
+        secretDescription: "One missile per charge.",
+      },
+      uses: { current: 7 },
+    },
+  ],
+  auditLog: [],
+};
 const validEmptyExport = {
   version: 1,
   exportedAt: "2026-06-06T12:00:00.000Z",
@@ -396,6 +438,7 @@ export const APP_MANUAL_FIXTURES = [
     actual: getPartyOverviewCards(partyOverviewAppState).map((card) => ({
       name: card.name,
       entityType: card.entityType,
+      active: card.active,
       classLevel: card.classLevel,
       hp: card.hp,
       hurt: card.hurt,
@@ -404,6 +447,8 @@ export const APP_MANUAL_FIXTURES = [
       ac: card.ac,
       abilityScores: card.abilityScores,
       languages: card.languages,
+      languagesList: card.languagesList,
+      litSources: card.litSources,
       hands: card.hands,
       warningCount: card.warningCount,
       warningSummary: card.warningSummary,
@@ -412,10 +457,11 @@ export const APP_MANUAL_FIXTURES = [
       {
         name: "Yost",
         entityType: "character",
+        active: true,
         classLevel: "Fighter 2",
         hp: "5/8",
         hurt: true,
-        movement: "120' (40')",
+        movement: "120′ (40′)",
         movementTone: "",
         ac: "11",
         abilityScores: [
@@ -427,8 +473,15 @@ export const APP_MANUAL_FIXTURES = [
           { label: "Ch", value: "—" },
         ],
         languages: "Common, Elvish",
+        languagesList: ["Common", "Elvish"],
+        litSources: [{ name: "Torch" }],
         hands: [
-          { label: "L", text: "Torch", statuses: ["lit"] },
+          {
+            label: "L",
+            text: "Torch",
+            statuses: ["lit"],
+            detail: { light: "30' radius" },
+          },
           { label: "R", text: "Shield", statuses: ["activeAc"] },
         ],
         warningCount: 0,
@@ -437,10 +490,11 @@ export const APP_MANUAL_FIXTURES = [
       {
         name: "Nessa",
         entityType: "retainer",
+        active: true,
         classLevel: "Torchbearer",
         hp: "—/—",
         hurt: false,
-        movement: "120' (40')",
+        movement: "120′ (40′)",
         movementTone: "",
         ac: "10",
         abilityScores: [
@@ -452,6 +506,8 @@ export const APP_MANUAL_FIXTURES = [
           { label: "Ch", value: "—" },
         ],
         languages: "None",
+        languagesList: [],
+        litSources: [],
         hands: [
           { label: "L", text: null, statuses: [] },
           { label: "R", text: null, statuses: [] },
@@ -460,6 +516,39 @@ export const APP_MANUAL_FIXTURES = [
         warningSummary: "1 warning",
       },
     ],
+  },
+  {
+    name: "party hand details include GM secrets only when requested",
+    actual: {
+      player: getPartyOverviewCards(secretWandAppState, undefined, false)[0]
+        .hands,
+      gm: getPartyOverviewCards(secretWandAppState, undefined, true)[0].hands,
+    },
+    expected: {
+      player: [
+        {
+          label: "L",
+          text: "Ivory wand",
+          statuses: ["unidentified"],
+          detail: { uses: "7 uses", description: "Faintly warm." },
+        },
+        { label: "R", text: null, statuses: [] },
+      ],
+      gm: [
+        {
+          label: "L",
+          text: "Ivory wand",
+          statuses: ["unidentified"],
+          detail: {
+            uses: "7 uses",
+            description: "Faintly warm.",
+            secretName: "Wand of Magic Missiles",
+            secretDescription: "One missile per charge.",
+          },
+        },
+        { label: "R", text: null, statuses: [] },
+      ],
+    },
   },
   {
     name: "import parser accepts current export wrapper",

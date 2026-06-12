@@ -1,3 +1,4 @@
+import { Link, useParams } from "react-router-dom";
 import { getCharacterArmorClass } from "../model/calculations";
 import { normalizeCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
@@ -14,9 +15,10 @@ import {
   validateInventoryState,
 } from "../model/validation";
 import type { AppState } from "../model/appState";
-import type { Entity } from "../model/types";
+import type { Entity, EntityId, PartyRole } from "../model/types";
 import {
   formatMovementFeet,
+  formatMovementPair,
   formatNullablePartyNumber,
   formatPartyAbilityScores,
   formatPartyClassLevel,
@@ -27,6 +29,7 @@ import {
   getInventoryRowStatusIcon,
   getInventoryRowStatusTitle,
   getInventoryRowStatusTone,
+  getPartyLitSources,
   isPartyMemberHurt,
 } from "../formatters";
 import type { PartyHandDisplay, PartyOverviewCard } from "../view-types";
@@ -39,15 +42,39 @@ const ABILITY_COLUMN_LABELS = ["S", "I", "W", "D", "C", "Ch"];
 export function PartyPage({
   appState,
   sortedEntities,
+  currentUserPartyRole,
+  onSetEntityActive,
+  onReorderEntity,
 }: {
   appState: AppState;
   sortedEntities: Entity[];
+  currentUserPartyRole?: PartyRole | null;
+  onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onReorderEntity: (entityId: EntityId, targetIndex: number) => void;
 }) {
-  const cards = getPartyOverviewCards(appState, sortedEntities);
-  const movementFeet = cards.reduce(
-    (slowestMovement, card) => Math.min(slowestMovement, card.movementFeet),
-    Number.POSITIVE_INFINITY,
-  );
+  const { partyId } = useParams<{ partyId: string }>();
+  const includeSecrets = currentUserPartyRole !== "player";
+  const cards = getPartyOverviewCards(appState, sortedEntities, includeSecrets);
+  const activeCards = cards.filter((card) => card.active);
+
+  // Marching-order moves swap with the neighboring character-like row, using
+  // positions in the full sorted entity list (reorderEntity's frame).
+  function moveCard(cardIndex: number, direction: -1 | 1) {
+    const neighborCard = activeCards[cardIndex + direction];
+
+    if (!neighborCard) {
+      return;
+    }
+
+    const movedId = activeCards[cardIndex].id;
+    const targetIndex = sortedEntities.findIndex(
+      (entity) => entity.id === neighborCard.id,
+    );
+
+    if (targetIndex !== -1) {
+      onReorderEntity(movedId, targetIndex);
+    }
+  }
 
   return (
     <section
@@ -55,105 +82,252 @@ export function PartyPage({
       aria-labelledby="party-title"
     >
       <div className="section-heading">
-        <div>
-          <h2 id="party-title">Party</h2>
-          <p>Table-facing character and retainer status.</p>
-        </div>
-        {cards.length > 0 ? (
-          <span className="party-move-summary">
-            Party move <b>{formatMovementFeet(movementFeet)}</b>
-          </span>
-        ) : null}
+        <h2 id="party-title">Party</h2>
       </div>
 
       {cards.length === 0 ? (
         <p className="empty-state">No characters or retainers yet.</p>
       ) : (
-        <div className="party-table-scroll">
-          <table className="party-table" aria-label="Party overview">
-            <thead>
-              <tr>
-                <th className="pt-name">Name</th>
-                <th className="pt-num">HP</th>
-                <th className="pt-num">AC</th>
-                <th className="pt-num">MV</th>
-                {ABILITY_COLUMN_LABELS.map((label) => (
-                  <th className="pt-num pt-ability" key={label}>
-                    {label}
-                  </th>
-                ))}
-                <th className="pt-hands">Hands</th>
-                <th className="pt-languages">Languages</th>
-              </tr>
-            </thead>
-            <tbody>
-              {cards.map((card) => (
-                <tr key={card.id}>
-                  <td className="pt-name">
-                    <div className="pt-name-cell">
-                      <span className="pt-char-name">{card.name}</span>
-                      <WarningDetailsButton
-                        validationIssues={card.validationIssues}
-                        warnings={card.warnings}
-                      />
-                    </div>
-                    <div className="pt-class">{card.classLevel}</div>
-                  </td>
-                  <td className="pt-num" data-hurt={card.hurt}>
-                    {card.hp}
-                  </td>
-                  <td className="pt-num">{card.ac}</td>
-                  <td className="pt-num">
-                    <span className={`mv ${card.movementTone}`}>
-                      {card.movement}
-                    </span>
-                  </td>
-                  {card.abilityScores.map((score) => (
-                    <td className="pt-num pt-ability" key={score.label}>
-                      {score.value}
-                    </td>
+        <>
+          <PartySummary cards={activeCards} />
+          <div className="party-table-scroll">
+            <table className="party-table" aria-label="Party overview">
+              <thead>
+                <tr>
+                  <th className="pt-name">Name</th>
+                  <th className="pt-num">HP</th>
+                  <th className="pt-num">AC</th>
+                  <th className="pt-num">MV</th>
+                  {ABILITY_COLUMN_LABELS.map((label) => (
+                    <th className="pt-num pt-ability" key={label}>
+                      {label}
+                    </th>
                   ))}
-                  <td className="pt-hands">
-                    {card.hands.map((hand) => (
-                      <PartyHandRow hand={hand} key={hand.label} />
-                    ))}
-                  </td>
-                  <td className="pt-languages">{card.languages}</td>
+                  <th className="pt-hands">Hands</th>
+                  <th className="pt-languages">Languages</th>
+                  <th className="pt-controls">
+                    <span className="visually-hidden">Order / bench</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {cards.map((card) => {
+                  const activeIndex = activeCards.findIndex(
+                    (activeCard) => activeCard.id === card.id,
+                  );
+
+                  return (
+                    <tr data-inactive={!card.active} key={card.id}>
+                      <td className="pt-name">
+                        <div className="pt-name-cell">
+                          <Link
+                            className="pt-char-name"
+                            to={`/party/${partyId}/characters?c=${card.id}`}
+                          >
+                            {card.name}
+                          </Link>
+                          <WarningDetailsButton
+                            validationIssues={card.validationIssues}
+                            warnings={card.warnings}
+                          />
+                        </div>
+                        <div className="pt-class">{card.classLevel}</div>
+                      </td>
+                      <td className="pt-num" data-hurt={card.hurt}>
+                        {card.hp}
+                      </td>
+                      <td className="pt-num">{card.ac}</td>
+                      <td className="pt-num">
+                        <span className={`mv ${card.movementTone}`}>
+                          {card.movement}
+                        </span>
+                      </td>
+                      {card.abilityScores.map((score) => (
+                        <td className="pt-num pt-ability" key={score.label}>
+                          {score.value}
+                        </td>
+                      ))}
+                      <td className="pt-hands">
+                        {card.hands.map((hand) => (
+                          <PartyHandRow hand={hand} key={hand.label} />
+                        ))}
+                      </td>
+                      <td className="pt-languages">{card.languages}</td>
+                      <td className="pt-controls">
+                        <div className="pt-control-group">
+                          {card.active ? (
+                            <>
+                              <button
+                                aria-label={`Move ${card.name} up in marching order`}
+                                className="pt-control"
+                                disabled={activeIndex <= 0}
+                                type="button"
+                                onClick={() => moveCard(activeIndex, -1)}
+                              >
+                                ↑
+                              </button>
+                              <button
+                                aria-label={`Move ${card.name} down in marching order`}
+                                className="pt-control"
+                                disabled={
+                                  activeIndex === -1 ||
+                                  activeIndex >= activeCards.length - 1
+                                }
+                                type="button"
+                                onClick={() => moveCard(activeIndex, 1)}
+                              >
+                                ↓
+                              </button>
+                            </>
+                          ) : null}
+                          <button
+                            className="pt-control pt-bench"
+                            type="button"
+                            onClick={() => onSetEntityActive(card.id, !card.active)}
+                          >
+                            {card.active ? "Bench" : "Activate"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </section>
   );
 }
 
+/** Referee strip above the table: slowest active movement, every working
+ * light source, and the languages the active party can read or speak. */
+function PartySummary({ cards }: { cards: PartyOverviewCard[] }) {
+  if (cards.length === 0) {
+    return (
+      <p className="empty-state compact">
+        No active characters. Activate someone below.
+      </p>
+    );
+  }
+
+  const slowestFeet = cards.reduce(
+    (slowest, card) => Math.min(slowest, card.movementFeet),
+    Number.POSITIVE_INFINITY,
+  );
+  const litSources = cards.flatMap((card) =>
+    card.litSources.map((source) => ({ ...source, bearer: card.name })),
+  );
+  const languages = [
+    ...new Set(cards.flatMap((card) => card.languagesList)),
+  ];
+
+  return (
+    <div className="party-summary">
+      <div className="party-summary-item">
+        <span className="micro">Party move</span>
+        <span className="party-summary-value mono">
+          {formatMovementFeet(slowestFeet)}
+        </span>
+      </div>
+      <div className="party-summary-item">
+        <span className="micro">Light</span>
+        {litSources.length === 0 ? (
+          <span className="empty-label">none lit</span>
+        ) : (
+          <span className="party-summary-value">
+            {litSources.map((source, index) => (
+              <span className="party-light" key={`${source.bearer}-${index}`}>
+                <span className="dot lit" />
+                {source.name}
+                <span className="party-light-meta">
+                  {source.bearer}
+                  {source.uses ? ` · ${source.uses}` : ""}
+                </span>
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+      <div className="party-summary-item party-summary-languages">
+        <span className="micro">Languages</span>
+        {languages.length === 0 ? (
+          <span className="empty-label">none</span>
+        ) : (
+          <span className="party-summary-value">{languages.join(", ")}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
+  const glyphs = hand.statuses.map((status) =>
+    status === "lit" ? (
+      <span className="dot lit" key={status} title="Lit" />
+    ) : (
+      <span
+        className="pt-glyph"
+        key={status}
+        title={getInventoryRowStatusTitle(status)}
+      >
+        <ItemStatusIcon
+          name={getInventoryRowStatusIcon(status)}
+          tone={getInventoryRowStatusTone(status)}
+        />
+      </span>
+    ),
+  );
+
+  if (hand.text === null) {
+    return (
+      <div className="pt-hand">
+        <span className="pt-hlabel">{hand.label}</span>
+        <span className="empty-label">empty</span>
+      </div>
+    );
+  }
+
+  if (!hand.detail) {
+    return (
+      <div className="pt-hand">
+        <span className="pt-hlabel">{hand.label}</span>
+        <span className="pt-hand-item">{hand.text}</span>
+        {glyphs}
+      </div>
+    );
+  }
+
   return (
     <div className="pt-hand">
       <span className="pt-hlabel">{hand.label}</span>
-      {hand.text === null ? (
-        <span className="empty-label">empty</span>
-      ) : (
-        <span className="pt-hand-item">{hand.text}</span>
-      )}
-      {hand.statuses.map((status) =>
-        status === "lit" ? (
-          <span className="dot lit" key={status} title="Lit" />
-        ) : (
-          <span
-            className="pt-glyph"
-            key={status}
-            title={getInventoryRowStatusTitle(status)}
-          >
-            <ItemStatusIcon
-              name={getInventoryRowStatusIcon(status)}
-              tone={getInventoryRowStatusTone(status)}
-            />
-          </span>
-        ),
-      )}
+      <details className="pt-hand-pop">
+        <summary className="pt-hand-item">{hand.text}</summary>
+        <div className="pt-hand-pop-panel">
+          {hand.detail.weapon ? (
+            <p className="pt-pop-line mono">{hand.detail.weapon}</p>
+          ) : null}
+          {hand.detail.uses ? (
+            <p className="pt-pop-line mono">{hand.detail.uses}</p>
+          ) : null}
+          {hand.detail.light ? (
+            <p className="pt-pop-line">{hand.detail.light}</p>
+          ) : null}
+          {hand.detail.description ? (
+            <p className="pt-pop-line">{hand.detail.description}</p>
+          ) : null}
+          {hand.detail.secretName ? (
+            <p className="pt-pop-secret">
+              <span className="micro">GM</span> {hand.detail.secretName}
+            </p>
+          ) : null}
+          {hand.detail.secretDescription ? (
+            <p className="pt-pop-secret">{hand.detail.secretDescription}</p>
+          ) : null}
+        </div>
+      </details>
+      {glyphs}
     </div>
   );
 }
@@ -161,6 +335,7 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
 export function getPartyOverviewCards(
   appState: AppState,
   sortedEntities: Entity[] = getSortedEntities(appState.entities),
+  includeSecrets = false,
 ): PartyOverviewCard[] {
   const validationResult = validateInventoryState(
     appState.entities,
@@ -192,10 +367,11 @@ export function getPartyOverviewCards(
       id: entity.id,
       name: entity.name,
       entityType: entity.entityType,
+      active: entity.active,
       classLevel: formatPartyClassLevel(character),
       hp: formatPartyHp(character),
       hurt: isPartyMemberHurt(character),
-      movement: `${formatMovementFeet(encumbrance.movement.explorationFeet)} (${formatMovementFeet(encumbrance.movement.encounterFeet)})`,
+      movement: formatMovementPair(encumbrance.movement),
       movementTone: encumbrance.overloaded
         ? ("zero" as const)
         : encumbrance.band === "heavilyEncumbered"
@@ -203,9 +379,11 @@ export function getPartyOverviewCards(
           : ("" as const),
       movementFeet: encumbrance.movement.explorationFeet,
       languages: formatPartyLanguages(character),
+      languagesList: character.languages,
+      litSources: getPartyLitSources(ownedRecords),
       hands:
         sections.mode === "characterLike"
-          ? formatPartyHands(sections, appState.inventoryRecords)
+          ? formatPartyHands(sections, appState.inventoryRecords, includeSecrets)
           : [],
       abilityScores: formatPartyAbilityScores(character),
       ac: formatNullablePartyNumber(armorClass.armorClass),

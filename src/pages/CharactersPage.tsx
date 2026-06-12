@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { normalizeCharacterData } from "../model/characters";
 import { isCharacterLikeEntity } from "../model/validation";
 import type { AppState } from "../model/appState";
-import type { CharacterData, Entity, EntityId } from "../model/types";
+import type {
+  CharacterData,
+  Entity,
+  EntityId,
+  InventoryRecord,
+} from "../model/types";
 import type { EntityMutationResult } from "../store/useAppStore";
 import { formatPartyClassLevel } from "../formatters";
 import { EntitySummary } from "../entity/EntityStatus";
@@ -17,6 +23,8 @@ export function CharactersPage({
   onAdjustHp,
   onAdjustXp,
   onAdjustSpellMemorized,
+  onStartAddRecord,
+  onEditRecord,
 }: {
   appState: AppState;
   sortedEntities: Entity[];
@@ -32,15 +40,31 @@ export function CharactersPage({
     spellId: string,
     delta: number,
   ) => EntityMutationResult;
+  onStartAddRecord: (entity: Entity) => void;
+  onEditRecord: (record: InventoryRecord) => void;
 }) {
   const characterEntities = sortedEntities.filter(isCharacterLikeEntity);
+  // ?c=<entityId> drives selection so the party table can link to a sheet.
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedEntityId, setSelectedEntityId] = useState<EntityId | undefined>(
-    () => characterEntities[0]?.id,
+    () => searchParams.get("c") ?? characterEntities[0]?.id,
   );
   const [sheetMode, setSheetMode] = useState<"read" | "edit">("read");
+  const requestedEntityId = searchParams.get("c");
   const selectedEntity =
     characterEntities.find((entity) => entity.id === selectedEntityId) ??
     characterEntities[0];
+
+  useEffect(() => {
+    if (
+      requestedEntityId &&
+      requestedEntityId !== selectedEntityId &&
+      characterEntities.some((entity) => entity.id === requestedEntityId)
+    ) {
+      setSelectedEntityId(requestedEntityId);
+      setSheetMode("read");
+    }
+  }, [requestedEntityId, selectedEntityId, characterEntities]);
 
   useEffect(() => {
     if (
@@ -54,6 +78,7 @@ export function CharactersPage({
   function selectEntity(entityId: EntityId) {
     setSelectedEntityId(entityId);
     setSheetMode("read");
+    setSearchParams({ c: entityId }, { replace: true });
   }
 
   return (
@@ -106,6 +131,8 @@ export function CharactersPage({
                   onAdjustXp={onAdjustXp}
                   onAdjustSpellMemorized={onAdjustSpellMemorized}
                   onEdit={() => setSheetMode("edit")}
+                  onStartAddRecord={onStartAddRecord}
+                  onEditRecord={onEditRecord}
                 />
               ) : (
                 <CharacterSheetEditForm

@@ -219,10 +219,27 @@ export type PartyAbilityScoreDisplay = {
   value: string;
 };
 
+/** Extra hand-item facts surfaced by the party table popover. Secret fields
+ * are only populated for GM-ish viewers (role !== "player"). */
+export type PartyHandDetail = {
+  weapon?: string;
+  uses?: string;
+  light?: string;
+  description?: string;
+  secretName?: string;
+  secretDescription?: string;
+};
+
 export type PartyHandDisplay = {
   label: string;
   text: string | null;
   statuses: InventoryRowStatus[];
+  detail?: PartyHandDetail;
+};
+
+export type PartyLitSource = {
+  name: string;
+  uses?: string;
 };
 
 export type PartyOverviewCard = {
@@ -231,6 +248,7 @@ export type PartyOverviewCard = {
   id: EntityId;
   name: string;
   entityType: EntityType;
+  active: boolean;
   classLevel: string;
   hp: string;
   hurt: boolean;
@@ -238,6 +256,8 @@ export type PartyOverviewCard = {
   movementTone: "" | "reduced" | "zero";
   movementFeet: number;
   languages: string;
+  languagesList: string[];
+  litSources: PartyLitSource[];
   hands: PartyHandDisplay[];
   validationIssues: ValidationIssue[];
   warningCount: number;

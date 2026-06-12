@@ -35,6 +35,7 @@ export function ManageDataModal({
   const [importConfirmation, setImportConfirmation] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [editingPartyName, setEditingPartyName] = useState(partyDisplayName);
+  const [urlCopied, setUrlCopied] = useState(false);
   const isGm = currentUserPartyRole === "gm";
   const importEnabled =
     isGm && pendingImportAppState !== undefined && importConfirmation === "import";
@@ -121,6 +122,17 @@ export function ManageDataModal({
     });
   }
 
+  async function copyPartyUrl() {
+    try {
+      await navigator.clipboard.writeText(partyUrl);
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 1600);
+    } catch {
+      // Clipboard can be unavailable (permissions, non-secure context);
+      // the focused input still allows manual copy.
+    }
+  }
+
   function confirmImport() {
     if (!pendingImportAppState || !importEnabled) {
       return;
@@ -135,16 +147,13 @@ export function ManageDataModal({
   return (
     <div className="modal-backdrop" role="presentation">
       <section
-        aria-label="Manage data"
+        aria-label="Manage party"
         aria-modal="true"
         className="modal-panel manage-modal"
         role="dialog"
       >
         <div className="modal-header">
-          <div>
-            <h2>Manage Data</h2>
-            <p>Rename, share, export, import, or reset the current party.</p>
-          </div>
+          <h2>Manage Party</h2>
           <button type="button" onClick={onClose}>
             Close
           </button>
@@ -152,13 +161,10 @@ export function ManageDataModal({
 
         <div className="modal-body">
           <section className="manage-section">
-            <div>
-              <h3>Party</h3>
-              <p>Rename this party or share its stable URL.</p>
-            </div>
+            <h5>Party</h5>
             {isGm && (
-              <>
-                <label>
+              <div className="manage-row">
+                <label className="manage-grow">
                   <span>Party name</span>
                   <input
                     value={editingPartyName}
@@ -169,56 +175,50 @@ export function ManageDataModal({
                   type="button"
                   onClick={() => onRenameParty(editingPartyName)}
                 >
-                  Save name
+                  Save
                 </button>
-              </>
+              </div>
             )}
-            <label>
-              <span>Party URL</span>
-              <input readOnly value={partyUrl} />
-            </label>
+            <div className="manage-row">
+              <label className="manage-grow">
+                <span>Party URL — share to invite</span>
+                <input readOnly value={partyUrl} onFocus={(event) => event.target.select()} />
+              </label>
+              <button type="button" onClick={copyPartyUrl}>
+                {urlCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
             {isGm && (
-              <p className="form-warning">
-                This party is tied to your current browser/device session.
-                Clearing browser data or switching devices may cause you to lose
-                GM access until account linking is added.
+              <p className="field-help">
+                GM access is tied to this browser session. Clearing browser data
+                or switching devices can lose it until account linking is added.
               </p>
             )}
           </section>
 
           {isGm ? (
             <section className="manage-section">
-              <div>
-                <h3>Export</h3>
-                <p>Download a JSON file that can be imported later.</p>
+              <h5>Data</h5>
+              <div className="manage-row">
+                <button type="button" onClick={exportAppData}>
+                  Export JSON
+                </button>
+                <label className="file-button">
+                  <span>Import JSON…</span>
+                  <input
+                    accept="application/json,.json"
+                    type="file"
+                    onChange={importAppData}
+                  />
+                </label>
               </div>
-              <button type="button" onClick={exportAppData}>
-                Export JSON
-              </button>
-            </section>
-          ) : null}
-
-          {isGm ? (
-            <section className="manage-section">
-              <div>
-                <h3>Import</h3>
-                <p>
-                  Import replaces all current app data. Export a backup first.
-                  Type import to continue.
-                </p>
-              </div>
-              <label className="file-button">
-                <span>Import JSON</span>
-                <input
-                  accept="application/json,.json"
-                  type="file"
-                  onChange={importAppData}
-                />
-              </label>
+              <p className="field-help">
+                Import replaces everything in this party. Export a backup first.
+              </p>
               {pendingImportAppState ? (
-                <>
-                  <label>
-                    <span>Type import to confirm</span>
+                <div className="manage-row">
+                  <label className="manage-grow">
+                    <span>Type “import” to confirm</span>
                     <input
                       autoComplete="off"
                       value={importConfirmation}
@@ -235,7 +235,7 @@ export function ManageDataModal({
                   >
                     Replace data
                   </button>
-                </>
+                </div>
               ) : null}
               {importMessage ? (
                 <p
@@ -253,29 +253,25 @@ export function ManageDataModal({
 
           {isGm ? (
             <section className="manage-section danger-section">
-              <div>
-                <h3>Reset Data</h3>
-                <p>
-                  Delete all current app data and return to the default empty
-                  state.
-                </p>
+              <h5>Danger</h5>
+              <div className="manage-row">
+                <label className="manage-grow">
+                  <span>Type “delete” to reset all party data</span>
+                  <input
+                    autoComplete="off"
+                    value={resetConfirmation}
+                    onChange={(event) => setResetConfirmation(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="danger-button"
+                  disabled={!resetEnabled}
+                  type="button"
+                  onClick={onReset}
+                >
+                  Reset data
+                </button>
               </div>
-              <label>
-                <span>Type delete to confirm</span>
-                <input
-                  autoComplete="off"
-                  value={resetConfirmation}
-                  onChange={(event) => setResetConfirmation(event.target.value)}
-                />
-              </label>
-              <button
-                className="danger-button"
-                disabled={!resetEnabled}
-                type="button"
-                onClick={onReset}
-              >
-                Reset data
-              </button>
             </section>
           ) : null}
         </div>
