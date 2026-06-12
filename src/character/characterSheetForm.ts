@@ -10,6 +10,7 @@ import {
   type CharacterFeatureFormState,
   type CharacterSheetFormState,
   type CharacterSkillFormState,
+  type CharacterSpellFormState,
 } from "../view-types";
 
 export function createCharacterSheetFormState(
@@ -50,7 +51,13 @@ export function createCharacterSheetFormState(
       chanceInSix: skill.chanceInSix.toString(),
       description: skill.description ?? "",
     })),
-    spells: normalizedCharacterData.spells,
+    spells: normalizedCharacterData.spells.map((spell) => ({
+      id: spell.id,
+      name: spell.name,
+      level: spell.level.toString(),
+      memorized: spell.memorized.toString(),
+      notes: spell.notes ?? "",
+    })),
     languagesText: normalizedCharacterData.languages.join("\n"),
     description: normalizedCharacterData.description,
     features: normalizedCharacterData.features.map((feature) => ({
@@ -101,7 +108,17 @@ export function toCharacterDataFormInput(
         ? { description: skill.description.trim() }
         : {}),
     })),
-    spells: formState.spells,
+    spells: formState.spells
+      .filter((spell) => spell.name.trim())
+      .map((spell) => ({
+        id: spell.id,
+        name: spell.name.trim(),
+        level: parseIntegerInput(spell.level),
+        memorized: spell.memorized.trim()
+          ? parseIntegerInput(spell.memorized)
+          : 0,
+        ...(spell.notes.trim() ? { notes: spell.notes.trim() } : {}),
+      })),
     languages: parseLanguagesInput(formState.languagesText),
     description: formState.description.trim(),
     features: formState.features
@@ -128,6 +145,16 @@ export function createEmptyFeatureFormState(): CharacterFeatureFormState {
     id: createFormRowId("feature"),
     name: "",
     description: "",
+  };
+}
+
+export function createEmptySpellFormState(): CharacterSpellFormState {
+  return {
+    id: createFormRowId("spell"),
+    name: "",
+    level: "1",
+    memorized: "0",
+    notes: "",
   };
 }
 

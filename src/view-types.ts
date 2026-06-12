@@ -6,7 +6,6 @@ import type {
 } from "./model/inventoryRecords";
 import type {
   CharacterAlignment,
-  CharacterSpell,
   CoinData,
   Entity,
   EntityId,
@@ -148,6 +147,14 @@ export type CharacterFeatureFormState = {
   description: string;
 };
 
+export type CharacterSpellFormState = {
+  id: string;
+  name: string;
+  level: string;
+  memorized: string;
+  notes: string;
+};
+
 export type CharacterSheetFormState = {
   className: string;
   level: string;
@@ -159,8 +166,7 @@ export type CharacterSheetFormState = {
   armorClassOverride: string;
   abilityScores: Record<AbilityScoreKey, string>;
   skills: CharacterSkillFormState[];
-  /** Pass-through until the edit form gains spell rows; preserved on save. */
-  spells: CharacterSpell[];
+  spells: CharacterSpellFormState[];
   languagesText: string;
   description: string;
   features: CharacterFeatureFormState[];
@@ -232,7 +238,7 @@ export type PartyOverviewCard = {
 };
 
 export function createFormRowId(
-  prefix: "feature" | "modifier" | "skill",
+  prefix: "feature" | "modifier" | "skill" | "spell",
 ): string {
   const randomId =
     globalThis.crypto?.randomUUID?.() ??

@@ -4,6 +4,8 @@ import {
   ABILITY_SCORE_LABELS,
   normalizeCharacterData,
 } from "../model/characters";
+import { getClassContentLookup } from "../model/classContent";
+import { getSpellListLookup } from "../model/spellLibrary";
 import type {
   CharacterAlignment,
   CharacterData,
@@ -16,14 +18,36 @@ import type {
   CharacterFeatureFormState,
   CharacterSheetFormState,
   CharacterSkillFormState,
+  CharacterSpellFormState,
 } from "../view-types";
 import { NumberField } from "../ui/NumberField";
 import {
   createCharacterSheetFormState,
   createEmptyFeatureFormState,
   createEmptySkillFormState,
+  createEmptySpellFormState,
   toCharacterDataFormInput,
 } from "./characterSheetForm";
+
+const SPELL_NAME_DATALIST_ID = "character-sheet-spell-names";
+
+function getSpellNameOptions(className: string): string[] {
+  const classContent = getClassContentLookup(className);
+
+  if (!classContent.ok || !classContent.spellListId) {
+    return [];
+  }
+
+  const spellList = getSpellListLookup(classContent.spellListId);
+
+  if (!spellList.ok) {
+    return [];
+  }
+
+  return spellList.levels.flatMap((level) =>
+    level.spells.map((spell) => spell.displayName),
+  );
+}
 
 export function CharacterSheetEditForm({
   entity,
@@ -99,6 +123,20 @@ export function CharacterSheetEditForm({
       ),
     }));
   }
+
+  function updateSpell(
+    spellId: string,
+    patch: Partial<CharacterSpellFormState>,
+  ) {
+    setFormState((currentState) => ({
+      ...currentState,
+      spells: currentState.spells.map((spell) =>
+        spell.id === spellId ? { ...spell, ...patch } : spell,
+      ),
+    }));
+  }
+
+  const spellNameOptions = getSpellNameOptions(formState.className);
 
   return (
     <section
@@ -225,6 +263,108 @@ export function CharacterSheetEditForm({
               />
             ))}
           </div>
+        </section>
+
+        <section className="character-sheet-section">
+          <div className="repeatable-heading">
+            <h5>Spells</h5>
+            <button
+              type="button"
+              onClick={() =>
+                setFormState((currentState) => ({
+                  ...currentState,
+                  spells: [...currentState.spells, createEmptySpellFormState()],
+                }))
+              }
+            >
+              Add spell
+            </button>
+          </div>
+
+          {spellNameOptions.length > 0 ? (
+            <datalist id={SPELL_NAME_DATALIST_ID}>
+              {spellNameOptions.map((name) => (
+                <option key={name} value={name} />
+              ))}
+            </datalist>
+          ) : null}
+
+          {formState.spells.length === 0 ? (
+            <p className="empty-state compact">No spells</p>
+          ) : (
+            <div className="repeatable-list">
+              {formState.spells.map((spell) => (
+                <div className="repeatable-row spell-row" key={spell.id}>
+                  <label>
+                    <span>Name</span>
+                    <input
+                      autoComplete="off"
+                      list={
+                        spellNameOptions.length > 0
+                          ? SPELL_NAME_DATALIST_ID
+                          : undefined
+                      }
+                      maxLength={80}
+                      required
+                      type="text"
+                      value={spell.name}
+                      onChange={(event) =>
+                        updateSpell(spell.id, { name: event.target.value })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Level</span>
+                    <select
+                      value={spell.level}
+                      onChange={(event) =>
+                        updateSpell(spell.id, { level: event.target.value })
+                      }
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7].map((spellLevel) => (
+                        <option key={spellLevel} value={spellLevel.toString()}>
+                          Level {spellLevel}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <NumberField
+                    label="Memorized"
+                    value={spell.memorized}
+                    onChange={(value) =>
+                      updateSpell(spell.id, { memorized: value })
+                    }
+                  />
+                  <label className="wide-field">
+                    <span>Notes</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={160}
+                      type="text"
+                      value={spell.notes}
+                      onChange={(event) =>
+                        updateSpell(spell.id, { notes: event.target.value })
+                      }
+                    />
+                  </label>
+                  <button
+                    className="danger-button"
+                    type="button"
+                    onClick={() =>
+                      setFormState((currentState) => ({
+                        ...currentState,
+                        spells: currentState.spells.filter(
+                          (candidateSpell) => candidateSpell.id !== spell.id,
+                        ),
+                      }))
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="character-sheet-section">

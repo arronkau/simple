@@ -815,6 +815,12 @@ h5 {
   grid-template-columns: minmax(10rem, 1fr) minmax(14rem, 2fr) auto;
 }
 
+.spell-row {
+  grid-template-columns:
+    minmax(9rem, 1.2fr) minmax(6rem, 7.5rem) minmax(5.5rem, 7rem)
+    minmax(9rem, 2fr) auto;
+}
+
 .form-success {
   color: #23613a;
   font-size: 0.9rem;
