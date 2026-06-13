@@ -19,7 +19,12 @@ import {
 } from "./model/inventoryRowDisplay";
 import type { IconTone, ItemStatusIconName, ItemTypeIconName } from "./components/InventoryIcons";
 import type { AuditLogEntry, CharacterAlignment, CharacterData, InventoryRecord, InventoryRecordId } from "./model/types";
-import type { PartyAbilityScoreDisplay } from "./view-types";
+import type {
+  PartyHandDetail,
+  PartyHandDisplay,
+  PartyLitSource,
+  PartySpellLine,
+} from "./view-types";
 
 // ---- Party display ----
 
@@ -33,10 +38,6 @@ export function formatPartyClassLevel(character: CharacterData): string {
   }
 
   return `${classLabel} ${character.level}`;
-}
-
-export function formatPartyArmorClass(armorClass: number): string {
-  return `AC ${formatNullablePartyNumber(armorClass)}`;
 }
 
 export function formatPartyAlignment(alignment: CharacterAlignment): string {
@@ -70,57 +71,146 @@ export function formatPartyLanguages(character: CharacterData): string {
   return character.languages.length > 0 ? character.languages.join(", ") : "None";
 }
 
-export function formatPartyAbilityScores(
+/** Memorized spells grouped by level for the party table, tightest form:
+ * counts only when above one, spellbook-only entries omitted. */
+export function formatPartySpellLines(
   character: CharacterData,
-): PartyAbilityScoreDisplay[] {
-  const scores = character.abilityScores;
+): PartySpellLine[] {
+  const memorizedSpells = character.spells.filter(
+    (spell) => spell.memorized > 0,
+  );
+  const levels = [
+    ...new Set(memorizedSpells.map((spell) => spell.level)),
+  ].sort((left, right) => left - right);
 
-  return [
-    { label: "S", value: formatNullablePartyNumber(scores.strength) },
-    { label: "I", value: formatNullablePartyNumber(scores.intelligence) },
-    { label: "W", value: formatNullablePartyNumber(scores.wisdom) },
-    { label: "D", value: formatNullablePartyNumber(scores.dexterity) },
-    { label: "C", value: formatNullablePartyNumber(scores.constitution) },
-    { label: "Ch", value: formatNullablePartyNumber(scores.charisma) },
-  ];
+  return levels.map((level) => ({
+    label: `L${level}`,
+    text: memorizedSpells
+      .filter((spell) => spell.level === level)
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .map((spell) =>
+        spell.memorized > 1 ? `${spell.name} ×${spell.memorized}` : spell.name,
+      )
+      .join(", "),
+  }));
 }
 
 export function formatPartyHands(
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
   records: InventoryRecord[],
-): string[] {
+  includeSecrets = false,
+): PartyHandDisplay[] {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
 
   if (bothHandsRecord) {
-    return [`Both: ${getPartyRecordLabel(bothHandsRecord, records, true)}`];
+    return [getPartyHandDisplay("Both", bothHandsRecord, records, includeSecrets)];
   }
 
-  const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
-  const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
-
   return [
-    `L: ${
-      leftHandRecord ? getPartyRecordLabel(leftHandRecord, records, true) : "Empty"
-    }`,
-    `R: ${
-      rightHandRecord
-        ? getPartyRecordLabel(rightHandRecord, records, true)
-        : "Empty"
-    }`,
+    getPartyHandDisplay(
+      "L",
+      getRecordById(sections.handRecordIds.leftHand, records),
+      records,
+      includeSecrets,
+    ),
+    getPartyHandDisplay(
+      "R",
+      getRecordById(sections.handRecordIds.rightHand, records),
+      records,
+      includeSecrets,
+    ),
   ];
 }
 
-export function getPartyRecordLabel(
-  record: InventoryRecord,
+function getPartyHandDisplay(
+  label: string,
+  record: InventoryRecord | undefined,
   records: InventoryRecord[],
-  includeStatuses = false,
-): string {
-  const display = getInventoryRowDisplay(record, records);
-  const statuses = includeStatuses
-    ? display.statusIcons.map((status) => `[${getInventoryRowStatusText(status)}]`)
-    : [];
+  includeSecrets: boolean,
+): PartyHandDisplay {
+  if (!record) {
+    return { label, text: null, statuses: [] };
+  }
 
-  return [display.primaryText, ...statuses].join(" ");
+  const display = getInventoryRowDisplay(record, records);
+  const detail = getPartyHandDetail(record, includeSecrets);
+
+  return {
+    label,
+    text: display.primaryText,
+    statuses: display.statusIcons,
+    ...(detail ? { detail } : {}),
+  };
+}
+
+function getPartyHandDetail(
+  record: InventoryRecord,
+  includeSecrets: boolean,
+): PartyHandDetail | undefined {
+  const detail: PartyHandDetail = {};
+
+  if (record.recordType === "weapon") {
+    const weaponParts = [
+      record.weapon.damage,
+      record.weapon.range,
+      ...(record.weapon.qualities ?? []),
+    ].filter((part): part is string => Boolean(part && part.trim()));
+
+    if (weaponParts.length > 0) {
+      detail.weapon = weaponParts.join(" · ");
+    }
+  }
+
+  if (record.recordType !== "coins" && record.uses) {
+    detail.uses = formatUses(record.uses);
+  }
+
+  if (record.light?.lightDescription?.trim()) {
+    detail.light = record.light.lightDescription;
+  }
+
+  if (record.description?.trim()) {
+    detail.description = record.description;
+  }
+
+  if (
+    includeSecrets &&
+    record.recordType !== "coins" &&
+    record.recordType !== "treasure" &&
+    record.identification?.identified === false
+  ) {
+    if (record.identification.secretName?.trim()) {
+      detail.secretName = record.identification.secretName;
+    }
+
+    if (record.identification.secretDescription?.trim()) {
+      detail.secretDescription = record.identification.secretDescription;
+    }
+  }
+
+  return Object.keys(detail).length > 0 ? detail : undefined;
+}
+
+export function formatUses(uses: { current: number; max?: number }): string {
+  return uses.max !== undefined
+    ? `${uses.current}/${uses.max} uses`
+    : `${uses.current} uses`;
+}
+
+/** Lit light sources among an entity's records, wherever they are carried. */
+export function getPartyLitSources(
+  ownedRecords: InventoryRecord[],
+): PartyLitSource[] {
+  return ownedRecords
+    .filter(
+      (record) => record.recordType !== "coins" && record.light?.isLit === true,
+    )
+    .map((record) => ({
+      name: getRecordDisplayName(record),
+      ...(record.recordType !== "coins" && record.uses
+        ? { uses: formatUses(record.uses) }
+        : {}),
+    }));
 }
 
 export function formatNullablePartyNumber(value: number | null): string {
@@ -132,7 +222,17 @@ export function formatSignedNumber(value: number): string {
 }
 
 export function formatMovementFeet(feet: number): string {
-  return `${feet}'`;
+  return `${feet}′`;
+}
+
+/** Exploration + encounter rate in the shared `120′ (40′)` form. */
+export function formatMovementPair(movement: {
+  explorationFeet: number;
+  encounterFeet: number;
+}): string {
+  return `${formatMovementFeet(movement.explorationFeet)} (${formatMovementFeet(
+    movement.encounterFeet,
+  )})`;
 }
 
 // ---- Inventory row status / type icons ----

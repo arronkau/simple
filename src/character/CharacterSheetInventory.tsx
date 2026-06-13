@@ -1,5 +1,8 @@
 import { Fragment } from "react";
-import { getEncumbranceWarnings } from "../model/encumbrance";
+import {
+  getCharacterEncumbrance,
+  getEncumbranceWarnings,
+} from "../model/encumbrance";
 import {
   getContainerContents,
   getInventorySections,
@@ -10,14 +13,22 @@ import { validateInventoryState } from "../model/validation";
 import type { AppState } from "../model/appState";
 import type { Entity, InventoryRecord } from "../model/types";
 import { getRecordDisplayName } from "../formatters";
-import { EntityInventoryHeader, InventoryRowSummary } from "../inventory/InventoryDisplay";
+import { CapBar, FreeBadge, capacityTone } from "../components/GearMeters";
+import { WarningDetailsButton } from "../ui/WarningDetailsButton";
+import { InventoryRowSummary } from "../inventory/InventoryDisplay";
+
+const CHARACTER_TOTAL_SLOT_CAPACITY = 16;
 
 export function CharacterSheetInventory({
   appState,
   entity,
+  onStartAddRecord,
+  onEditRecord,
 }: {
   appState: AppState;
   entity: Entity;
+  onStartAddRecord?: (entity: Entity) => void;
+  onEditRecord?: (record: InventoryRecord) => void;
 }) {
   const records = appState.inventoryRecords;
   const sections = getInventorySections(entity, records);
@@ -38,6 +49,10 @@ export function CharacterSheetInventory({
     return null;
   }
 
+  const encumbrance = getCharacterEncumbrance(entity, records);
+  const totalSlots = encumbrance.equippedItems + encumbrance.stowedItems;
+  const tone = capacityTone(totalSlots, CHARACTER_TOTAL_SLOT_CAPACITY);
+
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
   const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
   const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
@@ -51,12 +66,27 @@ export function CharacterSheetInventory({
 
   return (
     <section className="sheet-inventory" aria-label={`${entity.name} inventory`}>
-      <EntityInventoryHeader
-        entity={entity}
-        records={records}
-        warnings={warnings}
-        validationIssues={validationIssues}
-      />
+      <div className="sheet-inventory-header">
+        <h6>Inventory</h6>
+        <span className="sheet-inventory-zones mono">
+          Eq {encumbrance.equippedItems} · St {encumbrance.stowedItems}
+        </span>
+        <WarningDetailsButton
+          validationIssues={validationIssues}
+          warnings={warnings}
+        />
+      </div>
+      <div className="sheet-inventory-meter">
+        <CapBar
+          used={totalSlots}
+          max={CHARACTER_TOTAL_SLOT_CAPACITY}
+          tone={tone}
+        />
+        <FreeBadge
+          free={CHARACTER_TOTAL_SLOT_CAPACITY - totalSlots}
+          tone={tone}
+        />
+      </div>
 
       <div className="sheet-inventory-group">
         <h6>Hands</h6>
@@ -64,7 +94,11 @@ export function CharacterSheetInventory({
           <div className="sheet-inventory-row" key={label}>
             <span className="sheet-inventory-tag">{label}</span>
             {record ? (
-              <InventoryRowSummary record={record} allRecords={records} />
+              <InventoryRowSummary
+                record={record}
+                allRecords={records}
+                onOpenRecord={onEditRecord}
+              />
             ) : (
               <span className="sheet-empty-value">—</span>
             )}
@@ -77,7 +111,11 @@ export function CharacterSheetInventory({
           <h6>Equipped</h6>
           {sections.otherEquipped.map((record) => (
             <div className="sheet-inventory-row" key={record.id}>
-              <InventoryRowSummary record={record} allRecords={records} />
+              <InventoryRowSummary
+                record={record}
+                allRecords={records}
+                onOpenRecord={onEditRecord}
+              />
             </div>
           ))}
         </div>
@@ -95,6 +133,7 @@ export function CharacterSheetInventory({
             <InventoryRowSummary
               record={sections.coinRecord}
               allRecords={records}
+              onOpenRecord={onEditRecord}
             />
           </div>
         ) : null}
@@ -108,9 +147,20 @@ export function CharacterSheetInventory({
             key={record.id}
             record={record}
             records={records}
+            onEditRecord={onEditRecord}
           />
         ))}
       </div>
+
+      {onStartAddRecord ? (
+        <button
+          className="add-link sheet-add-link"
+          type="button"
+          onClick={() => onStartAddRecord(entity)}
+        >
+          + Add item
+        </button>
+      ) : null}
     </section>
   );
 }
@@ -119,10 +169,12 @@ function SheetInventoryRecordRow({
   record,
   records,
   depth,
+  onEditRecord,
 }: {
   record: InventoryRecord;
   records: InventoryRecord[];
   depth: number;
+  onEditRecord?: (record: InventoryRecord) => void;
 }) {
   const contents = record.container
     ? getContainerContents(record, records)
@@ -131,7 +183,11 @@ function SheetInventoryRecordRow({
   return (
     <Fragment>
       <div className="sheet-inventory-row" data-depth={depth}>
-        <InventoryRowSummary record={record} allRecords={records} />
+        <InventoryRowSummary
+          record={record}
+          allRecords={records}
+          onOpenRecord={onEditRecord}
+        />
       </div>
       {contents.map((childRecord) => (
         <SheetInventoryRecordRow
@@ -139,6 +195,7 @@ function SheetInventoryRecordRow({
           key={childRecord.id}
           record={childRecord}
           records={records}
+          onEditRecord={onEditRecord}
         />
       ))}
     </Fragment>

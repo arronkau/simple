@@ -4,7 +4,6 @@ import {
   NavLink,
   Route,
   Routes,
-  useLocation,
   useParams,
 } from "react-router-dom";
 import {
@@ -54,7 +53,6 @@ import {
 } from "./inventory/InventoryRecordForm";
 
 function LocalAppShell() {
-  const location = useLocation();
   const { partyId } = useParams<{ partyId: PartyId }>();
   const appState = useAppStore((state) => state.appState);
   const currentUserId = useAppStore((state) => state.currentUserId);
@@ -78,6 +76,7 @@ function LocalAppShell() {
     (state) => state.adjustCharacterSpellMemorized,
   );
   const setEntityActive = useAppStore((state) => state.setEntityActive);
+  const reorderEntity = useAppStore((state) => state.reorderEntity);
   const deleteEntity = useAppStore((state) => state.deleteEntity);
   const createInventoryRecord = useAppStore(
     (state) => state.createInventoryRecord,
@@ -148,6 +147,25 @@ function LocalAppShell() {
       setCurrentParty(partyId);
     }
   }, [partyId, setCurrentParty]);
+
+  // Details-based popovers (hand details, warning chips) close when clicking
+  // anywhere outside them.
+  useEffect(() => {
+    function closeOpenPopovers(event: PointerEvent) {
+      document
+        .querySelectorAll<HTMLDetailsElement>(
+          "details.pt-hand-pop[open], details.warning-details[open]",
+        )
+        .forEach((details) => {
+          if (event.target instanceof Node && !details.contains(event.target)) {
+            details.open = false;
+          }
+        });
+    }
+
+    document.addEventListener("pointerdown", closeOpenPopovers);
+    return () => document.removeEventListener("pointerdown", closeOpenPopovers);
+  }, []);
 
   if (!partyId) {
     return <Navigate to={`/party/${createPartyId()}`} replace />;
@@ -400,19 +418,9 @@ function LocalAppShell() {
     ? appState.entities.find((entity) => entity.id === editingEntityId)
     : undefined;
 
-  const isWideWorkspaceRoute = [
-    `/party/${partyId}`,
-    `/party/${partyId}/gear`,
-    `/party/${partyId}/characters`,
-    `/party/${partyId}/audit`,
-  ].some((routePath) => location.pathname.startsWith(routePath));
-  const workspaceClassName = `workspace-panel${
-    isWideWorkspaceRoute ? " wide-workspace-panel" : ""
-  }`;
-
   return (
     <main className="app-shell">
-      <section className={workspaceClassName} aria-labelledby="app-title">
+      <section className="app-frame" aria-labelledby="app-title">
         <div className="app-header">
           <div>
             <p className="eyebrow">
@@ -452,8 +460,10 @@ function LocalAppShell() {
             element={
               <PartyPage
                 appState={appState}
-                inventoryPath={`/party/${partyId}/gear`}
                 sortedEntities={sortedEntities}
+                currentUserPartyRole={currentUserPartyRole}
+                onSetEntityActive={setEntityActive}
+                onReorderEntity={reorderEntity}
               />
             }
           />
@@ -483,6 +493,10 @@ function LocalAppShell() {
                 onAdjustHp={adjustCharacterHp}
                 onAdjustXp={adjustCharacterXp}
                 onAdjustSpellMemorized={adjustCharacterSpellMemorized}
+                onStartAddRecord={startAddingRecord}
+                onEditRecord={startEditingRecord}
+                onSetEntityActive={setEntityActive}
+                onReorderEntity={reorderEntity}
               />
             }
           />

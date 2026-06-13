@@ -16,6 +16,7 @@ import type {
   KnownModifierTarget,
   UserRole,
 } from "./model/types";
+import type { InventoryRowStatus } from "./model/inventoryRowDisplay";
 import type { ValidationIssue } from "./model/validation";
 import type { CoinDenomination } from "./store/useAppStore";
 
@@ -213,24 +214,52 @@ export type AppStateExport = {
   data: AppState;
 };
 
-export type PartyAbilityScoreDisplay = {
+/** One level's worth of memorized spells, e.g. label "L1", text "Sleep ×2". */
+export type PartySpellLine = {
   label: string;
-  value: string;
+  text: string;
+};
+
+/** Extra hand-item facts surfaced by the party table popover. Secret fields
+ * are only populated for GM-ish viewers (role !== "player"). */
+export type PartyHandDetail = {
+  weapon?: string;
+  uses?: string;
+  light?: string;
+  description?: string;
+  secretName?: string;
+  secretDescription?: string;
+};
+
+export type PartyHandDisplay = {
+  label: string;
+  text: string | null;
+  statuses: InventoryRowStatus[];
+  detail?: PartyHandDetail;
+};
+
+export type PartyLitSource = {
+  name: string;
+  uses?: string;
 };
 
 export type PartyOverviewCard = {
-  abilityScores: PartyAbilityScoreDisplay[];
   ac: string;
   id: EntityId;
   name: string;
   entityType: EntityType;
+  active: boolean;
   classLevel: string;
   hp: string;
   hurt: boolean;
   movement: string;
+  movementTone: "" | "reduced" | "zero";
   movementFeet: number;
   languages: string;
-  hands: string[];
+  languagesList: string[];
+  litSources: PartyLitSource[];
+  spellLines: PartySpellLine[];
+  hands: PartyHandDisplay[];
   validationIssues: ValidationIssue[];
   warningCount: number;
   warningSummary: string;

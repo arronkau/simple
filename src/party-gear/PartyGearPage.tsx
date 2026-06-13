@@ -52,6 +52,13 @@ import {
 import { getRecordHandsRequired } from "../model/types";
 import type { AppState } from "../model/appState";
 import { getEntityInventoryStatus } from "../entity/EntityStatus";
+import {
+  CapBar,
+  FreeBadge,
+  SlotPips,
+  capacityTone,
+  type LoadTone,
+} from "../components/GearMeters";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { ItemStatusIcon } from "../components/InventoryIcons";
 import type {
@@ -155,6 +162,9 @@ export function PartyGearPage(actions: GearActions) {
 
   const boardEntities = sortedEntities.filter(
     (entity) => entity.active && entity.id !== floorEntity?.id,
+  );
+  const benchedEntities = sortedEntities.filter(
+    (entity) => !entity.active && entity.id !== floorEntity?.id,
   );
 
   // When the Floor was found by the cross-client name fallback (no local
@@ -426,6 +436,22 @@ export function PartyGearPage(actions: GearActions) {
                 ))}
               </div>
             )}
+
+            {benchedEntities.length > 0 ? (
+              <div className="gear-benched">
+                <h3 className="micro">Benched</h3>
+                <div className="gear-board">
+                  {benchedEntities.map((entity) => (
+                    <GearEntityCard
+                      key={entity.id}
+                      appState={appState}
+                      entity={entity}
+                      records={records}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <FloorTray
@@ -732,16 +758,6 @@ function EntityHeaderDrop({
 // Header pieces
 // ---------------------------------------------------------------------------
 
-type LoadTone = "ok" | "warn" | "crit";
-
-function capacityTone(used: number, max: number): LoadTone {
-  if (used > max) {
-    return "crit";
-  }
-
-  return used / max >= 0.85 ? "warn" : "ok";
-}
-
 function MovementBadge({
   encumbrance,
 }: {
@@ -762,37 +778,6 @@ function MovementBadge({
     <span className={`mv ${cls}`}>
       {encumbrance.overloaded ? "⚠ " : ""}
       {text}
-    </span>
-  );
-}
-
-function CapBar({
-  used,
-  max,
-  tone,
-}: {
-  used: number;
-  max: number;
-  tone: LoadTone;
-}) {
-  const pct = max > 0 ? Math.min(100, Math.round((100 * used) / max)) : 0;
-
-  return (
-    <span className={`cap ${tone === "ok" ? "" : tone}`}>
-      <span className="track">
-        <i style={{ width: `${pct}%` }} />
-      </span>
-      <span className="capnum">
-        {used}/{max}
-      </span>
-    </span>
-  );
-}
-
-function FreeBadge({ free, tone }: { free: number; tone: LoadTone }) {
-  return (
-    <span className={`free ${tone === "ok" ? "" : tone}`}>
-      {free >= 0 ? `${free} free` : `${-free} over`}
     </span>
   );
 }
@@ -925,7 +910,7 @@ function CoinRow({ record }: { record?: InventoryRecord }) {
         Coins
       </button>
       <span className="coins">{display.primaryText}</span>
-      <Pips slots={getRecordSlotBurden(record)} />
+      <SlotPips slots={getRecordSlotBurden(record)} />
     </div>
   );
 }
@@ -1204,7 +1189,7 @@ function RecordRowBody({
           Identify
         </button>
       ) : null}
-      <Pips slots={getRecordSlotBurden(record)} />
+      <SlotPips slots={getRecordSlotBurden(record)} />
     </>
   );
 }
@@ -1242,25 +1227,6 @@ function StateGlyphs({ record }: { record: InventoryRecord }) {
   );
 }
 
-function Pips({ slots }: { slots: number }) {
-  if (slots <= 0) {
-    return <span className="islots faint">·</span>;
-  }
-
-  if (slots <= 3) {
-    return (
-      <span className="islots">
-        <b>{"■".repeat(slots)}</b>
-      </span>
-    );
-  }
-
-  return (
-    <span className="islots">
-      ■<b>×{slots}</b>
-    </span>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Drop zone

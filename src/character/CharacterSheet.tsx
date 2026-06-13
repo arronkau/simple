@@ -25,6 +25,7 @@ import type {
   CharacterSpell,
   Entity,
   EntityId,
+  InventoryRecord,
 } from "../model/types";
 import type { EntityMutationResult } from "../store/useAppStore";
 import {
@@ -34,6 +35,7 @@ import {
   formatPartyLanguages,
   formatSignedNumber,
 } from "../formatters";
+import type { AbilityModifierResult } from "../model/abilityModifiers";
 import { QuickStepper } from "./QuickStat";
 import { CharacterSheetInventory } from "./CharacterSheetInventory";
 
@@ -44,6 +46,8 @@ export function CharacterSheet({
   onAdjustXp,
   onAdjustSpellMemorized,
   onEdit,
+  onStartAddRecord,
+  onEditRecord,
 }: {
   appState: AppState;
   entity: Entity;
@@ -55,6 +59,8 @@ export function CharacterSheet({
     delta: number,
   ) => EntityMutationResult;
   onEdit: () => void;
+  onStartAddRecord: (entity: Entity) => void;
+  onEditRecord: (record: InventoryRecord) => void;
 }) {
   const [quickError, setQuickError] = useState<string | undefined>();
   const character = normalizeCharacterData(entity.character);
@@ -118,13 +124,13 @@ export function CharacterSheet({
 
       {quickError ? <p className="form-error">{quickError}</p> : null}
 
-      <div className="sheet-stat-strip">
-        <div className="reference-stat">
+      <div className="sheet-combat-strip">
+        <div className="stat-box big">
           <span>HP</span>
           <div className="sheet-stat-value">
             <strong>
-              {formatNullablePartyNumber(character.hp.current)} /{" "}
-              {formatNullablePartyNumber(character.hp.max)}
+              {formatNullablePartyNumber(character.hp.current)}
+              <em>/{formatNullablePartyNumber(character.hp.max)}</em>
             </strong>
             <QuickStepper
               decrementDisabled={(character.hp.current ?? 0) <= 0}
@@ -135,7 +141,7 @@ export function CharacterSheet({
           </div>
         </div>
         <div
-          className="reference-stat"
+          className="stat-box big"
           title={
             armorClass.warnings.length > 0
               ? armorClass.warnings.join(" ")
@@ -145,28 +151,25 @@ export function CharacterSheet({
           <span>AC</span>
           <strong>{formatNullablePartyNumber(armorClass.armorClass)}</strong>
         </div>
-        <div className="reference-stat">
-          <span>Attack</span>
-          <strong>
-            {saveLookup.ok
-              ? `${formatSignedNumber(saveLookup.attackBonus)} · T${getThac0(saveLookup.attackBonus)}`
-              : "—"}
-          </strong>
-        </div>
-        <div className="reference-stat">
+        <AttackBox
+          label="Melee"
+          attackBonus={saveLookup.ok ? saveLookup.attackBonus : null}
+          abilityModifier={getAbilityModifier(character.abilityScores.strength)}
+        />
+        <AttackBox
+          label="Missile"
+          attackBonus={saveLookup.ok ? saveLookup.attackBonus : null}
+          abilityModifier={getAbilityModifier(character.abilityScores.dexterity)}
+        />
+        <div className="stat-box big">
           <span>Move</span>
-          <strong>
-            {formatMovementFeet(encumbrance.movement.explorationFeet)} /{" "}
-            {formatMovementFeet(encumbrance.movement.encounterFeet)}
-          </strong>
+          <strong>{formatMovementFeet(encumbrance.movement.explorationFeet)}</strong>
+          <em className="stat-sub">
+            {formatMovementFeet(encumbrance.movement.encounterFeet)} encounter
+          </em>
         </div>
-        {saveLookup.saves.map((save) => (
-          <div className="reference-stat" key={save.key}>
-            <span>{save.label}</span>
-            <strong>{Number.isFinite(save.value) ? save.value : "—"}</strong>
-          </div>
-        ))}
       </div>
+
       {!saveLookup.ok ? (
         <p className="sheet-lookup-note">{saveLookup.message}</p>
       ) : null}
@@ -175,50 +178,36 @@ export function CharacterSheet({
         <div className="sheet-column">
           <section className="sheet-panel">
             <h5>Ability Scores</h5>
-            <div className="sheet-ability-list">
+            <div className="sheet-stat-lines" aria-label="Ability scores">
               {ABILITY_SCORE_KEYS.map((key) => {
                 const score = character.abilityScores[key];
                 const modifier = getAbilityModifier(score);
 
                 return (
-                  <div className="sheet-ability-row" key={key}>
+                  <div className="sheet-stat-line" key={key}>
                     <span>{ABILITY_SCORE_LABELS[key]}</span>
-                    <strong>{formatNullablePartyNumber(score)}</strong>
-                    <em>{modifier.ok ? formatSignedNumber(modifier.modifier) : "—"}</em>
+                    <strong>
+                      {formatNullablePartyNumber(score)}
+                      {modifier.ok ? (
+                        <em> {formatSignedNumber(modifier.modifier)}</em>
+                      ) : null}
+                    </strong>
                   </div>
                 );
               })}
             </div>
-          </section>
-
-          <section className="sheet-panel">
-            <h5>Languages</h5>
-            <p className="sheet-text">{formatPartyLanguages(character)}</p>
-          </section>
-        </div>
-
-        <div className="sheet-column">
-          {(classContent.ok && classContent.abilities.length > 0) ||
-          character.features.length > 0 ? (
-            <section className="sheet-panel">
-              <h5>Class Abilities</h5>
-              {classContent.ok
-                ? classContent.abilities.map((ability) => (
-                    <details className="sheet-ability-details" key={ability.id}>
-                      <summary>{ability.name}</summary>
-                      <p>{ability.description}</p>
-                    </details>
-                  ))
-                : null}
-              {character.features.map((feature) => (
-                <details className="sheet-ability-details" key={feature.id}>
-                  <summary>{feature.name || "Feature"}</summary>
-                  <p>{feature.description || "—"}</p>
-                </details>
+            <h5>Saving Throws</h5>
+            <div className="sheet-stat-lines" aria-label="Saving throws">
+              {saveLookup.saves.map((save) => (
+                <div className="sheet-stat-line" key={save.key}>
+                  <span>{save.label}</span>
+                  <strong>
+                    {Number.isFinite(save.value) ? save.value : "—"}
+                  </strong>
+                </div>
               ))}
-            </section>
-          ) : null}
-
+            </div>
+          </section>
           {character.skills.length > 0 || levelTables.length > 0 ? (
             <section className="sheet-panel">
               <h5>Skills</h5>
@@ -250,9 +239,34 @@ export function CharacterSheet({
               ))}
             </section>
           ) : null}
+
+          <section className="sheet-panel">
+            <h5>Languages</h5>
+            <p className="sheet-text">{formatPartyLanguages(character)}</p>
+          </section>
         </div>
 
         <div className="sheet-column">
+          {(classContent.ok && classContent.abilities.length > 0) ||
+          character.features.length > 0 ? (
+            <section className="sheet-panel">
+              <h5>Class Abilities</h5>
+              {classContent.ok
+                ? classContent.abilities.map((ability) => (
+                    <details className="sheet-ability-details" key={ability.id}>
+                      <summary>{ability.name}</summary>
+                      <p>{ability.description}</p>
+                    </details>
+                  ))
+                : null}
+              {character.features.map((feature) => (
+                <details className="sheet-ability-details" key={feature.id}>
+                  <summary>{feature.name || "Feature"}</summary>
+                  <p>{feature.description || "—"}</p>
+                </details>
+              ))}
+            </section>
+          ) : null}
           {character.spells.length > 0 ||
           (spellSlots.ok && spellSlots.slots.length > 0) ? (
             <section className="sheet-panel">
@@ -300,9 +314,16 @@ export function CharacterSheet({
                 ))}
             </section>
           ) : null}
+        </div>
 
+        <div className="sheet-column">
           <section className="sheet-panel">
-            <CharacterSheetInventory appState={appState} entity={entity} />
+            <CharacterSheetInventory
+              appState={appState}
+              entity={entity}
+              onStartAddRecord={onStartAddRecord}
+              onEditRecord={onEditRecord}
+            />
           </section>
         </div>
       </div>
@@ -314,6 +335,38 @@ export function CharacterSheet({
         </details>
       ) : null}
     </section>
+  );
+}
+
+/** Melee/missile attack: class attack bonus adjusted by STR or DEX, with the
+ * matching THAC0 as a subline. Falls back to the base bonus when the ability
+ * score or modifier table can't resolve. */
+function AttackBox({
+  label,
+  attackBonus,
+  abilityModifier,
+}: {
+  label: string;
+  attackBonus: number | null;
+  abilityModifier: AbilityModifierResult;
+}) {
+  if (attackBonus === null) {
+    return (
+      <div className="stat-box big">
+        <span>{label}</span>
+        <strong>—</strong>
+      </div>
+    );
+  }
+
+  const bonus = attackBonus + (abilityModifier.ok ? abilityModifier.modifier : 0);
+
+  return (
+    <div className="stat-box big">
+      <span>{label}</span>
+      <strong>{formatSignedNumber(bonus)}</strong>
+      <em className="stat-sub">THAC0 {getThac0(bonus)}</em>
+    </div>
   );
 }
 

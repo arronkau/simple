@@ -1,0 +1,1012 @@
+{
+  "version": 1,
+  "exportedAt": "2026-06-12T12:00:00.000Z",
+  "data": {
+    "schemaVersion": 1,
+    "entities": [
+      {
+        "id": "ent-brakk",
+        "name": "Brakk Ironhand",
+        "entityType": "character",
+        "active": true,
+        "sortOrder": 0,
+        "character": {
+          "className": "Fighter",
+          "level": 4,
+          "alignment": "Law",
+          "xp": 9500,
+          "hp": { "current": 28, "max": 28 },
+          "armorClass": { "modifier": 0, "override": null },
+          "abilityScores": {
+            "strength": 16,
+            "intelligence": 9,
+            "wisdom": 10,
+            "dexterity": 13,
+            "constitution": 14,
+            "charisma": 11
+          },
+          "skills": [],
+          "spells": [],
+          "languages": ["Common", "Dwarvish"],
+          "description": "A scarred mercenary captain. Owes a debt to the Temple of the Iron Wheel.",
+          "features": []
+        }
+      },
+      {
+        "id": "ent-zinnia",
+        "name": "Zinnia Marsh",
+        "entityType": "character",
+        "active": true,
+        "sortOrder": 1,
+        "character": {
+          "className": "Magic-User",
+          "level": 3,
+          "alignment": "Neutrality",
+          "xp": 6200,
+          "hp": { "current": 4, "max": 9 },
+          "armorClass": { "modifier": 0, "override": null },
+          "abilityScores": {
+            "strength": 8,
+            "intelligence": 16,
+            "wisdom": 12,
+            "dexterity": 14,
+            "constitution": 10,
+            "charisma": 13
+          },
+          "skills": [],
+          "spells": [
+            {
+              "id": "spell-zinnia-sleep",
+              "name": "Sleep",
+              "level": 1,
+              "memorized": 1
+            },
+            {
+              "id": "spell-zinnia-magic-missile",
+              "name": "Magic Missile",
+              "level": 1,
+              "memorized": 1,
+              "notes": "copied from a scroll"
+            },
+            {
+              "id": "spell-zinnia-web",
+              "name": "Web",
+              "level": 2,
+              "memorized": 0,
+              "notes": "spellbook only"
+            }
+          ],
+          "languages": ["Common", "Elvish", "Draconic"],
+          "description": "Apprenticed to the late tower-wizard Malvo. Keeps his wand wrapped in oilcloth.",
+          "features": [
+            {
+              "id": "feat-zinnia-read-magic",
+              "name": "Arcane Library Rights",
+              "description": "May consult the Guild library in Threshold between adventures."
+            }
+          ]
+        }
+      },
+      {
+        "id": "ent-odo",
+        "name": "Father Odo",
+        "entityType": "character",
+        "active": true,
+        "sortOrder": 2,
+        "character": {
+          "className": "Cleric",
+          "level": 4,
+          "alignment": "Law",
+          "xp": 7800,
+          "hp": { "current": 19, "max": 21 },
+          "armorClass": { "modifier": 0, "override": null },
+          "abilityScores": {
+            "strength": 12,
+            "intelligence": 10,
+            "wisdom": 16,
+            "dexterity": 9,
+            "constitution": 13,
+            "charisma": 14
+          },
+          "skills": [],
+          "spells": [
+            {
+              "id": "spell-odo-cure-light",
+              "name": "Cure Light Wounds",
+              "level": 1,
+              "memorized": 2
+            },
+            {
+              "id": "spell-odo-bless",
+              "name": "Bless",
+              "level": 2,
+              "memorized": 1
+            }
+          ],
+          "languages": ["Common"],
+          "description": "",
+          "features": [
+            {
+              "id": "feat-odo-turn",
+              "name": "Turn Undead",
+              "description": "May invoke the Iron Wheel to turn undead. Uses the standard cleric turning table."
+            }
+          ]
+        }
+      },
+      {
+        "id": "ent-wren",
+        "name": "Wren Underbough",
+        "entityType": "character",
+        "active": true,
+        "sortOrder": 3,
+        "character": {
+          "className": "Halfling",
+          "level": 3,
+          "alignment": "Neutrality",
+          "xp": 4900,
+          "hp": { "current": 11, "max": 14 },
+          "armorClass": { "modifier": 0, "override": null },
+          "abilityScores": {
+            "strength": 9,
+            "intelligence": 13,
+            "wisdom": 10,
+            "dexterity": 17,
+            "constitution": 12,
+            "charisma": 10
+          },
+          "skills": [
+            {
+              "id": "skill-wren-hide",
+              "name": "Hide",
+              "chanceInSix": 5,
+              "description": "Outdoors; 2-in-6 in dungeons"
+            },
+            {
+              "id": "skill-wren-listen",
+              "name": "Listen at doors",
+              "chanceInSix": 2
+            }
+          ],
+          "spells": [],
+          "languages": ["Common", "Halfling"],
+          "description": "Carrying far too much loot out of the Barrowmoor. Refuses to leave any of it behind.",
+          "features": []
+        }
+      },
+      {
+        "id": "ent-mendel",
+        "name": "Mendel",
+        "entityType": "retainer",
+        "active": true,
+        "sortOrder": 4,
+        "character": {
+          "className": "Torchbearer",
+          "level": null,
+          "alignment": "",
+          "xp": null,
+          "hp": { "current": 3, "max": 4 },
+          "armorClass": { "modifier": 0, "override": null },
+          "abilityScores": {
+            "strength": null,
+            "intelligence": null,
+            "wisdom": null,
+            "dexterity": null,
+            "constitution": null,
+            "charisma": null
+          },
+          "skills": [],
+          "spells": [],
+          "languages": ["Common"],
+          "description": "Hired in Threshold for 5 gp a month. The party keeps loading him up with camp gear.",
+          "features": []
+        }
+      },
+      {
+        "id": "ent-old-tom",
+        "name": "Old Tom",
+        "entityType": "retainer",
+        "active": false,
+        "sortOrder": 5,
+        "character": {
+          "className": "Mule handler",
+          "level": null,
+          "alignment": "",
+          "xp": null,
+          "hp": { "current": 2, "max": 2 },
+          "armorClass": { "modifier": 0, "override": null },
+          "abilityScores": {
+            "strength": null,
+            "intelligence": null,
+            "wisdom": null,
+            "dexterity": null,
+            "constitution": null,
+            "charisma": null
+          },
+          "skills": [],
+          "spells": [],
+          "languages": ["Common"],
+          "description": "Stayed behind in town with a broken ankle. Inactive until the party returns.",
+          "features": []
+        }
+      },
+      {
+        "id": "ent-maybell",
+        "name": "Maybell",
+        "entityType": "mount",
+        "active": true,
+        "sortOrder": 6,
+        "capacitySlots": 20,
+        "notes": "A stubborn but reliable mule."
+      },
+      {
+        "id": "ent-cart",
+        "name": "Hand cart",
+        "entityType": "vehicle",
+        "active": true,
+        "sortOrder": 7,
+        "capacitySlots": 30
+      },
+      {
+        "id": "ent-floor",
+        "name": "Floor",
+        "entityType": "storage",
+        "active": true,
+        "sortOrder": 8,
+        "capacitySlots": 999
+      }
+    ],
+    "inventoryRecords": [
+      {
+        "id": "rec-brakk-sword",
+        "entityId": "ent-brakk",
+        "recordType": "weapon",
+        "name": "Sword",
+        "location": { "kind": "equipped", "placement": "rightHand" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "weapon": { "damage": "1d8", "qualities": ["Melee"] }
+      },
+      {
+        "id": "rec-brakk-shield",
+        "entityId": "ent-brakk",
+        "recordType": "armor",
+        "name": "Shield",
+        "location": { "kind": "equipped", "placement": "leftHand" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "armor": { "armorBonus": 1 }
+      },
+      {
+        "id": "rec-brakk-chain",
+        "entityId": "ent-brakk",
+        "recordType": "armor",
+        "name": "Chainmail",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 2,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 2 },
+        "handsRequired": 0,
+        "armor": { "baseArmorClass": 14 }
+      },
+      {
+        "id": "rec-brakk-leather",
+        "entityId": "ent-brakk",
+        "recordType": "armor",
+        "name": "Leather armor",
+        "description": "Spare set looted from the bandit camp — still strapped on over the chain. Should be stowed.",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "armor": { "baseArmorClass": 12 }
+      },
+      {
+        "id": "rec-brakk-ring",
+        "entityId": "ent-brakk",
+        "recordType": "equipment",
+        "name": "Ring of Deflection",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 4,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 0,
+        "isMagic": true,
+        "modifiers": [{ "target": "armorClass", "value": 1, "label": "+1 AC" }]
+      },
+      {
+        "id": "rec-brakk-backpack",
+        "entityId": "ent-brakk",
+        "recordType": "equipment",
+        "name": "Backpack",
+        "location": { "kind": "stowedRoot" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "container": { "capacitySlots": 16 }
+      },
+      {
+        "id": "rec-brakk-coins",
+        "entityId": "ent-brakk",
+        "recordType": "coins",
+        "location": { "kind": "coinPurse" },
+        "sortOrder": 0,
+        "coins": { "pp": 0, "gp": 210, "sp": 30, "cp": 10 }
+      },
+      {
+        "id": "rec-brakk-rations",
+        "entityId": "ent-brakk",
+        "recordType": "equipment",
+        "name": "Iron rations",
+        "location": { "kind": "container", "containerId": "rec-brakk-backpack" },
+        "sortOrder": 0,
+        "quantity": 7,
+        "burden": { "kind": "stacked", "itemsPerSlot": 7 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-brakk-rope",
+        "entityId": "ent-brakk",
+        "recordType": "equipment",
+        "name": "Rope (50')",
+        "location": { "kind": "container", "containerId": "rec-brakk-backpack" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-brakk-torches",
+        "entityId": "ent-brakk",
+        "recordType": "equipment",
+        "name": "Torches",
+        "location": { "kind": "container", "containerId": "rec-brakk-backpack" },
+        "sortOrder": 2,
+        "quantity": 3,
+        "burden": { "kind": "stacked", "itemsPerSlot": 3 },
+        "handsRequired": 1,
+        "light": { "isLit": false, "lightDescription": "30' radius, 1 hour" }
+      },
+      {
+        "id": "rec-brakk-hammer",
+        "entityId": "ent-brakk",
+        "recordType": "equipment",
+        "name": "Hammer and 12 iron spikes",
+        "location": { "kind": "container", "containerId": "rec-brakk-backpack" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-zinnia-torch",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Torch",
+        "location": { "kind": "equipped", "placement": "leftHand" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "light": { "isLit": true, "lightDescription": "30' radius, lit at the cave mouth" },
+        "uses": { "current": 4, "max": 6 }
+      },
+      {
+        "id": "rec-zinnia-wand",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Slender ivory wand",
+        "description": "Taken from Malvo's tower. Faintly warm to the touch.",
+        "location": { "kind": "equipped", "placement": "rightHand" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 1,
+        "isMagic": true,
+        "identification": {
+          "identified": false,
+          "secretName": "Wand of Magic Missiles",
+          "secretDescription": "7 charges remain. One missile per charge, as the spell."
+        },
+        "uses": { "current": 7 }
+      },
+      {
+        "id": "rec-zinnia-backpack",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Backpack",
+        "location": { "kind": "stowedRoot" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "container": { "capacitySlots": 16 }
+      },
+      {
+        "id": "rec-zinnia-coins",
+        "entityId": "ent-zinnia",
+        "recordType": "coins",
+        "location": { "kind": "coinPurse" },
+        "sortOrder": 0,
+        "coins": { "pp": 2, "gp": 31, "sp": 12, "cp": 0 }
+      },
+      {
+        "id": "rec-zinnia-spellbook",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Spellbook",
+        "location": { "kind": "container", "containerId": "rec-zinnia-backpack" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-zinnia-scrollcase",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Scroll case",
+        "location": { "kind": "container", "containerId": "rec-zinnia-backpack" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "container": { "capacitySlots": 2 }
+      },
+      {
+        "id": "rec-zinnia-scroll",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Scroll of Light",
+        "location": { "kind": "container", "containerId": "rec-zinnia-scrollcase" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 1,
+        "isMagic": true,
+        "uses": { "current": 1, "max": 1 }
+      },
+      {
+        "id": "rec-zinnia-oil",
+        "entityId": "ent-zinnia",
+        "recordType": "equipment",
+        "name": "Flask of oil",
+        "location": { "kind": "container", "containerId": "rec-zinnia-backpack" },
+        "sortOrder": 2,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-odo-staff",
+        "entityId": "ent-odo",
+        "recordType": "weapon",
+        "name": "Quarterstaff",
+        "location": { "kind": "equipped", "placement": "bothHands" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 2,
+        "weapon": { "damage": "1d6", "qualities": ["Blunt", "Two-handed"] }
+      },
+      {
+        "id": "rec-odo-chain",
+        "entityId": "ent-odo",
+        "recordType": "armor",
+        "name": "Chainmail",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 2 },
+        "handsRequired": 0,
+        "armor": { "baseArmorClass": 14 }
+      },
+      {
+        "id": "rec-odo-backpack",
+        "entityId": "ent-odo",
+        "recordType": "equipment",
+        "name": "Backpack",
+        "location": { "kind": "stowedRoot" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "container": { "capacitySlots": 16 }
+      },
+      {
+        "id": "rec-odo-coins",
+        "entityId": "ent-odo",
+        "recordType": "coins",
+        "location": { "kind": "coinPurse" },
+        "sortOrder": 0,
+        "coins": { "pp": 0, "gp": 62, "sp": 18, "cp": 0 }
+      },
+      {
+        "id": "rec-odo-holy-water",
+        "entityId": "ent-odo",
+        "recordType": "equipment",
+        "name": "Holy water",
+        "location": { "kind": "container", "containerId": "rec-odo-backpack" },
+        "sortOrder": 0,
+        "quantity": 2,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-odo-symbol",
+        "entityId": "ent-odo",
+        "recordType": "equipment",
+        "name": "Iron holy symbol",
+        "location": { "kind": "container", "containerId": "rec-odo-backpack" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-odo-rations",
+        "entityId": "ent-odo",
+        "recordType": "equipment",
+        "name": "Iron rations",
+        "location": { "kind": "container", "containerId": "rec-odo-backpack" },
+        "sortOrder": 2,
+        "quantity": 7,
+        "burden": { "kind": "stacked", "itemsPerSlot": 7 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-odo-mace",
+        "entityId": "ent-odo",
+        "recordType": "weapon",
+        "name": "Mace",
+        "location": { "kind": "container", "containerId": "rec-odo-backpack" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "weapon": { "damage": "1d6", "qualities": ["Blunt"] }
+      },
+      {
+        "id": "rec-wren-sling",
+        "entityId": "ent-wren",
+        "recordType": "weapon",
+        "name": "Sling",
+        "location": { "kind": "equipped", "placement": "rightHand" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "weapon": { "damage": "1d4", "range": "40'/80'/160'", "qualities": ["Missile"] }
+      },
+      {
+        "id": "rec-wren-leather",
+        "entityId": "ent-wren",
+        "recordType": "armor",
+        "name": "Leather armor",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "armor": { "baseArmorClass": 12 }
+      },
+      {
+        "id": "rec-wren-backpack",
+        "entityId": "ent-wren",
+        "recordType": "equipment",
+        "name": "Backpack",
+        "location": { "kind": "stowedRoot" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "container": { "capacitySlots": 16 }
+      },
+      {
+        "id": "rec-wren-coins",
+        "entityId": "ent-wren",
+        "recordType": "coins",
+        "location": { "kind": "coinPurse" },
+        "sortOrder": 0,
+        "coins": { "pp": 0, "gp": 95, "sp": 40, "cp": 25 }
+      },
+      {
+        "id": "rec-wren-tools",
+        "entityId": "ent-wren",
+        "recordType": "equipment",
+        "name": "Thieves' tools",
+        "location": { "kind": "container", "containerId": "rec-wren-backpack" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-wren-crowbar",
+        "entityId": "ent-wren",
+        "recordType": "equipment",
+        "name": "Crowbar",
+        "location": { "kind": "container", "containerId": "rec-wren-backpack" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-wren-caltrops",
+        "entityId": "ent-wren",
+        "recordType": "equipment",
+        "name": "Bag of caltrops",
+        "location": { "kind": "container", "containerId": "rec-wren-backpack" },
+        "sortOrder": 2,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-wren-waterskin",
+        "entityId": "ent-wren",
+        "recordType": "equipment",
+        "name": "Waterskin",
+        "location": { "kind": "container", "containerId": "rec-wren-backpack" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-wren-rations",
+        "entityId": "ent-wren",
+        "recordType": "equipment",
+        "name": "Iron rations",
+        "location": { "kind": "container", "containerId": "rec-wren-backpack" },
+        "sortOrder": 4,
+        "quantity": 7,
+        "burden": { "kind": "stacked", "itemsPerSlot": 7 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-wren-silk",
+        "entityId": "ent-wren",
+        "recordType": "treasure",
+        "name": "Bolt of silk",
+        "description": "Slung over one shoulder. Wren will not stow it.",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 2,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 3 },
+        "handsRequired": 0,
+        "treasure": { "gpValue": 200 }
+      },
+      {
+        "id": "rec-wren-tapestry",
+        "entityId": "ent-wren",
+        "recordType": "treasure",
+        "name": "Small tapestry",
+        "description": "Rolled and tied across the pack like a bedroll.",
+        "location": { "kind": "equipped", "placement": "loose" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 3 },
+        "handsRequired": 0,
+        "treasure": { "gpValue": 80 }
+      },
+      {
+        "id": "rec-mendel-lantern",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Lantern",
+        "location": { "kind": "equipped", "placement": "leftHand" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "light": { "isLit": true, "lightDescription": "30' radius, 4 hours per flask" },
+        "uses": { "current": 18, "max": 24 }
+      },
+      {
+        "id": "rec-mendel-backpack",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Backpack",
+        "location": { "kind": "stowedRoot" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "container": { "capacitySlots": 16 }
+      },
+      {
+        "id": "rec-mendel-tent",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Canvas tent",
+        "location": { "kind": "container", "containerId": "rec-mendel-backpack" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 5 },
+        "handsRequired": 2
+      },
+      {
+        "id": "rec-mendel-bedrolls",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Bedroll",
+        "location": { "kind": "container", "containerId": "rec-mendel-backpack" },
+        "sortOrder": 1,
+        "quantity": 2,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 2
+      },
+      {
+        "id": "rec-mendel-pot",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Cook pot",
+        "location": { "kind": "container", "containerId": "rec-mendel-backpack" },
+        "sortOrder": 2,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 2 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-mendel-grain",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Sack of grain",
+        "location": { "kind": "container", "containerId": "rec-mendel-backpack" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 4 },
+        "handsRequired": 2
+      },
+      {
+        "id": "rec-mendel-firewood",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Firewood bundle",
+        "location": { "kind": "container", "containerId": "rec-mendel-backpack" },
+        "sortOrder": 4,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 3 },
+        "handsRequired": 2
+      },
+      {
+        "id": "rec-mendel-spikes",
+        "entityId": "ent-mendel",
+        "recordType": "equipment",
+        "name": "Iron spikes",
+        "location": { "kind": "container", "containerId": "rec-mendel-backpack" },
+        "sortOrder": 5,
+        "quantity": 12,
+        "burden": { "kind": "stacked", "itemsPerSlot": 12 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-tom-backpack",
+        "entityId": "ent-old-tom",
+        "recordType": "equipment",
+        "name": "Backpack",
+        "location": { "kind": "stowedRoot" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 0,
+        "container": { "capacitySlots": 16 }
+      },
+      {
+        "id": "rec-maybell-saddlebags",
+        "entityId": "ent-maybell",
+        "recordType": "equipment",
+        "name": "Saddlebags",
+        "location": { "kind": "contents" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 2,
+        "container": { "capacitySlots": 8 }
+      },
+      {
+        "id": "rec-maybell-feed",
+        "entityId": "ent-maybell",
+        "recordType": "equipment",
+        "name": "Mule feed",
+        "location": { "kind": "container", "containerId": "rec-maybell-saddlebags" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 2 },
+        "handsRequired": 2
+      },
+      {
+        "id": "rec-maybell-mirror",
+        "entityId": "ent-maybell",
+        "recordType": "treasure",
+        "name": "Silver mirror",
+        "location": { "kind": "container", "containerId": "rec-maybell-saddlebags" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "treasure": { "gpValue": 40 }
+      },
+      {
+        "id": "rec-maybell-barrel",
+        "entityId": "ent-maybell",
+        "recordType": "equipment",
+        "name": "Water barrel",
+        "location": { "kind": "contents" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 4 },
+        "handsRequired": 2
+      },
+      {
+        "id": "rec-floor-coins",
+        "entityId": "ent-floor",
+        "recordType": "coins",
+        "location": { "kind": "contents" },
+        "sortOrder": 0,
+        "coins": { "pp": 0, "gp": 350, "sp": 30, "cp": 0 }
+      },
+      {
+        "id": "rec-floor-idol",
+        "entityId": "ent-floor",
+        "recordType": "treasure",
+        "name": "Jeweled idol",
+        "description": "Pried from the shrine in the Barrowmoor. The eyes are garnets.",
+        "location": { "kind": "contents" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 2 },
+        "handsRequired": 2,
+        "treasure": { "gpValue": 600 }
+      },
+      {
+        "id": "rec-floor-amulet",
+        "entityId": "ent-floor",
+        "recordType": "equipment",
+        "name": "Strange amulet",
+        "description": "Cold to the touch. Inscribed with spiral glyphs no one can read.",
+        "location": { "kind": "contents" },
+        "sortOrder": 2,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 1,
+        "isMagic": true,
+        "identification": {
+          "identified": false,
+          "secretName": "Amulet of Protection +1",
+          "secretDescription": "+1 to AC and saving throws while worn."
+        }
+      },
+      {
+        "id": "rec-floor-chest",
+        "entityId": "ent-floor",
+        "recordType": "equipment",
+        "name": "Wooden chest",
+        "location": { "kind": "contents" },
+        "sortOrder": 3,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 3 },
+        "handsRequired": 2,
+        "container": { "capacitySlots": 10 }
+      },
+      {
+        "id": "rec-floor-potion",
+        "entityId": "ent-floor",
+        "recordType": "equipment",
+        "name": "Potion of Healing",
+        "location": { "kind": "container", "containerId": "rec-floor-chest" },
+        "sortOrder": 0,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 1,
+        "isMagic": true,
+        "uses": { "current": 1, "max": 1 }
+      },
+      {
+        "id": "rec-floor-boots",
+        "entityId": "ent-floor",
+        "recordType": "equipment",
+        "name": "Old boots",
+        "location": { "kind": "container", "containerId": "rec-floor-chest" },
+        "sortOrder": 1,
+        "quantity": 1,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1
+      },
+      {
+        "id": "rec-floor-candlesticks",
+        "entityId": "ent-floor",
+        "recordType": "treasure",
+        "name": "Silver candlesticks",
+        "location": { "kind": "contents" },
+        "sortOrder": 5,
+        "quantity": 2,
+        "burden": { "kind": "fixed", "slotsPerItem": 1 },
+        "handsRequired": 1,
+        "treasure": { "gpValue": 120 }
+      },
+      {
+        "id": "rec-floor-stone",
+        "entityId": "ent-floor",
+        "recordType": "treasure",
+        "name": "Plain carved stone",
+        "description": "Probably worthless. Wren insists it is lucky.",
+        "location": { "kind": "contents" },
+        "sortOrder": 4,
+        "quantity": 1,
+        "burden": { "kind": "none" },
+        "handsRequired": 1,
+        "treasure": { "gpValue": 0 }
+      }
+    ],
+    "auditLog": [
+      {
+        "id": "audit-1",
+        "createdAt": "2026-06-11T19:05:00.000Z",
+        "actorLabel": "Referee",
+        "actorRole": "GM",
+        "eventType": "entityCreated",
+        "entityId": "ent-mendel",
+        "summary": "Hired retainer \"Mendel\" in Threshold."
+      },
+      {
+        "id": "audit-2",
+        "createdAt": "2026-06-11T20:12:00.000Z",
+        "actorLabel": "Sam",
+        "actorRole": "Player",
+        "eventType": "coinsChanged",
+        "entityId": "ent-wren",
+        "recordId": "rec-wren-coins",
+        "summary": "Wren spent 20 gp — bribed the gate guard"
+      },
+      {
+        "id": "audit-3",
+        "createdAt": "2026-06-12T01:40:00.000Z",
+        "actorLabel": "Referee",
+        "actorRole": "GM",
+        "eventType": "inventoryRecordCreated",
+        "entityId": "ent-floor",
+        "recordId": "rec-floor-idol",
+        "summary": "Dropped \"Jeweled idol\" on the Floor."
+      },
+      {
+        "id": "audit-4",
+        "createdAt": "2026-06-12T01:55:00.000Z",
+        "actorLabel": "Dana",
+        "actorRole": "Player",
+        "eventType": "inventoryRecordMoved",
+        "entityId": "ent-zinnia",
+        "recordId": "rec-zinnia-torch",
+        "summary": "Zinnia readied \"Torch\" to her left hand."
+      },
+      {
+        "id": "audit-5",
+        "createdAt": "2026-06-12T02:20:00.000Z",
+        "actorLabel": "Referee",
+        "actorRole": "GM",
+        "eventType": "inventoryRecordIdentified",
+        "entityId": "ent-floor",
+        "recordId": "rec-floor-potion",
+        "summary": "Identified \"Murky vial\" as \"Potion of Healing\"."
+      },
+      {
+        "id": "audit-6",
+        "createdAt": "2026-06-12T02:45:00.000Z",
+        "actorLabel": "Referee",
+        "actorRole": "GM",
+        "eventType": "treasureValueChanged",
+        "entityId": "ent-floor",
+        "recordId": "rec-floor-idol",
+        "summary": "Appraised \"Jeweled idol\" at 600 gp."
+      }
+    ]
+  }
+}
