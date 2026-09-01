@@ -1,4 +1,7 @@
-import { ABILITY_SCORE_KEYS } from "./model/characters";
+import {
+  ABILITY_SCORE_KEYS,
+  type CharacterHpState,
+} from "./model/characters";
 import type { AppState } from "./model/appState";
 import type { EncumbranceWarning } from "./model/encumbrance";
 import type {
@@ -253,6 +256,7 @@ export type PartyOverviewCard = {
   active: boolean;
   classLevel: string;
   hp: string;
+  hpState: CharacterHpState;
   hurt: boolean;
   movement: string;
   movementTone: "" | "reduced" | "zero";

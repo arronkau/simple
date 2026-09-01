@@ -4,9 +4,16 @@ import { getCharacterArmorClass } from "../model/calculations";
 import {
   ABILITY_SCORE_KEYS,
   ABILITY_SCORE_LABELS,
+  getCharacterHpState,
   getSpellMemorizationWarnings,
   normalizeCharacterData,
 } from "../model/characters";
+import {
+  getClassWeaponDamage,
+  getExpertiseSummary,
+  getSkillCapWarnings,
+  getStartingHpWarning,
+} from "../model/classDerivations";
 import {
   getClassContentLookup,
   getClassLevelTables,
@@ -15,7 +22,6 @@ import { getCharacterEncumbrance } from "../model/encumbrance";
 import {
   getCharacterSaveLookup,
   getClassSpellSlots,
-  getThac0,
   getXpProgress,
 } from "../model/saveTables";
 import { getSpellLookup } from "../model/spellLibrary";
@@ -71,6 +77,10 @@ export function CharacterSheet({
   );
   const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
   const saveLookup = getCharacterSaveLookup(character.className, character.level);
+  const weaponDamage = getClassWeaponDamage(
+    character.className,
+    character.level,
+  );
   const xpProgress = getXpProgress(
     character.className,
     character.level,
@@ -80,6 +90,19 @@ export function CharacterSheet({
   const classContent = getClassContentLookup(character.className);
   const levelTables = getClassLevelTables(character.className, character.level);
   const memorizationWarnings = getSpellMemorizationWarnings(character);
+  const expertise = getExpertiseSummary(character);
+  const skillWarnings = [
+    ...(expertise.ok ? expertise.warnings : []),
+    ...getSkillCapWarnings(character),
+  ];
+  const startingHpWarning = getStartingHpWarning(character);
+  const hpState = getCharacterHpState(entity.entityType, character.hp);
+  const hpStatusText =
+    hpState === "deathDoor"
+      ? "Death's Door"
+      : hpState === "dead"
+        ? "Dead"
+        : undefined;
 
   function reportQuickResult(result: EntityMutationResult) {
     setQuickError(result.ok ? undefined : result.message);
@@ -108,6 +131,9 @@ export function CharacterSheet({
         <div className="sheet-identity">
           <strong>{formatPartyClassLevel(character)}</strong>
           {primeRequisiteText ? <span>Prime {primeRequisiteText}</span> : null}
+          {hpStatusText ? (
+            <span className={`sheet-hp-status ${hpState}`}>{hpStatusText}</span>
+          ) : null}
         </div>
         <div className="sheet-header-actions">
           <XpQuickAdd
@@ -123,6 +149,10 @@ export function CharacterSheet({
       <XpProgressLine character={character} xpProgress={xpProgress} />
 
       {quickError ? <p className="form-error">{quickError}</p> : null}
+
+      {startingHpWarning ? (
+        <p className="sheet-warning">{startingHpWarning}</p>
+      ) : null}
 
       <div className="sheet-combat-strip">
         <div className="stat-box big">
@@ -155,11 +185,13 @@ export function CharacterSheet({
           label="Melee"
           attackBonus={saveLookup.ok ? saveLookup.attackBonus : null}
           abilityModifier={getAbilityModifier(character.abilityScores.strength)}
+          damageLabel={weaponDamage.ok ? weaponDamage.label : null}
         />
         <AttackBox
           label="Missile"
           attackBonus={saveLookup.ok ? saveLookup.attackBonus : null}
           abilityModifier={getAbilityModifier(character.abilityScores.dexterity)}
+          damageLabel={weaponDamage.ok ? weaponDamage.label : null}
         />
         <div className="stat-box big">
           <span>Move</span>
@@ -208,9 +240,23 @@ export function CharacterSheet({
               ))}
             </div>
           </section>
-          {character.skills.length > 0 || levelTables.length > 0 ? (
+          {character.skills.length > 0 ||
+          levelTables.length > 0 ||
+          expertise.ok ? (
             <section className="sheet-panel">
               <h5>Skills</h5>
+              {expertise.ok ? (
+                <div className="sheet-slot-summary">
+                  <span>
+                    Expertise <strong>{expertise.spent}/{expertise.pool}</strong>
+                  </span>
+                </div>
+              ) : null}
+              {skillWarnings.map((warning, index) => (
+                <p className="sheet-warning" key={`${warning}-${index}`}>
+                  {warning}
+                </p>
+              ))}
               {character.skills.map((skill) => (
                 <div className="sheet-skill-row" key={skill.id} title={skill.description}>
                   <span>{skill.name}</span>
@@ -338,17 +384,18 @@ export function CharacterSheet({
   );
 }
 
-/** Melee/missile attack: class attack bonus adjusted by STR or DEX, with the
- * matching THAC0 as a subline. Falls back to the base bonus when the ability
- * score or modifier table can't resolve. */
+/** Melee/missile attack: class attack bonus adjusted by STR or DEX. Falls back
+ * to the base bonus when the ability score or modifier table can't resolve. */
 function AttackBox({
   label,
   attackBonus,
   abilityModifier,
+  damageLabel,
 }: {
   label: string;
   attackBonus: number | null;
   abilityModifier: AbilityModifierResult;
+  damageLabel: string | null;
 }) {
   if (attackBonus === null) {
     return (
@@ -365,7 +412,7 @@ function AttackBox({
     <div className="stat-box big">
       <span>{label}</span>
       <strong>{formatSignedNumber(bonus)}</strong>
-      <em className="stat-sub">THAC0 {getThac0(bonus)}</em>
+      {damageLabel ? <em className="stat-sub">Damage {damageLabel}</em> : null}
     </div>
   );
 }

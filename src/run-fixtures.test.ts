@@ -2,6 +2,7 @@ import { APP_MANUAL_FIXTURES } from "./App.fixtures";
 import { ABILITY_MODIFIERS_MANUAL_FIXTURES } from "./model/abilityModifiers.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
 import { CLASS_CONTENT_MANUAL_FIXTURES } from "./model/classContent.fixtures";
+import { CLASS_DERIVATIONS_MANUAL_FIXTURES } from "./model/classDerivations.fixtures";
 import { CAMPAIGN_MANUAL_FIXTURES } from "./model/campaign.fixtures";
 import { SPELL_LIBRARY_MANUAL_FIXTURES } from "./model/spellLibrary.fixtures";
 import { PERMISSIONS_MANUAL_FIXTURES } from "./model/permissions.fixtures";
@@ -46,6 +47,7 @@ const manualFixtures: ManualFixture[] = [
   ...APP_STATE_MANUAL_FIXTURES,
   ...AUDIT_LOG_MANUAL_FIXTURES,
   ...CAMPAIGN_MANUAL_FIXTURES,
+  ...CLASS_DERIVATIONS_MANUAL_FIXTURES,
   ...CLASS_CONTENT_MANUAL_FIXTURES,
   ...SPELL_LIBRARY_MANUAL_FIXTURES,
   ...PERMISSIONS_MANUAL_FIXTURES,
