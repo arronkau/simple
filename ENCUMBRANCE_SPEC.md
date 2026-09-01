@@ -129,7 +129,8 @@ The coin purse is not a real container. It is a character-like coin placement/di
 
 For encumbrance:
 
-- Containers always count their own slot burden whether empty or full.
+- Containers count their own slot burden whether empty or full, except that a
+  record whose own location is `stowedRoot` contributes 0 own movement burden.
 - Contents inside containers also count toward movement encumbrance, except when the container is carried in hand.
 - When a container is carried in hand, the container itself still counts but its contents are excluded from movement encumbrance.
 - The character-like coin record in coin-purse placement counts toward stowed slots according to coin burden.
@@ -152,6 +153,11 @@ Rules:
 - If held, the container occupies the appropriate hand placement.
 - Its contents remain modeled as container contents.
 - The held container itself counts toward movement-restricting encumbrance.
+- A container with `capacityByHands` resolves to its one-hand capacity in
+  `leftHand` or `rightHand`, and its two-hand capacity in `bothHands`.
+- Outside a hand placement, a hand-capacity container uses `capacitySlots` when
+  one is defined; otherwise capacity is not applicable and cannot create a
+  capacity warning or overload.
 - Contents inside any hand-held container are excluded from movement-restricting encumbrance.
 - The app should still show the held container's contained slot total for visibility.
 - `handsRequired` describes carrying the container **in hand**. It is only enforceable when the container's own location is `equipped` with `placement: "loose"`: a non-empty hands-required container left at equipped/loose creates an overload condition — the character cannot move.
@@ -317,20 +323,21 @@ Reason: more than 9 equipped items.
 
 A character has:
 
-- Sack, `handsRequired: 1`, equipped in right hand, fixed 1 slot
+- Sack, `handsRequired: 1`, equipped in right hand, no own slot burden,
+  `capacityByHands: { oneHand: 6, twoHands: 12 }`
 - Rations inside sack, fixed 3 slots
 
 Effective classification:
 
 ```text
-Sack -> equipped, 1 slot
+Sack -> equipped, 0 slots
 Rations -> excluded from movement burden by held-container ancestry
 ```
 
 Equipped count contribution:
 
 ```text
-1
+0
 ```
 
 Stowed count contribution:
@@ -358,7 +365,7 @@ A character has:
 Effective classification:
 
 ```text
-Backpack -> stowed, 1 slot
+Backpack -> stowed, 0 own movement slots (`stowedRoot` exception)
 Rope -> stowed
 Torches -> stowed
 ```
@@ -372,7 +379,7 @@ Equipped count contribution:
 Stowed count contribution:
 
 ```text
-4
+3
 ```
 
 Visible backpack capacity:
@@ -388,7 +395,7 @@ Assume a backpack and a small sack are containers with fixed 1 slot. Assume ever
 Empty backpack:
 
 ```text
-Yost (equipped 0 / stowed 1 / total 1)
+Yost (equipped 0 / stowed 0 / total 0)
 - hands: empty
 - backpack: empty
 ```
@@ -396,30 +403,32 @@ Yost (equipped 0 / stowed 1 / total 1)
 Loaded backpack:
 
 ```text
-Yost (equipped 0 / stowed 2 / total 2)
+Yost (equipped 0 / stowed 1 / total 1)
 - hands: empty
 - backpack:
   - treasure item
 ```
 
-The backpack capacity display is `1 / 16`; the backpack's own fixed slot still counts while loaded.
+The backpack capacity display is `1 / 16`; the backpack's own fixed slot does
+not count toward movement while it is the stowed root.
 
 Loaded backpack with empty sack:
 
 ```text
-Yost (equipped 0 / stowed 3 / total 3)
+Yost (equipped 0 / stowed 2 / total 2)
 - hands: empty
 - backpack:
   - treasure item
   - small sack: empty
 ```
 
-The empty sack counts as 1 stowed slot. The loaded backpack also counts its own slot.
+The empty sack counts as 1 stowed slot. The loaded backpack does not count its
+own slot while it is the stowed root.
 
 Loaded backpack with empty held sack:
 
 ```text
-Yost (equipped 1 / stowed 2 / total 3)
+Yost (equipped 1 / stowed 1 / total 2)
 - hands:
   - small sack: empty
 - backpack:
@@ -429,7 +438,7 @@ Yost (equipped 1 / stowed 2 / total 3)
 Loaded backpack with loaded held sack:
 
 ```text
-Yost (equipped 1 / stowed 2 / total 3)
+Yost (equipped 1 / stowed 1 / total 2)
 - hands:
   - small sack:
     - treasure item
@@ -438,7 +447,9 @@ Yost (equipped 1 / stowed 2 / total 3)
   - treasure item
 ```
 
-The loaded held sack counts its own slot, but its contents do not count toward movement encumbrance. The loaded backpack and its contents still count.
+The loaded held sack counts its own slot, but its contents do not count toward
+movement encumbrance. The loaded backpack's contents count; the stowed-root
+backpack's own burden does not.
 
 ## Acceptance Criteria
 
@@ -448,16 +459,21 @@ The loaded held sack counts its own slot, but its contents do not count toward m
 - 10+ equipped items causes overloaded movement `0 / 0`.
 - 17+ stowed items causes overloaded movement `0 / 0`.
 - More than 16 total equipped + stowed items causes overloaded movement `0 / 0`.
-- Container over capacity on a character-like entity causes overloaded movement `0 / 0`.
+- Container over its resolved capacity on a character-like entity causes
+  overloaded movement `0 / 0`; undefined capacity is not an overload.
 - A non-empty hands-required container at equipped/loose causes overloaded movement `0 / 0`. The same container at `stowedRoot` (worn), nested inside another container (packed cargo), in non-character contents, or in a hand does not.
 - Mounts, vehicles, and storage use contents capacity, not equipped/stowed bands.
-- Backpack is a literal inventory record and follows the same container burden rules as other containers.
-- Containers always count their own slot burden whether empty or full.
+- Backpack is a literal inventory record; while its own location is
+  `stowedRoot`, its own movement burden is 0.
+- Containers count their own slot burden whether empty or full, except for the
+  `stowedRoot` movement-burden exemption.
 - Contents inside containers count unless excluded by the held-container contents rule.
 - Coin purse is not a literal inventory record; character-like coin records in coin-purse placement count toward stowed burden.
 - Coin burden is `ceil(totalCoins / 100)`.
 - Contents inside hand-held containers are excluded from equipped and stowed movement burden.
 - The held container itself still counts.
+- Hand-dependent container capacity resolves from the container's current hand
+  placement; without a fixed fallback, capacity is not applicable elsewhere.
 - The app still shows held container contained slot totals for visibility.
 - A hands-required container with contents overloads the character only when left at equipped/loose.
 

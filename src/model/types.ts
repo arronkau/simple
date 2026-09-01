@@ -211,7 +211,11 @@ export type ContainerBurdenMode =
   | "fixedOnly";
 
 export type ContainerData = {
-  capacitySlots: number;
+  capacitySlots?: number;
+  capacityByHands?: {
+    oneHand: number;
+    twoHands: number;
+  };
   /** @deprecated Use the record-level handsRequired field. */
   handsRequired?: 0 | 1 | 2;
   /** @deprecated Containers always count own slots plus contents. */

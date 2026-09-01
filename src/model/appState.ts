@@ -473,8 +473,24 @@ function normalizeContainerData(value: unknown) {
     return undefined;
   }
 
+  const capacityByHands = isRecordLike(value.capacityByHands)
+    ? {
+        oneHand: isNonNegativeInteger(value.capacityByHands.oneHand)
+          ? value.capacityByHands.oneHand
+          : 0,
+        twoHands: isNonNegativeInteger(value.capacityByHands.twoHands)
+          ? value.capacityByHands.twoHands
+          : 0,
+      }
+    : undefined;
+
   return {
-    capacitySlots: normalizeNonNegativeNumber(value.capacitySlots, 0),
+    ...(value.capacitySlots !== undefined
+      ? {
+          capacitySlots: normalizeNonNegativeNumber(value.capacitySlots, 0),
+        }
+      : {}),
+    ...(capacityByHands ? { capacityByHands } : {}),
     ...(value.handsRequired === 0 ||
     value.handsRequired === 1 ||
     value.handsRequired === 2
@@ -1111,7 +1127,15 @@ function isOptionalContainerData(value: unknown): boolean {
     return false;
   }
 
-  return isNonNegativeNumber(value.capacitySlots);
+  const capacityByHands = value.capacityByHands;
+
+  return (
+    isOptionalNonNegativeNumber(value.capacitySlots) &&
+    (capacityByHands === undefined ||
+      (isRecordLike(capacityByHands) &&
+        isNonNegativeInteger(capacityByHands.oneHand) &&
+        isNonNegativeInteger(capacityByHands.twoHands)))
+  );
 }
 
 function isOptionalIdentificationData(value: unknown): boolean {

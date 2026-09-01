@@ -48,8 +48,9 @@ Mirrors the canonical inventory layout, restyled:
   "Worn" sub-section listing `equipped` `loose` records.
 - **Stowed** (recessed background) — uppercase "Stowed" label; the coin-purse
   line (denominations + `ceil(totalCoins/100)` slot cost, display-only); the
-  top-level stowed container (`stowedRoot`) with `usedContentsSlots /
-  capacitySlots` capacity and its child rows; nested containers inline.
+  top-level stowed container (`stowedRoot`) with a resolved-capacity readout
+  (`used/6`, `used/12`, or `used/—` when not applicable) and its child rows;
+  nested containers inline.
 
 All header/section numbers come from the encumbrance module. The component
 never recomputes movement or burden.

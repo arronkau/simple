@@ -24,6 +24,7 @@ const backpackInput = createInventoryRecordInputFromStandardItem("backpack");
 const torchInput = createInventoryRecordInputFromStandardItem("torches-3");
 const swordInput = createInventoryRecordInputFromStandardItem("sword");
 const chainmailInput = createInventoryRecordInputFromStandardItem("chainmail");
+const sackInput = createInventoryRecordInputFromStandardItem("sack");
 
 function getCatalogSummary(slug: string) {
   const item = getStandardItemBySlug(slug);
@@ -65,6 +66,7 @@ const correctedCatalogExpectations = [
 ];
 
 const newCatalogExpectations = [
+  { slug: "sack", expected: { burden: { kind: "none" }, gpValue: 1, name: "Sack", quantity: 1 } },
   { slug: "canvas-10x10", expected: { burden: { kind: "fixed", slotsPerItem: 2 }, gpValue: 2, name: "Canvas (10′ × 10′)", quantity: 1 } },
   { slug: "rope-ladder-25", expected: { burden: { kind: "fixed", slotsPerItem: 3 }, gpValue: 5, name: "Rope ladder (25′)", quantity: 1 } },
   { slug: "spell-book-blank", expected: { burden: { kind: "fixed", slotsPerItem: 1 }, gpValue: 100, name: "Spell book (blank)", quantity: 1 } },
@@ -143,6 +145,11 @@ export const STANDARD_ITEMS_MANUAL_FIXTURES = [
         burden: chainmailInput?.burden,
         armor: chainmailInput?.armor,
       },
+      sack: {
+        burden: sackInput?.burden,
+        handsRequired: sackInput?.handsRequired,
+        container: sackInput?.container,
+      },
     },
     expected: {
       backpack: {
@@ -174,6 +181,13 @@ export const STANDARD_ITEMS_MANUAL_FIXTURES = [
         burden: { kind: "fixed", slotsPerItem: 2 },
         armor: {
           baseArmorClass: 14,
+        },
+      },
+      sack: {
+        burden: { kind: "none" },
+        handsRequired: 1,
+        container: {
+          capacityByHands: { oneHand: 6, twoHands: 12 },
         },
       },
     },
@@ -227,14 +241,21 @@ export const STANDARD_ITEMS_MANUAL_FIXTURES = [
     expected: true,
   },
   {
-    name: "standard item search hides non-campaign sacks and barrel",
+    name: "campaign sack catalog record carries hand-dependent capacity",
+    actual: getStandardItemBySlug("sack")?.container,
+    expected: {
+      capacityByHands: { oneHand: 6, twoHands: 12 },
+    },
+  },
+  {
+    name: "standard item search returns only the campaign sack and hides barrel",
     actual: {
       sacks: filterStandardItems("sack").map((item) => item.slug),
       barrels: filterStandardItems("barrel").map((item) => item.slug),
       hiddenBarrelResolves: getStandardItemBySlug("barrel")?.slug,
     },
     expected: {
-      sacks: [],
+      sacks: ["sack"],
       barrels: [],
       hiddenBarrelResolves: "barrel",
     },

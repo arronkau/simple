@@ -514,7 +514,11 @@ export type ArmorData = {
 
 ```ts
 export type ContainerData = {
-  capacitySlots: number;
+  capacitySlots?: number;
+  capacityByHands?: {
+    oneHand: number;
+    twoHands: number;
+  };
   /** @deprecated Use record-level handsRequired. */
   handsRequired?: 0 | 1 | 2;
   /** @deprecated Containers always count own slots plus contents. */
@@ -525,7 +529,12 @@ export type ContainerData = {
 ### Container Rules
 
 - A container is any non-coin `InventoryRecord` with `container` data.
-- `capacitySlots` is required and must be `>= 0`.
+- `capacitySlots`, when present, must be `>= 0`.
+- `capacityByHands`, when present, must contain non-negative integer
+  `oneHand` and `twoHands` values.
+- Capacity resolves from placement: `leftHand`/`rightHand` use `oneHand`,
+  `bothHands` uses `twoHands`, and every other placement uses `capacitySlots`
+  when defined. Undefined resolved capacity means no capacity limit applies.
 - Legacy `container.handsRequired` may be read only to derive missing record-level `handsRequired`.
 - Legacy `container.isBackpack` may be tolerated while reading older stored data, but it must not determine current top-level stowed-container behavior and should not be written by new code.
 - Legacy `burdenMode` may exist in saved data but must not change slot accounting.
@@ -535,7 +544,9 @@ export type ContainerData = {
 - A top-level stowed container may carry any `handsRequired` value (a backpack legitimately needs two hands to carry in hand); hands requirements are not enforced at `stowedRoot`, so the value is informational there.
 - `handsRequired` on a container describes carrying it in hand. A non-empty container with nonzero record-level `handsRequired` creates an overload condition only when its own location is `equipped` with `placement: "loose"`. It is never enforced at `stowedRoot` (worn on the back), inside another container (packed cargo), in non-character contents, or in a hand placement.
 - A non-empty hands-required container may contain records even while the container itself is equipped.
-- Containers always count their own slot burden whether empty or full.
+- Containers count their own slot burden whether empty or full in raw and
+  container-usage calculations. A `stowedRoot` record contributes 0 own burden
+  only to equipped/stowed movement totals.
 - Contents inside containers also count toward movement encumbrance, except when the container is carried in hand.
 - When a container is carried in hand, the container itself still counts but its contents are excluded from movement encumbrance.
 - Empty containers may be placed inside another container.
@@ -553,6 +564,9 @@ export type ContainerData = {
 - Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 - Move/add rule: non-coin stowed records should be placed inside a valid same-entity container.
 - The top-level stowed container is represented by an `InventoryRecord` with `recordType: "equipment"`, `container` data, and `location.kind === "stowedRoot"`.
+- Its authored raw burden and container-usage math are unchanged, but its own
+  burden contributes 0 to equipped/stowed movement totals while it remains at
+  `stowedRoot`.
 - Do not use `container.isBackpack` or any replacement special-case flag in current-state creation, updates, or calculations. The stowed-root role is location-derived. Parsers may tolerate and discard old `container.isBackpack` values during migration.
 - Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 - Character-like stowed non-coin records directly in the top-level stowed container use `kind: "container"` and `containerId` set to the stowed-root record ID.
@@ -698,18 +712,30 @@ baseRecordSlots =
 
 ```ts
 containerUsedSlots = sum(effectiveRecordSlots(child) for each direct child record)
+
+containerCapacity(record) =
+  record.container.capacityByHands && record.location is leftHand/rightHand
+    ? record.container.capacityByHands.oneHand
+    : record.container.capacityByHands && record.location is bothHands
+      ? record.container.capacityByHands.twoHands
+      : record.container.capacitySlots
 ```
 
 Container used slots include child record burdens.
 
 Container used slots do not include the container record itself.
 
+An undefined resolved container capacity means no capacity limit or capacity
+warning applies in that placement.
+
 ### Effective Record Slots
 
-Use this burden calculation for encumbrance and capacity totals:
+Keep movement-effective burden separate from raw record-and-contents burden:
 
 ```ts
 if record is inside a container carried in "leftHand", "rightHand", or "bothHands":
+  movementEffectiveRecordSlots(record) = 0
+else if record's own location is `stowedRoot`:
   movementEffectiveRecordSlots(record) = 0
 else:
   movementEffectiveRecordSlots(record) = baseRecordSlots(record)
@@ -724,6 +750,8 @@ Default container behavior:
 - Empty container: contributes its own slot burden.
 - Non-empty container: contributes its own slot burden plus contents.
 - Held container: contributes its own slot burden; contents are excluded from movement encumbrance.
+- Top-level stowed container: contributes 0 own movement burden; contents keep
+  their ordinary stowed burden.
 
 ### Equipped Slots
 
@@ -743,7 +771,9 @@ For character-like entities:
 stowedSlots = sum(effectiveRecordSlots(record) for records directly or indirectly contributing to stowed burden)
 ```
 
-Stowed slots include coin-purse coins, backpack contents, and stowed container contents unless excluded by the held-container movement exception.
+Stowed slots include coin-purse coins, backpack contents, and stowed container
+contents unless excluded by the held-container movement exception. The record
+whose own location is `stowedRoot` contributes 0 own movement burden.
 
 ### Contents Slots
 
@@ -795,7 +825,9 @@ isEntityOverCapacity = entityUsedSlots > entity.capacitySlots
 ### Container Capacity Warning
 
 ```ts
-isContainerOverCapacity = containerUsedSlots > container.capacitySlots
+resolvedCapacity = getContainerCapacity(containerRecord)
+isContainerOverCapacity =
+  resolvedCapacity !== undefined && containerUsedSlots > resolvedCapacity
 ```
 
 ### Character-Like Movement
