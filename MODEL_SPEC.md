@@ -270,6 +270,13 @@ Character data supports a lightweight character-sheet layer in addition to inven
 
 Memorized totals exceeding the class's derived spell slots are a soft warning, never a block (scrolls, bonuses, and house rules are table-adjudicated).
 
+Expertise allocation is derived for classes with `expertise` metadata; it is
+never stored on `CharacterData`. Every d6 skill has a base chance of 1-in-6,
+except a skill whose normalized name is `opendoors`, whose base is the greater
+of 1 and the character's STR modifier (falling back to 1 when STR cannot be
+resolved). The stored `chanceInSix` remains structurally valid through 6; the
+campaign's 5-in-6 limit is a soft warning.
+
 Character-sheet fields may be displayed, edited, and validated, but inventory ownership and encumbrance semantics must not depend on ability scores, skills, features, description, or languages unless a later task explicitly adds that behavior.
 
 ## Inventory Record
@@ -879,7 +886,9 @@ Rules:
 Derived from `ose_class_reference.json` via class name + level lookup; never stored on the entity:
 
 - **Attack bonus** — per-class, per-level value (existing save lookup).
-- **THAC0** — `19 - attackBonus`. A pure presentation derivation; ascending attack bonus remains the canonical value.
+- **THAC0** — `19 - attackBonus`. The helper remains a pure derivation for existing consumers and fixtures, but THAC0 is no longer displayed on the character sheet; ascending attack bonus is the canonical displayed value.
+- **Weapon damage (Weapon Mastery)** — count the distinct `attackBonus` values among the class's level records from level 1 through the character's current level, inclusive. That count is the mastery step. Step 1 is `1 × HD`; step 2 is one die one size above the original Hit Die (`d4 → d6`, `d6 → d8`, `d8 → d10`); step 3 is `2 × HD`; step 4 is `3 × HD`; step 5 is `4 × HD`; steps beyond 5 remain `4 × HD`. The original Hit Die comes from class metadata. A class without `hitDie`, an unknown class, or an out-of-range level returns an unsuccessful lookup.
+- **Expertise** — only classes with `expertise` metadata receive a summary. `pool = starting + perLevel × (level − 1)`. `spent = Σ max(0, chanceInSix − base)` across stored skills, where `base = 1` except normalized `opendoors`, whose base is `max(1, STR modifier)` with a fallback of 1 when STR is null or its modifier cannot be resolved. `delta = spent − pool`; a non-zero delta produces an over- or under-allocation warning. A null or zero level returns an unsuccessful lookup.
 - **XP progress** — the current level's `xpThreshold`, the next level's `xpThreshold` (or `null` at the class's maximum level), and the remaining XP to the next level clamped at 0 (or `null` when the character's XP is unset or there is no next level).
 - **Spell slots** — the level entry's `spellSlots` map as a sorted `{ spellLevel, count }[]` (empty for non-casters) plus `maxSpellLevel`.
 
@@ -927,3 +936,7 @@ The app may warn without blocking for:
 - Missing optional metadata.
 - Unidentified equipment, armor, or weapon lacking an unidentified name.
 - Memorized spells exceeding the class's derived spell slots at a given spell level, or a spell above the class's maximum castable spell level.
+- A level-1 character's maximum HP below the class minimum: d4 → 3, d6 → 4, or d8 → 5. No warning applies when maximum HP is null, the level is not 1, or class Hit Die metadata cannot be resolved.
+- Any d6 skill above 5-in-6. Stored 6-in-6 values are warned about, not clamped or rewritten.
+- Expertise over- or under-allocation when derived `spent` differs from the class's derived `pool`.
+- HP state is derived for display without rewriting HP: null current HP is `unknown`, current HP above 0 is `active`, a character at 0 is at `deathDoor`, and a retainer at 0 is `dead`.

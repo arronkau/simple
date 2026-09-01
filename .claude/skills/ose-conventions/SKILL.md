@@ -36,6 +36,8 @@ Saves come from class/level lookup, not ability scores. `getCharacterSaveLookup`
 
 Curated subset: **OSE Advanced Fantasy classes + the Carcass Crawler #1 goblin**. Campaign classes carry per-class `hitDie` and optional `expertise`; each level record carries only `xpThreshold`, `attackBonus`, `saves`, `spellSlots`, `maxSpellLevel` — this is intentional (`excludedByDesign`). Do not invent additional per-level fields; if a feature needs more, update `MODEL_SPEC.md` and re-source the JSON first.
 
+Weapon Mastery damage is derived in `src/model/classDerivations.ts` from the class's per-class `hitDie` metadata and the number of distinct `attackBonus` brackets through the current level. Both inputs live in `src/model/ose_class_reference.json`; do not persist the resulting damage label on character data or duplicate bracket numbers in UI code.
+
 ## Armor Class
 
 **Ascending AC**, base **10** (`DEFAULT_ASCENDING_ARMOR_CLASS`). AC is derived in `getCharacterArmorClass` from the single best equipped armor plus a shield held in hand; multiple equipped armors warn and the best is used. A manual override, when present, wins over the calculated value.

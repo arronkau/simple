@@ -18,7 +18,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { getCharacterArmorClass } from "../model/calculations";
-import { normalizeCharacterData } from "../model/characters";
+import {
+  getCharacterHpState,
+  normalizeCharacterData,
+} from "../model/characters";
 import { getSortedEntities } from "../model/entities";
 import {
   getCharacterEncumbrance,
@@ -353,8 +356,17 @@ function PartyRowCells({
         </div>
         <div className="pt-class">{card.classLevel}</div>
       </td>
-      <td className="pt-num" data-hurt={card.hurt}>
-        {card.hp}
+      <td
+        className="pt-num"
+        data-hp-state={card.hpState}
+        data-hurt={card.hurt}
+      >
+        <span>{card.hp}</span>
+        {card.hpState === "deathDoor" || card.hpState === "dead" ? (
+          <span className="pt-hp-status">
+            {card.hpState === "deathDoor" ? "Death's Door" : "Dead"}
+          </span>
+        ) : null}
       </td>
       <td className="pt-num">{card.ac}</td>
       <td className="pt-num">
@@ -543,6 +555,7 @@ export function getPartyOverviewCards(
       active: entity.active,
       classLevel: formatPartyClassLevel(character),
       hp: formatPartyHp(character),
+      hpState: getCharacterHpState(entity.entityType, character.hp),
       hurt: isPartyMemberHurt(character),
       movement: formatMovementPair(encumbrance.movement),
       movementTone: encumbrance.overloaded

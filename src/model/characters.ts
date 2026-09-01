@@ -34,6 +34,8 @@ export type CharacterDataValidationResult =
   | { valid: true; errors: [] }
   | { valid: false; errors: string[] };
 
+export type CharacterHpState = "unknown" | "active" | "deathDoor" | "dead";
+
 type LegacyCharacterData = Partial<CharacterData> & {
   hpCurrent?: unknown;
   hpMax?: unknown;
@@ -195,6 +197,25 @@ export function adjustCharacterXp(
     ...characterData,
     xp: Math.max(0, (characterData.xp ?? 0) + delta),
   };
+}
+
+export function getCharacterHpState(
+  entityType: EntityType,
+  hp: CharacterData["hp"],
+): CharacterHpState {
+  if (hp.current === null) {
+    return "unknown";
+  }
+
+  if (hp.current > 0) {
+    return "active";
+  }
+
+  if (entityType === "character") {
+    return "deathDoor";
+  }
+
+  return entityType === "retainer" ? "dead" : "unknown";
 }
 
 export function adjustCharacterSpellMemorized(
