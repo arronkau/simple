@@ -1,5 +1,6 @@
 import {
   getCharacterSaveLookup,
+  getClassMetadata,
   getClassSpellSlots,
   getThac0,
   getXpProgress,
@@ -32,12 +33,17 @@ const ALL_CLASS_IDS = [
 ];
 
 const EMPTY_SAVES = [
-  { key: "doom", label: "Doom", value: Number.NaN },
-  { key: "ray", label: "Ray", value: Number.NaN },
-  { key: "hold", label: "Hold", value: Number.NaN },
-  { key: "blast", label: "Blast", value: Number.NaN },
-  { key: "spell", label: "Spell", value: Number.NaN },
+  { key: "doom", label: "Death", value: Number.NaN },
+  { key: "ray", label: "Wands", value: Number.NaN },
+  { key: "hold", label: "Paralysis", value: Number.NaN },
+  { key: "blast", label: "Breath", value: Number.NaN },
+  { key: "spell", label: "Spells", value: Number.NaN },
 ];
+
+function getResolvedClassId(className: string): string | undefined {
+  const lookup = getCharacterSaveLookup(className, 1);
+  return lookup.ok ? lookup.classId : undefined;
+}
 
 export const SAVE_TABLES_MANUAL_FIXTURES = [
   {
@@ -50,11 +56,11 @@ export const SAVE_TABLES_MANUAL_FIXTURES = [
       className: "Fighter",
       level: 4,
       saves: [
-        { key: "doom", label: "Doom", value: 10 },
-        { key: "ray", label: "Ray", value: 11 },
-        { key: "hold", label: "Hold", value: 12 },
-        { key: "blast", label: "Blast", value: 13 },
-        { key: "spell", label: "Spell", value: 14 },
+        { key: "doom", label: "Death", value: 10 },
+        { key: "ray", label: "Wands", value: 11 },
+        { key: "hold", label: "Paralysis", value: 12 },
+        { key: "blast", label: "Breath", value: 13 },
+        { key: "spell", label: "Spells", value: 14 },
       ],
     },
   },
@@ -62,6 +68,17 @@ export const SAVE_TABLES_MANUAL_FIXTURES = [
     name: "save lookup normalizes class name punctuation and case",
     actual: getCharacterSaveLookup("magic user", 1).ok,
     expected: true,
+  },
+  {
+    name: "save lookup resolves Imperial Goblin display name and goblin id",
+    actual: {
+      imperialGoblin: getResolvedClassId("Imperial Goblin"),
+      goblin: getResolvedClassId("goblin"),
+    },
+    expected: {
+      imperialGoblin: "goblin",
+      goblin: "goblin",
+    },
   },
   {
     name: "save lookup rejects empty class name",
@@ -230,5 +247,48 @@ export const SAVE_TABLES_MANUAL_FIXTURES = [
         getClassSpellSlots(classId, 1).ok && getXpProgress(classId, 1, 0).ok,
     ),
     expected: true,
+  },
+  {
+    name: "campaign class metadata includes handout Hit Dice",
+    actual: [
+      "acrobat",
+      "barbarian",
+      "cleric",
+      "druid",
+      "dwarf",
+      "elf",
+      "fighter",
+      "goblin",
+      "halfElf",
+      "halfling",
+      "illusionist",
+      "magicUser",
+      "paladin",
+      "thief",
+    ].map((classId) => getClassMetadata(classId)),
+    expected: [
+      { ok: true, classId: "acrobat", className: "Acrobat", hitDie: "d4", expertise: { starting: 4, perLevel: 1 } },
+      { ok: true, classId: "barbarian", className: "Barbarian", hitDie: "d8" },
+      { ok: true, classId: "cleric", className: "Cleric", hitDie: "d6" },
+      { ok: true, classId: "druid", className: "Druid", hitDie: "d6" },
+      { ok: true, classId: "dwarf", className: "Dwarf", hitDie: "d8" },
+      { ok: true, classId: "elf", className: "Elf", hitDie: "d6" },
+      { ok: true, classId: "fighter", className: "Fighter", hitDie: "d8" },
+      { ok: true, classId: "goblin", className: "Imperial Goblin", hitDie: "d6" },
+      { ok: true, classId: "halfElf", className: "Half-Elf", hitDie: "d6" },
+      { ok: true, classId: "halfling", className: "Halfling", hitDie: "d6" },
+      { ok: true, classId: "illusionist", className: "Illusionist", hitDie: "d4" },
+      { ok: true, classId: "magicUser", className: "Magic-User", hitDie: "d4" },
+      { ok: true, classId: "paladin", className: "Paladin", hitDie: "d8" },
+      { ok: true, classId: "thief", className: "Thief", hitDie: "d4", expertise: { starting: 6, perLevel: 2 } },
+    ],
+  },
+  {
+    name: "unknown class has no class metadata",
+    actual: getClassMetadata("Warlock"),
+    expected: {
+      ok: false,
+      message: "Class metadata unavailable for this class.",
+    },
   },
 ];

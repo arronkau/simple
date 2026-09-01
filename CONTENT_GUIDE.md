@@ -14,6 +14,14 @@ The app never blocks on missing content: an unauthored class hides its content s
 - **Sample entries** (`sampleList`, `sampleClass`) exist only as format references and can be deleted once real content exists. The fixture suite does not depend on them — model fixtures inject their own test libraries.
 - After editing a JSON file, run `npm run typecheck && npm run test`. A malformed shape fails the typecheck or the fixture suite.
 
+## `ose_class_reference.json` — class metadata
+
+Campaign classes may define `hitDie` as `"d4"`, `"d6"`, or `"d8"`. Thief-like classes may also define derived expertise-pool metadata as `"expertise": { "starting": 6, "perLevel": 2 }`. These are per-class fields; per-level records remain limited to xp, attack bonus, saves, spell slots, and maximum spell level.
+
+## `arden_vul_campaign.json` — campaign availability
+
+`allowedClassIds` lists class-reference ids in display order. `allowedCatalogSlugs` lists standard-item slugs shown by catalog search/autocomplete. Entries outside either allowlist stay in their bundled libraries so existing character and inventory records continue to resolve.
+
 ## `ose_spell_library.json` — spell lists
 
 Spells are organized by **list, then spell level** (the way OSE prints them; divine casters browse the whole list). Read via `src/model/spellLibrary.ts` (`getSpellLookup`, `getSpellListLookup`).

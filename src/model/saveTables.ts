@@ -8,6 +8,26 @@ export type SavingThrowDisplay = {
   value: number;
 };
 
+export type HitDie = "d4" | "d6" | "d8";
+
+export type ClassExpertise = {
+  starting: number;
+  perLevel: number;
+};
+
+export type ClassMetadataResult =
+  | {
+      ok: true;
+      classId: string;
+      className: string;
+      hitDie?: HitDie;
+      expertise?: ClassExpertise;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 export type CharacterSaveLookupResult =
   | {
       ok: true;
@@ -57,7 +77,7 @@ export type ClassSpellSlotsResult =
       message: string;
     };
 
-type ClassReference = {
+export type ClassReference = {
   saveLabels: Record<
     SavingThrowKey,
     {
@@ -71,6 +91,8 @@ type ClassReference = {
     {
       id: string;
       displayName: string;
+      hitDie?: HitDie;
+      expertise?: ClassExpertise;
       levels: Array<{
         level: number;
         xpThreshold: number;
@@ -122,6 +144,41 @@ export function getCharacterSaveLookup(
       label: reference.saveLabels[key].label,
       value: lookup.levelEntry.saves[key],
     })),
+  };
+}
+
+export function getClassMetadata(
+  className: string,
+  library: ClassReference = reference,
+): ClassMetadataResult {
+  const normalizedClassName = normalizeClassName(className);
+
+  if (!normalizedClassName) {
+    return {
+      ok: false,
+      message: "Enter a supported class to view class metadata.",
+    };
+  }
+
+  const classEntry = Object.values(library.classes).find(
+    (candidateClass) =>
+      normalizeClassName(candidateClass.id) === normalizedClassName ||
+      normalizeClassName(candidateClass.displayName) === normalizedClassName,
+  );
+
+  if (!classEntry) {
+    return {
+      ok: false,
+      message: "Class metadata unavailable for this class.",
+    };
+  }
+
+  return {
+    ok: true,
+    classId: classEntry.id,
+    className: classEntry.displayName,
+    ...(classEntry.hitDie ? { hitDie: classEntry.hitDie } : {}),
+    ...(classEntry.expertise ? { expertise: classEntry.expertise } : {}),
   };
 }
 

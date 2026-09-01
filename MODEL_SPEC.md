@@ -26,7 +26,8 @@ UI layout belongs outside this model spec.
 
 Rule content (class reference tables, spell lists, per-class content, ability-score modifiers) lives in bundled, audited JSON files under `src/model/`, read by pure lookup functions:
 
-- `ose_class_reference.json` — per-class, per-level progression (xp, attack, saves, spell slots). See Class Progression Derivations.
+- `ose_class_reference.json` — per-class metadata (`hitDie` and optional `expertise`) plus per-level progression (xp, attack, saves, spell slots). See Class Progression Derivations.
+- `arden_vul_campaign.json` — campaign class and standard-item allowlists; hidden library entries remain resolvable for existing records.
 - `ose_spell_library.json` — spell lists by list id and spell level (`src/model/spellLibrary.ts`).
 - `ose_class_content.json` — per-class prime requisites, class abilities, and generic level-indexed tables such as class skills and turn undead (`src/model/classContent.ts`).
 - `ose_ability_modifiers.json` — shared ability-score modifier bands (`src/model/abilityModifiers.ts`).

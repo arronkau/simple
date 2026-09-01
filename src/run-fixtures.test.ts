@@ -2,6 +2,7 @@ import { APP_MANUAL_FIXTURES } from "./App.fixtures";
 import { ABILITY_MODIFIERS_MANUAL_FIXTURES } from "./model/abilityModifiers.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
 import { CLASS_CONTENT_MANUAL_FIXTURES } from "./model/classContent.fixtures";
+import { CAMPAIGN_MANUAL_FIXTURES } from "./model/campaign.fixtures";
 import { SPELL_LIBRARY_MANUAL_FIXTURES } from "./model/spellLibrary.fixtures";
 import { PERMISSIONS_MANUAL_FIXTURES } from "./model/permissions.fixtures";
 import { CALCULATION_MANUAL_FIXTURES } from "./model/calculations.fixtures";
@@ -12,6 +13,7 @@ import { APP_STATE_MANUAL_FIXTURES } from "./model/appState.fixtures";
 import { INVENTORY_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryDisplay.fixtures";
 import { INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryRowDisplay.fixtures";
 import { INVENTORY_RECORDS_MANUAL_FIXTURES } from "./model/inventoryRecords.fixtures";
+import { HANDOUT_ROSTER_MANUAL_FIXTURES } from "./model/handoutRoster.fixtures";
 import { SAVE_TABLES_MANUAL_FIXTURES } from "./model/saveTables.fixtures";
 import { STANDARD_ITEMS_MANUAL_FIXTURES } from "./model/standardItems.fixtures";
 import { VALIDATION_MANUAL_FIXTURES } from "./model/validation.fixtures";
@@ -43,6 +45,7 @@ const manualFixtures: ManualFixture[] = [
   ...ABILITY_MODIFIERS_MANUAL_FIXTURES,
   ...APP_STATE_MANUAL_FIXTURES,
   ...AUDIT_LOG_MANUAL_FIXTURES,
+  ...CAMPAIGN_MANUAL_FIXTURES,
   ...CLASS_CONTENT_MANUAL_FIXTURES,
   ...SPELL_LIBRARY_MANUAL_FIXTURES,
   ...PERMISSIONS_MANUAL_FIXTURES,
@@ -54,6 +57,7 @@ const manualFixtures: ManualFixture[] = [
   ...INVENTORY_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_RECORDS_MANUAL_FIXTURES,
+  ...HANDOUT_ROSTER_MANUAL_FIXTURES,
   ...SAVE_TABLES_MANUAL_FIXTURES,
   ...STANDARD_ITEMS_MANUAL_FIXTURES,
   ...VALIDATION_MANUAL_FIXTURES,

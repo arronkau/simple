@@ -5,6 +5,10 @@ import {
   normalizeCharacterData,
 } from "../model/characters";
 import { getClassContentLookup } from "../model/classContent";
+import {
+  getAllowedClassDisplayNames,
+  isClassAllowed,
+} from "../model/campaign";
 import { getSpellListLookup } from "../model/spellLibrary";
 import type {
   CharacterAlignment,
@@ -30,6 +34,7 @@ import {
 } from "./characterSheetForm";
 
 const SPELL_NAME_DATALIST_ID = "character-sheet-spell-names";
+const CLASS_NAME_DATALIST_ID = "character-sheet-class-names";
 
 function getSpellNameOptions(className: string): string[] {
   const classContent = getClassContentLookup(className);
@@ -137,6 +142,10 @@ export function CharacterSheetEditForm({
   }
 
   const spellNameOptions = getSpellNameOptions(formState.className);
+  const classNameOptions = getAllowedClassDisplayNames();
+  const showClassWarning =
+    formState.className.trim().length > 0 &&
+    !isClassAllowed(formState.className);
 
   return (
     <section
@@ -164,6 +173,7 @@ export function CharacterSheetEditForm({
               <span>Class</span>
               <input
                 autoComplete="off"
+                list={CLASS_NAME_DATALIST_ID}
                 maxLength={80}
                 type="text"
                 value={formState.className}
@@ -174,6 +184,14 @@ export function CharacterSheetEditForm({
                   })
                 }
               />
+              <datalist id={CLASS_NAME_DATALIST_ID}>
+                {classNameOptions.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+              {showClassWarning ? (
+                <small className="form-warning">Not a campaign class</small>
+              ) : null}
             </label>
             <NumberField
               label="Level"

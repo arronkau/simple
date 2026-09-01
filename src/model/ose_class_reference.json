@@ -1,37 +1,38 @@
 {
-  "schemaVersion": "0.2.1-audited",
-  "ruleset": "Old-School Essentials Advanced Fantasy class reference plus Carcass Crawler goblin, using Dolmenwood save labels",
+  "schemaVersion": "0.3.0-audited",
+  "ruleset": "Old-School Essentials Advanced Fantasy class reference plus Carcass Crawler goblin, with Arden Vul campaign class metadata and OSE save labels",
   "sourceBasis": [
     "Old-School Essentials Advanced Fantasy Player's Tome v1.3 class level progression tables, printed pages 29, 31, 33, 35, 37, 39, 41, 45, 47, 49, 51, 53, 55, 57, 61, 63, 65, 67, 69, 71, 73, 75",
     "Carcass Crawler Issue #1 goblin class level progression table, printed page 11",
-    "Dolmenwood save labels mapped to OSE saving throw categories by project decision; OSE D/W/P/B/S values are unchanged."
+    "Arden Vul Player Quick Reference handout (2026) class roster, Hit Dice, expertise points, and class naming",
+    "OSE saving throw category labels; OSE D/W/P/B/S values are unchanged."
   ],
   "excludedByDesign": [
-    "Only xpThreshold, attackBonus, saves, spellSlots, and maxSpellLevel are included in class level records."
+    "Class level records include only xpThreshold, attackBonus, saves, spellSlots, and maxSpellLevel; hitDie and expertise are per-class metadata."
   ],
   "saveLabels": {
     "doom": {
-      "label": "Doom",
+      "label": "Death",
       "oseKey": "D",
       "oseCategory": "Death / poison"
     },
     "ray": {
-      "label": "Ray",
+      "label": "Wands",
       "oseKey": "W",
       "oseCategory": "Wands"
     },
     "hold": {
-      "label": "Hold",
+      "label": "Paralysis",
       "oseKey": "P",
       "oseCategory": "Paralysis / petrify"
     },
     "blast": {
-      "label": "Blast",
+      "label": "Breath",
       "oseKey": "B",
       "oseCategory": "Breath attacks"
     },
     "spell": {
-      "label": "Spell",
+      "label": "Spells",
       "oseKey": "S",
       "oseCategory": "Spells / rods / staves"
     }
@@ -40,6 +41,11 @@
     "acrobat": {
       "id": "acrobat",
       "displayName": "Acrobat",
+      "hitDie": "d4",
+      "expertise": {
+        "starting": 4,
+        "perLevel": 1
+      },
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 29
@@ -452,6 +458,7 @@
     "barbarian": {
       "id": "barbarian",
       "displayName": "Barbarian",
+      "hitDie": "d8",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 33
@@ -911,6 +918,7 @@
     "cleric": {
       "id": "cleric",
       "displayName": "Cleric",
+      "hitDie": "d6",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 37
@@ -1374,6 +1382,7 @@
     "druid": {
       "id": "druid",
       "displayName": "Druid",
+      "hitDie": "d6",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 41
@@ -1799,6 +1808,7 @@
     "dwarf": {
       "id": "dwarf",
       "displayName": "Dwarf",
+      "hitDie": "d8",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 47
@@ -1977,6 +1987,7 @@
     "elf": {
       "id": "elf",
       "displayName": "Elf",
+      "hitDie": "d6",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 49
@@ -2167,6 +2178,7 @@
     "fighter": {
       "id": "fighter",
       "displayName": "Fighter",
+      "hitDie": "d8",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 51
@@ -2523,6 +2535,7 @@
     "halfElf": {
       "id": "halfElf",
       "displayName": "Half-Elf",
+      "hitDie": "d6",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 55
@@ -2738,6 +2751,7 @@
     "halfling": {
       "id": "halfling",
       "displayName": "Halfling",
+      "hitDie": "d6",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 57
@@ -2982,6 +2996,7 @@
     "illusionist": {
       "id": "illusionist",
       "displayName": "Illusionist",
+      "hitDie": "d4",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 63
@@ -3462,6 +3477,7 @@
     "magicUser": {
       "id": "magicUser",
       "displayName": "Magic-User",
+      "hitDie": "d4",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 67
@@ -3736,6 +3752,7 @@
     "paladin": {
       "id": "paladin",
       "displayName": "Paladin",
+      "hitDie": "d8",
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 69
@@ -4310,6 +4327,11 @@
     "thief": {
       "id": "thief",
       "displayName": "Thief",
+      "hitDie": "d4",
+      "expertise": {
+        "starting": 6,
+        "perLevel": 2
+      },
       "source": {
         "system": "Old-School Essentials Advanced Fantasy Player's Tome",
         "page": 75
@@ -4515,7 +4537,8 @@
     },
     "goblin": {
       "id": "goblin",
-      "displayName": "Goblin",
+      "displayName": "Imperial Goblin",
+      "hitDie": "d6",
       "source": {
         "system": "Carcass Crawler Issue #1",
         "page": 11

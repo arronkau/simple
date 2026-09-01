@@ -10,6 +10,10 @@ import type {
   WeaponData,
 } from "./types";
 import type { InventoryRecordFormInput } from "./inventoryRecords";
+import {
+  isCatalogSlugAllowed,
+  type CampaignLibrary,
+} from "./campaign";
 
 export type StandardItemCatalogEntry = {
   slug: string;
@@ -47,14 +51,20 @@ export function getStandardItemBySlug(
   return STANDARD_ITEM_CATALOG.find((item) => item.slug === slug);
 }
 
-export function filterStandardItems(query: string): StandardItemCatalogEntry[] {
+export function filterStandardItems(
+  query: string,
+  library?: CampaignLibrary,
+): StandardItemCatalogEntry[] {
   const normalizedQuery = normalizeSearchText(query);
+  const allowedItems = STANDARD_ITEM_CATALOG.filter((item) =>
+    isCatalogSlugAllowed(item.slug, library),
+  );
 
   if (!normalizedQuery) {
-    return STANDARD_ITEM_CATALOG;
+    return allowedItems;
   }
 
-  return STANDARD_ITEM_CATALOG.filter((item) =>
+  return allowedItems.filter((item) =>
     [
       item.name,
       item.slug,
