@@ -114,6 +114,8 @@ export type RecordFormState = {
   showMovement: boolean;
   isContainer: boolean;
   capacitySlots: string;
+  capacityOneHand: string;
+  capacityTwoHands: string;
   handsRequired: "0" | "1" | "2";
   isMagic: boolean;
   isUnidentified: boolean;

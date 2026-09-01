@@ -636,6 +636,20 @@ export function InventoryRecordForm({
                   onChange({ ...formState, capacitySlots: value })
                 }
               />
+              <NumberField
+                label="Capacity in one hand"
+                value={formState.capacityOneHand}
+                onChange={(value) =>
+                  onChange({ ...formState, capacityOneHand: value })
+                }
+              />
+              <NumberField
+                label="Capacity in two hands"
+                value={formState.capacityTwoHands}
+                onChange={(value) =>
+                  onChange({ ...formState, capacityTwoHands: value })
+                }
+              />
               <label>
                 <span>Hands required to carry</span>
                 <select
@@ -1078,7 +1092,9 @@ export function createEmptyRecordForm(entity: Entity): RecordFormState {
     itemsPerSlot: "1",
     showMovement: false,
     isContainer: false,
-    capacitySlots: "0",
+    capacitySlots: "",
+    capacityOneHand: "",
+    capacityTwoHands: "",
     handsRequired: "0",
     isMagic: false,
     isUnidentified: false,
@@ -1139,7 +1155,11 @@ export function createRecordFormFromRecord(record: InventoryRecord): RecordFormS
     ...slotState,
     showMovement: isRecordLocationIncomplete(record),
     isContainer: Boolean(record.container),
-    capacitySlots: record.container?.capacitySlots.toString() ?? "0",
+    capacitySlots: record.container?.capacitySlots?.toString() ?? "",
+    capacityOneHand:
+      record.container?.capacityByHands?.oneHand.toString() ?? "",
+    capacityTwoHands:
+      record.container?.capacityByHands?.twoHands.toString() ?? "",
     handsRequired: getRecordHandsRequired(record).toString() as
       | "0"
       | "1"
@@ -1247,7 +1267,11 @@ export function applyInventoryRecordInputToFormState(
     slotsPerItem: slotsPerItem.toString(),
     itemsPerSlot: itemsPerSlot.toString(),
     isContainer: Boolean(input.container),
-    capacitySlots: (input.container?.capacitySlots ?? 0).toString(),
+    capacitySlots: input.container?.capacitySlots?.toString() ?? "",
+    capacityOneHand:
+      input.container?.capacityByHands?.oneHand.toString() ?? "",
+    capacityTwoHands:
+      input.container?.capacityByHands?.twoHands.toString() ?? "",
     handsRequired,
     isMagic: false,
     isUnidentified: false,
@@ -1346,7 +1370,17 @@ export function toInventoryRecordFormInput(
     formState.isContainer &&
     formState.recordType !== "treasure"
       ? {
-          capacitySlots: parseNumberInput(formState.capacitySlots),
+          ...(formState.capacitySlots
+            ? { capacitySlots: parseNumberInput(formState.capacitySlots) }
+            : {}),
+          ...(formState.capacityOneHand || formState.capacityTwoHands
+            ? {
+                capacityByHands: {
+                  oneHand: parseNumberInput(formState.capacityOneHand),
+                  twoHands: parseNumberInput(formState.capacityTwoHands),
+                },
+              }
+            : {}),
           handsRequired,
         }
       : undefined;

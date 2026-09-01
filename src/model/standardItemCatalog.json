@@ -261,6 +261,25 @@
       "description": "Can hold the weight of approximately three human-sized beings."
     },
     {
+      "slug": "sack",
+      "name": "Sack",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 1,
+      "gpValue": 1,
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "A carried sack occupies one hand and holds up to 6 slots, or may be carried with two hands to hold up to 12 slots.",
+      "container": {
+        "capacityByHands": {
+          "oneHand": 6,
+          "twoHands": 12
+        }
+      }
+    },
+    {
       "slug": "sack-large",
       "name": "Sack (large)",
       "recordType": "equipment",

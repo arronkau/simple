@@ -1,6 +1,7 @@
 import {
   getCoinCount,
   getCoinGpValue,
+  getContainerCapacity,
   getDirectChildRecords,
 } from "./model/calculations";
 import {
@@ -414,9 +415,9 @@ export function getDeleteConfirmationMessage(
   }
 
   if (record.container && record.location.kind === "stowedRoot") {
-    return `Confirm delete stowed container "${displayName}" with ${formatSlots(
-      record.container.capacitySlots,
-    )} capacity? This may make stowed inventory invalid.`;
+    return `Confirm delete stowed container "${displayName}" with ${formatContainerCapacityLimit(
+      record,
+    )}? This may make stowed inventory invalid.`;
   }
 
   if (record.container) {
@@ -428,9 +429,9 @@ export function getDeleteConfirmationMessage(
       )}? This is blocked until the contents are moved.`;
     }
 
-    return `Confirm delete empty container "${displayName}" with ${formatSlots(
-      record.container.capacitySlots,
-    )} capacity?`;
+    return `Confirm delete empty container "${displayName}" with ${formatContainerCapacityLimit(
+      record,
+    )}?`;
   }
 
   return `Confirm delete "${displayName}"?`;
@@ -456,6 +457,14 @@ export function formatCapacity(usedSlots: number, capacitySlots: number | undefi
   }
 
   return `${usedSlots}/${capacitySlots} slots`;
+}
+
+function formatContainerCapacityLimit(record: InventoryRecord): string {
+  const capacitySlots = getContainerCapacity(record);
+
+  return capacitySlots === undefined
+    ? "no capacity limit"
+    : `${formatSlots(capacitySlots)} capacity`;
 }
 
 export function formatGpValue(value: number) {

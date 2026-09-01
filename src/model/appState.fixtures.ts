@@ -328,6 +328,28 @@ const legacyBackpackFlagAppState = {
   auditLog: [],
 };
 
+const handCapacityContainerAppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [
+    {
+      id: "sack-1",
+      recordType: "equipment",
+      name: "Sack",
+      entityId: characterEntity.id,
+      location: { kind: "equipped", placement: "leftHand" },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "none" },
+      handsRequired: 1,
+      container: {
+        capacityByHands: { oneHand: 6, twoHands: 12 },
+      },
+    },
+  ],
+  auditLog: [],
+};
+
 const parsedLegacyAppState = parseAppState(legacyStoredAppState);
 const firebaseDocumentAppState: AppState = {
   schemaVersion: 1,
@@ -426,6 +448,11 @@ export const APP_STATE_MANUAL_FIXTURES = [
         capacitySlots: 16,
       },
     },
+  },
+  {
+    name: "app state parsing preserves hand-dependent container capacity",
+    actual: parseAppState(handCapacityContainerAppState)?.inventoryRecords[0],
+    expected: handCapacityContainerAppState.inventoryRecords[0],
   },
   {
     name: "app state parsing migrates legacy slot profiles",

@@ -961,15 +961,15 @@ function ContainerBlock({
         zoneKey={zoneKey}
         index={index}
       >
-        {usage.capacitySlots !== undefined ? (
-          <>
-            <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
+        <>
+          <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
+          {usage.capacitySlots !== undefined ? (
             <FreeBadge
               free={usage.capacitySlots - usage.usedSlots}
               tone={overCapacity ? "crit" : tone}
             />
-          </>
-        ) : null}
+          ) : null}
+        </>
       </ContainerHeader>
       <div className={`cbody${contents.length === 0 ? " empty" : ""}`}>
         <RecordList

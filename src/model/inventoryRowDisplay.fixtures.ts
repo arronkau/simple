@@ -215,6 +215,31 @@ const overloadedSackContentsRecord: InventoryRecord = {
   burden: { kind: "fixed", slotsPerItem: 1 },
 };
 
+const stowedHandCapacitySackRecord: InventoryRecord = {
+  id: "hand-capacity-sack-1",
+  entityId,
+  recordType: "equipment",
+  name: "Sack",
+  location: baseLocation,
+  sortOrder: 12000,
+  quantity: 1,
+  burden: { kind: "none" },
+  handsRequired: 1,
+  container: {
+    capacityByHands: { oneHand: 6, twoHands: 12 },
+  },
+};
+
+const stowedHandCapacitySackContentsRecord: InventoryRecord = {
+  ...overloadedSackContentsRecord,
+  id: "hand-capacity-sack-contents-1",
+  location: {
+    kind: "container",
+    containerId: stowedHandCapacitySackRecord.id,
+  },
+  quantity: 3,
+};
+
 const allRecords = [
   ropeRecord,
   rationsRecord,
@@ -231,6 +256,8 @@ const allRecords = [
   topLevelStowedContainerContentsRecord,
   overloadedSackRecord,
   overloadedSackContentsRecord,
+  stowedHandCapacitySackRecord,
+  stowedHandCapacitySackContentsRecord,
 ];
 
 export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
@@ -353,6 +380,16 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
       statusIcons: [],
       rightKind: "capacity",
       rightText: "7/8 slots",
+    },
+  },
+  {
+    name: "container row without applicable capacity shows used over dash",
+    actual: getInventoryRowDisplay(stowedHandCapacitySackRecord, allRecords),
+    expected: {
+      primaryText: "Sack",
+      statusIcons: [],
+      rightKind: "capacity",
+      rightText: "3/— slots",
     },
   },
   {

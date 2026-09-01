@@ -22,6 +22,7 @@ export type ValidationIssueCode =
   | "invalidCoinCount"
   | "invalidInventoryQuantity"
   | "invalidInventoryBurden"
+  | "invalidContainerData"
   | "invalidCoinPursePlacement"
   | "invalidBackpackPlacement"
   | "invalidTreasureContainer"
@@ -73,6 +74,7 @@ export function validateInventoryState(
     ...validateEntities(entities),
     ...validateRecordNames(records),
     ...validateNonCoinQuantityAndBurden(records),
+    ...validateContainerData(records),
     ...validateRecordLocations(entities, records),
     ...validateCoinRules(entities, records),
     ...validateHandOccupancy(entities, records),
@@ -431,6 +433,46 @@ function validateRecordLocations(
   }
 
   return issues;
+}
+
+function validateContainerData(records: InventoryRecord[]): ValidationIssue[] {
+  return records.flatMap((record) => {
+    if (!record.container) {
+      return [];
+    }
+
+    const capacitySlots = record.container.capacitySlots;
+    const capacityByHands = (
+      record.container as ContainerData & { capacityByHands?: unknown }
+    ).capacityByHands;
+    const hasValidFixedCapacity =
+      capacitySlots === undefined ||
+      (typeof capacitySlots === "number" &&
+        Number.isFinite(capacitySlots) &&
+        capacitySlots >= 0);
+    const hasValidCapacityByHands =
+      capacityByHands === undefined ||
+      (typeof capacityByHands === "object" &&
+        capacityByHands !== null &&
+        "oneHand" in capacityByHands &&
+        "twoHands" in capacityByHands &&
+        Number.isInteger(capacityByHands.oneHand) &&
+        Number(capacityByHands.oneHand) >= 0 &&
+        Number.isInteger(capacityByHands.twoHands) &&
+        Number(capacityByHands.twoHands) >= 0);
+
+    if (hasValidFixedCapacity && hasValidCapacityByHands) {
+      return [];
+    }
+
+    return [
+      errorIssue(
+        "invalidContainerData",
+        "Container capacities must be non-negative; hand capacities must include non-negative integers for one and two hands.",
+        { recordId: record.id, entityId: record.entityId },
+      ),
+    ];
+  });
 }
 
 function validateCoinRules(

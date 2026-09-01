@@ -335,7 +335,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
       sackContents: ["rations-1"],
       encumbrance: {
         equippedItems: 3,
-        stowedItems: 8,
+        stowedItems: 7,
         equippedRate: { explorationFeet: 120, encounterFeet: 40 },
         stowedRate: { explorationFeet: 120, encounterFeet: 40 },
         movement: { explorationFeet: 120, encounterFeet: 40 },

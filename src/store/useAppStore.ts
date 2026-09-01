@@ -39,7 +39,7 @@ import {
   getCoinDeltaDetails,
   type CreateAuditLogEntryInput,
 } from "../model/auditLog";
-import { getCoinCount } from "../model/calculations";
+import { getCoinCount, getContainerCapacity } from "../model/calculations";
 import {
   createInventoryRecordFromInput,
   createInventoryLocation,
@@ -2170,7 +2170,11 @@ function createInventoryRecordDetails(
   }
 
   if (record.container) {
-    details.capacitySlots = record.container.capacitySlots;
+    const capacitySlots = getContainerCapacity(record);
+
+    if (capacitySlots !== undefined) {
+      details.capacitySlots = capacitySlots;
+    }
   }
 
   return details;

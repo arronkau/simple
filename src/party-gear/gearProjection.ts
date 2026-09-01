@@ -1,3 +1,4 @@
+import { getContainerSlotUsage } from "../model/calculations";
 import { getCharacterEncumbrance, getContentsCapacity } from "../model/encumbrance";
 import {
   createInventoryLocation,
@@ -63,6 +64,24 @@ export function projectMove(
       text: `eq ${encumbrance.equippedItems} · st ${encumbrance.stowedItems} · tot ${total}/16`,
       invalid: encumbrance.overloaded || !validation.valid,
     };
+  }
+
+  if (target.placement === "container" && target.containerId) {
+    const container = nextRecords.find(
+      (candidate) => candidate.id === target.containerId,
+    );
+
+    if (container?.container) {
+      const usage = getContainerSlotUsage(container, nextRecords);
+      const overCapacity =
+        usage.capacitySlots !== undefined &&
+        usage.usedSlots > usage.capacitySlots;
+
+      return {
+        text: `${usage.usedSlots}/${usage.capacitySlots ?? "—"}`,
+        invalid: overCapacity || !validation.valid,
+      };
+    }
   }
 
   const capacity = getContentsCapacity(entity, nextRecords);
