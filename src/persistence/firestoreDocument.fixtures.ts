@@ -146,6 +146,26 @@ export const FIRESTORE_DOCUMENT_MANUAL_FIXTURES: {
     },
   },
   {
+    name: "Firestore v2 parsing sorts valid profiles before non-record map entries",
+    actual: fromFirestorePartyDocument({
+      schemaVersion: 1,
+      wireVersion: 2,
+      party: { id: "party-map", displayName: "Map Party" },
+      appState: {
+        schemaVersion: 1,
+        entities: {},
+        inventoryRecords: {},
+        auditLog: [],
+      },
+      userProfiles: {
+        b: makeProfile("b", "B"),
+        junk: null,
+        a: makeProfile("a", "A"),
+      },
+    })?.userProfiles.map((profile) => profile.id),
+    expected: ["a", "b"],
+  },
+  {
     name: "Firestore parsing accepts the legacy array wire shape",
     actual: (() => {
       const parsed = fromFirestorePartyDocument({

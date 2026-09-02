@@ -10,10 +10,13 @@ import {
   isLegacyFirestorePartyDocument,
   toFirestorePartyDocument,
 } from "./firestoreDocument";
+import { createLegacyUpgradeLifecycle } from "./legacyUpgradeLifecycle";
 import type { FieldUpdate } from "./partyStateDiff";
 import type { SyncStatus } from "./types";
 
 export const FIREBASE_PARTY_STATE_COLLECTION = "parties";
+const LEGACY_UPGRADE_RETRY_DELAY_MS = 1500;
+const LEGACY_UPGRADE_MAX_ATTEMPTS = 4;
 
 export type FirebaseWriter = {
   applyFieldUpdates: (updates: FieldUpdate[]) => Promise<void>;
@@ -177,9 +180,6 @@ export async function startFirebaseAppStateSync({
 
     let stopped = false;
     let creatingDocument = false;
-    let legacyUpgradePromise: Promise<void> | undefined;
-    let legacyUpgradeResolved = true;
-    let pendingVersion2PartyState: PartyState | undefined;
 
     const applyVersion2PartyState = (partyState: PartyState) => {
       if (stopped) {
@@ -194,25 +194,10 @@ export async function startFirebaseAppStateSync({
       onRemotePartyState(partyState);
     };
 
-    const applyPendingVersion2PartyState = () => {
-      if (!legacyUpgradeResolved || !pendingVersion2PartyState) {
-        return;
-      }
-
-      const partyState = pendingVersion2PartyState;
-      pendingVersion2PartyState = undefined;
-      applyVersion2PartyState(partyState);
-    };
-
-    const upgradeLegacyDocument = () => {
-      if (legacyUpgradePromise) {
-        return;
-      }
-
-      legacyUpgradeResolved = false;
-      const upgradePromise = firestore.runTransaction(
-        database,
-        async (transaction) => {
+    const legacyUpgradeLifecycle = createLegacyUpgradeLifecycle({
+      applyVersion2: applyVersion2PartyState,
+      attemptUpgrade: () =>
+        firestore.runTransaction(database, async (transaction) => {
           const currentSnapshot = await transaction.get(partyStateRef);
 
           if (
@@ -235,20 +220,12 @@ export async function startFirebaseAppStateSync({
             partyStateRef,
             toFirestorePartyDocument(currentPartyState),
           );
-        },
-      );
-      legacyUpgradePromise = upgradePromise;
-      void upgradePromise
-        .then(() => {
-          legacyUpgradeResolved = true;
-          legacyUpgradePromise = undefined;
-          applyPendingVersion2PartyState();
-        })
-        .catch((error: unknown) => {
-          legacyUpgradePromise = undefined;
-          onError(formatFirebaseError(error));
-        });
-    };
+        }),
+      maxAttempts: LEGACY_UPGRADE_MAX_ATTEMPTS,
+      onRetry: () => onStatusChange("syncing"),
+      reportError: (error) => onError(formatFirebaseError(error)),
+      retryDelayMs: LEGACY_UPGRADE_RETRY_DELAY_MS,
+    });
 
     const unsubscribe = firestore.onSnapshot(
       partyStateRef,
@@ -279,22 +256,18 @@ export async function startFirebaseAppStateSync({
 
         if (isLegacyFirestorePartyDocument(data)) {
           onStatusChange("syncing");
-          upgradeLegacyDocument();
+          legacyUpgradeLifecycle.handleLegacyDocument();
           return;
         }
 
-        if (!legacyUpgradeResolved) {
-          pendingVersion2PartyState = partyState;
-          return;
-        }
-
-        applyVersion2PartyState(partyState);
+        legacyUpgradeLifecycle.handleVersion2Document(partyState);
       },
       (error) => onError(formatFirebaseError(error)),
     );
 
     return () => {
       stopped = true;
+      legacyUpgradeLifecycle.stop();
       unsubscribe();
     };
   } catch (error) {

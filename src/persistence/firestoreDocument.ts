@@ -36,10 +36,6 @@ export type FirestorePartyDocument = {
 export function toFirestorePartyDocument(
   partyState: PartyState,
 ): FirestorePartyDocument {
-  const entitiesById = toIdMap(partyState.appState.entities);
-  const inventoryRecordsById = toIdMap(partyState.appState.inventoryRecords);
-  const userProfilesById = toIdMap(partyState.userProfiles);
-
   return {
     schemaVersion: 1,
     wireVersion: 2,
@@ -58,14 +54,17 @@ export function toFirestorePartyDocument(
     },
     appState: {
       schemaVersion: 1,
-      entities: sortIdMap(entitiesById, compareSortOrderThenId),
-      inventoryRecords: sortIdMap(
-        inventoryRecordsById,
+      entities: toSortedIdMap(
+        partyState.appState.entities,
+        compareSortOrderThenId,
+      ),
+      inventoryRecords: toSortedIdMap(
+        partyState.appState.inventoryRecords,
         compareSortOrderThenId,
       ),
       auditLog: partyState.appState.auditLog,
     },
-    userProfiles: sortIdMap(userProfilesById, compareId),
+    userProfiles: toSortedIdMap(partyState.userProfiles, compareId),
   };
 }
 
@@ -106,35 +105,46 @@ export function canonicalizePartyState(partyState: PartyState): PartyState {
     ...partyState,
     appState: {
       ...partyState.appState,
-      entities: [...partyState.appState.entities].sort(compareSortOrderThenId),
-      inventoryRecords: [...partyState.appState.inventoryRecords].sort(
+      entities: collapseAndSortIdentifiedValues(
+        partyState.appState.entities,
+        compareSortOrderThenId,
+      ),
+      inventoryRecords: collapseAndSortIdentifiedValues(
+        partyState.appState.inventoryRecords,
         compareSortOrderThenId,
       ),
     },
-    userProfiles: [...partyState.userProfiles].sort(compareId),
+    userProfiles: collapseAndSortIdentifiedValues(
+      partyState.userProfiles,
+      compareId,
+    ),
   };
 }
 
 type Identified = { id: string };
 
-function toIdMap<T extends Identified>(values: T[]): Map<string, T> {
-  const result = new Map<string, T>();
+function collapseAndSortIdentifiedValues<T extends Identified>(
+  values: T[],
+  compare: (left: T, right: T) => number,
+): T[] {
+  const valuesById = new Map<string, T>();
 
   for (const value of values) {
-    result.set(value.id, value);
+    valuesById.set(value.id, value);
   }
 
-  return result;
+  return [...valuesById.values()].sort(compare);
 }
 
-function sortIdMap<T extends Identified>(
-  valuesById: Map<string, T>,
+function toSortedIdMap<T extends Identified>(
+  values: T[],
   compare: (left: T, right: T) => number,
 ): Record<string, T> {
   return Object.fromEntries(
-    [...valuesById.values()]
-      .sort(compare)
-      .map((value) => [value.id, value]),
+    collapseAndSortIdentifiedValues(values, compare).map((value) => [
+      value.id,
+      value,
+    ]),
   );
 }
 
@@ -151,14 +161,22 @@ function fromIdMapOrArray<T extends Identified>(
   }
 
   return Object.entries(value)
-    .map(([id, entry]) => withAuthoritativeId(id, entry))
+    .map(([id, entry]) => ({ id, value: withAuthoritativeId(id, entry) }))
     .sort((left, right) => {
-      if (!isRecordLike(left) || !isRecordLike(right)) {
-        return 0;
+      const leftIsRecord = isRecordLike(left.value);
+      const rightIsRecord = isRecordLike(right.value);
+
+      if (leftIsRecord !== rightIsRecord) {
+        return leftIsRecord ? -1 : 1;
       }
 
-      return compare(left as T, right as T);
-    });
+      if (leftIsRecord && rightIsRecord) {
+        return compare(left.value as T, right.value as T);
+      }
+
+      return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
+    })
+    .map(({ value: entry }) => entry);
 }
 
 function withAuthoritativeId(id: string, value: unknown): unknown {

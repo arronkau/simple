@@ -91,6 +91,7 @@ import {
   type FirebaseAuthAccount,
   type FirebaseWriter,
 } from "../persistence/firebaseSync";
+import { runFirebaseWriteForGeneration } from "../persistence/firebaseWriteLifecycle";
 import { canonicalizePartyState } from "../persistence/firestoreDocument";
 import {
   diffPartyStates,
@@ -1951,6 +1952,7 @@ let firebaseUnsubscribe: (() => void) | undefined;
 let firebaseWriter: FirebaseWriter | undefined;
 let pendingFirebaseFieldUpdates: FieldUpdate[] = [];
 let writingFirebaseFieldUpdates = false;
+let firebaseSyncGeneration = 0;
 // Local state must never be written to Firebase before we know the remote
 // state. Otherwise a client that just loaded (e.g. a joining player whose
 // local party is empty) would clobber the real party document. This stays
@@ -2523,6 +2525,8 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     return;
   }
 
+  firebaseSyncGeneration += 1;
+  const activeSyncGeneration = firebaseSyncGeneration;
   stopConfiguredFirebaseSync();
   // Re-gate writes for the new connection until its first snapshot lands.
   firebaseFirstSnapshotHandled = false;
@@ -2583,7 +2587,10 @@ async function startConfiguredFirebaseSync(): Promise<void> {
       });
     },
     onReadyToWrite: (writer) => {
-      if (useAppStore.getState().partyId !== activePartyId) {
+      if (
+        firebaseSyncGeneration !== activeSyncGeneration ||
+        useAppStore.getState().partyId !== activePartyId
+      ) {
         return;
       }
 
@@ -2605,7 +2612,10 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     partyId: activePartyId,
   });
 
-  if (useAppStore.getState().partyId === activePartyId) {
+  if (
+    firebaseSyncGeneration === activeSyncGeneration &&
+    useAppStore.getState().partyId === activePartyId
+  ) {
     firebaseUnsubscribe = unsubscribe;
   } else {
     unsubscribe();
@@ -2618,6 +2628,7 @@ function stopConfiguredFirebaseSync(): void {
 }
 
 function resetFirebaseWriteQueue(): void {
+  firebaseSyncGeneration += 1;
   firebaseWriter = undefined;
   pendingFirebaseFieldUpdates = [];
   writingFirebaseFieldUpdates = false;
@@ -2649,30 +2660,36 @@ async function flushFirebasePartyStateWrite(): Promise<void> {
   }
 
   const writer = firebaseWriter;
+  const writeGeneration = firebaseSyncGeneration;
   const updates = pendingFirebaseFieldUpdates;
   pendingFirebaseFieldUpdates = [];
   writingFirebaseFieldUpdates = true;
   setSyncMetadata("saving");
 
-  try {
-    await writer.applyFieldUpdates(updates);
-    writingFirebaseFieldUpdates = false;
+  await runFirebaseWriteForGeneration({
+    generation: writeGeneration,
+    getCurrentGeneration: () => firebaseSyncGeneration,
+    write: () => writer.applyFieldUpdates(updates),
+    onSuccess: () => {
+      writingFirebaseFieldUpdates = false;
 
-    if (pendingFirebaseFieldUpdates.length > 0) {
-      void flushFirebasePartyStateWrite();
-      return;
-    }
+      if (pendingFirebaseFieldUpdates.length > 0) {
+        void flushFirebasePartyStateWrite();
+        return;
+      }
 
-    setSyncMetadata("synced");
-  } catch (error) {
-    writingFirebaseFieldUpdates = false;
-    pendingFirebaseFieldUpdates = mergeFieldUpdates(
-      updates,
-      pendingFirebaseFieldUpdates,
-    );
+      setSyncMetadata("synced");
+    },
+    onFailure: (error) => {
+      writingFirebaseFieldUpdates = false;
+      pendingFirebaseFieldUpdates = mergeFieldUpdates(
+        updates,
+        pendingFirebaseFieldUpdates,
+      );
 
-    setSyncMetadata("error", formatSyncError(error));
-  }
+      setSyncMetadata("error", formatSyncError(error));
+    },
+  });
 }
 
 function applyRemotePartyState(partyState: PartyState): void {

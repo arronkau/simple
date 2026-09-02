@@ -160,6 +160,25 @@ export const PARTY_STATE_DIFF_MANUAL_FIXTURES: {
     expected: [],
   },
   {
+    name: "Party-state diff collapses duplicate ids last-wins before canonical sorting",
+    actual: diffPartyStates(
+      makePartyState({
+        entities: [
+          makeEntity("same", "A", 1000),
+          makeEntity("same", "B", 0),
+        ],
+      }),
+      makePartyState({ entities: [makeEntity("same", "A", 1000)] }),
+    ),
+    expected: [
+      {
+        path: ["appState", "entities", "same"],
+        op: "set",
+        value: makeEntity("same", "A", 1000),
+      },
+    ],
+  },
+  {
     name: "Field-update merge replaces paths and concatenates audit unions by id",
     actual: mergeFieldUpdates(
       [
