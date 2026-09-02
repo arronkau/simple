@@ -82,6 +82,8 @@ export type AuditEventType =
   | "inventoryRecordCreated"
   | "inventoryRecordDeleted"
   | "inventoryRecordMoved"
+  | "inventoryRecordLit"
+  | "inventoryRecordSnuffed"
   | "coinsChanged"
   | "treasureValueChanged"
   | "inventoryRecordIdentified";
@@ -542,6 +544,10 @@ export type ContainerData = {
 - Capacity resolves from placement: `leftHand`/`rightHand` use `oneHand`,
   `bothHands` uses `twoHands`, and every other placement uses `capacitySlots`
   when defined. Undefined resolved capacity means no capacity limit applies.
+- A container at `stowedRoot` resolves to undefined capacity regardless of its
+  `capacitySlots`: it is the character's packed list, and the stowed limit
+  (16 + STR modifier, see `ENCUMBRANCE_SPEC.md`) governs it. Its own capacity
+  applies again when it is carried in hand or packed inside another container.
 - Legacy `container.handsRequired` may be read only to derive missing record-level `handsRequired`.
 - Legacy `container.isBackpack` may be tolerated while reading older stored data, but it must not determine current top-level stowed-container behavior and should not be written by new code.
 - Legacy `burdenMode` may exist in saved data but must not change slot accounting.
@@ -641,6 +647,29 @@ export type LightData = {
 - `light.lightDescription`, if present, is a free-text table description such as radius or beam shape.
 - Light burn duration and remaining burn/use state use the shared `uses` object.
 - Do not automate light depletion unless a later task explicitly adds turn tracking.
+
+### Light and Snuff Actions
+
+Lighting and putting out a light are store actions backed by pure helpers in
+`src/model/lightSources.ts` (`lightRecord`, `snuffRecord`). They never
+automate burn time.
+
+- **Light** applies to a non-coin record with `light` data that is not lit.
+  A stack (`quantity > 1`) splits one item off into a new record with
+  `quantity: 1` and `light.isLit: true`; the original stack loses one. A single
+  item is lit in place. If the item needs hands and the character has a free
+  hand (left preferred, then right; both hands for a two-handed item), the lit
+  item moves into that hand; otherwise it stays where it is. A stack that is
+  already held keeps the lit item in that hand and moves the remainder to the
+  top-level stowed container (or equipped/loose without one).
+- **Snuff** applies to a lit record and takes one of two outcomes:
+  - `burnedOut`: a `stacked`-burden light (torch, candle) is consumed — the
+    record is removed, or a lit stack loses one item; a `fixed`/`none`-burden
+    light (lantern) stays, unlit, with `uses.current` set to 0 when uses exist.
+  - `turnsRemaining: n`: the record stays, unlit, with `uses.current = n`
+    (`n` a whole number ≥ 0 and ≤ `uses.max` when a max exists).
+- Lit singles are never merged back into a stack; their burn state would be lost.
+- Both actions write an audit entry (`inventoryRecordLit`, `inventoryRecordSnuffed`).
 
 ## Modifiers
 
@@ -843,9 +872,8 @@ Movement is determined by the slower of equipped and stowed burden when no overl
 
 The following are overload conditions and set movement to `0 / 0`:
 
-- Equipped burden above the equipped limit.
-- Stowed burden above the stowed limit.
-- Total equipped + stowed burden above 16 slots.
+- Equipped burden above the equipped limit (9).
+- Stowed burden above the stowed limit (16 + STR modifier).
 - Container over capacity on a character-like entity.
 - Non-empty hands-required container left at equipped/loose (not held in a hand).
 
@@ -853,11 +881,8 @@ For v1, keep the movement tier logic in one calculation module.
 
 Do not duplicate movement calculations in UI components.
 
-If no detailed movement tiers are implemented yet, show:
-
-- equipped slots
-- stowed slots
-- total slots
+The load readout shows equipped and stowed against their own limits
+(`Eq n/9 · St n/16±STR`). There is no combined total limit to show.
 - overloaded warning if applicable
 - a placeholder movement state based on the slower burden category
 

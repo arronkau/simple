@@ -3,6 +3,7 @@ import { getInventoryRowDisplay } from "../model/inventoryRowDisplay";
 import type { InventoryRowStatus } from "../model/inventoryRowDisplay";
 import { getRecordSlotBurden } from "../model/calculations";
 import type { InventoryRecord } from "../model/types";
+import { isLightSourceRecord, isLitRecord } from "../model/lightSources";
 import {
   getInventoryRowStatusIcon,
   getInventoryRowStatusTitle,
@@ -19,17 +20,22 @@ export function InventoryRowSummary({
   allRecords,
   extraStatusIcons,
   onOpenRecord,
+  onToggleLight,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
   extraStatusIcons?: InventoryRowStatus[];
   onOpenRecord?: (record: InventoryRecord) => void;
+  /** When given, light sources get a flame toggle beside the name. */
+  onToggleLight?: (record: InventoryRecord) => void;
 }) {
   const display = getInventoryRowDisplay(record, allRecords);
+  const showLightToggle = Boolean(onToggleLight) && isLightSourceRecord(record);
   const statusIcons = getUniqueInventoryRowStatuses([
     ...display.statusIcons,
     ...(extraStatusIcons ?? []),
-  ]);
+  ]).filter((status) => !(showLightToggle && status === "lit"));
+  const lit = isLitRecord(record);
 
   return (
     <div className="record-summary">
@@ -45,6 +51,19 @@ export function InventoryRowSummary({
         ) : (
           <strong>{display.primaryText}</strong>
         )}
+        {showLightToggle && onToggleLight ? (
+          <button
+            aria-label={lit ? `Put out ${display.primaryText}` : `Light ${display.primaryText}`}
+            aria-pressed={lit}
+            className="light-toggle"
+            data-lit={lit}
+            title={lit ? "Put out" : "Light"}
+            type="button"
+            onClick={() => onToggleLight(record)}
+          >
+            <ItemStatusIcon name="lit" tone={lit ? "lit" : "muted"} />
+          </button>
+        ) : null}
         {statusIcons.map((status) => (
           <span
             className="record-status-icon"

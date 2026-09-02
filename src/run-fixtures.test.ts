@@ -14,6 +14,7 @@ import { APP_STATE_MANUAL_FIXTURES } from "./model/appState.fixtures";
 import { INVENTORY_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryDisplay.fixtures";
 import { INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES } from "./model/inventoryRowDisplay.fixtures";
 import { INVENTORY_RECORDS_MANUAL_FIXTURES } from "./model/inventoryRecords.fixtures";
+import { LIGHT_SOURCES_MANUAL_FIXTURES } from "./model/lightSources.fixtures";
 import { HANDOUT_ROSTER_MANUAL_FIXTURES } from "./model/handoutRoster.fixtures";
 import { SAVE_TABLES_MANUAL_FIXTURES } from "./model/saveTables.fixtures";
 import { STANDARD_ITEMS_MANUAL_FIXTURES } from "./model/standardItems.fixtures";
@@ -59,6 +60,7 @@ const manualFixtures: ManualFixture[] = [
   ...INVENTORY_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_RECORDS_MANUAL_FIXTURES,
+  ...LIGHT_SOURCES_MANUAL_FIXTURES,
   ...HANDOUT_ROSTER_MANUAL_FIXTURES,
   ...SAVE_TABLES_MANUAL_FIXTURES,
   ...STANDARD_ITEMS_MANUAL_FIXTURES,

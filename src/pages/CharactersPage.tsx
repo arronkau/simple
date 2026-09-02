@@ -28,7 +28,10 @@ import type {
   EntityId,
   InventoryRecord,
 } from "../model/types";
-import type { EntityMutationResult } from "../store/useAppStore";
+import type {
+  EntityMutationResult,
+  InventoryMutationResult,
+} from "../store/useAppStore";
 import { formatPartyClassLevel } from "../formatters";
 import { EntitySummary } from "../entity/EntityStatus";
 import { CharacterSheet } from "../character/CharacterSheet";
@@ -46,6 +49,8 @@ export function CharactersPage({
   onAdjustSpellMemorized,
   onStartAddRecord,
   onEditRecord,
+  onLightRecord,
+  onSnuffRecord,
   onSetEntityActive,
   onReorderEntity,
 }: {
@@ -65,6 +70,8 @@ export function CharactersPage({
   ) => EntityMutationResult;
   onStartAddRecord: (entity: Entity) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
+  onSnuffRecord: (record: InventoryRecord) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
   onReorderEntity: (entityId: EntityId, targetIndex: number) => void;
 }) {
@@ -222,6 +229,8 @@ export function CharactersPage({
                   onEdit={() => setSheetMode("edit")}
                   onStartAddRecord={onStartAddRecord}
                   onEditRecord={onEditRecord}
+                  onLightRecord={onLightRecord}
+                  onSnuffRecord={onSnuffRecord}
                 />
               ) : (
                 <CharacterSheetEditForm

@@ -25,6 +25,8 @@ export type AuditEventType =
   | "inventoryRecordDeleted"
   | "inventoryRecordIdentified"
   | "inventoryRecordMoved"
+  | "inventoryRecordLit"
+  | "inventoryRecordSnuffed"
   | "coinsChanged"
   | "treasureValueChanged";
 

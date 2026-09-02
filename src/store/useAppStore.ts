@@ -41,6 +41,11 @@ import {
 } from "../model/auditLog";
 import { getCoinCount, getContainerCapacity } from "../model/calculations";
 import {
+  lightRecord,
+  snuffRecord,
+  type SnuffOutcome,
+} from "../model/lightSources";
+import {
   createInventoryRecordFromInput,
   createInventoryLocation,
   getCharacterCoinRecord,
@@ -130,6 +135,11 @@ type AppStore = {
   reorderEntity: (entityId: EntityId, targetIndex: number) => void;
   identifyInventoryRecord: (
     recordId: InventoryRecordId,
+  ) => InventoryMutationResult;
+  lightInventoryRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  snuffInventoryRecord: (
+    recordId: InventoryRecordId,
+    outcome: SnuffOutcome,
   ) => InventoryMutationResult;
   spendCoins: (
     recordId: InventoryRecordId,
@@ -1236,6 +1246,174 @@ export const useAppStore = create<AppStore>((set) => ({
               nextRecord,
               previousRecord: record,
             }),
+          ],
+        ),
+      };
+    });
+
+    return result;
+  },
+  lightInventoryRecord: (recordId) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "editItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === record?.entityId,
+      );
+
+      if (!record || !entity) {
+        return state;
+      }
+
+      const lightResult = lightRecord({
+        entity,
+        record,
+        records: state.appState.inventoryRecords,
+        newRecordId: createId("record"),
+      });
+
+      if (!lightResult.ok) {
+        result = lightResult;
+        return state;
+      }
+
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        lightResult.records,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Cannot light this item.",
+        };
+        return state;
+      }
+
+      const litRecord = lightResult.records.find(
+        (candidateRecord) => candidateRecord.id === lightResult.litRecordId,
+      );
+
+      result = { ok: true, recordId: lightResult.litRecordId };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: lightResult.records,
+          },
+          litRecord
+            ? [
+                {
+                  entityId: entity.id,
+                  eventType: "inventoryRecordLit",
+                  recordId: litRecord.id,
+                  summary: `Lit ${getInventoryRecordAuditLabel(litRecord)} for ${formatEntityName(entity)}.`,
+                  details: {
+                    ...createInventoryRecordDetails(
+                      litRecord,
+                      state.appState.entities,
+                    ),
+                    splitFromStack: lightResult.split,
+                  },
+                },
+              ]
+            : [],
+        ),
+      };
+    });
+
+    return result;
+  },
+  snuffInventoryRecord: (recordId, outcome) => {
+    let result: InventoryMutationResult = {
+      ok: false,
+      message: "Inventory record was not found.",
+    };
+
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertInventoryAction(role ?? "player", "editItem");
+    } catch (e) {
+      return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
+    }
+
+    set((state) => {
+      const record = state.appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+      const entity = state.appState.entities.find(
+        (candidateEntity) => candidateEntity.id === record?.entityId,
+      );
+
+      if (!record || !entity) {
+        return state;
+      }
+
+      const snuffResult = snuffRecord({
+        record,
+        records: state.appState.inventoryRecords,
+        outcome,
+      });
+
+      if (!snuffResult.ok) {
+        result = snuffResult;
+        return state;
+      }
+
+      const validationResult = validateInventoryState(
+        state.appState.entities,
+        snuffResult.records,
+      );
+
+      if (!validationResult.valid) {
+        result = {
+          ok: false,
+          message: validationResult.errors[0]?.message ?? "Cannot put out this item.",
+        };
+        return state;
+      }
+
+      result = { ok: true, recordId };
+
+      return {
+        appState: appendAuditLogEntries(
+          {
+            ...state.appState,
+            inventoryRecords: snuffResult.records,
+          },
+          [
+            {
+              entityId: entity.id,
+              eventType: "inventoryRecordSnuffed",
+              recordId,
+              summary: `Put out ${getInventoryRecordAuditLabel(record)} for ${formatEntityName(entity)} (${
+                outcome.kind === "burnedOut"
+                  ? "burned out"
+                  : `${outcome.turns} turns remaining`
+              }).`,
+              details: {
+                ...createInventoryRecordDetails(record, state.appState.entities),
+                outcome: outcome.kind,
+                ...(outcome.kind === "turnsRemaining"
+                  ? { turnsRemaining: outcome.turns }
+                  : {}),
+                consumed: snuffResult.consumed,
+              },
+            },
           ],
         ),
       };

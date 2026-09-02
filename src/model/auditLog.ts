@@ -22,7 +22,9 @@ export const AUDIT_EVENT_TYPE_LABELS: Record<AuditEventType, string> = {
   inventoryRecordCreated: "Record created",
   inventoryRecordDeleted: "Record deleted",
   inventoryRecordIdentified: "Record identified",
+  inventoryRecordLit: "Light lit",
   inventoryRecordMoved: "Record moved",
+  inventoryRecordSnuffed: "Light put out",
   treasureValueChanged: "Treasure value changed",
 };
 

@@ -1,4 +1,5 @@
-import { getContainerSlotUsage } from "./calculations";
+import { getContainerCapacity, getContainerSlotUsage } from "./calculations";
+import { createEmptyCharacterData } from "./characters";
 import {
   getCharacterEncumbrance,
   getContentsCapacity,
@@ -6,6 +7,8 @@ import {
   getEncumbranceWarnings,
   getMovementRateForEquippedItems,
   getMovementRateForStowedItems,
+  getStowedSlotCapacity,
+  getStrengthCarryModifier,
   type EncumbranceWarning,
 } from "./encumbrance";
 import { createDefaultBackpack, type Entity, type InventoryRecord } from "./types";
@@ -19,6 +22,21 @@ const characterEntity: Entity = {
   active: true,
   sortOrder: 0,
 };
+
+function withStrength(entity: Entity, strength: number | null): Entity {
+  const character = createEmptyCharacterData();
+
+  return {
+    ...entity,
+    character: {
+      ...character,
+      abilityScores: { ...character.abilityScores, strength },
+    },
+  };
+}
+
+const strongCharacterEntity = withStrength(characterEntity, 18);
+const weakCharacterEntity = withStrength(characterEntity, 3);
 
 const cappedStorageEntity: Entity = {
   id: "storage-1",
@@ -203,6 +221,12 @@ const seventeenSlotCoinsRecord: InventoryRecord = {
     sp: 0,
     cp: 0,
   },
+};
+
+const twentySlotCoinsRecord: InventoryRecord = {
+  ...seventeenSlotCoinsRecord,
+  id: "coins-2000",
+  coins: { pp: 0, gp: 2000, sp: 0, cp: 0 },
 };
 
 const heavyBackpackContentsRecord: InventoryRecord = {
@@ -683,7 +707,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       loadedBackpack: { equippedItems: 0, stowedItems: 1, totalItems: 1 },
-      loadedBackpackUsage: { usedSlots: 1, capacitySlots: 16 },
+      loadedBackpackUsage: { usedSlots: 1 },
       loadedBackpackWithEmptySack: {
         equippedItems: 0,
         stowedItems: 2,
@@ -762,7 +786,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "global equipped plus stowed overload produces zero movement",
+    name: "equipped plus stowed above 16 is not an overload; the slower band wins",
     actual: {
       equippedItems: globalOverloadEncumbrance.equippedItems,
       stowedItems: globalOverloadEncumbrance.stowedItems,
@@ -774,10 +798,9 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     expected: {
       equippedItems: 8,
       stowedItems: 9,
-      overloaded: true,
-      overloadedReason: "both",
-      movement: { explorationFeet: 0, encounterFeet: 0 },
-      band: "overloaded",
+      overloaded: false,
+      movement: { explorationFeet: 30, encounterFeet: 10 },
+      band: "heavilyEncumbered",
     },
   },
   {
@@ -912,7 +935,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "overfilled backpack creates a container warning",
+    name: "overfilled stowed-root backpack warns on stowed burden only, never on container capacity",
     actual: {
       warnings: summarizeWarnings(
         getEncumbranceWarnings(characterEntity, overfilledTopLevelStowedContainerRecords),
@@ -920,7 +943,6 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       warnings: {
-        containerOverCapacity: 1,
         entityOverloaded: 1,
       },
     },
@@ -1005,16 +1027,14 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "global overload creates a movement warning",
+    name: "equipped plus stowed above 16 creates no movement warning",
     actual: {
       warnings: summarizeWarnings(
         getEncumbranceWarnings(characterEntity, globalOverloadRecords),
       ),
     },
     expected: {
-      warnings: {
-        entityOverloaded: 1,
-      },
+      warnings: {},
     },
   },
   {
@@ -1070,19 +1090,202 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     ],
   },
   {
-    name: "global-only overload warning (not equipped or stowed alone)",
+    name: "no total-capacity warning exists for equipped plus stowed above 16",
     actual: getEncumbranceWarnings(characterEntity, globalOverloadRecords),
-    expected: [
-      {
-        code: "entityOverloaded",
-        message: "Total capacity exceeded (17/16 slots).",
-        entityId: characterEntity.id,
-        usedSlots: 17,
-        capacitySlots: 16,
-      },
+    expected: [],
+  },
+  {
+    name: "STR modifier is 0 without a character, with a blank STR, and ±3 at the extremes",
+    actual: {
+      noCharacter: getStrengthCarryModifier(characterEntity),
+      blank: getStrengthCarryModifier(withStrength(characterEntity, null)),
+      str18: getStrengthCarryModifier(strongCharacterEntity),
+      str3: getStrengthCarryModifier(weakCharacterEntity),
+      str13: getStrengthCarryModifier(withStrength(characterEntity, 13)),
+    },
+    expected: { noCharacter: 0, blank: 0, str18: 3, str3: -3, str13: 1 },
+  },
+  {
+    name: "stowed capacity is 16 plus the STR modifier",
+    actual: [
+      getStowedSlotCapacity(),
+      getStowedSlotCapacity(3),
+      getStowedSlotCapacity(-3),
     ],
+    expected: [16, 19, 13],
+  },
+  {
+    name: "STR modifier shifts every stowed threshold",
+    actual: {
+      elevenWithPlusOne: getMovementRateForStowedItems(11, 1),
+      thirteenWithPlusThree: getMovementRateForStowedItems(13, 3),
+      nineteenWithPlusThree: getMovementRateForStowedItems(19, 3),
+      twentyWithPlusThree: getMovementRateForStowedItems(20, 3),
+      eightWithMinusThree: getMovementRateForStowedItems(8, -3),
+      thirteenWithMinusThree: getMovementRateForStowedItems(13, -3),
+      fourteenWithMinusThree: getMovementRateForStowedItems(14, -3),
+    },
+    expected: {
+      elevenWithPlusOne: { explorationFeet: 120, encounterFeet: 40 },
+      thirteenWithPlusThree: { explorationFeet: 120, encounterFeet: 40 },
+      nineteenWithPlusThree: { explorationFeet: 30, encounterFeet: 10 },
+      twentyWithPlusThree: "overloaded",
+      eightWithMinusThree: { explorationFeet: 90, encounterFeet: 30 },
+      thirteenWithMinusThree: { explorationFeet: 30, encounterFeet: 10 },
+      fourteenWithMinusThree: "overloaded",
+    },
+  },
+  {
+    name: "STR 18 character carries 17 stowed at 60' with a 19-slot stowed capacity",
+    actual: {
+      encumbrance: pickMovementFields(
+        getCharacterEncumbrance(strongCharacterEntity, [
+          topLevelStowedContainerRecord,
+          seventeenSlotCoinsRecord,
+        ]),
+      ),
+      warnings: getEncumbranceWarnings(strongCharacterEntity, [
+        topLevelStowedContainerRecord,
+        seventeenSlotCoinsRecord,
+      ]),
+    },
+    expected: {
+      encumbrance: {
+        stowedItems: 17,
+        movement: { explorationFeet: 60, encounterFeet: 20 },
+        overloaded: false,
+        band: "encumbered",
+        strengthModifier: 3,
+        equippedCapacity: 9,
+        stowedCapacity: 19,
+      },
+      warnings: [],
+    },
+  },
+  {
+    name: "STR 18 character with 20 stowed is overloaded against the 19-slot capacity",
+    actual: {
+      encumbrance: pickMovementFields(
+        getCharacterEncumbrance(strongCharacterEntity, [
+          topLevelStowedContainerRecord,
+          twentySlotCoinsRecord,
+        ]),
+      ),
+      warnings: getEncumbranceWarnings(strongCharacterEntity, [
+        topLevelStowedContainerRecord,
+        twentySlotCoinsRecord,
+      ]),
+    },
+    expected: {
+      encumbrance: {
+        stowedItems: 20,
+        movement: { explorationFeet: 0, encounterFeet: 0 },
+        overloaded: true,
+        overloadedReason: "stowed",
+        band: "overloaded",
+        strengthModifier: 3,
+        equippedCapacity: 9,
+        stowedCapacity: 19,
+      },
+      warnings: [
+        {
+          code: "entityOverloaded",
+          message: "Stowed burden exceeded (20/19 slots).",
+          entityId: characterEntity.id,
+          usedSlots: 20,
+          capacitySlots: 19,
+        },
+      ],
+    },
+  },
+  {
+    name: "STR 3 character carries 9 stowed at 90' and 14 stowed overloaded",
+    actual: {
+      nine: pickMovementFields(
+        getCharacterEncumbrance(weakCharacterEntity, [
+          topLevelStowedContainerRecord,
+          nineSlotBackpackContentsRecord,
+        ]),
+      ),
+      fourteen: pickMovementFields(
+        getCharacterEncumbrance(weakCharacterEntity, [
+          topLevelStowedContainerRecord,
+          fourteenSlotBackpackContentsRecord,
+        ]),
+      ),
+    },
+    expected: {
+      nine: {
+        stowedItems: 9,
+        movement: { explorationFeet: 90, encounterFeet: 30 },
+        overloaded: false,
+        band: "lightlyEncumbered",
+        strengthModifier: -3,
+        equippedCapacity: 9,
+        stowedCapacity: 13,
+      },
+      fourteen: {
+        stowedItems: 14,
+        movement: { explorationFeet: 0, encounterFeet: 0 },
+        overloaded: true,
+        overloadedReason: "stowed",
+        band: "overloaded",
+        strengthModifier: -3,
+        equippedCapacity: 9,
+        stowedCapacity: 13,
+      },
+    },
+  },
+  {
+    name: "STR does not shift equipped thresholds",
+    actual: pickMovementFields(
+      getCharacterEncumbrance(strongCharacterEntity, [
+        topLevelStowedContainerRecord,
+        equippedTenSlotsRecord,
+      ]),
+    ),
+    expected: {
+      stowedItems: 0,
+      movement: { explorationFeet: 0, encounterFeet: 0 },
+      overloaded: true,
+      overloadedReason: "equipped",
+      band: "overloaded",
+      strengthModifier: 3,
+      equippedCapacity: 9,
+      stowedCapacity: 19,
+    },
+  },
+  {
+    name: "the stowed-root container has no capacity of its own; the same backpack in hand keeps its 16",
+    actual: {
+      stowedRoot: getContainerCapacity(topLevelStowedContainerRecord),
+      inHand: getContainerCapacity(handCarriedBackpackRecord),
+      stowedRootUsage: getContainerSlotUsage(topLevelStowedContainerRecord, [
+        topLevelStowedContainerRecord,
+        heavyBackpackContentsRecord,
+      ]),
+    },
+    expected: {
+      inHand: 16,
+      stowedRootUsage: { usedSlots: 17 },
+    },
   },
 ];
+
+function pickMovementFields(encumbrance: ReturnType<typeof getCharacterEncumbrance>) {
+  return {
+    stowedItems: encumbrance.stowedItems,
+    movement: encumbrance.movement,
+    overloaded: encumbrance.overloaded,
+    ...(encumbrance.overloadedReason
+      ? { overloadedReason: encumbrance.overloadedReason }
+      : {}),
+    band: encumbrance.band,
+    strengthModifier: encumbrance.strengthModifier,
+    equippedCapacity: encumbrance.equippedCapacity,
+    stowedCapacity: encumbrance.stowedCapacity,
+  };
+}
 
 function summarizeWarnings(warnings: EncumbranceWarning[]): WarningSummary {
   const summary = warnings.reduce<WarningSummary>((warningSummary, warning) => {

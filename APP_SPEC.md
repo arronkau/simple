@@ -257,7 +257,7 @@ For non-coin records, the default modal stays compact: type, name, quantity, slo
 
 Coin records use a compact coin-only body with PP, GP, SP, and CP fields. Movement remains available through the same hidden Move section.
 
-Optional modal sections expose container data, unidentified data, light source data, uses/charges, modifiers, GM notes, and weapon qualities. Light source burn state uses the shared uses object; light data stores only lit state and free-text light description.
+Optional modal sections expose container data, unidentified data, light source data, uses/charges, modifiers, GM notes, and weapon qualities. Light source burn state uses the shared uses object; light data stores only lit state and free-text light description. On the character sheet, each light source row carries a flame toggle: unlit lights one item (splitting it off a stack and moving it to a free hand when it needs one); lit opens a "Put out" dialog offering "burned out" or "turns remaining" (see `MODEL_SPEC.md`, Light and Snuff Actions).
 
 ## High-Level UI Areas
 

@@ -1,3 +1,4 @@
+import { getAbilityModifier } from "./abilityModifiers";
 import {
   getActiveArmorRecords,
   getContainerSlotUsage,
@@ -46,6 +47,10 @@ export type CharacterEncumbranceResult = {
   overloaded: boolean;
   overloadedReason?: "equipped" | "stowed" | "container" | "invalid" | "both";
   band: EncumbranceBand;
+  /** STR modifier applied to the stowed thresholds (0 when STR is unknown). */
+  strengthModifier: number;
+  equippedCapacity: number;
+  stowedCapacity: number;
 };
 
 export type ContentsCapacityResult = {
@@ -71,6 +76,11 @@ export type EncumbranceWarning = {
   usedSlots?: number;
   capacitySlots?: number;
 };
+
+/** Equipped rows on the sheet. Not affected by STR. */
+export const EQUIPPED_SLOT_CAPACITY = 9;
+/** Packed rows on the sheet with the top three removed; STR adds or removes rows. */
+export const BASE_STOWED_SLOT_CAPACITY = 16;
 
 const NORMAL_MOVEMENT: MovementRate = {
   explorationFeet: 120,
@@ -184,26 +194,47 @@ export function getMovementRateForEquippedItems(
   return "overloaded";
 }
 
+/**
+ * Stowed lookup. The sheet's packed list has fixed movement-band rows; the STR
+ * modifier removes or adds rows at the top, so every threshold shifts by it.
+ */
 export function getMovementRateForStowedItems(
   stowedItems: number,
+  strengthModifier = 0,
 ): MovementRate | "overloaded" {
-  if (stowedItems <= 10) {
+  const effectiveItems = stowedItems - strengthModifier;
+
+  if (effectiveItems <= 10) {
     return NORMAL_MOVEMENT;
   }
 
-  if (stowedItems <= 12) {
+  if (effectiveItems <= 12) {
     return LIGHTLY_ENCUMBERED_MOVEMENT;
   }
 
-  if (stowedItems <= 14) {
+  if (effectiveItems <= 14) {
     return ENCUMBERED_MOVEMENT;
   }
 
-  if (stowedItems <= 16) {
+  if (effectiveItems <= 16) {
     return HEAVILY_ENCUMBERED_MOVEMENT;
   }
 
   return "overloaded";
+}
+
+/** The character's STR modifier for carrying; 0 when the score is unknown. */
+export function getStrengthCarryModifier(entity: Entity): number {
+  const strength = entity.character?.abilityScores?.strength;
+  const modifier = getAbilityModifier(
+    typeof strength === "number" ? strength : null,
+  );
+
+  return modifier.ok ? modifier.modifier : 0;
+}
+
+export function getStowedSlotCapacity(strengthModifier = 0): number {
+  return BASE_STOWED_SLOT_CAPACITY + strengthModifier;
 }
 
 export function getSlowerMovementRate(
@@ -221,9 +252,14 @@ export function getCharacterEncumbrance(
 ): CharacterEncumbranceResult {
   const equippedItems = getEquippedSlots(entity, records);
   const stowedItems = getStowedSlots(entity, records);
+  const strengthModifier = getStrengthCarryModifier(entity);
+  const equippedCapacity = EQUIPPED_SLOT_CAPACITY;
+  const stowedCapacity = getStowedSlotCapacity(strengthModifier);
   const equippedRate = getMovementRateForEquippedItems(equippedItems);
-  const stowedRate = getMovementRateForStowedItems(stowedItems);
-  const globallyOverloaded = equippedItems + stowedItems > 16;
+  const stowedRate = getMovementRateForStowedItems(
+    stowedItems,
+    strengthModifier,
+  );
   const criticalContainerOverload = hasCriticalContainerOverload(
     entity,
     records,
@@ -233,14 +269,12 @@ export function getCharacterEncumbrance(
   if (
     equippedRate === "overloaded" ||
     stowedRate === "overloaded" ||
-    globallyOverloaded ||
     criticalContainerOverload ||
     invalidUnheldContainer
   ) {
     const overloadedReason = getOverloadedReason(
       equippedRate,
       stowedRate,
-      globallyOverloaded,
       criticalContainerOverload,
       invalidUnheldContainer,
     );
@@ -255,6 +289,9 @@ export function getCharacterEncumbrance(
       overloaded: true,
       overloadedReason,
       band: "overloaded",
+      strengthModifier,
+      equippedCapacity,
+      stowedCapacity,
     };
   }
 
@@ -268,6 +305,9 @@ export function getCharacterEncumbrance(
     movement,
     overloaded: false,
     band: getEncumbranceBandForMovement(movement),
+    strengthModifier,
+    equippedCapacity,
+    stowedCapacity,
   };
 }
 
@@ -417,37 +457,27 @@ function getCharacterMovementWarnings(
     return [];
   }
 
-  const { equippedItems, stowedItems } = getCharacterEncumbrance(entity, records);
-  const totalSlots = equippedItems + stowedItems;
+  const { equippedItems, stowedItems, equippedCapacity, stowedCapacity } =
+    getCharacterEncumbrance(entity, records);
   const warnings: EncumbranceWarning[] = [];
 
-  if (equippedItems > 9) {
+  if (equippedItems > equippedCapacity) {
     warnings.push({
       code: "entityOverloaded",
-      message: `Equipped burden exceeded (${equippedItems}/9 slots).`,
+      message: `Equipped burden exceeded (${equippedItems}/${equippedCapacity} slots).`,
       entityId: entity.id,
       usedSlots: equippedItems,
-      capacitySlots: 9,
+      capacitySlots: equippedCapacity,
     });
   }
 
-  if (stowedItems > 16) {
+  if (stowedItems > stowedCapacity) {
     warnings.push({
       code: "entityOverloaded",
-      message: `Stowed burden exceeded (${stowedItems}/16 slots).`,
+      message: `Stowed burden exceeded (${stowedItems}/${stowedCapacity} slots).`,
       entityId: entity.id,
       usedSlots: stowedItems,
-      capacitySlots: 16,
-    });
-  }
-
-  if (totalSlots > 16 && equippedItems <= 9 && stowedItems <= 16) {
-    warnings.push({
-      code: "entityOverloaded",
-      message: `Total capacity exceeded (${totalSlots}/16 slots).`,
-      entityId: entity.id,
-      usedSlots: totalSlots,
-      capacitySlots: 16,
+      capacitySlots: stowedCapacity,
     });
   }
 
@@ -477,17 +507,14 @@ function getArmorClassWarnings(
 function getOverloadedReason(
   equippedRate: MovementRate | "overloaded",
   stowedRate: MovementRate | "overloaded",
-  globallyOverloaded: boolean,
   criticalContainerOverload: boolean,
   invalidUnheldContainer: boolean,
 ): CharacterEncumbranceResult["overloadedReason"] {
   const equippedOverloaded = equippedRate === "overloaded";
   const stowedOverloaded = stowedRate === "overloaded";
-  const rateOverloaded = equippedOverloaded || stowedOverloaded;
   const overloadKinds = [
     equippedOverloaded ? "equipped" : undefined,
     stowedOverloaded ? "stowed" : undefined,
-    globallyOverloaded && !rateOverloaded ? "both" : undefined,
     criticalContainerOverload ? "container" : undefined,
     invalidUnheldContainer ? "invalid" : undefined,
   ].filter(

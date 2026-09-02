@@ -20,8 +20,9 @@ This skill keeps changes to `simple`'s inventory engine consistent with its spec
 - **Character/retainer movement = slower of equipped-lookup and stowed-lookup** (compare by `explorationFeet`; encounter value matches the same row).
 - **Movement tables** (see spec for full table):
   - Equipped: `0–3→120/40`, `4–5→90/30`, `6–7→60/20`, `8–9→30/10`, `10+→overloaded`.
-  - Stowed: `0–10→120/40`, `11–12→90/30`, `13–14→60/20`, `15–16→30/10`, `17+→overloaded`.
-- **Overload → `0/0`** when: >9 equipped, >16 stowed, >16 total, a carried container over capacity, or a non-empty hands-required container that is NOT held/equipped.
+  - Stowed: `0–10→120/40`, `11–12→90/30`, `13–14→60/20`, `15–16→30/10`, `17+→overloaded`, with every stowed threshold shifted by the character's STR modifier (−3…+3; stowed capacity is `16 + mod`). Equipped never shifts.
+- **Overload → `0/0`** when: >9 equipped, >16+STR stowed, a carried container over capacity, or a non-empty hands-required container that is NOT held/equipped. There is **no** combined equipped+stowed limit.
+- **Stowed-root container has no own capacity** (`getContainerCapacity` → `undefined` at `stowedRoot`); the stowed limit governs the packed list.
 - **Held-container rule:** contents inside any hand-held container are EXCLUDED from movement burden, but the container itself still counts in its equipped hand. Use `getEffectiveCarryState` / the ancestor chain — never infer from a record's own `location.kind` alone.
 - **Containers always count their own slot burden** whether empty or full. Container used-capacity EXCLUDES the container's own burden.
 - **Backpack is a literal record** (`location.kind === "stowedRoot"`). **Coin purse is NOT a record** — it's a coin placement; the coin record counts toward stowed slots.

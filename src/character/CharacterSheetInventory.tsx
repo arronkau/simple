@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import {
   getCharacterEncumbrance,
   getEncumbranceWarnings,
@@ -11,26 +11,44 @@ import {
 } from "../model/inventoryDisplay";
 import { validateInventoryState } from "../model/validation";
 import type { AppState } from "../model/appState";
+import { isLitRecord } from "../model/lightSources";
 import type { Entity, InventoryRecord } from "../model/types";
+import type { InventoryMutationResult } from "../store/useAppStore";
 import { getRecordDisplayName } from "../formatters";
-import { CapBar, FreeBadge, capacityTone } from "../components/GearMeters";
+import { LoadReadout } from "../components/GearMeters";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { InventoryRowSummary } from "../inventory/InventoryDisplay";
-
-const CHARACTER_TOTAL_SLOT_CAPACITY = 16;
 
 export function CharacterSheetInventory({
   appState,
   entity,
   onStartAddRecord,
   onEditRecord,
+  onLightRecord,
+  onSnuffRecord,
 }: {
   appState: AppState;
   entity: Entity;
   onStartAddRecord?: (entity: Entity) => void;
   onEditRecord?: (record: InventoryRecord) => void;
+  onLightRecord?: (record: InventoryRecord) => InventoryMutationResult;
+  onSnuffRecord?: (record: InventoryRecord) => void;
 }) {
+  const [lightError, setLightError] = useState<string | undefined>();
   const records = appState.inventoryRecords;
+  const toggleLight =
+    onLightRecord && onSnuffRecord
+      ? (record: InventoryRecord) => {
+          if (isLitRecord(record)) {
+            setLightError(undefined);
+            onSnuffRecord(record);
+            return;
+          }
+
+          const result = onLightRecord(record);
+          setLightError(result.ok ? undefined : result.message);
+        }
+      : undefined;
   const sections = getInventorySections(entity, records);
   const ownedRecords = getOwnedRecords(entity.id, records);
   const warnings = getEncumbranceWarnings(entity, records);
@@ -50,8 +68,6 @@ export function CharacterSheetInventory({
   }
 
   const encumbrance = getCharacterEncumbrance(entity, records);
-  const totalSlots = encumbrance.equippedItems + encumbrance.stowedItems;
-  const tone = capacityTone(totalSlots, CHARACTER_TOTAL_SLOT_CAPACITY);
 
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
   const leftHandRecord = getRecordById(sections.handRecordIds.leftHand, records);
@@ -68,25 +84,13 @@ export function CharacterSheetInventory({
     <section className="sheet-inventory" aria-label={`${entity.name} inventory`}>
       <div className="sheet-inventory-header">
         <h6>Inventory</h6>
-        <span className="sheet-inventory-zones mono">
-          Eq {encumbrance.equippedItems} · St {encumbrance.stowedItems}
-        </span>
+        <LoadReadout encumbrance={encumbrance} />
         <WarningDetailsButton
           validationIssues={validationIssues}
           warnings={warnings}
         />
       </div>
-      <div className="sheet-inventory-meter">
-        <CapBar
-          used={totalSlots}
-          max={CHARACTER_TOTAL_SLOT_CAPACITY}
-          tone={tone}
-        />
-        <FreeBadge
-          free={CHARACTER_TOTAL_SLOT_CAPACITY - totalSlots}
-          tone={tone}
-        />
-      </div>
+      {lightError ? <p className="form-error">{lightError}</p> : null}
 
       <div className="sheet-inventory-group">
         <h6>Hands</h6>
@@ -98,6 +102,7 @@ export function CharacterSheetInventory({
                 record={record}
                 allRecords={records}
                 onOpenRecord={onEditRecord}
+                onToggleLight={toggleLight}
               />
             ) : (
               <span className="sheet-empty-value">—</span>
@@ -115,6 +120,7 @@ export function CharacterSheetInventory({
                 record={record}
                 allRecords={records}
                 onOpenRecord={onEditRecord}
+                onToggleLight={toggleLight}
               />
             </div>
           ))}
@@ -148,6 +154,7 @@ export function CharacterSheetInventory({
             record={record}
             records={records}
             onEditRecord={onEditRecord}
+            onToggleLight={toggleLight}
           />
         ))}
       </div>
@@ -170,11 +177,13 @@ function SheetInventoryRecordRow({
   records,
   depth,
   onEditRecord,
+  onToggleLight,
 }: {
   record: InventoryRecord;
   records: InventoryRecord[];
   depth: number;
   onEditRecord?: (record: InventoryRecord) => void;
+  onToggleLight?: (record: InventoryRecord) => void;
 }) {
   const contents = record.container
     ? getContainerContents(record, records)
@@ -187,6 +196,7 @@ function SheetInventoryRecordRow({
           record={record}
           allRecords={records}
           onOpenRecord={onEditRecord}
+          onToggleLight={onToggleLight}
         />
       </div>
       {contents.map((childRecord) => (
@@ -196,6 +206,7 @@ function SheetInventoryRecordRow({
           record={childRecord}
           records={records}
           onEditRecord={onEditRecord}
+          onToggleLight={onToggleLight}
         />
       ))}
     </Fragment>

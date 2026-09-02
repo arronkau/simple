@@ -1620,19 +1620,28 @@ tr.pt-dragging {
   flex: 1;
 }
 
-.sheet-inventory-zones {
+/* Load readout (LoadReadout): Eq n/9 · St n/16±STR, each side toned alone. */
+.load-readout {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
   font-size: 11.5px;
   color: var(--gear-muted);
+  white-space: nowrap;
 }
 
-.sheet-inventory-meter {
-  display: flex;
-  gap: 11px;
-  align-items: center;
+.load-readout .load-sep {
+  color: var(--gear-line-3);
 }
 
-.sheet-inventory-meter .cap {
-  flex: 1;
+.load-readout .load-part.warn {
+  color: var(--gear-load-warn);
+  font-weight: 600;
+}
+
+.load-readout .load-part.crit {
+  color: var(--gear-load-crit);
+  font-weight: 600;
 }
 
 .sheet-add-link {
@@ -1746,6 +1755,79 @@ tr.pt-dragging {
 .record-status-icon .inventory-icon {
   width: 13px;
   height: 13px;
+}
+
+/* Flame toggle beside a light source's name: grey off, fire when lit. */
+.light-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--gear-faint);
+  cursor: pointer;
+}
+
+.light-toggle .inventory-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.light-toggle:hover {
+  background: var(--gear-stowed);
+  color: var(--gear-ink-2);
+}
+
+.light-toggle[data-lit="true"] {
+  color: var(--gear-fire);
+  background: var(--gear-fire-tint);
+}
+
+.light-toggle[data-lit="true"]:hover {
+  background: var(--gear-fire-tint);
+  color: var(--gear-fire);
+}
+
+.modal-panel.snuff-modal {
+  width: min(100%, 440px);
+}
+
+.snuff-options {
+  gap: 8px;
+}
+
+.record-form .snuff-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.record-form .snuff-option input[type="radio"] {
+  margin: 3px 0 0;
+  width: auto;
+}
+
+.record-form .snuff-option > span {
+  display: grid;
+  gap: 2px;
+}
+
+.record-form .snuff-option > .snuff-turns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.record-form .snuff-turns input {
+  width: 64px;
 }
 
 .record-title-button {

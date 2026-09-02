@@ -341,10 +341,12 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         movement: { explorationFeet: 120, encounterFeet: 40 },
         overloaded: false,
         band: "normal",
+        strengthModifier: 0,
+        equippedCapacity: 9,
+        stowedCapacity: 16,
       },
       backpackUsage: {
         usedSlots: 5,
-        capacitySlots: 16,
       },
       sackUsage: {
         usedSlots: 3,
