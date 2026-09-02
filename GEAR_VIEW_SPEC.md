@@ -65,8 +65,11 @@ readout and the records / inline containers.
 
 Each row shows: display name (respecting identification — when
 `identified === false`, the public `name`/"Unidentified item" is shown, never
-secret fields), state markers (lit → flame + `light.lightDescription` + `uses`,
-unidentified marker, active-AC), and a quiet slot-cost indicator on the right.
+secret fields), state markers (a flame toggle on every light source — grey
+unlit, fire when lit, with `light.lightDescription` + `uses` in the title;
+clicking lights one item or opens the put-out dialog, same as the character
+sheet — plus the unidentified marker and active-AC), and a quiet slot-cost
+indicator on the right.
 The record name is the loudest element; chrome recedes; color is reserved for
 load/movement status, light, and the drag accent.
 

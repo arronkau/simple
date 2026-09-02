@@ -1757,6 +1757,16 @@ tr.pt-dragging {
   height: 13px;
 }
 
+.gear-page .leg-flame {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.gear-page .leg-flame .inventory-icon {
+  width: 13px;
+  height: 13px;
+}
+
 /* Flame toggle beside a light source's name: grey off, fire when lit. */
 .light-toggle {
   display: inline-flex;
