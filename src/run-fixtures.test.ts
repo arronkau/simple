@@ -21,6 +21,8 @@ import { SAVE_TABLES_MANUAL_FIXTURES } from "./model/saveTables.fixtures";
 import { STANDARD_ITEMS_MANUAL_FIXTURES } from "./model/standardItems.fixtures";
 import { VALIDATION_MANUAL_FIXTURES } from "./model/validation.fixtures";
 import { FIREBASE_CONFIG_MANUAL_FIXTURES } from "./persistence/firebaseConfig.fixtures";
+import { FIRESTORE_DOCUMENT_MANUAL_FIXTURES } from "./persistence/firestoreDocument.fixtures";
+import { PARTY_STATE_DIFF_MANUAL_FIXTURES } from "./persistence/partyStateDiff.fixtures";
 import {
   COIN_DRAG_TRANSFER_STORE_MANUAL_FIXTURES,
   HAND_BATCH_MOVE_STORE_MANUAL_FIXTURES,
@@ -59,6 +61,8 @@ const manualFixtures: ManualFixture[] = [
   ...ENTITY_MODEL_MANUAL_FIXTURES,
   ...ENCUMBRANCE_MANUAL_FIXTURES,
   ...FIREBASE_CONFIG_MANUAL_FIXTURES,
+  ...FIRESTORE_DOCUMENT_MANUAL_FIXTURES,
+  ...PARTY_STATE_DIFF_MANUAL_FIXTURES,
   ...INVENTORY_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES,
   ...INVENTORY_RECORDS_MANUAL_FIXTURES,

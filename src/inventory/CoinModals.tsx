@@ -441,7 +441,15 @@ export function getDefaultCoinRecordForEntity(
     .filter(
       (record) => record.entityId === entityId && record.recordType === "coins",
     )
-    .sort((recordA, recordB) => recordA.sortOrder - recordB.sortOrder)[0];
+    .sort((recordA, recordB) =>
+      recordA.sortOrder !== recordB.sortOrder
+        ? recordA.sortOrder - recordB.sortOrder
+        : recordA.id < recordB.id
+          ? -1
+          : recordA.id > recordB.id
+            ? 1
+            : 0,
+    )[0];
 }
 
 function toCoinSpendNumber(value: string): number {

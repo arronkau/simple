@@ -113,6 +113,16 @@ export function getSortedEntities(entities: Entity[]): Entity[] {
       return leftEntity.sortOrder - rightEntity.sortOrder;
     }
 
-    return leftEntity.name.localeCompare(rightEntity.name);
+    const nameComparison = leftEntity.name.localeCompare(rightEntity.name);
+
+    if (nameComparison !== 0) {
+      return nameComparison;
+    }
+
+    return leftEntity.id < rightEntity.id
+      ? -1
+      : leftEntity.id > rightEntity.id
+        ? 1
+        : 0;
   });
 }

@@ -17,6 +17,7 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 ## Data shape
 
 - Single document per party at `parties/{partyId}` (collection const: `FIREBASE_PARTY_STATE_COLLECTION` in [src/persistence/firebaseSync.ts](../../../src/persistence/firebaseSync.ts)). **No subcollections** — rules deny all `parties/{partyId}/{document=**}` defensively; keep it that way.
+- **Wire shape:** [SYNC_SPEC.md](../../../SYNC_SPEC.md) version 2 stores entities, inventory records, and user profiles as id-keyed maps; the model and localStorage keep their array shape, and the audit log remains an array.
 - Identity is the **Firebase Auth UID**, not the local user id. `party.gmUid` and the `party.members` map are keyed by UID. Role resolution: `resolvePartyRole(uid, gmUid, members)` → `"gm" | role | null`.
 
 ## Rules invariants (don't weaken without cause)
@@ -33,7 +34,7 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 - GM bypasses all checks (`role === "gm"` ⇒ true everywhere).
 - GM-only action sets: `GM_ONLY_PARTY_ACTIONS`, `GM_ONLY_ENTITY_ACTIONS`, `GM_ONLY_INVENTORY_ACTIONS`. Add new privileged actions to the right set, and the action to the corresponding `*Action` union type.
 - `assert*Action` throws `PermissionError` (codes: `not-authenticated | not-party-member | gm-only | protected-field | invalid-membership-update`).
-- **Secret inventory fields** (`identification.secretName`, `identification.secretDescription`) are GM-only and **cannot be validated in Firestore rules** (they're nested in the `inventoryRecords` array). They are enforced ONLY here via `getProtectedInventoryFieldViolations(patch)`. If you add a new secret/GM field, update this function — rules will not catch it.
+- **Secret inventory fields** (`identification.secretName`, `identification.secretDescription`) are GM-only and **cannot be validated in Firestore rules** (they're nested inside individual inventory records). They are enforced ONLY here via `getProtectedInventoryFieldViolations(patch)`. If you add a new secret/GM field, update this function — rules will not catch it.
 
 ## When you change permissions
 1. Update `firestore.rules` (party-level boundary) and `permissions.ts` (action/field granularity) together.

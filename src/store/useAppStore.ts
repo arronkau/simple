@@ -89,8 +89,14 @@ import {
   signOutFirebase,
   startFirebaseAppStateSync,
   type FirebaseAuthAccount,
-  type FirebaseWritePartyState,
+  type FirebaseWriter,
 } from "../persistence/firebaseSync";
+import { canonicalizePartyState } from "../persistence/firestoreDocument";
+import {
+  diffPartyStates,
+  mergeFieldUpdates,
+  type FieldUpdate,
+} from "../persistence/partyStateDiff";
 import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 export type AccountActionResult = { ok: true } | { ok: false; message: string };
@@ -1942,9 +1948,9 @@ export const useAppStore = create<AppStore>((set) => ({
 
 let applyingRemotePartyState = false;
 let firebaseUnsubscribe: (() => void) | undefined;
-let firebaseWritePartyState: FirebaseWritePartyState | undefined;
-let pendingFirebasePartyState: PartyState | undefined;
-let writingFirebaseAppState = false;
+let firebaseWriter: FirebaseWriter | undefined;
+let pendingFirebaseFieldUpdates: FieldUpdate[] = [];
+let writingFirebaseFieldUpdates = false;
 // Local state must never be written to Firebase before we know the remote
 // state. Otherwise a client that just loaded (e.g. a joining player whose
 // local party is empty) would clobber the real party document. This stays
@@ -1974,7 +1980,10 @@ useAppStore.subscribe((state, previousState) => {
   }
 
   if (state.persistenceMode === "firebase") {
-    queueFirebasePartyStateWrite(partyState);
+    const previousPartyState = getPartyStateFromStoreState(previousState);
+    queueFirebaseFieldUpdates(
+      diffPartyStates(previousPartyState, partyState),
+    );
   }
 });
 
@@ -2366,7 +2375,15 @@ function getDefaultCoinRecordForEntity(
     .filter(
       (record) => record.entityId === entityId && record.recordType === "coins",
     )
-    .sort((recordA, recordB) => recordA.sortOrder - recordB.sortOrder)[0];
+    .sort((recordA, recordB) =>
+      recordA.sortOrder !== recordB.sortOrder
+        ? recordA.sortOrder - recordB.sortOrder
+        : recordA.id < recordB.id
+          ? -1
+          : recordA.id > recordB.id
+            ? 1
+            : 0,
+    )[0];
 }
 
 function createInventoryMoveAuditEntryInput(input: {
@@ -2565,12 +2582,12 @@ async function startConfiguredFirebaseSync(): Promise<void> {
         members: migratedPartyState.party.members,
       });
     },
-    onReadyToWrite: (writePartyState) => {
+    onReadyToWrite: (writer) => {
       if (useAppStore.getState().partyId !== activePartyId) {
         return;
       }
 
-      firebaseWritePartyState = writePartyState;
+      firebaseWriter = writer;
       void flushFirebasePartyStateWrite();
     },
     onRemotePartyState: (partyState) => {
@@ -2601,16 +2618,19 @@ function stopConfiguredFirebaseSync(): void {
 }
 
 function resetFirebaseWriteQueue(): void {
-  firebaseWritePartyState = undefined;
-  pendingFirebasePartyState = undefined;
-  writingFirebaseAppState = false;
+  firebaseWriter = undefined;
+  pendingFirebaseFieldUpdates = [];
+  writingFirebaseFieldUpdates = false;
   firebaseFirstSnapshotHandled = false;
 }
 
-function queueFirebasePartyStateWrite(partyState: PartyState): void {
-  pendingFirebasePartyState = partyState;
+function queueFirebaseFieldUpdates(updates: FieldUpdate[]): void {
+  pendingFirebaseFieldUpdates = mergeFieldUpdates(
+    pendingFirebaseFieldUpdates,
+    updates,
+  );
 
-  if (!firebaseWritePartyState) {
+  if (!firebaseWriter || pendingFirebaseFieldUpdates.length === 0) {
     return;
   }
 
@@ -2619,36 +2639,37 @@ function queueFirebasePartyStateWrite(partyState: PartyState): void {
 
 async function flushFirebasePartyStateWrite(): Promise<void> {
   if (
-    !firebaseWritePartyState ||
-    !pendingFirebasePartyState ||
-    writingFirebaseAppState ||
+    !firebaseWriter ||
+    pendingFirebaseFieldUpdates.length === 0 ||
+    writingFirebaseFieldUpdates ||
     // Never write local state before the first remote snapshot is processed.
     !firebaseFirstSnapshotHandled
   ) {
     return;
   }
 
-  const partyState = pendingFirebasePartyState;
-  pendingFirebasePartyState = undefined;
-  writingFirebaseAppState = true;
+  const writer = firebaseWriter;
+  const updates = pendingFirebaseFieldUpdates;
+  pendingFirebaseFieldUpdates = [];
+  writingFirebaseFieldUpdates = true;
   setSyncMetadata("saving");
 
   try {
-    await firebaseWritePartyState(partyState);
-    writingFirebaseAppState = false;
+    await writer.applyFieldUpdates(updates);
+    writingFirebaseFieldUpdates = false;
 
-    if (pendingFirebasePartyState) {
+    if (pendingFirebaseFieldUpdates.length > 0) {
       void flushFirebasePartyStateWrite();
       return;
     }
 
     setSyncMetadata("synced");
   } catch (error) {
-    writingFirebaseAppState = false;
-
-    if (!pendingFirebasePartyState) {
-      pendingFirebasePartyState = partyState;
-    }
+    writingFirebaseFieldUpdates = false;
+    pendingFirebaseFieldUpdates = mergeFieldUpdates(
+      updates,
+      pendingFirebaseFieldUpdates,
+    );
 
     setSyncMetadata("error", formatSyncError(error));
   }
@@ -2662,7 +2683,7 @@ function applyRemotePartyState(partyState: PartyState): void {
   // must be discarded so it can't overwrite the real party.
   if (!firebaseFirstSnapshotHandled) {
     firebaseFirstSnapshotHandled = true;
-    pendingFirebasePartyState = undefined;
+    pendingFirebaseFieldUpdates = [];
   }
 
   const currentState = useAppStore.getState();
@@ -2704,7 +2725,10 @@ function arePartyStatesEqual(
   leftPartyState: PartyState,
   rightPartyState: PartyState,
 ): boolean {
-  return JSON.stringify(leftPartyState) === JSON.stringify(rightPartyState);
+  return (
+    JSON.stringify(canonicalizePartyState(leftPartyState)) ===
+    JSON.stringify(canonicalizePartyState(rightPartyState))
+  );
 }
 
 function getPartyStateFromStoreState(

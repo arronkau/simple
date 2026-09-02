@@ -7,7 +7,16 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, FieldPath } from "firebase/firestore";
+import {
+  arrayUnion,
+  deleteDoc,
+  deleteField,
+  doc,
+  FieldPath,
+  getDoc,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 
 const PROJECT_ID = "simple-rules-test";
 const GM = "uid-gm";
@@ -18,6 +27,7 @@ const INVITE = "abcdefgh1234567890ab";
 function party(overrides = {}) {
   return {
     schemaVersion: 1,
+    wireVersion: 2,
     party: {
       id: "party-1",
       displayName: "Test Party",
@@ -29,8 +39,22 @@ function party(overrides = {}) {
       inviteCode: INVITE,
       ...overrides,
     },
-    appState: { schemaVersion: 1, entities: [], inventoryRecords: [], auditLog: [] },
-    userProfiles: [],
+    appState: { schemaVersion: 1, entities: {}, inventoryRecords: {}, auditLog: [] },
+    userProfiles: {},
+  };
+}
+
+function legacyParty(overrides = {}) {
+  const current = party(overrides);
+  const { wireVersion: _wireVersion, ...legacy } = current;
+  return {
+    ...legacy,
+    appState: {
+      ...legacy.appState,
+      entities: Object.values(legacy.appState.entities),
+      inventoryRecords: Object.values(legacy.appState.inventoryRecords),
+    },
+    userProfiles: Object.values(legacy.userProfiles),
   };
 }
 
@@ -93,8 +117,8 @@ const cases = [
   ["player can perform allowed writes", async () => {
     await seed();
     const next = party();
-    next.appState.entities = [{ id: "entity-1", name: "Fighter" }];
-    next.userProfiles = [{ id: PLAYER, displayName: "P", role: "Player", updatedAt: "x" }];
+    next.appState.entities = { "entity-1": { id: "entity-1", name: "Fighter" } };
+    next.userProfiles = { [PLAYER]: { id: PLAYER, displayName: "P", role: "Player", updatedAt: "x" } };
     await assertSucceeds(setDoc(ref(as(PLAYER)), next));
   }],
   ["player cannot rename party", async () => {
@@ -184,7 +208,7 @@ const cases = [
     await seed();
     const smuggled = party();
     smuggled.party.members[STRANGER] = joinEntry();
-    smuggled.appState.entities = [{ id: "entity-1", name: "Smuggled" }];
+    smuggled.appState.entities = { "entity-1": { id: "entity-1", name: "Smuggled" } };
     await assertFails(setDoc(ref(as(STRANGER)), smuggled));
   }],
   ["existing member cannot re-join to change role", async () => {
@@ -200,6 +224,92 @@ const cases = [
     const sub = doc(as(GM).firestore(), "parties", "party-1", "secrets", "x");
     await assertFails(setDoc(sub, { a: 1 }));
     await assertFails(getDoc(sub));
+  }],
+  ["v2 player field update on one entity succeeds", async () => {
+    await seed();
+    await assertSucceeds(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("appState", "entities", "entity-1"),
+      { id: "entity-1", name: "Fighter", sortOrder: 0 },
+    ));
+  }],
+  ["v2 player field delete on one inventory record succeeds", async () => {
+    const seeded = party();
+    seeded.appState.inventoryRecords["record-1"] = {
+      id: "record-1",
+      entityId: "entity-1",
+      name: "Rope",
+      sortOrder: 0,
+    };
+    await seed(seeded);
+    await assertSucceeds(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("appState", "inventoryRecords", "record-1"),
+      deleteField(),
+    ));
+  }],
+  ["v2 player arrayUnion on the audit log succeeds", async () => {
+    await seed();
+    await assertSucceeds(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("appState", "auditLog"),
+      arrayUnion({ id: "audit-1", summary: "Moved rope" }),
+    ));
+  }],
+  ["v2 player field update on their own user profile succeeds", async () => {
+    await seed();
+    await assertSucceeds(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("userProfiles", PLAYER),
+      { id: PLAYER, displayName: "Player", role: "Player" },
+    ));
+  }],
+  ["v2 player field updates on protected party fields fail", async () => {
+    await seed();
+    await assertFails(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("party", "displayName"),
+      "Hijacked",
+    ));
+    await assertFails(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("party", "inviteCode"),
+      "new-invite-code",
+    ));
+    await assertFails(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("party", "members", STRANGER),
+      { role: "player" },
+    ));
+    await assertFails(updateDoc(
+      ref(as(PLAYER)),
+      new FieldPath("party", "gmUid"),
+      PLAYER,
+    ));
+  }],
+  ["v2 GM field updates on members and invite code succeed", async () => {
+    await seed();
+    await assertSucceeds(updateDoc(
+      ref(as(GM)),
+      new FieldPath("party", "members", STRANGER),
+      { role: "player" },
+      new FieldPath("party", "inviteCode"),
+      "new-invite-code",
+    ));
+  }],
+  ["legacy player shape-only upgrade succeeds but rename fails", async () => {
+    await seed(legacyParty());
+    await assertSucceeds(setDoc(ref(as(PLAYER)), party()));
+    await seed(legacyParty());
+    await assertFails(setDoc(ref(as(PLAYER)), party({ displayName: "Changed" })));
+  }],
+  ["invite join still succeeds against a v2 party", async () => {
+    await seed();
+    await assertSucceeds(updateDoc(
+      ref(as(STRANGER)),
+      memberPath(STRANGER),
+      joinEntry(),
+    ));
   }],
 ];
 
