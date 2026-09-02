@@ -12,6 +12,9 @@ export type PartyMember = {
   role: PartyRole;
   joinedAt?: ISODateTimeString;
   displayName?: string;
+  // The party invite code this member joined with. Firestore rules compare it
+  // to party.inviteCode when a non-member adds themselves.
+  inviteCode?: string;
 };
 
 export type PartyMembers = Record<string, PartyMember>;

@@ -71,7 +71,10 @@ Use Firebase mode when all required Firebase environment variables are present.
 
 Firebase mode should:
 
-- Use Firebase anonymous auth.
+- Use Firebase anonymous auth so a first visit needs no account.
+- Let any user upgrade the anonymous session to a Google account (account linking keeps the same UID, so GM and member status survive). If the Google account is already bound to another Firebase user, sign in as that user instead and re-resolve membership.
+- Grant party access by membership, not by URL. The party URL alone does not let a new user read the party.
+- Let the GM share an invite link (`/party/{partyId}?invite={inviteCode}`). Opening it as a non-member adds the user to `party.members` as a player. The GM can regenerate the invite code to invalidate old links.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.

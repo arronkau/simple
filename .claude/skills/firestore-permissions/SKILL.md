@@ -21,11 +21,12 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 
 ## Rules invariants (don't weaken without cause)
 
-- **read:** authenticated party member only (`isAuthenticatedMember`).
+- **read:** authenticated party member (`isMember`), or any authenticated user when the document does not exist (`resource == null`) so a client can discover it must create the party.
 - **create:** caller must set themselves as `gmUid` AND be in `members`.
-- **update:** member AND (`isGm()` OR `isAllowedPlayerUpdate()`).
+- **update:** `isGm()` OR (`isMember()` AND `isAllowedPlayerUpdate()`) OR `isInviteJoin()`.
 - **delete:** GM only.
-- **GM-only party-level fields** a player update must NOT change: `party.gmUid`, `party.members`, `party.displayName`. If you add another protected party-level field, add it to `isAllowedPlayerUpdate()`.
+- **GM-only party-level fields** a player update must NOT change: `party.gmUid`, `party.members`, `party.displayName`, `party.inviteCode`. If you add another protected party-level field, add it to `isAllowedPlayerUpdate()`.
+- **Invite join** (`isInviteJoin`): a signed-in non-member may add exactly one entry, `party.members[ownUid]`, with `role == 'player'` and `inviteCode == party.inviteCode`, via `updateDoc` with a `FieldPath("party","members",uid)`. Nothing else may change (`diff().affectedKeys()` checks at document, party, and members level). The client side is `joinPartyWithInvite` in `firebaseSync.ts`: probe with `getDoc`, join only on `permission-denied`.
 
 ## App-layer model (`permissions.ts`)
 
@@ -37,8 +38,12 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 ## When you change permissions
 1. Update `firestore.rules` (party-level boundary) and `permissions.ts` (action/field granularity) together.
 2. Add fixtures to [src/model/permissions.fixtures.ts](../../../src/model/permissions.fixtures.ts) covering both allowed and denied paths (incl. the `PermissionError` code). This repo uses manual fixtures — see the `encumbrance-rules` skill for the convention; run `npm test && npm run typecheck`.
-3. **Rules are not covered by `npm test`.** There is an open TODO at the top of `firestore.rules` listing the required emulator-based test cases (non-member read/write denied, player cannot edit party settings/members, GM admin writes, subcollection denial). If you touch rules, exercise those cases against the Firestore emulator manually before relying on them.
+3. **Rules are not covered by `npm test`.** Run `npm run test:rules` (Firestore emulator via `firebase-tools`, needs a Java runtime). Cases live in [scripts/test-rules.mjs](../../../scripts/test-rules.mjs); add a case for every rule change, allowed and denied.
 4. Consider running `/security-review` on rules or permission changes.
+
+## Auth / identity
+- Sessions start anonymous. `linkOrSignInWithGoogle` in `firebaseSync.ts` links Google to the anonymous user (UID unchanged). On `auth/credential-already-in-use` it signs in as the existing Google-bound user instead; the UID changes and the store restarts sync so role is re-resolved. Sign-out restarts sync under a new anonymous UID.
+- Google sign-in requires the Google provider enabled in Firebase Auth and the hosting domain in Auth → Authorized domains.
 
 ## Gotchas
 - A previously-fixed bug: GM identity was lost when the Firebase UID differed from the local user id (commit 16db8d6). Anything new that maps local ids ↔ UIDs must preserve GM resolution — test with `gmUid !== localUserId`.

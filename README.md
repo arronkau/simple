@@ -81,6 +81,22 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=
 VITE_FIREBASE_APP_ID=
 ```
 
+In the Firebase console, enable **Authentication → Sign-in method → Anonymous** and **Google**, and create a Firestore database. Deploy the rules and (optionally) hosting with:
+
+```bash
+npm run build && npx firebase deploy --only firestore:rules,hosting
+```
+
+Access model in Firebase mode: the GM shares the **invite link** from Manage → Party; anyone who opens it joins as a player. The plain party URL does not grant access. Any user can sign in with Google from Manage → Account so their role survives cleared browser data or a new device.
+
+### Security rules tests
+
+```bash
+npm run test:rules
+```
+
+Runs `scripts/test-rules.mjs` against the Firestore emulator (requires a Java runtime).
+
 ## Project Documents
 
 The main project documents are:
