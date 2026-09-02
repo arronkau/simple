@@ -67,6 +67,8 @@ const AUDIT_EVENT_TYPES: AuditEventType[] = [
   "inventoryRecordDeleted",
   "inventoryRecordIdentified",
   "inventoryRecordMoved",
+  "inventoryRecordLit",
+  "inventoryRecordSnuffed",
   "coinsChanged",
   "treasureValueChanged",
 ];

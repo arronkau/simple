@@ -22,7 +22,7 @@ The app should display `stowed`, not `packed`.
 
 For character-like entities, movement rate is determined by looking up both equipped items and packed/stowed items, then using the slower movement rate.
 
-Rules table:
+Rules table (stowed thresholds are shown for STR modifier 0; see the Strength Modifier Rule):
 
 | Equipped items | Stowed items | Movement rate |
 |---:|---:|---:|
@@ -34,8 +34,8 @@ Rules table:
 Maximum load:
 
 - More than 9 equipped items means the character cannot move.
-- More than 16 stowed items means the character cannot move.
-- More than 16 total equipped + stowed items means the character cannot move.
+- More than 16 + STR modifier stowed items means the character cannot move.
+- There is no combined equipped + stowed limit. The sheet has two independent lists; each is checked on its own.
 - A container over capacity on a character-like entity is an overload condition and the character cannot move.
 - A non-empty hands-required container left at equipped/loose (not held in a hand) is an overload condition and the character cannot move. Hands requirements are not enforced at `stowedRoot`, inside another container, or in non-character contents.
 
@@ -67,6 +67,9 @@ export type CharacterEncumbranceResult = {
   overloaded: boolean;
   overloadedReason?: "equipped" | "stowed" | "both" | "container" | "invalid";
   band: EncumbranceBand;
+  strengthModifier: number;
+  equippedCapacity: number; // 9
+  stowedCapacity: number; // 16 + strengthModifier
 };
 
 export type ContentsCapacityResult = {
@@ -222,9 +225,8 @@ Steps:
 5. Sum effective slot burden for records contributing to stowed burden.
 6. Look up equipped movement rate.
 7. Look up stowed movement rate.
-8. Compute total equipped + stowed burden.
-9. If either side is overloaded, total burden exceeds 16, a carried container is over capacity, or a non-empty hands-required container sits at equipped/loose, return movement `0 / 0`.
-10. Otherwise return the slower movement rate.
+8. If either side is overloaded, a carried container is over capacity, or a non-empty hands-required container sits at equipped/loose, return movement `0 / 0`.
+9. Otherwise return the slower movement rate.
 
 ## Non-Character Capacity
 
@@ -252,13 +254,21 @@ capacitySlots = Math.floor(coinCapacity / 100)
 
 ## Strength Modifier Rule
 
-The STR modifier adjusts stowed item thresholds.
+Source: the OSE Advanced Fantasy character sheet's Packed Items list. Its rows
+have fixed movement-band boundaries, and the top rows are labelled STR 18+,
+16+, 13+, 9+, 6+, 4+. A character keeps the rows at or below their STR label,
+so the STR modifier (−3 to +3) removes or adds rows at the top of the list and
+every packed threshold shifts by it. The app applies this rule always (this
+campaign uses it); it is not a setting.
 
-If later implemented:
+- `strengthModifier` = the character's ability-score modifier for STR; 0 when
+  STR is blank or the entity has no character data. Retainers use the same rule.
+- Stowed lookup uses `stowedItems − strengthModifier` against the table above.
+- Stowed capacity = `16 + strengthModifier` (13 to 19).
+- Equipped thresholds and the equipped limit of 9 never change.
 
-- apply the character's melee STR modifier to stowed thresholds only;
-- do not apply it to equipped thresholds;
-- keep it behind an explicit setting.
+Worked example, STR 18 (+3): 13 stowed → 120', 15 → 90', 17 → 60', 19 → 30',
+20 → overloaded. STR 3 (−3): 7 stowed → 120', 13 → 30', 14 → overloaded.
 
 ## Examples
 
@@ -302,7 +312,7 @@ Result:
 overloaded, 0' / 0'
 ```
 
-Reason: more than 16 stowed items.
+Reason: more than 16 stowed items (STR modifier 0).
 
 ### Example 3 — Equipped Overload
 
@@ -382,11 +392,16 @@ Stowed count contribution:
 3
 ```
 
-Visible backpack capacity:
+Visible backpack usage:
 
 ```text
-3 / 16
+3 / —
 ```
+
+The top-level stowed container has no capacity of its own while it is the
+stowed root: the stowed limit (16 + STR modifier) governs the packed list. Its
+catalog `capacitySlots` applies again if it is carried in hand or packed
+inside something else.
 
 ### Example 6 — Yost Containers
 
@@ -409,8 +424,9 @@ Yost (equipped 0 / stowed 1 / total 1)
   - treasure item
 ```
 
-The backpack capacity display is `1 / 16`; the backpack's own fixed slot does
-not count toward movement while it is the stowed root.
+The backpack shows `1 / —` (no capacity of its own at the stowed root); the
+backpack's own fixed slot does not count toward movement while it is the
+stowed root.
 
 Loaded backpack with empty sack:
 
@@ -457,10 +473,12 @@ backpack's own burden does not.
 - The app uses `stowed` internally/display-wise for the PDF's `packed` category.
 - Character/retainer movement uses the slower of equipped and stowed movement lookups.
 - 10+ equipped items causes overloaded movement `0 / 0`.
-- 17+ stowed items causes overloaded movement `0 / 0`.
-- More than 16 total equipped + stowed items causes overloaded movement `0 / 0`.
+- Stowed items above 16 + STR modifier cause overloaded movement `0 / 0`; the
+  STR modifier shifts every stowed threshold and never touches equipped.
+- Equipped + stowed above 16 is not, by itself, an overload.
 - Container over its resolved capacity on a character-like entity causes
-  overloaded movement `0 / 0`; undefined capacity is not an overload.
+  overloaded movement `0 / 0`; undefined capacity is not an overload. A
+  container at `stowedRoot` has undefined capacity (the stowed limit governs).
 - A non-empty hands-required container at equipped/loose causes overloaded movement `0 / 0`. The same container at `stowedRoot` (worn), nested inside another container (packed cargo), in non-character contents, or in a hand does not.
 - Mounts, vehicles, and storage use contents capacity, not equipped/stowed bands.
 - Backpack is a literal inventory record; while its own location is

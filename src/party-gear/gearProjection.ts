@@ -58,10 +58,9 @@ export function projectMove(
 
   if (isCharacterLikeEntity(entity)) {
     const encumbrance = getCharacterEncumbrance(entity, nextRecords);
-    const total = encumbrance.equippedItems + encumbrance.stowedItems;
 
     return {
-      text: `eq ${encumbrance.equippedItems} · st ${encumbrance.stowedItems} · tot ${total}/16`,
+      text: `eq ${encumbrance.equippedItems}/${encumbrance.equippedCapacity} · st ${encumbrance.stowedItems}/${encumbrance.stowedCapacity}`,
       invalid: encumbrance.overloaded || !validation.valid,
     };
   }

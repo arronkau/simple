@@ -18,6 +18,7 @@ import type {
   Entity,
   EntityId,
   InventoryRecord,
+  InventoryRecordId,
 } from "./model/types";
 import { FIREBASE_PARTY_STATE_COLLECTION } from "./persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "./persistence/types";
@@ -37,6 +38,8 @@ import {
 } from "./view-types";
 import { EntityCreateModal, EntityEditModal } from "./entity/EntityModals";
 import { InventoryRecordModal } from "./inventory/InventoryRecordModal";
+import { SnuffLightModal } from "./inventory/LightModals";
+import type { SnuffOutcome } from "./model/lightSources";
 import { PartyGearPage } from "./party-gear/PartyGearPage";
 import { PartyPage } from "./pages/PartyPage";
 import { CharactersPage } from "./pages/CharactersPage";
@@ -88,6 +91,12 @@ function LocalAppShell() {
     (state) => state.identifyInventoryRecord,
   );
   const spendCoins = useAppStore((state) => state.spendCoins);
+  const lightInventoryRecord = useAppStore(
+    (state) => state.lightInventoryRecord,
+  );
+  const snuffInventoryRecord = useAppStore(
+    (state) => state.snuffInventoryRecord,
+  );
   const transferCoins = useAppStore((state) => state.transferCoins);
   const deleteInventoryRecord = useAppStore(
     (state) => state.deleteInventoryRecord,
@@ -115,6 +124,10 @@ function LocalAppShell() {
   const [coinTransferForm, setCoinTransferForm] = useState<
     CoinTransferFormState | undefined
   >();
+  const [snuffRecordId, setSnuffRecordId] = useState<
+    InventoryRecordId | undefined
+  >();
+  const [snuffMessage, setSnuffMessage] = useState<string | undefined>();
   const [recordFormMessage, setRecordFormMessage] = useState<
     string | undefined
   >();
@@ -298,6 +311,32 @@ function LocalAppShell() {
 
     setRecordFormMessage(undefined);
     setDeleteConfirmation(undefined);
+  }
+
+  function startSnuffingLight(record: InventoryRecord) {
+    setSnuffRecordId(record.id);
+    setSnuffMessage(undefined);
+  }
+
+  function cancelSnuffingLight() {
+    setSnuffRecordId(undefined);
+    setSnuffMessage(undefined);
+  }
+
+  function submitSnuffLight(outcome: SnuffOutcome) {
+    if (!snuffRecordId) {
+      return;
+    }
+
+    const result = snuffInventoryRecord(snuffRecordId, outcome);
+
+    if (!result.ok) {
+      setSnuffMessage(result.message);
+      return;
+    }
+
+    setSnuffRecordId(undefined);
+    setSnuffMessage(undefined);
   }
 
   function startSpendingCoins(record: InventoryRecord) {
@@ -495,6 +534,8 @@ function LocalAppShell() {
                 onAdjustSpellMemorized={adjustCharacterSpellMemorized}
                 onStartAddRecord={startAddingRecord}
                 onEditRecord={startEditingRecord}
+                onLightRecord={(record) => lightInventoryRecord(record.id)}
+                onSnuffRecord={startSnuffingLight}
                 onSetEntityActive={setEntityActive}
                 onReorderEntity={reorderEntity}
               />
@@ -584,6 +625,16 @@ function LocalAppShell() {
             onCancel={cancelCreatingEntity}
             onChange={setFormState}
             onSubmit={handleCreateEntity}
+          />
+        ) : null}
+
+        {snuffRecordId ? (
+          <SnuffLightModal
+            key={snuffRecordId}
+            message={snuffMessage}
+            record={getRecordById(snuffRecordId, appState.inventoryRecords)}
+            onCancel={cancelSnuffingLight}
+            onSubmit={submitSnuffLight}
           />
         ) : null}
 

@@ -33,7 +33,10 @@ import type {
   EntityId,
   InventoryRecord,
 } from "../model/types";
-import type { EntityMutationResult } from "../store/useAppStore";
+import type {
+  EntityMutationResult,
+  InventoryMutationResult,
+} from "../store/useAppStore";
 import {
   formatMovementFeet,
   formatNullablePartyNumber,
@@ -54,6 +57,8 @@ export function CharacterSheet({
   onEdit,
   onStartAddRecord,
   onEditRecord,
+  onLightRecord,
+  onSnuffRecord,
 }: {
   appState: AppState;
   entity: Entity;
@@ -67,6 +72,8 @@ export function CharacterSheet({
   onEdit: () => void;
   onStartAddRecord: (entity: Entity) => void;
   onEditRecord: (record: InventoryRecord) => void;
+  onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
+  onSnuffRecord: (record: InventoryRecord) => void;
 }) {
   const [quickError, setQuickError] = useState<string | undefined>();
   const character = normalizeCharacterData(entity.character);
@@ -369,6 +376,8 @@ export function CharacterSheet({
               entity={entity}
               onStartAddRecord={onStartAddRecord}
               onEditRecord={onEditRecord}
+              onLightRecord={onLightRecord}
+              onSnuffRecord={onSnuffRecord}
             />
           </section>
         </div>

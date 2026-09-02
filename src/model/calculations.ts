@@ -218,6 +218,12 @@ export function getContainerCapacity(
     return undefined;
   }
 
+  // The top-level stowed container is the character's packed list: the
+  // stowed slot limit (16 + STR modifier) governs it, not its own capacity.
+  if (containerRecord.location.kind === "stowedRoot") {
+    return undefined;
+  }
+
   if (
     container.capacityByHands &&
     containerRecord.location.kind === "equipped"

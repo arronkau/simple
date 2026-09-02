@@ -55,6 +55,7 @@ import { getEntityInventoryStatus } from "../entity/EntityStatus";
 import {
   CapBar,
   FreeBadge,
+  LoadReadout,
   SlotPips,
   capacityTone,
   type LoadTone,
@@ -563,8 +564,6 @@ function CharacterGearCard({
   ) as CharacterInventorySections;
   const encumbrance = getCharacterEncumbrance(entity, records);
   const status = getEntityInventoryStatus(entity, appState);
-  const total = encumbrance.equippedItems + encumbrance.stowedItems;
-  const tone = capacityTone(total, 16);
   const subtitle = formatCharacterSubtitle(entity);
   const backpack = sections.topLevelStowedContainerRecord;
   const defaultTarget: GearDropTarget = backpack
@@ -590,8 +589,7 @@ function CharacterGearCard({
           />
         </div>
         <div className="meter">
-          <CapBar used={total} max={16} tone={tone} />
-          <FreeBadge free={16 - total} tone={tone} />
+          <LoadReadout encumbrance={encumbrance} />
         </div>
       </EntityHeaderDrop>
 
@@ -961,15 +959,17 @@ function ContainerBlock({
         zoneKey={zoneKey}
         index={index}
       >
-        <>
-          <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
-          {usage.capacitySlots !== undefined ? (
+        {usage.capacitySlots !== undefined ? (
+          <>
+            <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
             <FreeBadge
               free={usage.capacitySlots - usage.usedSlots}
               tone={overCapacity ? "crit" : tone}
             />
-          ) : null}
-        </>
+          </>
+        ) : (
+          <span className="capnum">{usage.usedSlots} slots</span>
+        )}
       </ContainerHeader>
       <div className={`cbody${contents.length === 0 ? " empty" : ""}`}>
         <RecordList

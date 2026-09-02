@@ -40,8 +40,8 @@ Mirrors the canonical inventory layout, restyled:
 
 - **Header** — name (serif), `className` + `level` subtitle, an OSE movement
   badge `120′ (40′)` colored by tier (normal / amber / red; overloaded shows
-  `0′`), and an encumbrance line `equipped X · stowed Y · total Z/16` (plus the
-  overload reason when overloaded).
+  `0′`), and a load readout `Eq X/9 · St Y/16±STR` — each side against its own
+  limit, no combined total (plus the overload reason when overloaded).
 - **Ready** (the `equipped` zone, accent left edge) — uppercase "Ready" label;
   hands stacked vertically (a single full-width "Both hands" slot when a
   `bothHands` record is equipped, otherwise "Left" and "Right" rows); then a
@@ -147,8 +147,8 @@ On `onDragOver`, the hovered zone shows a projection pill computed by the
 move applied (the move is resolved with the same `createInventoryLocation` +
 pure `moveInventoryRecord` the store uses):
 
-- character-like target → `eq X · st Y · tot Z/16`; pill + ring turn red if the
-  move would overload (equipped > 9, stowed > 16, total > 16, a carried
+- character-like target → `eq X/9 · st Y/16±STR`; pill + ring turn red if the
+  move would overload (equipped > 9, stowed > 16 + STR modifier, a carried
   container over capacity, or a non-empty hands-required container left unheld).
 - contents target → `used/capacity`; red if it would exceed `capacitySlots`.
 - coins over a character-like target → a neutral `→ purse` pill (the drop opens

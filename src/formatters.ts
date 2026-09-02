@@ -415,9 +415,7 @@ export function getDeleteConfirmationMessage(
   }
 
   if (record.container && record.location.kind === "stowedRoot") {
-    return `Confirm delete stowed container "${displayName}" with ${formatContainerCapacityLimit(
-      record,
-    )}? This may make stowed inventory invalid.`;
+    return `Confirm delete stowed container "${displayName}"? This may make stowed inventory invalid.`;
   }
 
   if (record.container) {
