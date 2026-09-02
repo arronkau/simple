@@ -3,6 +3,7 @@ import {
   getCoinCount,
   getCoinGpValue,
   getCoinSlotBurden,
+  getContainerCapacity,
   getContainerSlotUsage,
   getContentsSlots,
   getEffectiveRecordAndContentsSlotBurden,
@@ -154,6 +155,26 @@ const sackRecord: InventoryRecord = {
   },
 };
 
+const handCapacitySackRecord: InventoryRecord = {
+  ...sackRecord,
+  id: "hand-capacity-sack-1",
+  location: { kind: "equipped", placement: "leftHand" },
+  burden: { kind: "none" },
+  container: {
+    capacityByHands: { oneHand: 6, twoHands: 12 },
+  },
+};
+
+const twoHandedCapacitySackRecord: InventoryRecord = {
+  ...handCapacitySackRecord,
+  location: { kind: "equipped", placement: "bothHands" },
+};
+
+const stowedCapacitySackRecord: InventoryRecord = {
+  ...handCapacitySackRecord,
+  location: { kind: "container", containerId: "backpack-1" },
+};
+
 const rationsRecord: InventoryRecord = {
   id: "rations-1",
   recordType: "equipment",
@@ -287,6 +308,21 @@ const ringRecord: InventoryRecord = {
 };
 
 export const CALCULATION_MANUAL_FIXTURES = [
+  {
+    name: "container capacity resolves fixed and hand-dependent placements",
+    actual: {
+      fixed: getContainerCapacity(sackRecord),
+      oneHand: getContainerCapacity(handCapacitySackRecord),
+      twoHands: getContainerCapacity(twoHandedCapacitySackRecord),
+      stowed: getContainerCapacity(stowedCapacitySackRecord) ?? null,
+    },
+    expected: {
+      fixed: 6,
+      oneHand: 6,
+      twoHands: 12,
+      stowed: null,
+    },
+  },
   {
     name: "coins count, value, and slots",
     actual: {

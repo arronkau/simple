@@ -812,7 +812,28 @@ function normalizeContainer(
   }
 
   return {
-    capacitySlots: Math.max(0, normalizeNumber(container.capacitySlots, 0)),
+    ...(container.capacitySlots !== undefined
+      ? {
+          capacitySlots: Math.max(
+            0,
+            normalizeNumber(container.capacitySlots, 0),
+          ),
+        }
+      : {}),
+    ...(container.capacityByHands
+      ? {
+          capacityByHands: {
+            oneHand: Math.max(
+              0,
+              normalizeInteger(container.capacityByHands.oneHand, 0),
+            ),
+            twoHands: Math.max(
+              0,
+              normalizeInteger(container.capacityByHands.twoHands, 0),
+            ),
+          },
+        }
+      : {}),
     ...(container.burdenMode
       ? { burdenMode: container.burdenMode as ContainerBurdenMode }
       : {}),

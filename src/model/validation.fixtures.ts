@@ -485,6 +485,24 @@ const treasureContainerRecord = {
   },
 } as unknown as InventoryRecord;
 
+const incompleteHandCapacityRecord = {
+  ...carriedBackpackRecord,
+  id: "incomplete-hand-capacity-1",
+  location: { kind: "equipped", placement: "loose" },
+  container: {
+    capacityByHands: { oneHand: 6 },
+  },
+} as unknown as InventoryRecord;
+
+const negativeHandCapacityRecord = {
+  ...carriedBackpackRecord,
+  id: "negative-hand-capacity-1",
+  location: { kind: "equipped", placement: "loose" },
+  container: {
+    capacityByHands: { oneHand: -1, twoHands: 12 },
+  },
+} as unknown as InventoryRecord;
+
 const validCharacterResult = validateInventoryState(
   [characterEntity],
   [topLevelStowedContainerRecord, ropeRecord, characterCoinsRecord],
@@ -565,6 +583,15 @@ const validNestedContainmentResult = validateInventoryState(
     storageCrateRecord,
     nestedContainerRecord,
     insideNestedContainerRecord,
+  ],
+);
+
+const invalidContainerDataResult = validateInventoryState(
+  [characterEntity],
+  [
+    topLevelStowedContainerRecord,
+    incompleteHandCapacityRecord,
+    negativeHandCapacityRecord,
   ],
 );
 
@@ -746,6 +773,19 @@ export const VALIDATION_MANUAL_FIXTURES = [
     expected: {
       valid: true,
       errors: {},
+      warnings: {},
+    },
+  },
+  {
+    name: "container hand-capacity structure requires two non-negative integers",
+    actual: {
+      valid: invalidContainerDataResult.valid,
+      errors: summarizeIssues(invalidContainerDataResult.errors),
+      warnings: summarizeIssues(invalidContainerDataResult.warnings),
+    },
+    expected: {
+      valid: false,
+      errors: { invalidContainerData: 2 },
       warnings: {},
     },
   },

@@ -26,8 +26,7 @@ const fixed = (slotsPerItem: number) =>
 const stacked = (itemsPerSlot: number) =>
   ({ kind: "stacked", itemsPerSlot }) as const;
 
-// Hand-transcribed from handouts/Equipment.html. The campaign Sack is the
-// handout's 44th gear row, but its catalog record lands in PR 2.
+// Hand-transcribed from handouts/Equipment.html.
 const HANDOUT_ROSTER: HandoutRosterEntry[] = [
   { section: "armor", slug: "padded", expected: { gpValue: 5, quantity: 1, burden: fixed(1), armor: { baseArmorClass: 11 } } },
   { section: "armor", slug: "furs", expected: { gpValue: 10, quantity: 1, burden: fixed(1), armor: { baseArmorClass: 12 } } },
@@ -105,6 +104,7 @@ const HANDOUT_ROSTER: HandoutRosterEntry[] = [
   { section: "gear", slug: "rations-standard", expected: { gpValue: 2, quantity: 3, burden: stacked(3) } },
   { section: "gear", slug: "rope-50", expected: { gpValue: 1, quantity: 1, burden: fixed(1) } },
   { section: "gear", slug: "rope-ladder-25", expected: { gpValue: 5, quantity: 1, burden: fixed(3) } },
+  { section: "gear", slug: "sack", expected: { gpValue: 1, quantity: 1, burden: none } },
   { section: "gear", slug: "saw", expected: { gpValue: 1, quantity: 1, burden: fixed(1) } },
   { section: "gear", slug: "scroll-case", expected: { gpValue: 1, quantity: 1, burden: fixed(1) } },
   { section: "gear", slug: "sledgehammer", expected: { gpValue: 5, quantity: 1, burden: fixed(2) } },
@@ -158,8 +158,8 @@ export const HANDOUT_ROSTER_MANUAL_FIXTURES = [
     expected: entry.expected,
   })),
   {
-    name: "handout roster has 83 catalog rows before the PR 2 Sack",
+    name: "handout roster has 84 catalog rows",
     actual: HANDOUT_ROSTER.length,
-    expected: 83,
+    expected: 84,
   },
 ];

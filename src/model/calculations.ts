@@ -209,6 +209,33 @@ export function getContainerUsedSlots(
   );
 }
 
+export function getContainerCapacity(
+  containerRecord: InventoryRecord,
+): number | undefined {
+  const container = containerRecord.container;
+
+  if (!container) {
+    return undefined;
+  }
+
+  if (
+    container.capacityByHands &&
+    containerRecord.location.kind === "equipped"
+  ) {
+    switch (containerRecord.location.placement) {
+      case "leftHand":
+      case "rightHand":
+        return container.capacityByHands.oneHand;
+      case "bothHands":
+        return container.capacityByHands.twoHands;
+      case "loose":
+        break;
+    }
+  }
+
+  return container.capacitySlots;
+}
+
 export function getContainerSlotUsage(
   containerRecord: InventoryRecord,
   records: InventoryRecord[],
@@ -218,8 +245,10 @@ export function getContainerSlotUsage(
     usedSlots: getContainerUsedSlots(containerRecord, records, options),
   };
 
-  if (containerRecord.container) {
-    slotUsage.capacitySlots = containerRecord.container.capacitySlots;
+  const capacitySlots = getContainerCapacity(containerRecord);
+
+  if (capacitySlots !== undefined) {
+    slotUsage.capacitySlots = capacitySlots;
   }
 
   return slotUsage;

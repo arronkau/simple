@@ -572,6 +572,10 @@ function getMovementRecordSlotBurden(
   record: InventoryRecord,
   records: InventoryRecord[],
 ): number {
+  if (record.location.kind === "stowedRoot") {
+    return 0;
+  }
+
   return getEffectiveRecordSlotBurden(record, records);
 }
 

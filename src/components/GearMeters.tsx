@@ -19,7 +19,7 @@ export function SlotPips({ slots }: { slots: number }) {
     return <span className="islots faint">·</span>;
   }
 
-  if (slots <= 3) {
+  if (slots <= 3 && Number.isInteger(slots)) {
     return (
       <span className="islots">
         <b>{"■".repeat(slots)}</b>
@@ -40,10 +40,12 @@ export function CapBar({
   tone,
 }: {
   used: number;
-  max: number;
+  max?: number;
   tone: LoadTone;
 }) {
-  const pct = max > 0 ? Math.min(100, Math.round((100 * used) / max)) : 0;
+  const pct = max !== undefined && max > 0
+    ? Math.min(100, Math.round((100 * used) / max))
+    : 0;
 
   return (
     <span className={`cap ${tone === "ok" ? "" : tone}`}>
@@ -51,7 +53,7 @@ export function CapBar({
         <i style={{ width: `${pct}%` }} />
       </span>
       <span className="capnum">
-        {used}/{max}
+        {used}/{max ?? "—"}
       </span>
     </span>
   );

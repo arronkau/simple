@@ -230,10 +230,10 @@ const heldSackRecord: InventoryRecord = {
   },
   sortOrder: 0,
   quantity: 1,
-  burden: { kind: "fixed", slotsPerItem: 1 },
+  burden: { kind: "none" },
   handsRequired: 1,
   container: {
-    capacitySlots: 6,
+    capacityByHands: { oneHand: 6, twoHands: 12 },
   },
 };
 
@@ -473,6 +473,15 @@ const wornHandsRequiredBackpackRecords = [
   wornHandsRequiredBackpackRecord,
   ropeRecord,
 ];
+const handCarriedBackpackRecord: InventoryRecord = {
+  ...topLevelStowedContainerRecord,
+  id: "hand-carried-backpack-1",
+  location: { kind: "equipped", placement: "bothHands" },
+};
+const handCarriedBackpackEncumbrance = getCharacterEncumbrance(
+  characterEntity,
+  [handCarriedBackpackRecord],
+);
 const cappedStorageRecords = [
   storageLoadRecord,
   smallBoxRecord,
@@ -625,7 +634,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "empty stowed-root backpack counts own slots as stowed",
+    name: "empty stowed-root backpack contributes zero own stowed slots",
     actual: {
       equippedItems: emptyTopLevelStowedContainerEncumbrance.equippedItems,
       stowedItems: emptyTopLevelStowedContainerEncumbrance.stowedItems,
@@ -634,13 +643,13 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       equippedItems: 0,
-      stowedItems: 1,
+      stowedItems: 0,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       band: "normal",
     },
   },
   {
-    name: "loaded backpack counts own slots plus contents",
+    name: "loaded stowed-root backpack counts contents but not own slots",
     actual: {
       equippedItems: loadedLiteralBackpackEncumbrance.equippedItems,
       stowedItems: loadedLiteralBackpackEncumbrance.stowedItems,
@@ -649,7 +658,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       equippedItems: 0,
-      stowedItems: 4,
+      stowedItems: 3,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       band: "normal",
     },
@@ -673,22 +682,22 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       ),
     },
     expected: {
-      loadedBackpack: { equippedItems: 0, stowedItems: 2, totalItems: 2 },
+      loadedBackpack: { equippedItems: 0, stowedItems: 1, totalItems: 1 },
       loadedBackpackUsage: { usedSlots: 1, capacitySlots: 16 },
       loadedBackpackWithEmptySack: {
         equippedItems: 0,
-        stowedItems: 3,
-        totalItems: 3,
+        stowedItems: 2,
+        totalItems: 2,
       },
       loadedBackpackWithHeldEmptySack: {
         equippedItems: 1,
-        stowedItems: 2,
-        totalItems: 3,
+        stowedItems: 1,
+        totalItems: 2,
       },
       loadedBackpackWithHeldLoadedSack: {
         equippedItems: 1,
-        stowedItems: 2,
-        totalItems: 3,
+        stowedItems: 1,
+        totalItems: 2,
       },
     },
   },
@@ -716,10 +725,10 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       band: stowedSlowerEncumbrance.band,
     },
     expected: {
-      equippedItems: 1,
-      stowedItems: 15,
-      movement: { explorationFeet: 30, encounterFeet: 10 },
-      band: "heavilyEncumbered",
+      equippedItems: 0,
+      stowedItems: 14,
+      movement: { explorationFeet: 60, encounterFeet: 20 },
+      band: "encumbered",
     },
   },
   {
@@ -764,7 +773,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     },
     expected: {
       equippedItems: 8,
-      stowedItems: 10,
+      stowedItems: 9,
       overloaded: true,
       overloadedReason: "both",
       movement: { explorationFeet: 0, encounterFeet: 0 },
@@ -792,7 +801,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     expected: {
       containerState: "equipped",
       contentsState: "excluded",
-      equippedItems: 1,
+      equippedItems: 0,
       stowedItems: 0,
       visibleContainerUsage: { usedSlots: 3, capacitySlots: 6 },
       warnings: { missingBackpack: 1 },
@@ -820,7 +829,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       ),
     },
     expected: {
-      encumbrance: { equippedItems: 1, stowedItems: 1, totalItems: 2 },
+      encumbrance: { equippedItems: 0, stowedItems: 0, totalItems: 0 },
       overloaded: true,
       overloadedReason: "container",
       movement: { explorationFeet: 0, encounterFeet: 0 },
@@ -863,7 +872,7 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       overloaded: false,
       overloadedReason: undefined,
       movement: { explorationFeet: 120, encounterFeet: 40 },
-      stowedItems: 2,
+      stowedItems: 1,
       warnings: {},
     },
   },
@@ -874,6 +883,10 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       overloadedReason: nestedHandsRequiredSackEncumbrance.overloadedReason,
       movement: nestedHandsRequiredSackEncumbrance.movement,
       stowedItems: nestedHandsRequiredSackEncumbrance.stowedItems,
+      visibleContainerUsage: getContainerSlotUsage(
+        nestedHandsRequiredSackRecord,
+        nestedHandsRequiredSackRecords,
+      ),
       warnings: summarizeWarnings(
         getEncumbranceWarnings(characterEntity, nestedHandsRequiredSackRecords),
       ),
@@ -882,8 +895,20 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       overloaded: false,
       overloadedReason: undefined,
       movement: { explorationFeet: 120, encounterFeet: 40 },
-      stowedItems: 5,
+      stowedItems: 3,
+      visibleContainerUsage: { usedSlots: 3 },
       warnings: {},
+    },
+  },
+  {
+    name: "backpack carried in both hands counts its raw burden",
+    actual: {
+      equippedItems: handCarriedBackpackEncumbrance.equippedItems,
+      stowedItems: handCarriedBackpackEncumbrance.stowedItems,
+    },
+    expected: {
+      equippedItems: 1,
+      stowedItems: 0,
     },
   },
   {
@@ -1050,9 +1075,9 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
     expected: [
       {
         code: "entityOverloaded",
-        message: "Total capacity exceeded (18/16 slots).",
+        message: "Total capacity exceeded (17/16 slots).",
         entityId: characterEntity.id,
-        usedSlots: 18,
+        usedSlots: 17,
         capacitySlots: 16,
       },
     ],

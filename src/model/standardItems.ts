@@ -23,7 +23,7 @@ export type StandardItemCatalogEntry = {
   burden: InventoryBurden;
   handsRequired: HandsRequired;
   description?: string;
-  container?: Pick<ContainerData, "capacitySlots">;
+  container?: Pick<ContainerData, "capacitySlots" | "capacityByHands">;
   uses?: UsesData;
   light?: LightData;
   weapon?: Partial<WeaponData>;

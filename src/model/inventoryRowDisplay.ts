@@ -99,7 +99,7 @@ export function formatCapacity(
   capacitySlots: number | undefined,
 ): string {
   if (capacitySlots === undefined) {
-    return `${formatSlots(usedSlots)} used`;
+    return `${formatNumber(usedSlots)}/— slots`;
   }
 
   return `${formatNumber(usedSlots)}/${formatNumber(capacitySlots)} slots`;

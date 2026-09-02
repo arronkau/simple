@@ -258,6 +258,44 @@ const advancedWeaponResult = createInventoryRecordFromInput({
   },
 });
 
+const handCapacityContainerCreateResult = createInventoryRecordFromInput({
+  entity: characterEntity,
+  id: "created-sack",
+  records: [],
+  input: {
+    recordType: "equipment",
+    name: "Sack",
+    burden: { kind: "none" },
+    handsRequired: 1,
+    container: {
+      capacityByHands: { oneHand: 6, twoHands: 12 },
+    },
+    location: {
+      entityId: characterEntity.id,
+      placement: "leftHand",
+    },
+  },
+});
+
+const handCapacityContainerUpdateResult = updateInventoryRecordFromInput({
+  entity: characterEntity,
+  records: [],
+  record: topLevelContainerRecord,
+  input: {
+    recordType: "equipment",
+    name: "Sack",
+    burden: { kind: "none" },
+    handsRequired: 1,
+    container: {
+      capacityByHands: { oneHand: 6.9, twoHands: -12 },
+    },
+    location: {
+      entityId: characterEntity.id,
+      placement: "leftHand",
+    },
+  },
+});
+
 const updatedNonLightUsesResult = updateInventoryRecordFromInput({
   entity: characterEntity,
   records: [],
@@ -359,6 +397,27 @@ const crossZoneReorderedRecords = moveInventoryRecord({
 });
 
 export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
+  {
+    name: "container hand capacities are preserved on create and normalized on update",
+    actual: {
+      created:
+        handCapacityContainerCreateResult.ok
+          ? handCapacityContainerCreateResult.record.container
+          : handCapacityContainerCreateResult,
+      updated:
+        handCapacityContainerUpdateResult.ok
+          ? handCapacityContainerUpdateResult.record.container
+          : handCapacityContainerUpdateResult,
+    },
+    expected: {
+      created: {
+        capacityByHands: { oneHand: 6, twoHands: 12 },
+      },
+      updated: {
+        capacityByHands: { oneHand: 6, twoHands: 0 },
+      },
+    },
+  },
   {
     name: "container options filter invalid destinations before submit",
     actual: {
