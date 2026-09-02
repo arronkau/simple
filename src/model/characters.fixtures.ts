@@ -5,6 +5,7 @@ import {
   adjustCharacterSpellMemorized,
   adjustCharacterXp,
   createEmptyCharacterData,
+  getCharacterHpState,
   getSpellMemorizationWarnings,
   normalizeCharacterData,
   validateCharacterData,
@@ -181,6 +182,21 @@ const richCharacterData: CharacterData = {
 };
 
 export const CHARACTER_MANUAL_FIXTURES = [
+  {
+    name: "character hp state distinguishes unknown active death's door and dead",
+    actual: {
+      unknown: getCharacterHpState("character", { current: null, max: 5 }),
+      active: getCharacterHpState("character", { current: 1, max: 5 }),
+      deathDoor: getCharacterHpState("character", { current: 0, max: 5 }),
+      dead: getCharacterHpState("retainer", { current: 0, max: 5 }),
+    },
+    expected: {
+      unknown: "unknown",
+      active: "active",
+      deathDoor: "deathDoor",
+      dead: "dead",
+    },
+  },
   {
     name: "character-like entity creation initializes empty character sheets",
     actual: {

@@ -725,6 +725,17 @@ h5 {
   font-weight: 600;
 }
 
+.pt-hp-status {
+  display: block;
+  color: var(--gear-load-warn);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.party-table td.pt-num[data-hp-state="dead"] .pt-hp-status {
+  color: var(--gear-load-crit);
+}
+
 /* ---- marching-order drag handles ---- */
 
 .pt-grip-cell {
@@ -1170,6 +1181,16 @@ tr.pt-dragging {
 .sheet-identity span {
   color: var(--gear-muted);
   font-size: 11.5px;
+}
+
+.sheet-identity .sheet-hp-status.deathDoor {
+  color: var(--gear-load-warn);
+  font-weight: 700;
+}
+
+.sheet-identity .sheet-hp-status.dead {
+  color: var(--gear-load-crit);
+  font-weight: 700;
 }
 
 .sheet-header-actions {
@@ -3543,4 +3564,3 @@ tr.pt-dragging {
     animation: none !important;
   }
 }
-

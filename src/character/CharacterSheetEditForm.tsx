@@ -17,6 +17,7 @@ import type {
   EntityId,
 } from "../model/types";
 import type { EntityMutationResult } from "../store/useAppStore";
+import { formatPartyAlignment } from "../formatters";
 import type {
   AbilityScoreKey,
   CharacterFeatureFormState,
@@ -212,9 +213,13 @@ export function CharacterSheetEditForm({
                 }
               >
                 <option value="">Unspecified</option>
-                <option value="Law">Law</option>
-                <option value="Neutrality">Neutrality</option>
-                <option value="Chaos">Chaos</option>
+                {(["Law", "Neutrality", "Chaos"] as CharacterAlignment[]).map(
+                  (alignment) => (
+                    <option key={alignment} value={alignment}>
+                      {formatPartyAlignment(alignment)}
+                    </option>
+                  ),
+                )}
               </select>
             </label>
             <NumberField
