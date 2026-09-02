@@ -11,20 +11,28 @@ export const LEGACY_UPGRADE_LIFECYCLE_MANUAL_FIXTURES = [
     expected: ["attempt", "apply:v2"],
   },
   {
-    name: "Legacy upgrade failures report and retry only up to the attempt bound",
+    name: "Legacy upgrade failures keep retrying with capped exponential backoff",
     actual: retryEvents,
     expected: [
       "attempt:1",
       "error:failure 1",
+      "schedule:1500",
       "retry",
       "attempt:2",
       "error:failure 2",
+      "schedule:3000",
       "retry",
       "attempt:3",
       "error:failure 3",
+      "schedule:6000",
       "retry",
       "attempt:4",
       "error:failure 4",
+      "schedule:12000",
+      "retry",
+      "attempt:5",
+      "error:failure 5",
+      "schedule:12000",
     ],
   },
   {
@@ -45,7 +53,7 @@ async function collectVersion2RaceEvents(): Promise<string[]> {
         rejectUpgrade = reject;
       });
     },
-    maxAttempts: 4,
+    maxRetryDelayMs: 12_000,
     onRetry: () => events.push("retry"),
     reportError: () => events.push("error"),
     retryDelayMs: 1500,
@@ -75,12 +83,13 @@ async function collectRetryEvents(): Promise<string[]> {
       events.push(`attempt:${attempts}`);
       throw new Error(`failure ${attempts}`);
     },
-    maxAttempts: 4,
+    maxRetryDelayMs: 12_000,
     onRetry: () => events.push("retry"),
     reportError: (error) =>
       events.push(`error:${error instanceof Error ? error.message : "unknown"}`),
     retryDelayMs: 1500,
-    scheduleRetry: (callback) => {
+    scheduleRetry: (callback, delayMs) => {
+      events.push(`schedule:${delayMs}`);
       const id = nextRetryId;
       nextRetryId += 1;
       retries.set(id, callback);
@@ -110,7 +119,7 @@ async function collectUnsubscribeEvents(): Promise<string[]> {
       throw new Error("failure");
     },
     cancelRetry: () => events.push("cancel"),
-    maxAttempts: 4,
+    maxRetryDelayMs: 12_000,
     onRetry: () => events.push("retry"),
     reportError: () => events.push("error"),
     retryDelayMs: 1500,

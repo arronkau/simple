@@ -187,12 +187,24 @@ function withAuthoritativeId(id: string, value: unknown): unknown {
   return Object.assign({ id }, value, { id });
 }
 
+/**
+ * Total order: finite sortOrders ascending, then non-finite/missing
+ * sortOrders (which the parser tolerates) after them, then id. Never
+ * returns NaN, so Array.sort stays deterministic on malformed input.
+ */
 function compareSortOrderThenId<T extends { id: string; sortOrder: number }>(
   left: T,
   right: T,
 ): number {
-  if (left.sortOrder !== right.sortOrder) {
-    return left.sortOrder - right.sortOrder;
+  const leftFinite = Number.isFinite(left.sortOrder);
+  const rightFinite = Number.isFinite(right.sortOrder);
+
+  if (leftFinite !== rightFinite) {
+    return leftFinite ? -1 : 1;
+  }
+
+  if (leftFinite && left.sortOrder !== right.sortOrder) {
+    return left.sortOrder < right.sortOrder ? -1 : 1;
   }
 
   return compareId(left, right);

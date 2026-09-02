@@ -16,7 +16,7 @@ import type { SyncStatus } from "./types";
 
 export const FIREBASE_PARTY_STATE_COLLECTION = "parties";
 const LEGACY_UPGRADE_RETRY_DELAY_MS = 1500;
-const LEGACY_UPGRADE_MAX_ATTEMPTS = 4;
+const LEGACY_UPGRADE_MAX_RETRY_DELAY_MS = 30_000;
 
 export type FirebaseWriter = {
   applyFieldUpdates: (updates: FieldUpdate[]) => Promise<void>;
@@ -221,7 +221,7 @@ export async function startFirebaseAppStateSync({
             toFirestorePartyDocument(currentPartyState),
           );
         }),
-      maxAttempts: LEGACY_UPGRADE_MAX_ATTEMPTS,
+      maxRetryDelayMs: LEGACY_UPGRADE_MAX_RETRY_DELAY_MS,
       onRetry: () => onStatusChange("syncing"),
       reportError: (error) => onError(formatFirebaseError(error)),
       retryDelayMs: LEGACY_UPGRADE_RETRY_DELAY_MS,

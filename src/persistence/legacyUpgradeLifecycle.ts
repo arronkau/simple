@@ -1,10 +1,20 @@
 type RetryHandle = unknown;
 
+/**
+ * Drives the one-time legacy → v2 document upgrade for a sync session.
+ *
+ * - A v2 snapshot always wins: it applies immediately and detaches any
+ *   in-flight or scheduled upgrade work.
+ * - A failed upgrade retries with exponential backoff (capped) for as long
+ *   as the document is known to be legacy, because an unchanged document
+ *   produces no further snapshots to re-trigger it. Only a v2 snapshot or
+ *   stop() ends the retry loop.
+ */
 export function createLegacyUpgradeLifecycle<T>({
   applyVersion2,
   attemptUpgrade,
   cancelRetry = (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
-  maxAttempts,
+  maxRetryDelayMs,
   onRetry,
   reportError,
   retryDelayMs,
@@ -13,13 +23,13 @@ export function createLegacyUpgradeLifecycle<T>({
   applyVersion2: (value: T) => void;
   attemptUpgrade: () => Promise<void>;
   cancelRetry?: (handle: RetryHandle) => void;
-  maxAttempts: number;
+  maxRetryDelayMs: number;
   onRetry: () => void;
   reportError: (error: unknown) => void;
   retryDelayMs: number;
   scheduleRetry?: (callback: () => void, delayMs: number) => RetryHandle;
 }) {
-  let attempts = 0;
+  let failures = 0;
   let resolved = true;
   let retryHandle: RetryHandle | undefined;
   let stopped = false;
@@ -32,18 +42,15 @@ export function createLegacyUpgradeLifecycle<T>({
     }
   };
 
+  const nextRetryDelay = () =>
+    Math.min(retryDelayMs * 2 ** Math.max(0, failures - 1), maxRetryDelayMs);
+
   const startUpgrade = () => {
-    if (
-      stopped ||
-      upgradePromise ||
-      retryHandle !== undefined ||
-      attempts >= maxAttempts
-    ) {
+    if (stopped || upgradePromise || retryHandle !== undefined) {
       return;
     }
 
     resolved = false;
-    attempts += 1;
     const currentPromise = attemptUpgrade();
     upgradePromise = currentPromise;
     void currentPromise
@@ -53,7 +60,7 @@ export function createLegacyUpgradeLifecycle<T>({
         }
 
         resolved = true;
-        attempts = 0;
+        failures = 0;
         upgradePromise = undefined;
       })
       .catch((error: unknown) => {
@@ -62,20 +69,23 @@ export function createLegacyUpgradeLifecycle<T>({
         }
 
         upgradePromise = undefined;
+        failures += 1;
         reportError(error);
 
-        if (!resolved && attempts < maxAttempts) {
-          retryHandle = scheduleRetry(() => {
-            retryHandle = undefined;
-
-            if (stopped || resolved) {
-              return;
-            }
-
-            onRetry();
-            startUpgrade();
-          }, retryDelayMs);
+        if (resolved) {
+          return;
         }
+
+        retryHandle = scheduleRetry(() => {
+          retryHandle = undefined;
+
+          if (stopped || resolved) {
+            return;
+          }
+
+          onRetry();
+          startUpgrade();
+        }, nextRetryDelay());
       });
   };
 
@@ -87,7 +97,7 @@ export function createLegacyUpgradeLifecycle<T>({
       }
 
       resolved = true;
-      attempts = 0;
+      failures = 0;
       upgradePromise = undefined;
       clearRetry();
       applyVersion2(value);

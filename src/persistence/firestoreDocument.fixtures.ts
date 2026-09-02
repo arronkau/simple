@@ -166,6 +166,26 @@ export const FIRESTORE_DOCUMENT_MANUAL_FIXTURES: {
     expected: ["a", "b"],
   },
   {
+    name: "Firestore v2 parsing orders entities deterministically when a sortOrder is NaN",
+    actual: fromFirestorePartyDocument({
+      schemaVersion: 1,
+      wireVersion: 2,
+      party: { id: "party-nan", displayName: "NaN Party" },
+      appState: {
+        schemaVersion: 1,
+        entities: {
+          "entity-b": makeEntity("entity-b", "B", 1),
+          "entity-junk": makeEntity("entity-junk", "Junk", Number.NaN),
+          "entity-a": makeEntity("entity-a", "A", 0),
+        },
+        inventoryRecords: {},
+        auditLog: [],
+      },
+      userProfiles: {},
+    })?.appState.entities.map((entity) => entity.id),
+    expected: ["entity-a", "entity-b", "entity-junk"],
+  },
+  {
     name: "Firestore parsing accepts the legacy array wire shape",
     actual: (() => {
       const parsed = fromFirestorePartyDocument({

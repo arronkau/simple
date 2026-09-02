@@ -329,10 +329,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   setCurrentParty: (partyId) => {
     writeLastPartyId(partyId);
+    let partyChanged = false;
     set((state) => {
       if (state.partyId === partyId) {
         return state;
       }
+
+      partyChanged = true;
 
       const rawPartyState = readLocalPartyState(partyId);
       const partyState = ensurePartyInviteCode(
@@ -356,7 +359,9 @@ export const useAppStore = create<AppStore>((set) => ({
       };
     });
 
-    if (firebaseConfig && canStartFirebaseSync()) {
+    // Re-selecting the current party (e.g. the route effect on mount) must
+    // not restart sync: a restart supersedes any in-flight write.
+    if (partyChanged && firebaseConfig && canStartFirebaseSync()) {
       void startConfiguredFirebaseSync();
     }
   },
@@ -2529,24 +2534,49 @@ async function startConfiguredFirebaseSync(): Promise<void> {
   const activeSyncGeneration = firebaseSyncGeneration;
   stopConfiguredFirebaseSync();
   // Re-gate writes for the new connection until its first snapshot lands.
+  // Any write still in flight belongs to the previous generation: its
+  // settlement is ignored, so release the write flag here.
   firebaseFirstSnapshotHandled = false;
+  writingFirebaseFieldUpdates = false;
 
   const activePartyId = useAppStore.getState().partyId;
+  // Every callback from a superseded start must be a no-op, otherwise a
+  // late auth failure or snapshot from the old connection can overwrite the
+  // status or state of the new one.
+  const isActiveSync = () =>
+    firebaseSyncGeneration === activeSyncGeneration &&
+    useAppStore.getState().partyId === activePartyId;
   const unsubscribe = await startFirebaseAppStateSync({
     config: firebaseConfig,
     getCurrentPartyState: () =>
       getPartyStateFromStoreState(useAppStore.getState()),
     inviteCode: getInviteCodeFromLocation(),
     onError: (message) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       setSyncMetadata("error", message);
     },
     onAuthAccount: (authAccount) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       useAppStore.setState({ authAccount });
     },
     onJoined: () => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       removeInviteCodeFromLocation();
     },
     onAuthUserId: (userId) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       const state = useAppStore.getState();
       const prevUserId = state.currentUserId;
       const currentPartyState = getPartyStateFromStoreState(state);
@@ -2587,10 +2617,7 @@ async function startConfiguredFirebaseSync(): Promise<void> {
       });
     },
     onReadyToWrite: (writer) => {
-      if (
-        firebaseSyncGeneration !== activeSyncGeneration ||
-        useAppStore.getState().partyId !== activePartyId
-      ) {
+      if (!isActiveSync()) {
         return;
       }
 
@@ -2598,24 +2625,23 @@ async function startConfiguredFirebaseSync(): Promise<void> {
       void flushFirebasePartyStateWrite();
     },
     onRemotePartyState: (partyState) => {
-      if (useAppStore.getState().partyId !== partyState.party.id) {
+      if (!isActiveSync() || partyState.party.id !== activePartyId) {
         return;
       }
 
       applyRemotePartyState(partyState);
     },
     onStatusChange: (syncStatus) => {
-      if (useAppStore.getState().partyId === activePartyId) {
-        setSyncMetadata(syncStatus);
+      if (!isActiveSync()) {
+        return;
       }
+
+      setSyncMetadata(syncStatus);
     },
     partyId: activePartyId,
   });
 
-  if (
-    firebaseSyncGeneration === activeSyncGeneration &&
-    useAppStore.getState().partyId === activePartyId
-  ) {
+  if (isActiveSync()) {
     firebaseUnsubscribe = unsubscribe;
   } else {
     unsubscribe();
