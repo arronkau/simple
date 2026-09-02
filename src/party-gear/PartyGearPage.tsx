@@ -26,6 +26,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { getSortedEntities } from "../model/entities";
+import { isLightSourceRecord } from "../model/lightSources";
 import {
   getCharacterEncumbrance,
   getContentsCapacity,
@@ -106,6 +107,10 @@ export type GearActions = {
   onEditEntity: (entity: Entity) => void;
   onEditRecord: (record: InventoryRecord) => void;
   onIdentifyRecord: (recordId: InventoryRecordId) => InventoryMutationResult;
+  /** Light one item of a light source (splits a stack, moves to a free hand). */
+  onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
+  /** Open the put-out dialog for a lit light source. */
+  onSnuffRecord: (record: InventoryRecord) => void;
   onSpendCoins: (record: InventoryRecord) => void;
   /** Open the take-all/take-some coin transfer modal for a dragged coin pile. */
   onRequestCoinTransfer: (
@@ -405,7 +410,10 @@ export function PartyGearPage(actions: GearActions) {
                   Drag a row — across cards too
                 </span>
                 <span className="leg">
-                  <span className="dot lit" /> lit
+                  <span className="leg-flame">
+                    <ItemStatusIcon name="lit" tone="lit" />
+                  </span>{" "}
+                  lit · tap a flame to light or put out
                 </span>
                 <span className="leg">
                   <span className="gl unid">?</span> unidentified
@@ -1195,19 +1203,34 @@ function RecordRowBody({
 }
 
 function StateGlyphs({ record }: { record: InventoryRecord }) {
+  const actions = useGearActions();
+
   if (record.recordType === "coins") {
     return null;
   }
 
   const lit = record.light?.isLit === true;
+  const lightSource = isLightSourceRecord(record);
   const unidentified = isUnidentified(record);
   const magic = record.isMagic === true;
   const activeAc = isArmorClassActiveRecord(record);
 
   return (
     <span className="rs-glyphs">
-      {lit ? (
-        <span className="dot lit" title={buildLitTitle(record)} />
+      {lightSource ? (
+        <button
+          aria-label={lit ? `Put out ${record.name}` : `Light ${record.name}`}
+          aria-pressed={lit}
+          className="light-toggle"
+          data-lit={lit}
+          title={lit ? buildLitTitle(record) : "Light"}
+          type="button"
+          onClick={() =>
+            lit ? actions.onSnuffRecord(record) : actions.onLightRecord(record)
+          }
+        >
+          <ItemStatusIcon name="lit" tone={lit ? "lit" : "muted"} />
+        </button>
       ) : null}
       {activeAc ? (
         <span className="rs-ac" title="Contributes to armor class">

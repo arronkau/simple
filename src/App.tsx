@@ -516,6 +516,8 @@ function LocalAppShell() {
                 onEditEntity={startEditing}
                 onEditRecord={startEditingRecord}
                 onIdentifyRecord={identifyInventoryRecord}
+                onLightRecord={(record) => lightInventoryRecord(record.id)}
+                onSnuffRecord={startSnuffingLight}
                 onSpendCoins={startSpendingCoins}
                 onRequestCoinTransfer={requestCoinTransfer}
               />
