@@ -39,6 +39,9 @@ export type PartyState = {
     displayName: string;
     gmUid?: string;
     members?: PartyMembers;
+    // Secret shared by the GM via the invite link. GM-only; rotating it
+    // invalidates old invite links without changing the party URL.
+    inviteCode?: string;
   };
   appState: AppState;
   userProfiles: UserProfile[];
@@ -123,6 +126,7 @@ export function createPartyState({
   appState = createEmptyAppState(),
   displayName = "New Party",
   gmUid,
+  inviteCode,
   members,
   partyId,
   userProfiles = [],
@@ -130,6 +134,7 @@ export function createPartyState({
   appState?: AppState;
   displayName?: string;
   gmUid?: string;
+  inviteCode?: string;
   members?: PartyMembers;
   partyId: PartyId;
   userProfiles?: UserProfile[];
@@ -141,6 +146,7 @@ export function createPartyState({
       displayName: normalizePartyDisplayName(displayName),
       ...(gmUid !== undefined ? { gmUid } : {}),
       ...(members !== undefined ? { members } : {}),
+      ...(inviteCode !== undefined ? { inviteCode } : {}),
     },
     appState,
     userProfiles,
@@ -335,6 +341,10 @@ export function parsePartyState(
     displayName:
       typeof party.displayName === "string" ? party.displayName : "New Party",
     gmUid: typeof party.gmUid === "string" ? party.gmUid : undefined,
+    inviteCode:
+      typeof party.inviteCode === "string" && party.inviteCode.length > 0
+        ? party.inviteCode
+        : undefined,
     members: normalizePartyMembers(party.members),
     partyId: party.id,
     userProfiles: normalizeUserProfiles(value.userProfiles),
@@ -520,6 +530,7 @@ function normalizePartyMembers(value: unknown): PartyMembers | undefined {
       role: role as PartyRole,
       ...(typeof member.joinedAt === "string" ? { joinedAt: member.joinedAt as ISODateTimeString } : {}),
       ...(typeof member.displayName === "string" ? { displayName: member.displayName } : {}),
+      ...(typeof member.inviteCode === "string" ? { inviteCode: member.inviteCode } : {}),
     } satisfies PartyMember;
   }
   return Object.keys(result).length > 0 ? result : undefined;

@@ -54,6 +54,40 @@ Both Firebase mode and localStorage mode should persist the same logical app sta
 
 Older stored v1 data without `auditLog` should load as `auditLog: []`.
 
+## Party State
+
+`PartyState` wraps `AppState` with party metadata. The same shape is used for the localStorage document and the Firestore `parties/{partyId}` document.
+
+```ts
+export type PartyState = {
+  schemaVersion: 1;
+  party: {
+    id: PartyId;
+    displayName: string;
+    gmUid?: string;          // Firebase Auth UID of the GM
+    members?: PartyMembers;  // keyed by Firebase Auth UID
+    inviteCode?: string;     // GM-only secret carried by the invite link
+  };
+  appState: AppState;
+  userProfiles: UserProfile[];
+};
+
+export type PartyMember = {
+  role: "gm" | "player";
+  joinedAt?: ISODateTimeString;
+  displayName?: string;
+  inviteCode?: string;       // the party invite code this member joined with
+};
+```
+
+Party state rules:
+
+- `party.gmUid`, `party.members`, `party.displayName`, and `party.inviteCode` are GM-only fields. Players may not change them.
+- `party.inviteCode` is a random lowercase alphanumeric string of 8–64 characters (the app generates 20). The GM client generates one for any party it loads that lacks one, and may regenerate it at any time. Regenerating invalidates old invite links but does not remove existing members.
+- A signed-in non-member joins by adding exactly one entry, `members[ownUid]`, with `role: "player"` and `inviteCode` equal to the party's current `inviteCode`. Nothing else in the document may change in that write. This is the only write a non-member may make.
+- `members[uid].inviteCode` is informational after the join; it is not re-validated.
+- In local mode the invite code exists but has no effect; there is no one to join.
+
 ## Shared IDs and Timestamps
 
 ```ts

@@ -1,16 +1,7 @@
 rules_version = '2';
 
-// TODO(firestore-tests): Add Firestore emulator-based security rule tests before 0.1 release.
-// Required coverage:
-//   - unauthenticated user cannot read party
-//   - unauthenticated user cannot write party
-//   - non-member cannot read party
-//   - non-member cannot write party
-//   - player can perform allowed entity/inventory writes
-//   - player cannot edit party settings (displayName, gmUid, members)
-//   - player cannot edit members map
-//   - GM can perform administrative writes
-//   - subcollection path cannot be read or written by anyone
+// Rules tests live in scripts/test-rules.mjs and run against the Firestore
+// emulator (`npm run test:rules`). Keep that file in sync with any change here.
 // Note: deep per-item validation of identification.secretName/secretDescription within the
 // inventoryRecords array is not feasible in Firestore rules. That protection is enforced
 // at the model/store layer in src/store/useAppStore.ts.
@@ -18,17 +9,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /parties/{partyId} {
-      // Read: must be authenticated and a party member
-      allow read: if isAuthenticatedMember();
+      // Read: must be authenticated and a party member. A missing document is
+      // readable by any signed-in user so a client can discover it needs to
+      // create the party (the id is an unguessable UUID).
+      allow read: if request.auth != null
+                  && (resource == null || isMember());
 
       // Create: must be authenticated and creating themselves as GM
       allow create: if request.auth != null
                     && request.resource.data.party.gmUid == request.auth.uid
                     && request.auth.uid in request.resource.data.party.members;
 
-      // Update: must be a member AND either be the GM or only touching player-allowed fields
-      allow update: if isAuthenticatedMember()
-                    && (isGm() || isAllowedPlayerUpdate());
+      // Update: GM, a member touching only player-allowed fields, or a
+      // non-member joining with the party's invite code.
+      allow update: if request.auth != null
+                    && (isGm()
+                        || (isMember() && isAllowedPlayerUpdate())
+                        || isInviteJoin());
 
       // Delete: only the GM may delete the party document
       allow delete: if isGm();
@@ -42,9 +39,8 @@ service cloud.firestore {
 
     // --- Helper functions ---
 
-    function isAuthenticatedMember() {
-      return request.auth != null
-        && resource.data.party.members != null
+    function isMember() {
+      return resource.data.party.members != null
         && request.auth.uid in resource.data.party.members;
     }
 
@@ -54,19 +50,33 @@ service cloud.firestore {
     }
 
     // Players may write the document only if they have not changed any GM-only fields.
-    // GM-only party-level fields: party.displayName, party.gmUid, party.members
+    // GM-only party-level fields: party.displayName, party.gmUid, party.members, party.inviteCode
     // Note: nested inventoryRecords secretName/secretDescription cannot be validated
     // per-item in rules — enforced in the app layer instead.
     function isAllowedPlayerUpdate() {
-      return request.auth != null
-        // Must remain a member
-        && request.auth.uid in resource.data.party.members
-        // May not change the GM
-        && request.resource.data.party.gmUid == resource.data.party.gmUid
-        // May not change the members map
+      return request.resource.data.party.gmUid == resource.data.party.gmUid
         && request.resource.data.party.members == resource.data.party.members
-        // May not rename the party
-        && request.resource.data.party.displayName == resource.data.party.displayName;
+        && request.resource.data.party.displayName == resource.data.party.displayName
+        && request.resource.data.party.get('inviteCode', null) == resource.data.party.get('inviteCode', null);
+    }
+
+    // A signed-in non-member may add exactly one entry — their own uid, as a
+    // player — to party.members, and only if that entry carries the party's
+    // current invite code. Nothing else in the document may change.
+    function isInviteJoin() {
+      let uid = request.auth.uid;
+      let before = resource.data;
+      let after = request.resource.data;
+      let entry = after.party.members[uid];
+      return before.party.inviteCode is string
+        && before.party.inviteCode.size() >= 8
+        && !(uid in before.party.get('members', {}))
+        && entry.role == 'player'
+        && entry.inviteCode == before.party.inviteCode
+        && entry.keys().hasOnly(['role', 'joinedAt', 'inviteCode'])
+        && after.diff(before).affectedKeys().hasOnly(['party'])
+        && after.party.diff(before.party).affectedKeys().hasOnly(['members'])
+        && after.party.members.diff(before.party.get('members', {})).affectedKeys().hasOnly([uid]);
     }
   }
 }

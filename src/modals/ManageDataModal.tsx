@@ -6,27 +6,43 @@ import {
   type PartyId,
 } from "../model/appState";
 import type { AppState } from "../model/appState";
+import { buildInviteUrl } from "../model/partyInvite";
 import type { PartyRole } from "../model/types";
+import type { FirebaseAuthAccount } from "../persistence/firebaseSync";
+import type { PersistenceMode } from "../persistence/types";
+import type { AccountActionResult } from "../store/useAppStore";
 import type { AppStateExport, ManageMessage } from "../view-types";
 
 export function ManageDataModal({
   appState,
+  authAccount,
   currentUserPartyRole,
+  inviteCode,
   partyDisplayName,
   partyId,
+  persistenceMode,
   onClose,
   onImportAppState,
+  onRegenerateInviteCode,
   onRenameParty,
   onReset,
+  onSignInWithGoogle,
+  onSignOut,
 }: {
   appState: AppState;
+  authAccount?: FirebaseAuthAccount;
   currentUserPartyRole: PartyRole | null;
+  inviteCode?: string;
   partyDisplayName: string;
   partyId: PartyId;
+  persistenceMode: PersistenceMode;
   onClose: () => void;
   onImportAppState: (appState: AppState) => void;
+  onRegenerateInviteCode: () => void;
   onRenameParty: (displayName: string) => void;
   onReset: () => void;
+  onSignInWithGoogle: () => Promise<AccountActionResult>;
+  onSignOut: () => Promise<AccountActionResult>;
 }) {
   const [importMessage, setImportMessage] = useState<ManageMessage | undefined>();
   const [pendingImportAppState, setPendingImportAppState] = useState<
@@ -35,15 +51,17 @@ export function ManageDataModal({
   const [importConfirmation, setImportConfirmation] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
   const [editingPartyName, setEditingPartyName] = useState(partyDisplayName);
-  const [urlCopied, setUrlCopied] = useState(false);
+  const [copiedField, setCopiedField] = useState<"url" | "invite" | undefined>();
+  const [accountMessage, setAccountMessage] = useState<ManageMessage | undefined>();
+  const [accountBusy, setAccountBusy] = useState(false);
   const isGm = currentUserPartyRole === "gm";
+  const isFirebase = persistenceMode === "firebase";
   const importEnabled =
     isGm && pendingImportAppState !== undefined && importConfirmation === "import";
   const resetEnabled = isGm && resetConfirmation === "delete";
-  const partyUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}/party/${partyId}`
-      : `/party/${partyId}`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const partyUrl = `${origin}/party/${partyId}`;
+  const inviteUrl = inviteCode ? buildInviteUrl(origin, partyId, inviteCode) : undefined;
 
   function exportAppData() {
     const exportData: AppStateExport = {
@@ -122,14 +140,27 @@ export function ManageDataModal({
     });
   }
 
-  async function copyPartyUrl() {
+  async function copyToClipboard(field: "url" | "invite", value: string) {
     try {
-      await navigator.clipboard.writeText(partyUrl);
-      setUrlCopied(true);
-      setTimeout(() => setUrlCopied(false), 1600);
+      await navigator.clipboard.writeText(value);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(undefined), 1600);
     } catch {
       // Clipboard can be unavailable (permissions, non-secure context);
       // the focused input still allows manual copy.
+    }
+  }
+
+  async function runAccountAction(action: () => Promise<AccountActionResult>) {
+    setAccountBusy(true);
+    setAccountMessage(undefined);
+    try {
+      const result = await action();
+      if (!result.ok) {
+        setAccountMessage({ tone: "error", text: result.message });
+      }
+    } finally {
+      setAccountBusy(false);
     }
   }
 
@@ -181,20 +212,86 @@ export function ManageDataModal({
             )}
             <div className="manage-row">
               <label className="manage-grow">
-                <span>Party URL — share to invite</span>
+                <span>Party URL</span>
                 <input readOnly value={partyUrl} onFocus={(event) => event.target.select()} />
               </label>
-              <button type="button" onClick={copyPartyUrl}>
-                {urlCopied ? "Copied" : "Copy"}
+              <button type="button" onClick={() => copyToClipboard("url", partyUrl)}>
+                {copiedField === "url" ? "Copied" : "Copy"}
               </button>
             </div>
-            {isGm && (
+            {isGm && inviteUrl ? (
+              <>
+                <div className="manage-row">
+                  <label className="manage-grow">
+                    <span>Invite link — share with players</span>
+                    <input
+                      readOnly
+                      value={inviteUrl}
+                      onFocus={(event) => event.target.select()}
+                    />
+                  </label>
+                  <button type="button" onClick={() => copyToClipboard("invite", inviteUrl)}>
+                    {copiedField === "invite" ? "Copied" : "Copy"}
+                  </button>
+                  <button type="button" onClick={onRegenerateInviteCode}>
+                    New link
+                  </button>
+                </div>
+                <p className="field-help">
+                  Anyone who opens the invite link joins as a player. “New link”
+                  invalidates the old one; current members keep access.
+                </p>
+              </>
+            ) : null}
+            {!isGm && isFirebase ? (
               <p className="field-help">
-                GM access is tied to this browser session. Clearing browser data
-                or switching devices can lose it until account linking is added.
+                New players need an invite link from the GM. The party URL alone
+                does not grant access.
               </p>
-            )}
+            ) : null}
           </section>
+
+          {isFirebase ? (
+            <section className="manage-section">
+              <h5>Account</h5>
+              <div className="manage-row">
+                <p className="manage-grow">
+                  {authAccount && !authAccount.isAnonymous
+                    ? `Signed in as ${authAccount.email ?? authAccount.displayName ?? "Google account"}.`
+                    : "Anonymous session. Your access lives in this browser only."}
+                </p>
+                {authAccount && !authAccount.isAnonymous ? (
+                  <button
+                    disabled={accountBusy}
+                    type="button"
+                    onClick={() => runAccountAction(onSignOut)}
+                  >
+                    Sign out
+                  </button>
+                ) : (
+                  <button
+                    disabled={accountBusy}
+                    type="button"
+                    onClick={() => runAccountAction(onSignInWithGoogle)}
+                  >
+                    Sign in with Google
+                  </button>
+                )}
+              </div>
+              {(!authAccount || authAccount.isAnonymous) ? (
+                <p className="field-help">
+                  {isGm
+                    ? "Sign in to keep GM access if you clear browser data or switch devices."
+                    : "Sign in to keep your membership across browsers and devices."}
+                </p>
+              ) : null}
+              {accountMessage ? (
+                <p className={accountMessage.tone === "error" ? "form-error" : "form-success"}>
+                  {accountMessage.text}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
 
           {isGm ? (
             <section className="manage-section">

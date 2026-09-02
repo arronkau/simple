@@ -77,17 +77,30 @@ import {
   createInitialInventoryRecordsForEntity,
   validateInventoryState,
 } from "../model/validation";
+import {
+  createInviteCode,
+  ensurePartyInviteCode,
+  getInviteCodeFromSearch,
+  INVITE_QUERY_PARAM,
+} from "../model/partyInvite";
 import { getRuntimeFirebaseConfig } from "../persistence/firebaseConfig";
 import {
+  linkOrSignInWithGoogle,
+  signOutFirebase,
   startFirebaseAppStateSync,
+  type FirebaseAuthAccount,
   type FirebaseWritePartyState,
 } from "../persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
+export type AccountActionResult = { ok: true } | { ok: false; message: string };
+
 type AppStore = {
   appState: AppState;
+  authAccount?: FirebaseAuthAccount;
   currentUserId: UserId;
   gmUid?: string;
+  inviteCode?: string;
   members?: PartyMembers;
   partyDisplayName: string;
   partyId: PartyId;
@@ -96,6 +109,9 @@ type AppStore = {
   syncStatus: SyncStatus;
   updateCurrentUserProfile: (input: UserProfileInput) => void;
   renameParty: (displayName: string) => void;
+  regenerateInviteCode: () => void;
+  signInWithGoogle: () => Promise<AccountActionResult>;
+  signOutAccount: () => Promise<AccountActionResult>;
   setCurrentParty: (partyId: PartyId) => void;
   userProfiles: UserProfile[];
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
@@ -200,7 +216,10 @@ const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
 const initialPartyId = getInitialPartyId();
 const initialCurrentUserId = readLocalUserId();
 const initialPartyStateRaw = readLocalPartyState(initialPartyId);
-const initialPartyState = migratePartyMembership(initialPartyStateRaw, initialCurrentUserId);
+const initialPartyState = ensurePartyInviteCode(
+  migratePartyMembership(initialPartyStateRaw, initialCurrentUserId),
+  initialCurrentUserId,
+);
 
 writeLocalPartyState(initialPartyState);
 
@@ -208,6 +227,7 @@ export const useAppStore = create<AppStore>((set) => ({
   appState: initialPartyState.appState,
   currentUserId: initialCurrentUserId,
   gmUid: initialPartyState.party.gmUid,
+  inviteCode: initialPartyState.party.inviteCode,
   members: initialPartyState.party.members,
   partyDisplayName: initialPartyState.party.displayName,
   partyId: initialPartyState.party.id,
@@ -250,6 +270,56 @@ export const useAppStore = create<AppStore>((set) => ({
       return { partyDisplayName: normalizePartyDisplayName(displayName) };
     });
   },
+  regenerateInviteCode: () => {
+    set((state) => {
+      const role = getStateUserRole(state);
+      try {
+        assertPartyAction(role ?? "player", "manageMembership");
+      } catch {
+        return state;
+      }
+      return { inviteCode: createInviteCode() };
+    });
+  },
+  signInWithGoogle: async () => {
+    if (!firebaseConfig) {
+      return { ok: false, message: "Sign-in requires Firebase mode." };
+    }
+
+    const result = await linkOrSignInWithGoogle(firebaseConfig);
+
+    if (!result.ok) {
+      return result;
+    }
+
+    useAppStore.setState({ authAccount: result.account });
+
+    if (result.uidChanged) {
+      // A different Firebase user is now signed in; membership and role must
+      // be re-resolved against the party document under that UID.
+      resetFirebaseWriteQueue();
+      void startConfiguredFirebaseSync();
+    }
+
+    return { ok: true };
+  },
+  signOutAccount: async () => {
+    if (!firebaseConfig) {
+      return { ok: false, message: "Sign-out requires Firebase mode." };
+    }
+
+    try {
+      await signOutFirebase(firebaseConfig);
+    } catch (error) {
+      return { ok: false, message: formatSyncError(error) };
+    }
+
+    useAppStore.setState({ authAccount: undefined });
+    // Sync restarts under a fresh anonymous UID.
+    resetFirebaseWriteQueue();
+    void startConfiguredFirebaseSync();
+    return { ok: true };
+  },
   setCurrentParty: (partyId) => {
     writeLastPartyId(partyId);
     set((state) => {
@@ -258,7 +328,10 @@ export const useAppStore = create<AppStore>((set) => ({
       }
 
       const rawPartyState = readLocalPartyState(partyId);
-      const partyState = migratePartyMembership(rawPartyState, state.currentUserId);
+      const partyState = ensurePartyInviteCode(
+        migratePartyMembership(rawPartyState, state.currentUserId),
+        state.currentUserId,
+      );
 
       stopConfiguredFirebaseSync();
       resetFirebaseWriteQueue();
@@ -266,6 +339,7 @@ export const useAppStore = create<AppStore>((set) => ({
       return {
         appState: partyState.appState,
         gmUid: partyState.party.gmUid,
+        inviteCode: partyState.party.inviteCode,
         members: partyState.party.members,
         userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
@@ -1881,6 +1955,7 @@ useAppStore.subscribe((state, previousState) => {
   if (
     state.appState === previousState.appState &&
     state.gmUid === previousState.gmUid &&
+    state.inviteCode === previousState.inviteCode &&
     state.members === previousState.members &&
     state.partyDisplayName === previousState.partyDisplayName &&
     state.partyId === previousState.partyId &&
@@ -2440,8 +2515,15 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     config: firebaseConfig,
     getCurrentPartyState: () =>
       getPartyStateFromStoreState(useAppStore.getState()),
+    inviteCode: getInviteCodeFromLocation(),
     onError: (message) => {
       setSyncMetadata("error", message);
+    },
+    onAuthAccount: (authAccount) => {
+      useAppStore.setState({ authAccount });
+    },
+    onJoined: () => {
+      removeInviteCodeFromLocation();
     },
     onAuthUserId: (userId) => {
       const state = useAppStore.getState();
@@ -2471,11 +2553,15 @@ async function startConfiguredFirebaseSync(): Promise<void> {
         };
       }
 
-      const migratedPartyState = migratePartyMembership(partyStateForMigration, userId);
+      const migratedPartyState = ensurePartyInviteCode(
+        migratePartyMembership(partyStateForMigration, userId),
+        userId,
+      );
       writeLocalPartyState(migratedPartyState);
       useAppStore.setState({
         currentUserId: userId,
         gmUid: migratedPartyState.party.gmUid,
+        inviteCode: migratedPartyState.party.inviteCode,
         members: migratedPartyState.party.members,
       });
     },
@@ -2583,18 +2669,28 @@ function applyRemotePartyState(partyState: PartyState): void {
   const migratedPartyState = migratePartyMembership(partyState, currentState.currentUserId);
   const currentPartyState = getPartyStateFromStoreState(currentState);
 
-  if (arePartyStatesEqual(currentPartyState, migratedPartyState)) {
-    return;
+  if (!arePartyStatesEqual(currentPartyState, migratedPartyState)) {
+    applyingRemotePartyState = true;
+    useAppStore.setState({
+      appState: migratedPartyState.appState,
+      gmUid: migratedPartyState.party.gmUid,
+      inviteCode: migratedPartyState.party.inviteCode,
+      members: migratedPartyState.party.members,
+      partyDisplayName: migratedPartyState.party.displayName,
+      userProfiles: migratedPartyState.userProfiles,
+    });
   }
 
-  applyingRemotePartyState = true;
-  useAppStore.setState({
-    appState: migratedPartyState.appState,
-    gmUid: migratedPartyState.party.gmUid,
-    members: migratedPartyState.party.members,
-    partyDisplayName: migratedPartyState.party.displayName,
-    userProfiles: migratedPartyState.userProfiles,
-  });
+  // A GM client gives a pre-invite party its first invite code. This is a
+  // real local change (not a remote apply) so it is written back to Firestore.
+  const partyStateWithInvite = ensurePartyInviteCode(
+    migratedPartyState,
+    currentState.currentUserId,
+  );
+
+  if (partyStateWithInvite.party.inviteCode !== migratedPartyState.party.inviteCode) {
+    useAppStore.setState({ inviteCode: partyStateWithInvite.party.inviteCode });
+  }
 }
 
 function setSyncMetadata(syncStatus: SyncStatus, syncError?: string): void {
@@ -2614,13 +2710,20 @@ function arePartyStatesEqual(
 function getPartyStateFromStoreState(
   state: Pick<
     AppStore,
-    "appState" | "gmUid" | "members" | "partyDisplayName" | "partyId" | "userProfiles"
+    | "appState"
+    | "gmUid"
+    | "inviteCode"
+    | "members"
+    | "partyDisplayName"
+    | "partyId"
+    | "userProfiles"
   >,
 ): PartyState {
   return createPartyState({
     appState: state.appState,
     displayName: state.partyDisplayName,
     gmUid: state.gmUid,
+    inviteCode: state.inviteCode,
     members: state.members,
     partyId: state.partyId,
     userProfiles: state.userProfiles,
@@ -2682,6 +2785,24 @@ function getInitialPartyId(): PartyId {
   }
 
   return getPartyIdFromPathname(window.location.pathname) ?? readLastPartyId() ?? createPartyId();
+}
+
+function getInviteCodeFromLocation(): string | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  return getInviteCodeFromSearch(window.location.search);
+}
+
+function removeInviteCodeFromLocation(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.delete(INVITE_QUERY_PARAM);
+  window.history.replaceState(window.history.state, "", url);
 }
 
 function getPartyIdFromPathname(pathname: string): PartyId | undefined {

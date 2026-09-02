@@ -105,6 +105,11 @@ function LocalAppShell() {
   const resetLocalState = useAppStore((state) => state.resetLocalState);
   const gmUid = useAppStore((state) => state.gmUid);
   const members = useAppStore((state) => state.members);
+  const inviteCode = useAppStore((state) => state.inviteCode);
+  const authAccount = useAppStore((state) => state.authAccount);
+  const regenerateInviteCode = useAppStore((state) => state.regenerateInviteCode);
+  const signInWithGoogle = useAppStore((state) => state.signInWithGoogle);
+  const signOutAccount = useAppStore((state) => state.signOutAccount);
   const currentUserPartyRole = gmUid && members
     ? (currentUserId === gmUid ? "gm" as const : (members[currentUserId]?.role ?? null))
     : null;
@@ -575,12 +580,18 @@ function LocalAppShell() {
         {manageModalOpen ? (
           <ManageDataModal
             appState={appState}
+            authAccount={authAccount}
             currentUserPartyRole={currentUserPartyRole}
+            inviteCode={inviteCode}
             partyDisplayName={partyDisplayName}
             partyId={activePartyId}
+            persistenceMode={persistenceMode}
             onClose={() => setManageModalOpen(false)}
             onImportAppState={replaceAppState}
+            onRegenerateInviteCode={regenerateInviteCode}
             onRenameParty={renameParty}
+            onSignInWithGoogle={signInWithGoogle}
+            onSignOut={signOutAccount}
             onReset={() => {
               resetLocalState();
               setManageModalOpen(false);
