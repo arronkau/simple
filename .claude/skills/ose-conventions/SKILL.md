@@ -15,25 +15,26 @@ When a rule genuinely governs behavior, authority order is: `MODEL_SPEC.md` → 
 
 - [src/model/ose_class_reference.json](../../../src/model/ose_class_reference.json) — per-class, per-level data. Read via [src/model/saveTables.ts](../../../src/model/saveTables.ts) (`getCharacterSaveLookup`).
 - [src/model/standardItemCatalog.json](../../../src/model/standardItemCatalog.json) — item-autofill templates (catalog data, **not** full `InventoryRecord` instances).
+- [src/model/arden_vul_campaign.json](../../../src/model/arden_vul_campaign.json) — campaign allowlists for visible classes and catalog items; hidden entries remain resolvable.
 - [src/model/calculations.ts](../../../src/model/calculations.ts) — AC and coin value/burden helpers.
 
-## Saving throws — relabeled
+## Saving throws
 
-Save **labels are remapped** to Dolmenwood names over OSE categories. Always use the Dolmenwood labels in UI and code; the underlying OSE D/W/P/B/S values are unchanged:
+Use the OSE category labels in UI and code; the underlying OSE D/W/P/B/S values are unchanged:
 
 | Label | OSE key | OSE category |
 |-------|---------|--------------|
-| Doom  | D | Death / poison |
-| Ray   | W | Wands |
-| Hold  | P | Paralysis / petrify |
-| Blast | B | Breath attacks |
-| Spell | S | Spells / rods / staves |
+| Death      | D | Death / poison |
+| Wands      | W | Wands |
+| Paralysis  | P | Paralysis / petrify |
+| Breath     | B | Breath attacks |
+| Spells     | S | Spells / rods / staves |
 
 Saves come from class/level lookup, not ability scores. `getCharacterSaveLookup` normalizes the class name (lowercase, strip non-alphanumerics) and matches `id` or `displayName`; unknown class or level returns `ok: false`.
 
 ## Class reference scope
 
-Curated subset: **OSE Advanced Fantasy classes + the Carcass Crawler #1 goblin**. Each level record carries only `xpThreshold`, `attackBonus`, `saves`, `spellSlots`, `maxSpellLevel` — this is intentional (`excludedByDesign`). Do not invent additional per-level fields; if a feature needs more, update `MODEL_SPEC.md` and re-source the JSON first.
+Curated subset: **OSE Advanced Fantasy classes + the Carcass Crawler #1 goblin**. Campaign classes carry per-class `hitDie` and optional `expertise`; each level record carries only `xpThreshold`, `attackBonus`, `saves`, `spellSlots`, `maxSpellLevel` — this is intentional (`excludedByDesign`). Do not invent additional per-level fields; if a feature needs more, update `MODEL_SPEC.md` and re-source the JSON first.
 
 ## Armor Class
 
@@ -42,6 +43,7 @@ Curated subset: **OSE Advanced Fantasy classes + the Carcass Crawler #1 goblin**
 ## Items & coins
 
 - **House-rules weapons/armor only.** Do **not** import OSE weapon or armor rows into the catalog. "Torch is not a weapon entry." (`standardItemCatalog.json` normalization rules.)
+- Arden Vul catalog corrections and ammunition cite the 2026 Equipment handout. Catalog search is restricted by the campaign allowlist.
 - Catalog entries are templates: at creation the app adds `id`, `entityId`, `location`, `sortOrder`, timestamps, and UI defaults.
 - `gpValue` is **catalog metadata**. The model only defines `gpValue` on `treasure` records — do not persist it onto other record types unless the model is extended.
 - Coins are PP/GP/SP/CP; value is derived (`getCoinGpValue`), never stored. Coin slot *burden* rules live in the `encumbrance-rules` skill.

@@ -38,7 +38,7 @@
     "omissions": [
       "Belt pouch omitted because app handles coin purse/display separately.",
       "Treasure placeholders omitted per user instruction.",
-      "House-rules ammunition rows omitted; ammunition comes from non-weapon equipment sources when present."
+      "Only ammunition rows listed in the Arden Vul Equipment handout are included."
     ]
   },
   "items": [
@@ -66,11 +66,11 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 2
+        "slotsPerItem": 1
       },
       "handsRequired": 1,
       "gpValue": 10,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "2–3' long and made of solid iron. Can be used for forcing doors and other objects open."
     },
     {
@@ -118,13 +118,12 @@
       "name": "Holy symbol",
       "recordType": "equipment",
       "quantity": 1,
-     "burden": {
-        "kind": "fixed",
-        "slotsPerItem": 1
+      "burden": {
+        "kind": "none"
       },
       "handsRequired": 0,
       "gpValue": 25,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "A divine spell caster is required to own a holy symbol of their deity, often worn as a necklace."
     },
     {
@@ -138,8 +137,8 @@
       },
       "handsRequired": 0,
       "gpValue": 25,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
-      "description": "Blessed water kept in its special vial; used in religious rituals and against undead."
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "Blessed water kept in its special vial; used in religious rituals and against undead. Thrown: Missile 10/30/50, Splash — on a hit, the container smashes and douses the target; damage is dealt over two rounds."
     },
     {
       "slug": "iron-spikes-12",
@@ -188,8 +187,8 @@
       },
       "handsRequired": 0,
       "gpValue": 2,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
-      "description": "Flask of oil. Fuels a lantern for 4 hours / 24 turns."
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "Flask of oil. Fuels a lantern for 4 hours / 24 turns. Lit and thrown: Missile 10/30/50, Splash — on a hit, the container smashes and douses the target; damage is dealt over two rounds. Oil poured on the ground and lit covers a diameter of 3 feet and burns for 1 turn, inflicting damage on any character or monster moving through the pool."
     },
     {
       "slug": "mirror-hand-sized-steel",
@@ -197,11 +196,12 @@
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
-        "kind": "none"
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 5,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Useful for looking around corners or reflecting a gaze attack."
     },
     {
@@ -211,40 +211,40 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 3
+        "slotsPerItem": 2
       },
       "handsRequired": 2,
       "gpValue": 1,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "A 2-inch thick wooden pole useful for poking and prodding suspicious items in a dungeon."
     },
     {
       "slug": "rations-iron",
       "name": "Rations (iron)",
       "recordType": "equipment",
-      "quantity": 1,
+      "quantity": 3,
       "burden": {
         "kind": "stacked",
         "itemsPerSlot": 3
       },
       "handsRequired": 0,
-      "gpValue": 3,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
-      "description": "Dried and preserved food for long voyages."
+      "gpValue": 6,
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "Dried and preserved food for long voyages. 3-day bundle; quantity is days."
     },
     {
       "slug": "rations-standard",
       "name": "Rations (standard)",
       "recordType": "equipment",
-      "quantity": 1,
+      "quantity": 3,
       "burden": {
         "kind": "stacked",
         "itemsPerSlot": 3
       },
       "handsRequired": 0,
-      "gpValue": 1,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
-      "description": "Fresh, unpreserved food."
+      "gpValue": 2,
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "Fresh, unpreserved food. 3-day bundle; quantity is days."
     },
     {
       "slug": "rope-50",
@@ -301,11 +301,11 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 1
+        "slotsPerItem": 2
       },
       "handsRequired": 0,
       "gpValue": 3,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "A wooden mallet and three 18-inch stakes. Valuable when confronting vampires."
     },
     {
@@ -328,11 +328,12 @@
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
-        "kind": "none"
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 3,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Used to light fires, including torches. Using it takes one round; 2-in-6 chance of success per round."
     },
     {
@@ -345,8 +346,8 @@
         "itemsPerSlot": 3
       },
       "handsRequired": 1,
-      "gpValue": 1,
-      "source": "OSE Advanced Fantasy Player's Tome, Adventuring Gear",
+      "gpValue": 0.5,
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Each torch burns for 1 hour (6 turns), clearly illuminating a 30' radius.",
       "light": {
         "isLit": false,
@@ -428,7 +429,7 @@
     },
     {
       "slug": "bell-miniature",
-      "name": "Bell (miniature)",
+      "name": "Bell (small)",
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
@@ -436,7 +437,7 @@
       },
       "handsRequired": 0,
       "gpValue": 1,
-      "source": "OSE Expanded Equipment",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "A 1\" brass bell."
     },
     {
@@ -605,11 +606,12 @@
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
-        "kind": "none"
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 2,
-      "source": "OSE Expanded Equipment",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Used with a hammer for chipping away stone."
     },
     {
@@ -772,11 +774,12 @@
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
-        "kind": "none"
+        "kind": "fixed",
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 3,
-      "source": "OSE Expanded Equipment",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Used for studying fine details."
     },
     {
@@ -913,25 +916,25 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 3
+        "slotsPerItem": 2
       },
       "handsRequired": 2,
       "gpValue": 5,
-      "source": "OSE Expanded Equipment",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Big heavy hammer for breaking rock."
     },
     {
       "slug": "spade-or-shovel",
-      "name": "Spade or shovel",
+      "name": "Small shovel",
       "recordType": "equipment",
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 3
+        "slotsPerItem": 1
       },
       "handsRequired": 2,
       "gpValue": 2,
-      "source": "OSE Expanded Equipment",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "For excavating earth."
     },
     {
@@ -964,16 +967,16 @@
     },
     {
       "slug": "vial-glass",
-      "name": "Vial (glass)",
+      "name": "Glass vials (3, bundle)",
       "recordType": "equipment",
-      "quantity": 1,
+      "quantity": 3,
       "burden": {
-        "kind": "fixed",
-        "slotsPerItem": 1
+        "kind": "stacked",
+        "itemsPerSlot": 3
       },
       "handsRequired": 0,
       "gpValue": 1,
-      "source": "OSE Expanded Equipment",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "Glass vial that can hold up to half a pint of liquid."
     },
     {
@@ -988,6 +991,109 @@
       "gpValue": 1,
       "source": "OSE Expanded Equipment",
       "description": "Useful for signalling or faking bird calls."
+    },
+    {
+      "slug": "canvas-10x10",
+      "name": "Canvas (10′ × 10′)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 2
+      },
+      "handsRequired": 0,
+      "gpValue": 2,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "rope-ladder-25",
+      "name": "Rope ladder (25′)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 3
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "spell-book-blank",
+      "name": "Spell book (blank)",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "fixed",
+        "slotsPerItem": 1
+      },
+      "handsRequired": 0,
+      "gpValue": 100,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "arrows-quiver-20",
+      "name": "Arrows (quiver of 20)",
+      "recordType": "equipment",
+      "quantity": 20,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 20
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "bolts-case-30",
+      "name": "Bolts (case of 30)",
+      "recordType": "equipment",
+      "quantity": 30,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 30
+      },
+      "handsRequired": 0,
+      "gpValue": 10,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "blowgun-darts-pouch-5",
+      "name": "Blowgun darts (pouch of 5)",
+      "recordType": "equipment",
+      "quantity": 5,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 5
+      },
+      "handsRequired": 0,
+      "gpValue": 1,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "silver-tipped-arrow",
+      "name": "Silver-tipped arrow",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "stacked",
+        "itemsPerSlot": 20
+      },
+      "handsRequired": 0,
+      "gpValue": 5,
+      "source": "Arden Vul Equipment handout (2026)"
+    },
+    {
+      "slug": "sling-stones",
+      "name": "Sling stones",
+      "recordType": "equipment",
+      "quantity": 1,
+      "burden": {
+        "kind": "none"
+      },
+      "handsRequired": 0,
+      "gpValue": 0,
+      "source": "Arden Vul Equipment handout (2026)"
     },
     {
       "slug": "padded",
@@ -1060,11 +1166,12 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 2
+        "slotsPerItem": 1
       },
       "handsRequired": 0,
       "gpValue": 100,
-      "source": "House rules armor and weapons",
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "Rarely sold; marks the wearer as an Archontean legionary. False claims to legionary status are generally resented.",
       "armor": {
         "baseArmorClass": 14
       }
@@ -1092,11 +1199,12 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 3
+        "slotsPerItem": 2
       },
       "handsRequired": 0,
       "gpValue": 400,
-      "source": "House rules armor and weapons",
+      "source": "Arden Vul Equipment handout (2026)",
+      "description": "Rarely sold; marks the wearer as an Archontean legionary. False claims to legionary status are generally resented.",
       "armor": {
         "baseArmorClass": 15
       }
@@ -1108,11 +1216,11 @@
       "quantity": 1,
       "burden": {
         "kind": "fixed",
-        "slotsPerItem": 3
+        "slotsPerItem": 2
       },
       "handsRequired": 0,
       "gpValue": 600,
-      "source": "House rules armor and weapons",
+      "source": "Arden Vul Equipment handout (2026)",
       "armor": {
         "baseArmorClass": 16
       }
@@ -1140,12 +1248,11 @@
       "recordType": "armor",
       "quantity": 1,
       "burden": {
-        "kind": "fixed",
-        "slotsPerItem": 1
+        "kind": "none"
       },
       "handsRequired": 0,
       "gpValue": 5,
-      "source": "House rules armor and weapons",
+      "source": "Arden Vul Equipment handout (2026)",
       "description": "A helmet can absorb damage from a single successful critical hit, then is rendered useless. It imposes -1 to Surprise.",
       "armor": {
         "armorBonus": 0
@@ -1262,11 +1369,11 @@
       },
       "handsRequired": 2,
       "gpValue": 30,
-      "source": "House rules armor and weapons",
+      "source": "Arden Vul Equipment handout (2026)",
       "weapon": {
         "qualities": [
           "Deadly",
-          "Slow"
+          "Reload"
         ],
         "range": "80/160/240"
       }
@@ -1598,13 +1705,12 @@
       },
       "handsRequired": 2,
       "gpValue": 15,
-      "source": "House rules armor and weapons",
+      "source": "Arden Vul Equipment handout (2026)",
       "weapon": {
         "qualities": [
           "Brutal",
           "Deadly",
-          "Melee",
-          "Slow"
+          "Melee"
         ]
       }
     },
