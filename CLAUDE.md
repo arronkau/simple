@@ -51,6 +51,7 @@ Behavior is spec-driven. Treat these as authoritative and update the spec *befor
 - `APP_SPEC.md` — goals, constraints, persistence behavior.
 - `MODEL_SPEC.md` — canonical data model, invariants, derived calculations.
 - `ENCUMBRANCE_SPEC.md` — encumbrance/movement rules.
+- `SYNC_SPEC.md` — Firestore document shape and field-level write/merge behavior.
 - `TASKS.md` — current 1.0 scope, phase ordering, and the explicit **post-1.0** list (e.g. stack splitting, floor inventory). Don't implement post-1.0 items unless re-scoped.
 
 ## Conventions
