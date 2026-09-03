@@ -7,6 +7,7 @@ import {
 } from "./types";
 import {
   createInitialInventoryRecordsForEntity,
+  findTopLevelStowedContainerRecords,
   getHandOccupancy,
   validateInventoryState,
   type ValidationIssue,
@@ -664,6 +665,14 @@ export const VALIDATION_MANUAL_FIXTURES = [
         warnings: {},
       },
     },
+  },
+  {
+    name: "top-level stowed containers are ordered by sortOrder then id",
+    actual: findTopLevelStowedContainerRecords(characterEntity.id, [
+      duplicateBackpackRecord,
+      topLevelStowedContainerRecord,
+    ]).map((record) => record.id),
+    expected: ["backpack-1", "backpack-2"],
   },
   {
     name: "second backpack is valid when carried in both hands",

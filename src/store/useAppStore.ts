@@ -89,8 +89,15 @@ import {
   signOutFirebase,
   startFirebaseAppStateSync,
   type FirebaseAuthAccount,
-  type FirebaseWritePartyState,
+  type FirebaseWriter,
 } from "../persistence/firebaseSync";
+import { runFirebaseWriteForGeneration } from "../persistence/firebaseWriteLifecycle";
+import { canonicalizePartyState } from "../persistence/firestoreDocument";
+import {
+  diffPartyStates,
+  mergeFieldUpdates,
+  type FieldUpdate,
+} from "../persistence/partyStateDiff";
 import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 export type AccountActionResult = { ok: true } | { ok: false; message: string };
@@ -322,10 +329,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
   setCurrentParty: (partyId) => {
     writeLastPartyId(partyId);
+    let partyChanged = false;
     set((state) => {
       if (state.partyId === partyId) {
         return state;
       }
+
+      partyChanged = true;
 
       const rawPartyState = readLocalPartyState(partyId);
       const partyState = ensurePartyInviteCode(
@@ -349,7 +359,9 @@ export const useAppStore = create<AppStore>((set) => ({
       };
     });
 
-    if (firebaseConfig && canStartFirebaseSync()) {
+    // Re-selecting the current party (e.g. the route effect on mount) must
+    // not restart sync: a restart supersedes any in-flight write.
+    if (partyChanged && firebaseConfig && canStartFirebaseSync()) {
       void startConfiguredFirebaseSync();
     }
   },
@@ -1942,9 +1954,10 @@ export const useAppStore = create<AppStore>((set) => ({
 
 let applyingRemotePartyState = false;
 let firebaseUnsubscribe: (() => void) | undefined;
-let firebaseWritePartyState: FirebaseWritePartyState | undefined;
-let pendingFirebasePartyState: PartyState | undefined;
-let writingFirebaseAppState = false;
+let firebaseWriter: FirebaseWriter | undefined;
+let pendingFirebaseFieldUpdates: FieldUpdate[] = [];
+let writingFirebaseFieldUpdates = false;
+let firebaseSyncGeneration = 0;
 // Local state must never be written to Firebase before we know the remote
 // state. Otherwise a client that just loaded (e.g. a joining player whose
 // local party is empty) would clobber the real party document. This stays
@@ -1974,7 +1987,10 @@ useAppStore.subscribe((state, previousState) => {
   }
 
   if (state.persistenceMode === "firebase") {
-    queueFirebasePartyStateWrite(partyState);
+    const previousPartyState = getPartyStateFromStoreState(previousState);
+    queueFirebaseFieldUpdates(
+      diffPartyStates(previousPartyState, partyState),
+    );
   }
 });
 
@@ -2366,7 +2382,15 @@ function getDefaultCoinRecordForEntity(
     .filter(
       (record) => record.entityId === entityId && record.recordType === "coins",
     )
-    .sort((recordA, recordB) => recordA.sortOrder - recordB.sortOrder)[0];
+    .sort((recordA, recordB) =>
+      recordA.sortOrder !== recordB.sortOrder
+        ? recordA.sortOrder - recordB.sortOrder
+        : recordA.id < recordB.id
+          ? -1
+          : recordA.id > recordB.id
+            ? 1
+            : 0,
+    )[0];
 }
 
 function createInventoryMoveAuditEntryInput(input: {
@@ -2506,26 +2530,53 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     return;
   }
 
+  firebaseSyncGeneration += 1;
+  const activeSyncGeneration = firebaseSyncGeneration;
   stopConfiguredFirebaseSync();
   // Re-gate writes for the new connection until its first snapshot lands.
+  // Any write still in flight belongs to the previous generation: its
+  // settlement is ignored, so release the write flag here.
   firebaseFirstSnapshotHandled = false;
+  writingFirebaseFieldUpdates = false;
 
   const activePartyId = useAppStore.getState().partyId;
+  // Every callback from a superseded start must be a no-op, otherwise a
+  // late auth failure or snapshot from the old connection can overwrite the
+  // status or state of the new one.
+  const isActiveSync = () =>
+    firebaseSyncGeneration === activeSyncGeneration &&
+    useAppStore.getState().partyId === activePartyId;
   const unsubscribe = await startFirebaseAppStateSync({
     config: firebaseConfig,
     getCurrentPartyState: () =>
       getPartyStateFromStoreState(useAppStore.getState()),
     inviteCode: getInviteCodeFromLocation(),
     onError: (message) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       setSyncMetadata("error", message);
     },
     onAuthAccount: (authAccount) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       useAppStore.setState({ authAccount });
     },
     onJoined: () => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       removeInviteCodeFromLocation();
     },
     onAuthUserId: (userId) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
       const state = useAppStore.getState();
       const prevUserId = state.currentUserId;
       const currentPartyState = getPartyStateFromStoreState(state);
@@ -2565,30 +2616,32 @@ async function startConfiguredFirebaseSync(): Promise<void> {
         members: migratedPartyState.party.members,
       });
     },
-    onReadyToWrite: (writePartyState) => {
-      if (useAppStore.getState().partyId !== activePartyId) {
+    onReadyToWrite: (writer) => {
+      if (!isActiveSync()) {
         return;
       }
 
-      firebaseWritePartyState = writePartyState;
+      firebaseWriter = writer;
       void flushFirebasePartyStateWrite();
     },
     onRemotePartyState: (partyState) => {
-      if (useAppStore.getState().partyId !== partyState.party.id) {
+      if (!isActiveSync() || partyState.party.id !== activePartyId) {
         return;
       }
 
       applyRemotePartyState(partyState);
     },
     onStatusChange: (syncStatus) => {
-      if (useAppStore.getState().partyId === activePartyId) {
-        setSyncMetadata(syncStatus);
+      if (!isActiveSync()) {
+        return;
       }
+
+      setSyncMetadata(syncStatus);
     },
     partyId: activePartyId,
   });
 
-  if (useAppStore.getState().partyId === activePartyId) {
+  if (isActiveSync()) {
     firebaseUnsubscribe = unsubscribe;
   } else {
     unsubscribe();
@@ -2601,16 +2654,20 @@ function stopConfiguredFirebaseSync(): void {
 }
 
 function resetFirebaseWriteQueue(): void {
-  firebaseWritePartyState = undefined;
-  pendingFirebasePartyState = undefined;
-  writingFirebaseAppState = false;
+  firebaseSyncGeneration += 1;
+  firebaseWriter = undefined;
+  pendingFirebaseFieldUpdates = [];
+  writingFirebaseFieldUpdates = false;
   firebaseFirstSnapshotHandled = false;
 }
 
-function queueFirebasePartyStateWrite(partyState: PartyState): void {
-  pendingFirebasePartyState = partyState;
+function queueFirebaseFieldUpdates(updates: FieldUpdate[]): void {
+  pendingFirebaseFieldUpdates = mergeFieldUpdates(
+    pendingFirebaseFieldUpdates,
+    updates,
+  );
 
-  if (!firebaseWritePartyState) {
+  if (!firebaseWriter || pendingFirebaseFieldUpdates.length === 0) {
     return;
   }
 
@@ -2619,39 +2676,46 @@ function queueFirebasePartyStateWrite(partyState: PartyState): void {
 
 async function flushFirebasePartyStateWrite(): Promise<void> {
   if (
-    !firebaseWritePartyState ||
-    !pendingFirebasePartyState ||
-    writingFirebaseAppState ||
+    !firebaseWriter ||
+    pendingFirebaseFieldUpdates.length === 0 ||
+    writingFirebaseFieldUpdates ||
     // Never write local state before the first remote snapshot is processed.
     !firebaseFirstSnapshotHandled
   ) {
     return;
   }
 
-  const partyState = pendingFirebasePartyState;
-  pendingFirebasePartyState = undefined;
-  writingFirebaseAppState = true;
+  const writer = firebaseWriter;
+  const writeGeneration = firebaseSyncGeneration;
+  const updates = pendingFirebaseFieldUpdates;
+  pendingFirebaseFieldUpdates = [];
+  writingFirebaseFieldUpdates = true;
   setSyncMetadata("saving");
 
-  try {
-    await firebaseWritePartyState(partyState);
-    writingFirebaseAppState = false;
+  await runFirebaseWriteForGeneration({
+    generation: writeGeneration,
+    getCurrentGeneration: () => firebaseSyncGeneration,
+    write: () => writer.applyFieldUpdates(updates),
+    onSuccess: () => {
+      writingFirebaseFieldUpdates = false;
 
-    if (pendingFirebasePartyState) {
-      void flushFirebasePartyStateWrite();
-      return;
-    }
+      if (pendingFirebaseFieldUpdates.length > 0) {
+        void flushFirebasePartyStateWrite();
+        return;
+      }
 
-    setSyncMetadata("synced");
-  } catch (error) {
-    writingFirebaseAppState = false;
+      setSyncMetadata("synced");
+    },
+    onFailure: (error) => {
+      writingFirebaseFieldUpdates = false;
+      pendingFirebaseFieldUpdates = mergeFieldUpdates(
+        updates,
+        pendingFirebaseFieldUpdates,
+      );
 
-    if (!pendingFirebasePartyState) {
-      pendingFirebasePartyState = partyState;
-    }
-
-    setSyncMetadata("error", formatSyncError(error));
-  }
+      setSyncMetadata("error", formatSyncError(error));
+    },
+  });
 }
 
 function applyRemotePartyState(partyState: PartyState): void {
@@ -2662,7 +2726,7 @@ function applyRemotePartyState(partyState: PartyState): void {
   // must be discarded so it can't overwrite the real party.
   if (!firebaseFirstSnapshotHandled) {
     firebaseFirstSnapshotHandled = true;
-    pendingFirebasePartyState = undefined;
+    pendingFirebaseFieldUpdates = [];
   }
 
   const currentState = useAppStore.getState();
@@ -2704,7 +2768,10 @@ function arePartyStatesEqual(
   leftPartyState: PartyState,
   rightPartyState: PartyState,
 ): boolean {
-  return JSON.stringify(leftPartyState) === JSON.stringify(rightPartyState);
+  return (
+    JSON.stringify(canonicalizePartyState(leftPartyState)) ===
+    JSON.stringify(canonicalizePartyState(rightPartyState))
+  );
 }
 
 function getPartyStateFromStoreState(

@@ -1,16 +1,27 @@
 import {
-  parsePartyState,
   type PartyId,
   type PartyState,
 } from "../model/appState";
 import { createJoinMemberEntry } from "../model/partyInvite";
 import type { ISODateTimeString } from "../model/types";
 import type { FirebaseConfig } from "./firebaseConfig";
+import {
+  fromFirestorePartyDocument,
+  isLegacyFirestorePartyDocument,
+  toFirestorePartyDocument,
+} from "./firestoreDocument";
+import { createLegacyUpgradeLifecycle } from "./legacyUpgradeLifecycle";
+import type { FieldUpdate } from "./partyStateDiff";
 import type { SyncStatus } from "./types";
 
 export const FIREBASE_PARTY_STATE_COLLECTION = "parties";
+const LEGACY_UPGRADE_RETRY_DELAY_MS = 1500;
+const LEGACY_UPGRADE_MAX_RETRY_DELAY_MS = 30_000;
 
-export type FirebaseWritePartyState = (partyState: PartyState) => Promise<void>;
+export type FirebaseWriter = {
+  applyFieldUpdates: (updates: FieldUpdate[]) => Promise<void>;
+  replaceDocument: (partyState: PartyState) => Promise<void>;
+};
 
 export type FirebaseAuthAccount = {
   uid: string;
@@ -29,7 +40,7 @@ type StartFirebaseAppStateSyncInput = {
   onAuthUserId: (userId: string) => void;
   onAuthAccount?: (account: FirebaseAuthAccount) => void;
   onJoined?: () => void;
-  onReadyToWrite: (writePartyState: FirebaseWritePartyState) => void;
+  onReadyToWrite: (writer: FirebaseWriter) => void;
   onRemotePartyState: (partyState: PartyState) => void;
   onStatusChange: (syncStatus: SyncStatus) => void;
   partyId: PartyId;
@@ -121,34 +132,144 @@ export async function startFirebaseAppStateSync({
       }
     }
 
-    const writePartyState: FirebaseWritePartyState = async (partyState) => {
-      await firestore.setDoc(partyStateRef, partyState);
-    };
-
-    onReadyToWrite(writePartyState);
-
-    return firestore.onSnapshot(
-      partyStateRef,
-      (snapshot) => {
-        if (!snapshot.exists()) {
-          onStatusChange("saving");
-          void writePartyState(getCurrentPartyState())
-            .then(() => onStatusChange("synced"))
-            .catch((error: unknown) => onError(formatFirebaseError(error)));
+    let fieldUpdatesReady = false;
+    let resolveFieldUpdatesReady: (() => void) | undefined;
+    const fieldUpdatesReadyPromise = new Promise<void>((resolve) => {
+      resolveFieldUpdatesReady = resolve;
+    });
+    const writer: FirebaseWriter = {
+      applyFieldUpdates: async (updates) => {
+        if (updates.length === 0) {
           return;
         }
 
-        const partyState = parsePartyState(snapshot.data(), partyId);
+        if (!fieldUpdatesReady) {
+          await fieldUpdatesReadyPromise;
+        }
+
+        const fieldValues = updates.flatMap((update) => {
+          const fieldPath = new firestore.FieldPath(...update.path);
+
+          switch (update.op) {
+            case "set":
+              return [fieldPath, update.value];
+            case "delete":
+              return [fieldPath, firestore.deleteField()];
+            case "arrayUnion":
+              return [fieldPath, firestore.arrayUnion(...update.value)];
+          }
+        });
+        const [firstField, firstValue, ...remainingFieldValues] = fieldValues;
+
+        await firestore.updateDoc(
+          partyStateRef,
+          firstField as import("firebase/firestore").FieldPath,
+          firstValue,
+          ...remainingFieldValues,
+        );
+      },
+      replaceDocument: async (partyState) => {
+        await firestore.setDoc(
+          partyStateRef,
+          toFirestorePartyDocument(partyState),
+        );
+      },
+    };
+
+    onReadyToWrite(writer);
+
+    let stopped = false;
+    let creatingDocument = false;
+
+    const applyVersion2PartyState = (partyState: PartyState) => {
+      if (stopped) {
+        return;
+      }
+
+      if (!fieldUpdatesReady) {
+        fieldUpdatesReady = true;
+        resolveFieldUpdatesReady?.();
+      }
+
+      onRemotePartyState(partyState);
+    };
+
+    const legacyUpgradeLifecycle = createLegacyUpgradeLifecycle({
+      applyVersion2: applyVersion2PartyState,
+      attemptUpgrade: () =>
+        firestore.runTransaction(database, async (transaction) => {
+          const currentSnapshot = await transaction.get(partyStateRef);
+
+          if (
+            !currentSnapshot.exists() ||
+            !isLegacyFirestorePartyDocument(currentSnapshot.data())
+          ) {
+            return;
+          }
+
+          const currentPartyState = fromFirestorePartyDocument(
+            currentSnapshot.data(),
+            partyId,
+          );
+
+          if (!currentPartyState) {
+            throw new Error("Firestore party document is not a valid PartyState.");
+          }
+
+          transaction.set(
+            partyStateRef,
+            toFirestorePartyDocument(currentPartyState),
+          );
+        }),
+      maxRetryDelayMs: LEGACY_UPGRADE_MAX_RETRY_DELAY_MS,
+      onRetry: () => onStatusChange("syncing"),
+      reportError: (error) => onError(formatFirebaseError(error)),
+      retryDelayMs: LEGACY_UPGRADE_RETRY_DELAY_MS,
+    });
+
+    const unsubscribe = firestore.onSnapshot(
+      partyStateRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          if (creatingDocument) {
+            return;
+          }
+
+          creatingDocument = true;
+          onStatusChange("saving");
+          void writer.replaceDocument(getCurrentPartyState()).catch(
+            (error: unknown) => {
+              creatingDocument = false;
+              onError(formatFirebaseError(error));
+            },
+          );
+          return;
+        }
+
+        const data = snapshot.data();
+        const partyState = fromFirestorePartyDocument(data, partyId);
 
         if (!partyState) {
           onError("Firestore party document is not a valid PartyState.");
           return;
         }
 
-        onRemotePartyState(partyState);
+        if (isLegacyFirestorePartyDocument(data)) {
+          onStatusChange("syncing");
+          legacyUpgradeLifecycle.handleLegacyDocument();
+          return;
+        }
+
+        legacyUpgradeLifecycle.handleVersion2Document(partyState);
       },
       (error) => onError(formatFirebaseError(error)),
     );
+
+    return () => {
+      stopped = true;
+      legacyUpgradeLifecycle.stop();
+      unsubscribe();
+    };
   } catch (error) {
     onError(formatFirebaseError(error));
     return () => undefined;

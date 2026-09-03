@@ -79,6 +79,8 @@ Firebase mode should:
 - Support real-time sync where practical.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
 
+Firestore's wire shape, field-level merge behavior, and legacy-document upgrade path are defined in [SYNC_SPEC.md](SYNC_SPEC.md).
+
 ### Local Mode
 
 Use local mode automatically when Firebase config is missing.

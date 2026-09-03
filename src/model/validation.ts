@@ -100,12 +100,14 @@ export function getHandOccupancy(
     errors: [],
   };
 
-  const handRecords = records.filter(
-    (record) =>
-      record.entityId === entityId &&
-      record.location.kind === "equipped" &&
-      isHandPlacement(record.location.placement),
-  );
+  const handRecords = records
+    .filter(
+      (record) =>
+        record.entityId === entityId &&
+        record.location.kind === "equipped" &&
+        isHandPlacement(record.location.placement),
+    )
+    .sort(compareInventoryRecordOrder);
 
   for (const record of handRecords) {
     if (record.location.kind !== "equipped") {
@@ -138,11 +140,24 @@ export function findTopLevelStowedContainerRecords(
   entityId: EntityId,
   records: InventoryRecord[],
 ): InventoryRecord[] {
-  return records.filter(
-    (record) =>
-      record.entityId === entityId &&
-      isTopLevelStowedContainer(record),
-  );
+  return records
+    .filter(
+      (record) =>
+        record.entityId === entityId &&
+        isTopLevelStowedContainer(record),
+    )
+    .sort(compareInventoryRecordOrder);
+}
+
+function compareInventoryRecordOrder(
+  left: InventoryRecord,
+  right: InventoryRecord,
+): number {
+  if (left.sortOrder !== right.sortOrder) {
+    return left.sortOrder - right.sortOrder;
+  }
+
+  return left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
 }
 
 export function hasTopLevelStowedContainer(

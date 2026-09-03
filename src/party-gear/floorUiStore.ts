@@ -93,5 +93,13 @@ export function findDefaultFloorEntity(entities: Entity[]): Entity | undefined {
         entity.entityType === "storage" &&
         entity.name.trim().toLowerCase() === DEFAULT_FLOOR_NAME.toLowerCase(),
     )
-    .sort((left, right) => left.sortOrder - right.sortOrder)[0];
+    .sort((left, right) =>
+      left.sortOrder !== right.sortOrder
+        ? left.sortOrder - right.sortOrder
+        : left.id < right.id
+          ? -1
+          : left.id > right.id
+            ? 1
+            : 0,
+    )[0];
 }
