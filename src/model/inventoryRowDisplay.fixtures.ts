@@ -230,6 +230,12 @@ const stowedHandCapacitySackRecord: InventoryRecord = {
   },
 };
 
+const stowedRootContainerRecord: InventoryRecord = {
+  ...topLevelStowedContainerRecord,
+  id: "stowed-root-backpack-1",
+  location: { kind: "stowedRoot" },
+};
+
 const stowedHandCapacitySackContentsRecord: InventoryRecord = {
   ...overloadedSackContentsRecord,
   id: "hand-capacity-sack-contents-1",
@@ -383,13 +389,23 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "container row without applicable capacity shows used over dash",
+    name: "hand-capacity container row outside hands falls back to two-handed capacity",
     actual: getInventoryRowDisplay(stowedHandCapacitySackRecord, allRecords),
     expected: {
       primaryText: "Sack",
       statusIcons: [],
       rightKind: "capacity",
-      rightText: "3/— slots",
+      rightText: "3/12 slots",
+    },
+  },
+  {
+    name: "stowed-root container row without applicable capacity shows used over dash",
+    actual: getInventoryRowDisplay(stowedRootContainerRecord, allRecords),
+    expected: {
+      primaryText: "Backpack",
+      statusIcons: [],
+      rightKind: "capacity",
+      rightText: "0/— slots",
     },
   },
   {

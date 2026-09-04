@@ -239,7 +239,11 @@ export function getContainerCapacity(
     }
   }
 
-  return container.capacitySlots;
+  // Outside a hand placement a hand-capacity container falls back to its
+  // two-handed maximum: a container can never hold more than that, wherever it
+  // sits, except at the stowed root (handled above), which has no capacity of
+  // its own.
+  return container.capacitySlots ?? container.capacityByHands?.twoHands;
 }
 
 export function getContainerSlotUsage(

@@ -577,7 +577,10 @@ export type ContainerData = {
   `oneHand` and `twoHands` values.
 - Capacity resolves from placement: `leftHand`/`rightHand` use `oneHand`,
   `bothHands` uses `twoHands`, and every other placement uses `capacitySlots`
-  when defined. Undefined resolved capacity means no capacity limit applies.
+  when defined and otherwise falls back to `capacityByHands.twoHands` — a
+  container can never hold more than its two-handed maximum, wherever it sits,
+  except at the stowed root, which has no capacity of its own. Undefined
+  resolved capacity means no capacity limit applies.
 - A container at `stowedRoot` resolves to undefined capacity regardless of its
   `capacitySlots`: it is the character's packed list, and the stowed limit
   (16 + STR modifier, see `ENCUMBRANCE_SPEC.md`) governs it. Its own capacity
@@ -784,11 +787,13 @@ baseRecordSlots =
 containerUsedSlots = sum(effectiveRecordSlots(child) for each direct child record)
 
 containerCapacity(record) =
-  record.container.capacityByHands && record.location is leftHand/rightHand
-    ? record.container.capacityByHands.oneHand
-    : record.container.capacityByHands && record.location is bothHands
-      ? record.container.capacityByHands.twoHands
-      : record.container.capacitySlots
+  record.location is stowedRoot
+    ? undefined
+    : record.container.capacityByHands && record.location is leftHand/rightHand
+      ? record.container.capacityByHands.oneHand
+      : record.container.capacityByHands && record.location is bothHands
+        ? record.container.capacityByHands.twoHands
+        : record.container.capacitySlots ?? record.container.capacityByHands?.twoHands
 ```
 
 Container used slots include child record burdens.

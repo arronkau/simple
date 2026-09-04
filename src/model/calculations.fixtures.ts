@@ -175,6 +175,31 @@ const stowedCapacitySackRecord: InventoryRecord = {
   location: { kind: "container", containerId: "backpack-1" },
 };
 
+const looseCapacitySackRecord: InventoryRecord = {
+  ...handCapacitySackRecord,
+  location: { kind: "equipped", placement: "loose" },
+};
+
+const contentsCapacitySackRecord: InventoryRecord = {
+  ...handCapacitySackRecord,
+  entityId: "mule-1",
+  location: { kind: "contents" },
+};
+
+const stowedRootCapacitySackRecord: InventoryRecord = {
+  ...handCapacitySackRecord,
+  location: { kind: "stowedRoot" },
+};
+
+const dualCapacitySackRecord: InventoryRecord = {
+  ...handCapacitySackRecord,
+  location: { kind: "container", containerId: "backpack-1" },
+  container: {
+    capacitySlots: 4,
+    capacityByHands: { oneHand: 6, twoHands: 12 },
+  },
+};
+
 const rationsRecord: InventoryRecord = {
   id: "rations-1",
   recordType: "equipment",
@@ -320,7 +345,28 @@ export const CALCULATION_MANUAL_FIXTURES = [
       fixed: 6,
       oneHand: 6,
       twoHands: 12,
-      stowed: null,
+      stowed: 12,
+    },
+  },
+  {
+    name: "hand-capacity container falls back to its two-handed maximum outside hands",
+    actual: {
+      loose: getContainerCapacity(looseCapacitySackRecord) ?? null,
+      insideContainer: getContainerCapacity(stowedCapacitySackRecord) ?? null,
+      contents: getContainerCapacity(contentsCapacitySackRecord) ?? null,
+      leftHand: getContainerCapacity(handCapacitySackRecord) ?? null,
+      bothHands: getContainerCapacity(twoHandedCapacitySackRecord) ?? null,
+      stowedRoot: getContainerCapacity(stowedRootCapacitySackRecord) ?? null,
+      fixedCapacityWins: getContainerCapacity(dualCapacitySackRecord) ?? null,
+    },
+    expected: {
+      loose: 12,
+      insideContainer: 12,
+      contents: 12,
+      leftHand: 6,
+      bothHands: 12,
+      stowedRoot: null,
+      fixedCapacityWins: 4,
     },
   },
   {

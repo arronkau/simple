@@ -158,9 +158,11 @@ Rules:
 - The held container itself counts toward movement-restricting encumbrance.
 - A container with `capacityByHands` resolves to its one-hand capacity in
   `leftHand` or `rightHand`, and its two-hand capacity in `bothHands`.
-- Outside a hand placement, a hand-capacity container uses `capacitySlots` when
-  one is defined; otherwise capacity is not applicable and cannot create a
-  capacity warning or overload.
+- Outside a hand placement, a container uses `capacitySlots` when one is
+  defined and otherwise falls back to `capacityByHands.twoHands`: a container
+  can never hold more than its two-handed maximum, wherever it sits, except at
+  the stowed root, which has no capacity of its own. The resolved capacity can
+  create a capacity warning and an overload like any other container capacity.
 - Contents inside any hand-held container are excluded from movement-restricting encumbrance.
 - The app should still show the held container's contained slot total for visibility.
 - `handsRequired` describes carrying the container **in hand**. It is only enforceable when the container's own location is `equipped` with `placement: "loose"`: a non-empty hands-required container left at equipped/loose creates an overload condition — the character cannot move.
@@ -491,7 +493,8 @@ backpack's own burden does not.
 - Contents inside hand-held containers are excluded from equipped and stowed movement burden.
 - The held container itself still counts.
 - Hand-dependent container capacity resolves from the container's current hand
-  placement; without a fixed fallback, capacity is not applicable elsewhere.
+  placement; everywhere else it falls back to `capacitySlots` when defined and
+  otherwise to `capacityByHands.twoHands`.
 - The app still shows held container contained slot totals for visibility.
 - A hands-required container with contents overloads the character only when left at equipped/loose.
 
