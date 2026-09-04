@@ -366,8 +366,7 @@ export type InventoryRecord = {
 - `armor` is optional detail data for `recordType === "armor"`; an armor record may exist without a populated `armor` object.
 - Type-specific data from the wrong record type should not be used by calculations or display. Parsers may tolerate excess fields from older or hand-edited data, but new write paths should avoid creating irrelevant type-specific fields.
 - `container` may appear on weapon, armor, or equipment records if that record can contain other records; treasure records do not use container data.
-- `identification` may appear on `weapon`, `armor`, or `equipment` records. It may also be tolerated on imported or legacy records, but coins and treasure are treated as identified for normal display.
-- Treasure is always identified in normal inventory display.
+- `identification` may appear on `treasure`, `weapon`, `armor`, or `equipment` records. It may also be tolerated on imported or legacy records.
 - Coins are always identified in normal inventory display.
 - `modifiers` are optional and descriptive for v1.
 - For v1, modifiers are edit/display-only. Do not apply them automatically to AC, attack, saves, movement, or character sheet fields.
@@ -498,7 +497,7 @@ export type TreasureData = {
 - `gpValue` is required for treasure.
 - `gpValue` must be `>= 0`.
 - Treasure records use normal inventory location and slot rules.
-- Treasure is always identified.
+- Treasure may be unidentified. An unidentified treasure record hides its `gpValue` from non-GM viewers (see Player Visibility).
 - Treasure may use `burden.kind: "fixed"`, `"stacked"`, or `"none"` depending on the record.
 
 ## Weapon Data
@@ -657,10 +656,23 @@ export type IdentificationData = {
 
 - Identification data is optional.
 - If absent, the record is treated as identified.
-- Identification data may appear on `weapon`, `armor`, or `equipment` records. Imported or legacy identification data on other record types may be tolerated, but coins and treasure are treated as identified in normal display.
+- Identification data may appear on `treasure`, `weapon`, `armor`, or `equipment` records. Coins are always identified; imported or legacy identification data on coin records is ignored.
 - When `identified === false`, normal inventory display should use the public `name` and `description` fields and hide/collapse `secretName` and `secretDescription`.
 - When an item is identified, copy `secretName` to `name` when present, copy `secretDescription` to `description` when present, then remove the `identification` data.
 - Legacy `unidentifiedName` / `unidentifiedDescription` fields may be read as aliases for `secretName` / `secretDescription` during migration, but new writes should use `secretName` / `secretDescription`.
+- Unidentified records are read-only for players: only the GM may edit one. Players may still move, light, and put out an unidentified item.
+
+## Player Visibility
+
+Redaction is a **display** concern. Derived calculations — armor class, attack, damage, encumbrance, movement, light burn — always run on the full record for every viewer. Equipping an unidentified item grants its bonus; the risk is that it is cursed. Never feed a redacted record into the store or into rules math.
+
+`getVisibleInventoryRecord(record, viewerRole)` is the single redaction rule, applied at display boundaries. It fails closed: only a confirmed `"gm"` role sees everything; players and unresolved/non-member (`null`) roles do not.
+
+- `notes` is GM-only **always**, identified or not: never displayed to a non-GM, never editable by one, and a non-GM save carries the stored value through unchanged rather than wiping it.
+- An unidentified record is reduced for a non-GM viewer to its **public shell**, in this key order: `id`, `entityId`, `recordType`, `name`, `description`, `location`, `sortOrder`, `quantity`, `burden`, `handsRequired`, `container`, `identification: { identified: false }`, `light: { isLit }` (light sources only), `createdAt`, `updatedAt`, then the type-specific field.
+- The shell drops `isMagic`, `uses`, `modifiers`, `notes`, `secretName`, `secretDescription`, and `light.lightDescription`; a weapon keeps `weapon: {}`, armor keeps `armor: {}`, and treasure keeps `treasure: { gpValue: 0 }`.
+- Coin records are never unidentified; they pass through unchanged apart from `notes`.
+- The wire carries full records. Firestore rules cannot filter fields inside an inventory record, so this layer is UX and table etiquette, not a security boundary.
 
 ## Uses and Light Data
 
@@ -977,7 +989,6 @@ The app should prevent state that violates these invariants:
 - Non-character entities may have multiple coin records if each has a valid contents/container location.
 - Character-like coins use only `recordType: "coins"`, `coins`, and stowed coin-purse location.
 - Non-character coins use only `recordType: "coins"`, `coins`, and a valid contents or container location.
-- Treasure records do not use identification data.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.
 - A hand placement cannot contain more than one record.
@@ -998,7 +1009,7 @@ The app may warn without blocking for:
 - Character-like entity missing a top-level stowed container.
 - Attempting to stow a non-coin character-like record when no top-level stowed container exists.
 - Missing optional metadata.
-- Unidentified equipment, armor, or weapon lacking an unidentified name.
+- Unidentified treasure, equipment, armor, or weapon lacking a secret name (spec intention; not yet implemented in `validation.ts`).
 - Memorized spells exceeding the class's derived spell slots at a given spell level, or a spell above the class's maximum castable spell level.
 - A level-1 character's maximum HP below the class minimum: d4 → 3, d6 → 4, or d8 → 5. No warning applies when maximum HP is null, the level is not 1, or class Hit Die metadata cannot be resolved.
 - Any d6 skill above 5-in-6. Stored 6-in-6 values are warned about, not clamped or rewritten.

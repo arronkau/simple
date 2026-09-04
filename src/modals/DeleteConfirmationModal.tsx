@@ -1,5 +1,7 @@
 import type { InventoryRecord } from "../model/types";
 import { getDeleteConfirmationMessage, getRecordDisplayName } from "../formatters";
+import { getVisibleInventoryRecord } from "../model/recordVisibility";
+import { useViewerRole } from "../components/ViewerRole";
 import type { DeleteConfirmationState } from "../view-types";
 
 export function DeleteConfirmationModal({
@@ -13,16 +15,24 @@ export function DeleteConfirmationModal({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const viewerRole = useViewerRole();
   const title =
     confirmation.kind === "entity" ? "Delete Entity" : "Delete Item";
+  // Display boundary: the record message quotes the name and the gp value, so
+  // build it from what this viewer may see. Deleting still goes by record id.
   const message =
     confirmation.kind === "entity"
       ? `Delete ${confirmation.entity.name} and all of its inventory records?`
-      : getDeleteConfirmationMessage(confirmation.record, inventoryRecords);
+      : getDeleteConfirmationMessage(
+          getVisibleInventoryRecord(confirmation.record, viewerRole),
+          inventoryRecords,
+        );
   const targetName =
     confirmation.kind === "entity"
       ? confirmation.entity.name
-      : getRecordDisplayName(confirmation.record);
+      : getRecordDisplayName(
+          getVisibleInventoryRecord(confirmation.record, viewerRole),
+        );
 
   return (
     <div className="modal-backdrop" role="presentation">

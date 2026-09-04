@@ -4,6 +4,7 @@ import {
   getRecordSlotBurden,
   isArmorClassActiveRecord,
 } from "./calculations";
+import { isUnidentifiedRecord } from "./recordVisibility";
 import type { CoinData, InventoryRecord } from "./types";
 
 export type InventoryRowStatus =
@@ -40,10 +41,17 @@ export function getInventoryRowDisplay(
     const isOverCapacity =
       slotUsage.capacitySlots !== undefined &&
       slotUsage.usedSlots > slotUsage.capacitySlots;
+    // A container is an ordinary record too: it can be lit, unidentified, or
+    // contributing to AC. Those glyphs show alongside the capacity warning.
+    const statusIcons = getInventoryRowStatusIcons(record);
+
+    if (isOverCapacity) {
+      statusIcons.push("overCapacity");
+    }
 
     return {
       primaryText,
-      statusIcons: isOverCapacity ? ["overCapacity"] : [],
+      statusIcons,
       rightKind: "capacity",
       rightText: formatCapacity(slotUsage.usedSlots, slotUsage.capacitySlots),
     };
@@ -57,7 +65,7 @@ export function getInventoryRowDisplay(
 
     return {
       primaryText,
-      statusIcons: [],
+      statusIcons: getInventoryRowStatusIcons(record),
       ...(gpValue ? { secondaryText: gpValue } : {}),
       rightKind: "burden",
       rightText: formatSlots(getRecordSlotBurden(record)),
@@ -110,7 +118,7 @@ function formatItemQuantity(name: string, quantity: number): string {
 }
 
 function getInventoryRowStatusIcons(
-  record: Exclude<InventoryRecord, { recordType: "coins" | "treasure" }>,
+  record: Exclude<InventoryRecord, { recordType: "coins" }>,
 ): InventoryRowStatus[] {
   const statuses: InventoryRowStatus[] = [];
 
@@ -118,7 +126,7 @@ function getInventoryRowStatusIcons(
     statuses.push("lit");
   }
 
-  if (record.identification?.identified === false) {
+  if (isUnidentifiedRecord(record)) {
     statuses.push("unidentified");
   }
 

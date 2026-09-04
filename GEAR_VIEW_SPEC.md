@@ -84,6 +84,12 @@ unlit, fire when lit, with `light.lightDescription` + `uses` in the title;
 clicking lights one item or opens the put-out dialog, same as the character
 sheet — plus the unidentified marker and active-AC), and a quiet slot-cost
 indicator on the right.
+
+Glyph rule: an unidentified item shows `?`; otherwise a magic item shows `✦`.
+`?` wins — an unidentified item never shows the magic star, for the GM either.
+Rows render the viewer-visible record (`MODEL_SPEC.md`, Player Visibility), so a
+non-GM sees neither the star nor the burn time or gp value of an unidentified
+item, and the Identify action appears for the GM only.
 The record name is the loudest element; chrome recedes; color is reserved for
 load/movement status, light, and the drag accent.
 

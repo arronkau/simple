@@ -45,6 +45,11 @@ import {
   type CharacterInventorySections,
 } from "../model/inventoryDisplay";
 import { getInventoryRowDisplay } from "../model/inventoryRowDisplay";
+import {
+  getVisibleInventoryRecord,
+  hasSecretIdentification,
+  isUnidentifiedRecord,
+} from "../model/recordVisibility";
 import { isCharacterLikeEntity } from "../model/validation";
 import {
   sortInventoryRecordsBySortOrder,
@@ -63,6 +68,7 @@ import {
 } from "../components/GearMeters";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { ItemStatusIcon } from "../components/InventoryIcons";
+import { useVisibleRecord } from "../components/ViewerRole";
 import type {
   Entity,
   EntityId,
@@ -418,8 +424,14 @@ export function PartyGearPage(actions: GearActions) {
     }
   }
 
-  const activeRecord = dragState.activeRecordId
+  const activeRecordSource = dragState.activeRecordId
     ? getRecordById(dragState.activeRecordId, records)
+    : undefined;
+  const activeRecord = activeRecordSource
+    ? getVisibleInventoryRecord(
+        activeRecordSource,
+        actions.currentUserPartyRole ?? null,
+      )
     : undefined;
 
   return (
@@ -1142,6 +1154,7 @@ function ContainerHeader({
   children: ReactNode;
 }) {
   const actions = useGearActions();
+  const visibleContainer = useVisibleRecord(container);
   const drag = useContext(GearDragContext);
   const dragData: GearDragData = {
     type: "gear-record",
@@ -1172,8 +1185,12 @@ function ContainerHeader({
         className="cname"
         onClick={() => actions.onEditRecord(container)}
       >
-        {getInventoryRowDisplay(container, allRecords).primaryText}
+        {getInventoryRowDisplay(visibleContainer, allRecords).primaryText}
       </button>
+      <StateGlyphs
+        record={visibleContainer}
+        activeAc={isArmorClassActiveRecord(container)}
+      />
       {children}
       {action}
     </div>
@@ -1317,9 +1334,12 @@ function RecordRowBody({
   rowAction?: ReactNode;
 }) {
   const actions = useGearActions();
-  const display = getInventoryRowDisplay(record, allRecords);
+  // Display boundary: redact once per row, then hand the visible record down.
+  // Actions still take the real record — moving and lighting are unaffected.
+  const visibleRecord = useVisibleRecord(record);
+  const display = getInventoryRowDisplay(visibleRecord, allRecords);
   const canIdentify =
-    actions.currentUserPartyRole !== "player" && canIdentifyRecord(record);
+    actions.currentUserPartyRole === "gm" && hasSecretIdentification(record);
 
   return (
     <>
@@ -1330,7 +1350,10 @@ function RecordRowBody({
       >
         {display.primaryText}
       </button>
-      <StateGlyphs record={record} />
+      <StateGlyphs
+        record={visibleRecord}
+        activeAc={isArmorClassActiveRecord(record)}
+      />
       {display.secondaryText ? (
         <span className="isecondary">{display.secondaryText}</span>
       ) : null}
@@ -1344,12 +1367,22 @@ function RecordRowBody({
         </button>
       ) : null}
       {rowAction}
-      <SlotPips slots={getRecordSlotBurden(record)} />
+      <SlotPips slots={getRecordSlotBurden(visibleRecord)} />
     </>
   );
 }
 
-function StateGlyphs({ record }: { record: InventoryRecord }) {
+/** `record` here is the viewer-visible record: an unidentified item has
+ * already lost isMagic and its uses, so no extra role check is needed.
+ * `activeAc` is the exception — armor class is derived from the *full* record
+ * for every viewer, so the caller computes it there and passes it in. */
+function StateGlyphs({
+  record,
+  activeAc,
+}: {
+  record: InventoryRecord;
+  activeAc: boolean;
+}) {
   const actions = useGearActions();
 
   if (record.recordType === "coins") {
@@ -1358,9 +1391,8 @@ function StateGlyphs({ record }: { record: InventoryRecord }) {
 
   const lit = record.light?.isLit === true;
   const lightSource = isLightSourceRecord(record);
-  const unidentified = isUnidentified(record);
+  const unidentified = isUnidentifiedRecord(record);
   const magic = record.isMagic === true;
-  const activeAc = isArmorClassActiveRecord(record);
 
   return (
     <span className="rs-glyphs">
@@ -1527,29 +1559,8 @@ function FloorTray({
 // Helpers
 // ---------------------------------------------------------------------------
 
-function isUnidentified(record: InventoryRecord): boolean {
-  return (
-    record.recordType !== "coins" &&
-    record.recordType !== "treasure" &&
-    record.identification?.identified === false
-  );
-}
-
-// The Identify action only applies when there is a secret payload to reveal;
-// the store rejects identify on records without one. (The "?" glyph still
-// shows for any unidentified record.)
-function canIdentifyRecord(record: InventoryRecord): boolean {
-  if (record.recordType === "coins" || record.recordType === "treasure") {
-    return false;
-  }
-
-  return (
-    record.identification?.identified === false &&
-    (Boolean(record.identification.secretName?.trim()) ||
-      Boolean(record.identification.secretDescription?.trim()))
-  );
-}
-
+/** Title for the lit flame. Takes the viewer-visible record — an unidentified
+ * light source shows neither its light description nor its remaining uses. */
 function buildLitTitle(record: InventoryRecord): string {
   if (record.recordType === "coins") {
     return "lit";

@@ -191,10 +191,12 @@ export function snuffRecord({
       };
     }
 
+    // Bound-free on purpose: the maximum burn time of an unidentified light is
+    // a GM secret, and this model stays role-free, so nobody sees the number.
     if (record.uses?.max !== undefined && turns > record.uses.max) {
       return {
         ok: false,
-        message: `Turns remaining cannot exceed ${record.uses.max}.`,
+        message: "That is more burn time than this item has.",
       };
     }
 
