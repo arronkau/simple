@@ -21,6 +21,7 @@ import { getContainerContents, getRecordById } from "../model/inventoryDisplay";
 import { getSortedEntities } from "../model/entities";
 import { isCharacterLikeEntity } from "../model/validation";
 import { getRecordHandsRequired } from "../model/types";
+import { isUnidentifiedRecord } from "../model/recordVisibility";
 import type { AppState } from "../model/appState";
 import type {
   Entity,
@@ -90,15 +91,19 @@ export function InventoryRecordForm({
   const showNonCoinFields = formState.recordType !== "coins";
   const showContainerFields =
     formState.recordType !== "coins" && formState.recordType !== "treasure";
-  const showIdentificationFields =
-    formState.recordType === "weapon" ||
-    formState.recordType === "armor" ||
-    formState.recordType === "equipment";
+  // Coins are the only record type that can never be unidentified.
+  const showIdentificationFields = formState.recordType !== "coins";
   // Secret identification fields are GM-only. Fail closed: anyone whose role is
   // not explicitly "gm" (players, and not-yet-resolved/non-member null roles)
   // must never see secret name/description.
   const isGm = currentUserPartyRole === "gm";
   const showGmIdentificationFields = showIdentificationFields && isGm;
+  // GM notes are GM-only always, identified or not.
+  const showNotesFields = showNonCoinFields && isGm;
+  // Unidentified items are read-only for everyone but the GM. The form is built
+  // from the viewer-visible record, so there is nothing secret on screen to
+  // disable — this stops a player from saving over an item they cannot see.
+  const isReadOnly = !isGm && formState.mode === "edit" && formState.isUnidentified;
   const standardItemSuggestions = getStandardItemSuggestions(formState);
   const [itemSuggestionsOpen, setItemSuggestionsOpen] = useState(false);
   const [highlightedItemSuggestionIndex, setHighlightedItemSuggestionIndex] =
@@ -264,7 +269,13 @@ export function InventoryRecordForm({
         })}
       </div>
 
-      <div className="modal-body record-form-body">
+      {isReadOnly ? (
+        <p className="form-help record-form-readonly-note">
+          Unidentified — only the GM can edit this item.
+        </p>
+      ) : null}
+
+      <fieldset className="modal-body record-form-body" disabled={isReadOnly}>
         <section className="record-form-section record-core-section">
           {formState.recordType === "coins" ? (
             <div className="record-coin-grid">
@@ -521,19 +532,21 @@ export function InventoryRecordForm({
                   <span>Add weapon qualities</span>
                 </label>
               ) : null}
-              <label className="checkbox-field">
-                <input
-                  checked={formState.notesEnabled}
-                  type="checkbox"
-                  onChange={(event) =>
-                    onChange({
-                      ...formState,
-                      notesEnabled: event.target.checked,
-                    })
-                  }
-                />
-                <span>Add GM notes</span>
-              </label>
+              {showNotesFields ? (
+                <label className="checkbox-field">
+                  <input
+                    checked={formState.notesEnabled}
+                    type="checkbox"
+                    onChange={(event) =>
+                      onChange({
+                        ...formState,
+                        notesEnabled: event.target.checked,
+                      })
+                    }
+                  />
+                  <span>Add GM notes</span>
+                </label>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -898,7 +911,7 @@ export function InventoryRecordForm({
           </section>
         ) : null}
 
-        {formState.notesEnabled && showNonCoinFields ? (
+        {formState.notesEnabled && showNotesFields ? (
           <section className="record-form-section">
             <h5>Private / GM notes</h5>
             <label>
@@ -1022,7 +1035,7 @@ export function InventoryRecordForm({
             </div>
           ) : null}
         </section>
-      </div>
+      </fieldset>
 
       <div className="modal-footer split-actions">
         <div>
@@ -1046,7 +1059,7 @@ export function InventoryRecordForm({
               ) : null}
             </div>
           ) : null}
-          {onDelete && coinActionRecord?.recordType !== "coins" ? (
+          {onDelete && !isReadOnly && coinActionRecord?.recordType !== "coins" ? (
             <button className="danger-button" type="button" onClick={onDelete}>
               Delete
             </button>
@@ -1054,11 +1067,13 @@ export function InventoryRecordForm({
         </div>
         <div className="record-form-action-group">
           <button type="button" onClick={onCancel}>
-            Cancel
+            {isReadOnly ? "Close" : "Cancel"}
           </button>
-          <button type="submit">
-            {formState.mode === "edit" ? "Save record" : "Create record"}
-          </button>
+          {isReadOnly ? null : (
+            <button type="submit">
+              {formState.mode === "edit" ? "Save record" : "Create record"}
+            </button>
+          )}
         </div>
       </div>
     </form>
@@ -1165,7 +1180,7 @@ export function createRecordFormFromRecord(record: InventoryRecord): RecordFormS
       | "1"
       | "2",
     isMagic: record.recordType !== "coins" && record.isMagic === true,
-    isUnidentified: record.identification?.identified === false,
+    isUnidentified: isUnidentifiedRecord(record),
     secretName: record.identification?.secretName ?? "",
     secretDescription: record.identification?.secretDescription ?? "",
     isLight: Boolean(record.light),
@@ -1384,21 +1399,20 @@ export function toInventoryRecordFormInput(
           handsRequired,
         }
       : undefined;
-  const identification =
-    formState.isUnidentified &&
-    formState.recordType !== "treasure"
-      ? {
-          identified: false,
-          secretName: formState.secretName,
-          secretDescription: formState.secretDescription,
-        }
-      : undefined;
+  const identification = formState.isUnidentified
+    ? {
+        identified: false,
+        secretName: formState.secretName,
+        secretDescription: formState.secretDescription,
+      }
+    : undefined;
 
   if (formState.recordType === "treasure") {
     return {
       ...nonCoinSharedInput,
       recordType: "treasure",
       name: formState.name,
+      identification,
       gpValue: parseNumberInput(formState.gpValue),
     };
   }

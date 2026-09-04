@@ -19,7 +19,18 @@ import {
   type InventoryRowStatus,
 } from "./model/inventoryRowDisplay";
 import type { IconTone, ItemStatusIconName, ItemTypeIconName } from "./components/InventoryIcons";
-import type { AuditLogEntry, CharacterAlignment, CharacterData, InventoryRecord, InventoryRecordId } from "./model/types";
+import {
+  getVisibleInventoryRecord,
+  hasSecretIdentification,
+} from "./model/recordVisibility";
+import type {
+  AuditLogEntry,
+  CharacterAlignment,
+  CharacterData,
+  InventoryRecord,
+  InventoryRecordId,
+  PartyRole,
+} from "./model/types";
 import type {
   PartyHandDetail,
   PartyHandDisplay,
@@ -99,12 +110,12 @@ export function formatPartySpellLines(
 export function formatPartyHands(
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
   records: InventoryRecord[],
-  includeSecrets = false,
+  viewerRole: PartyRole | null = null,
 ): PartyHandDisplay[] {
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
 
   if (bothHandsRecord) {
-    return [getPartyHandDisplay("Both", bothHandsRecord, records, includeSecrets)];
+    return [getPartyHandDisplay("Both", bothHandsRecord, records, viewerRole)];
   }
 
   return [
@@ -112,13 +123,13 @@ export function formatPartyHands(
       "L",
       getRecordById(sections.handRecordIds.leftHand, records),
       records,
-      includeSecrets,
+      viewerRole,
     ),
     getPartyHandDisplay(
       "R",
       getRecordById(sections.handRecordIds.rightHand, records),
       records,
-      includeSecrets,
+      viewerRole,
     ),
   ];
 }
@@ -127,14 +138,17 @@ function getPartyHandDisplay(
   label: string,
   record: InventoryRecord | undefined,
   records: InventoryRecord[],
-  includeSecrets: boolean,
+  viewerRole: PartyRole | null,
 ): PartyHandDisplay {
   if (!record) {
     return { label, text: null, statuses: [] };
   }
 
-  const display = getInventoryRowDisplay(record, records);
-  const detail = getPartyHandDetail(record, includeSecrets);
+  // Redact once, at the display boundary; `records` stays whole because the
+  // row display still needs the real container contents around it.
+  const visibleRecord = getVisibleInventoryRecord(record, viewerRole);
+  const display = getInventoryRowDisplay(visibleRecord, records);
+  const detail = getPartyHandDetail(visibleRecord);
 
   return {
     label,
@@ -144,9 +158,11 @@ function getPartyHandDisplay(
   };
 }
 
+/** Hand popover body. The record is already redacted for the viewer, so any
+ * secret fields still present belong to a GM — the guard below is belt and
+ * braces on top of that. */
 function getPartyHandDetail(
   record: InventoryRecord,
-  includeSecrets: boolean,
 ): PartyHandDetail | undefined {
   const detail: PartyHandDetail = {};
 
@@ -174,17 +190,12 @@ function getPartyHandDetail(
     detail.description = record.description;
   }
 
-  if (
-    includeSecrets &&
-    record.recordType !== "coins" &&
-    record.recordType !== "treasure" &&
-    record.identification?.identified === false
-  ) {
-    if (record.identification.secretName?.trim()) {
+  if (record.recordType !== "coins" && hasSecretIdentification(record)) {
+    if (record.identification?.secretName?.trim()) {
       detail.secretName = record.identification.secretName;
     }
 
-    if (record.identification.secretDescription?.trim()) {
+    if (record.identification?.secretDescription?.trim()) {
       detail.secretDescription = record.identification.secretDescription;
     }
   }

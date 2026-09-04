@@ -504,11 +504,11 @@ export const APP_MANUAL_FIXTURES = [
     ],
   },
   {
-    name: "party hand details include GM secrets only when requested",
+    name: "party hand details redact unidentified items for non-GM viewers",
     actual: {
-      player: getPartyOverviewCards(secretWandAppState, undefined, false)[0]
+      player: getPartyOverviewCards(secretWandAppState, undefined, "player")[0]
         .hands,
-      gm: getPartyOverviewCards(secretWandAppState, undefined, true)[0].hands,
+      gm: getPartyOverviewCards(secretWandAppState, undefined, "gm")[0].hands,
     },
     expected: {
       player: [
@@ -516,7 +516,7 @@ export const APP_MANUAL_FIXTURES = [
           label: "L",
           text: "Ivory wand",
           statuses: ["unidentified"],
-          detail: { uses: "7 uses", description: "Faintly warm." },
+          detail: { description: "Faintly warm." },
         },
         { label: "R", text: null, statuses: [] },
       ],

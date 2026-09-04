@@ -143,6 +143,36 @@ const zeroValueTreasureRecord: InventoryRecord = {
   },
 };
 
+const unidentifiedGemsRecord: InventoryRecord = {
+  id: "gems-unidentified",
+  entityId,
+  recordType: "treasure",
+  name: "Dull stones",
+  location: baseLocation,
+  sortOrder: 8500,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  identification: { identified: false, secretName: "Star sapphire" },
+  treasure: {
+    gpValue: 1000,
+  },
+};
+
+const redactedTreasureRecord: InventoryRecord = {
+  id: "gems-redacted",
+  entityId,
+  recordType: "treasure",
+  name: "Dull stones",
+  location: baseLocation,
+  sortOrder: 8500,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  identification: { identified: false },
+  treasure: {
+    gpValue: 0,
+  },
+};
+
 const coinsRecord: InventoryRecord = {
   id: "coins-1",
   entityId,
@@ -246,6 +276,35 @@ const stowedHandCapacitySackContentsRecord: InventoryRecord = {
   quantity: 3,
 };
 
+const unidentifiedCofferRecord: InventoryRecord = {
+  id: "coffer-unidentified",
+  entityId,
+  recordType: "equipment",
+  name: "Weeping coffer",
+  location: baseLocation,
+  sortOrder: 13000,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  identification: { identified: false, secretName: "Coffer of Mimicry" },
+  container: {
+    capacitySlots: 4,
+  },
+};
+
+const unidentifiedCofferContentsRecord: InventoryRecord = {
+  id: "coffer-rags-1",
+  entityId,
+  recordType: "equipment",
+  name: "Rags",
+  location: {
+    kind: "container",
+    containerId: unidentifiedCofferRecord.id,
+  },
+  sortOrder: 0,
+  quantity: 6,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+};
+
 const allRecords = [
   ropeRecord,
   rationsRecord,
@@ -264,6 +323,8 @@ const allRecords = [
   overloadedSackContentsRecord,
   stowedHandCapacitySackRecord,
   stowedHandCapacitySackContentsRecord,
+  unidentifiedCofferRecord,
+  unidentifiedCofferContentsRecord,
 ];
 
 export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
@@ -416,6 +477,50 @@ export const INVENTORY_ROW_DISPLAY_MANUAL_FIXTURES = [
       statusIcons: ["overCapacity"],
       rightKind: "capacity",
       rightText: "9/6 slots",
+    },
+  },
+  {
+    name: "unidentified treasure row shows unidentified status with its gp value",
+    actual: getInventoryRowDisplay(unidentifiedGemsRecord, allRecords),
+    expected: {
+      primaryText: "Dull stones",
+      statusIcons: ["unidentified"],
+      secondaryText: "1,000 gp",
+      rightKind: "burden",
+      rightText: "1 slot",
+    },
+  },
+  {
+    name: "redacted unidentified treasure row hides its gp value",
+    actual: getInventoryRowDisplay(redactedTreasureRecord, allRecords),
+    expected: {
+      primaryText: "Dull stones",
+      statusIcons: ["unidentified"],
+      rightKind: "burden",
+      rightText: "1 slot",
+    },
+  },
+  {
+    name: "unidentified container row shows the unidentified status",
+    actual: getInventoryRowDisplay(
+      { ...unidentifiedCofferRecord, container: { capacitySlots: 8 } },
+      allRecords,
+    ),
+    expected: {
+      primaryText: "Weeping coffer",
+      statusIcons: ["unidentified"],
+      rightKind: "capacity",
+      rightText: "6/8 slots",
+    },
+  },
+  {
+    name: "over-capacity unidentified container row keeps both statuses",
+    actual: getInventoryRowDisplay(unidentifiedCofferRecord, allRecords),
+    expected: {
+      primaryText: "Weeping coffer",
+      statusIcons: ["unidentified", "overCapacity"],
+      rightKind: "capacity",
+      rightText: "6/4 slots",
     },
   },
 ];

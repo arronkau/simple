@@ -1,4 +1,4 @@
-import type { InventoryRecord, PartyMembers, PartyRole } from "./types";
+import type { PartyMembers, PartyRole } from "./types";
 
 export type { PartyRole };
 
@@ -131,14 +131,15 @@ export function assertInventoryAction(
 }
 
 /**
- * Returns the names of GM-only identification fields present in an inventory record patch.
- * A non-empty result means a player is attempting a protected-field write.
+ * Returns the names of GM-only identification fields present in an inventory
+ * record patch or record form input. A non-empty result means a player is
+ * attempting a protected-field write.
  */
-export function getProtectedInventoryFieldViolations(
-  patch: Partial<InventoryRecord>,
-): string[] {
+export function getProtectedInventoryFieldViolations(patch: {
+  identification?: unknown;
+}): string[] {
   const violations: string[] = [];
-  const identification = (patch as { identification?: unknown }).identification;
+  const identification = patch.identification;
   if (identification !== null && typeof identification === "object") {
     const id = identification as Record<string, unknown>;
     if ("secretName" in id) violations.push("identification.secretName");

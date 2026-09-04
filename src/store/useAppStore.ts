@@ -30,6 +30,7 @@ import {
   assertEntityAction,
   assertInventoryAction,
   assertPartyAction,
+  getProtectedInventoryFieldViolations,
   resolvePartyRole,
 } from "../model/permissions";
 import {
@@ -40,6 +41,10 @@ import {
   type CreateAuditLogEntryInput,
 } from "../model/auditLog";
 import { getCoinCount, getContainerCapacity } from "../model/calculations";
+import {
+  hasSecretIdentification,
+  isUnidentifiedRecord,
+} from "../model/recordVisibility";
 import {
   lightRecord,
   snuffRecord,
@@ -622,7 +627,7 @@ export const useAppStore = create<AppStore>((set) => ({
     // can only reach here by bypassing it. (Normal creates without secret fields
     // are unaffected — the guard only trips when secret fields are present.)
     if (role !== "gm") {
-      const violations = getProtectedFormInputViolations(input);
+      const violations = getProtectedInventoryFieldViolations(input);
       if (violations.length > 0) {
         return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
       }
@@ -707,6 +712,8 @@ export const useAppStore = create<AppStore>((set) => ({
         records: state.appState.inventoryRecords,
         input: {
           ...input,
+          // GM notes are GM-only: a non-GM create never writes them.
+          ...(role === "gm" ? {} : { notes: undefined }),
           location: {
             ...(input.location ?? { placement: "default" }),
             entityId: entity.id,
@@ -779,11 +786,28 @@ export const useAppStore = create<AppStore>((set) => ({
 
     // Fail closed: only a confirmed GM may write secret identification fields.
     if (role !== "gm") {
-      const violations = getProtectedFormInputViolations(input);
+      const violations = getProtectedInventoryFieldViolations(input);
       if (violations.length > 0) {
         return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
       }
     }
+
+    const storedRecord = useAppStore
+      .getState()
+      .appState.inventoryRecords.find(
+        (candidateRecord) => candidateRecord.id === recordId,
+      );
+
+    // Unidentified items are read-only for players; the GM edits them. Players
+    // can still move, light, and snuff them through their own actions.
+    if (role !== "gm" && storedRecord && isUnidentifiedRecord(storedRecord)) {
+      return { ok: false, message: "Only the GM can edit an unidentified item." };
+    }
+
+    // GM notes are GM-only always: a player save carries the stored notes
+    // through unchanged rather than wiping the field it never saw.
+    const guardedInput: InventoryRecordFormInput =
+      role === "gm" ? input : { ...input, notes: storedRecord?.notes };
 
     set((state) => {
       const record = state.appState.inventoryRecords.find(
@@ -803,9 +827,9 @@ export const useAppStore = create<AppStore>((set) => ({
         records: state.appState.inventoryRecords,
         entity,
         input: {
-          ...input,
+          ...guardedInput,
           location: {
-            ...(input.location ?? { placement: "default" }),
+            ...(guardedInput.location ?? { placement: "default" }),
             entityId: entity.id,
           },
         },
@@ -1271,15 +1295,11 @@ export const useAppStore = create<AppStore>((set) => ({
         (candidateRecord) => candidateRecord.id === recordId,
       );
 
-      if (
-        !record ||
-        record.recordType === "coins" ||
-        record.recordType === "treasure"
-      ) {
+      if (!record || record.recordType === "coins") {
         return state;
       }
 
-      if (!hasSecretIdentificationFields(record)) {
+      if (!hasSecretIdentification(record)) {
         result = {
           ok: false,
           message: "Record has no secret identification fields.",
@@ -2113,15 +2133,20 @@ function createInventoryUpdateAuditEntries(input: {
     input.nextRecord.recordType === "treasure" &&
     input.previousRecord.treasure.gpValue !== input.nextRecord.treasure.gpValue
   ) {
+    // The summary is rendered verbatim to every viewer, so the gp value of an
+    // unidentified treasure stays out of it. `details` is GM-facing data that
+    // no page renders, so the numbers are still recorded there.
+    const label = getInventoryRecordAuditLabel(input.nextRecord);
+
     entries.push({
       entityId: input.nextRecord.entityId,
       eventType: "treasureValueChanged",
       recordId: input.nextRecord.id,
-      summary: `Changed treasure value for ${getInventoryRecordAuditLabel(
-        input.nextRecord,
-      )} from ${input.previousRecord.treasure.gpValue} gp to ${
-        input.nextRecord.treasure.gpValue
-      } gp.`,
+      summary: isUnidentifiedRecord(input.nextRecord)
+        ? `Changed treasure value for ${label}.`
+        : `Changed treasure value for ${label} from ${
+            input.previousRecord.treasure.gpValue
+          } gp to ${input.nextRecord.treasure.gpValue} gp.`,
       details: {
         previousGpValue: input.previousRecord.treasure.gpValue,
         nextGpValue: input.nextRecord.treasure.gpValue,
@@ -2254,7 +2279,6 @@ function createIdentifyInventoryRecordAuditEntryInput(input: {
 }): AuditLogEntryInput {
   const identifiedAs =
     input.previousRecord.recordType !== "coins" &&
-    input.previousRecord.recordType !== "treasure" &&
     input.previousRecord.identification?.secretName
       ? ` as ${input.nextRecord.recordType !== "coins" ? input.nextRecord.name : "coins"}`
       : "";
@@ -2279,20 +2303,8 @@ function createIdentifyInventoryRecordAuditEntryInput(input: {
   };
 }
 
-function hasSecretIdentificationFields(record: InventoryRecord): boolean {
-  if (record.recordType === "coins" || record.recordType === "treasure") {
-    return false;
-  }
-
-  return (
-    record.identification?.identified === false &&
-    (Boolean(record.identification.secretName?.trim()) ||
-      Boolean(record.identification.secretDescription?.trim()))
-  );
-}
-
 function revealInventoryRecord(record: InventoryRecord): InventoryRecord {
-  if (record.recordType === "coins" || record.recordType === "treasure") {
+  if (record.recordType === "coins") {
     return record;
   }
 
@@ -2832,18 +2844,6 @@ function applyCharacterDataAdjustment(
     entityId,
     adjust(normalizeCharacterData(existingEntity.character)),
   );
-}
-
-function getProtectedFormInputViolations(input: {
-  identification?: { secretName?: unknown; secretDescription?: unknown } | null;
-}): string[] {
-  const violations: string[] = [];
-  if (input.identification !== null && typeof input.identification === "object") {
-    const id = input.identification as Record<string, unknown>;
-    if ("secretName" in id) violations.push("identification.secretName");
-    if ("secretDescription" in id) violations.push("identification.secretDescription");
-  }
-  return violations;
 }
 
 function getInitialPartyId(): PartyId {

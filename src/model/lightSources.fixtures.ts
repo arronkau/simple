@@ -381,7 +381,10 @@ export const LIGHT_SOURCES_MANUAL_FIXTURES = [
     expected: {
       negative: { ok: false, message: "Turns remaining must be a whole number of 0 or more." },
       fraction: { ok: false, message: "Turns remaining must be a whole number of 0 or more." },
-      aboveMax: { ok: false, message: "Turns remaining cannot exceed 6." },
+      aboveMax: {
+        ok: false,
+        message: "That is more burn time than this item has.",
+      },
       unlit: { ok: false, message: "Only a lit light source can be put out." },
     },
   },

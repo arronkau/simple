@@ -2046,6 +2046,19 @@ tr.pt-dragging {
   gap: 9px;
 }
 
+/* The form body is a <fieldset> so the whole thing can be disabled at once for
+   a player looking at an unidentified item. Strip the element's own chrome. */
+fieldset.record-form-body {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.record-form-readonly-note {
+  margin: 0;
+}
+
 .record-form-section {
   display: grid;
   gap: 7px;

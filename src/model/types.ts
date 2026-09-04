@@ -294,11 +294,11 @@ export type TreasureRecord = NonCoinInventoryRecordShared & {
   recordType: "treasure";
   name: string;
   treasure: TreasureData;
+  identification?: IdentificationData;
   container?: never;
   coins?: never;
   weapon?: never;
   armor?: never;
-  identification?: never;
 };
 
 export type WeaponRecord = NonCoinInventoryRecordShared & {

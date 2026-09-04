@@ -596,6 +596,7 @@ function buildInventoryRecord({
         ok: true,
         record: {
           ...shared,
+          ...(identification ? { identification } : {}),
           recordType: "treasure",
           treasure: {
             gpValue: normalizeNumber(input.gpValue, 0),

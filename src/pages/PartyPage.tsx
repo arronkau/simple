@@ -35,6 +35,7 @@ import {
   isCharacterLikeEntity,
   validateInventoryState,
 } from "../model/validation";
+import { getVisibleInventoryRecord } from "../model/recordVisibility";
 import type { AppState } from "../model/appState";
 import type { Entity, EntityId, PartyRole } from "../model/types";
 import {
@@ -75,8 +76,12 @@ export function PartyPage({
   onReorderEntity: (entityId: EntityId, targetIndex: number) => void;
 }) {
   const { partyId } = useParams<{ partyId: string }>();
-  const includeSecrets = currentUserPartyRole !== "player";
-  const cards = getPartyOverviewCards(appState, sortedEntities, includeSecrets);
+  // Fail closed: only a confirmed GM sees unidentified detail and GM notes.
+  const cards = getPartyOverviewCards(
+    appState,
+    sortedEntities,
+    currentUserPartyRole ?? null,
+  );
   const activeCards = cards.filter((card) => card.active);
   const benchedCards = cards.filter((card) => !card.active);
   const activeById = new Map(cards.map((card) => [card.id, card.active]));
@@ -520,7 +525,7 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
 export function getPartyOverviewCards(
   appState: AppState,
   sortedEntities: Entity[] = getSortedEntities(appState.entities),
-  includeSecrets = false,
+  viewerRole: PartyRole | null = null,
 ): PartyOverviewCard[] {
   const validationResult = validateInventoryState(
     appState.entities,
@@ -530,6 +535,11 @@ export function getPartyOverviewCards(
   return sortedEntities.filter(isCharacterLikeEntity).map((entity) => {
     const character = normalizeCharacterData(entity.character);
     const ownedRecords = getOwnedRecords(entity.id, appState.inventoryRecords);
+    // Display only, and only the rows that reach the screen — every derived
+    // calculation below still uses the full records.
+    const visibleLitRecords = ownedRecords
+      .filter((record) => record.light?.isLit === true)
+      .map((record) => getVisibleInventoryRecord(record, viewerRole));
     const sections = getInventorySections(entity, appState.inventoryRecords);
     const encumbrance = getCharacterEncumbrance(entity, appState.inventoryRecords);
     const armorClass = getCharacterArmorClass(
@@ -566,11 +576,15 @@ export function getPartyOverviewCards(
       movementFeet: encumbrance.movement.explorationFeet,
       languages: formatPartyLanguages(character),
       languagesList: character.languages,
-      litSources: getPartyLitSources(ownedRecords),
+      litSources: getPartyLitSources(visibleLitRecords),
       spellLines: formatPartySpellLines(character),
       hands:
         sections.mode === "characterLike"
-          ? formatPartyHands(sections, appState.inventoryRecords, includeSecrets)
+          ? formatPartyHands(
+              sections,
+              appState.inventoryRecords,
+              viewerRole,
+            )
           : [],
       ac: formatNullablePartyNumber(armorClass.armorClass),
       validationIssues,

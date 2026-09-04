@@ -12,6 +12,8 @@ import {
 } from "./model/appState";
 import { getSortedEntities } from "./model/entities";
 import { getRecordById } from "./model/inventoryDisplay";
+import { getVisibleInventoryRecord } from "./model/recordVisibility";
+import { ViewerRoleContext } from "./components/ViewerRole";
 import type { AppState } from "./model/appState";
 import type {
   AuditEventType,
@@ -19,6 +21,7 @@ import type {
   EntityId,
   InventoryRecord,
   InventoryRecordId,
+  PartyRole,
 } from "./model/types";
 import { FIREBASE_PARTY_STATE_COLLECTION } from "./persistence/firebaseSync";
 import type { PersistenceMode, SyncStatus } from "./persistence/types";
@@ -251,7 +254,13 @@ function LocalAppShell() {
   }
 
   function startEditingRecord(record: InventoryRecord) {
-    setRecordForm(createRecordFormFromRecord(record));
+    // The form is a display surface too: build it from what this viewer may
+    // see, so a player never holds secret fields in form state.
+    setRecordForm(
+      createRecordFormFromRecord(
+        getVisibleInventoryRecord(record, currentUserPartyRole),
+      ),
+    );
     setRecordFormMessage(undefined);
   }
 
@@ -463,6 +472,7 @@ function LocalAppShell() {
     : undefined;
 
   return (
+    <ViewerRoleContext.Provider value={currentUserPartyRole}>
     <main className="app-shell">
       <section className="app-frame" aria-labelledby="app-title">
         <div className="app-header">
@@ -645,7 +655,11 @@ function LocalAppShell() {
           <SnuffLightModal
             key={snuffRecordId}
             message={snuffMessage}
-            record={getRecordById(snuffRecordId, appState.inventoryRecords)}
+            record={getVisibleRecordById(
+              snuffRecordId,
+              appState.inventoryRecords,
+              currentUserPartyRole,
+            )}
             onCancel={cancelSnuffingLight}
             onSubmit={submitSnuffLight}
           />
@@ -699,9 +713,21 @@ function LocalAppShell() {
         ) : null}
       </section>
     </main>
+    </ViewerRoleContext.Provider>
   );
 }
 
+
+/** Burn time is redacted for a player putting out an unidentified light. */
+function getVisibleRecordById(
+  recordId: InventoryRecordId,
+  records: InventoryRecord[],
+  viewerRole: PartyRole | null,
+): InventoryRecord | undefined {
+  const record = getRecordById(recordId, records);
+
+  return record ? getVisibleInventoryRecord(record, viewerRole) : undefined;
+}
 
 function formatPersistenceSummary(
   persistenceMode: PersistenceMode,

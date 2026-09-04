@@ -35,6 +35,15 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 - GM-only action sets: `GM_ONLY_PARTY_ACTIONS`, `GM_ONLY_ENTITY_ACTIONS`, `GM_ONLY_INVENTORY_ACTIONS`. Add new privileged actions to the right set, and the action to the corresponding `*Action` union type.
 - `assert*Action` throws `PermissionError` (codes: `not-authenticated | not-party-member | gm-only | protected-field | invalid-membership-update`).
 - **Secret inventory fields** (`identification.secretName`, `identification.secretDescription`) are GM-only and **cannot be validated in Firestore rules** (they're nested inside individual inventory records). They are enforced ONLY here via `getProtectedInventoryFieldViolations(patch)`. If you add a new secret/GM field, update this function — rules will not catch it.
+- **Write gates in the store's `updateInventoryRecord`:** a non-GM may not edit a record that is stored unidentified ("Only the GM can edit an unidentified item."), and a non-GM's save carries the stored `notes` through unchanged so it cannot be wiped by a form that never showed it.
+
+## Display redaction (third layer, UX only)
+
+`src/model/recordVisibility.ts` — `getVisibleInventoryRecord(record, viewerRole)` — is the single rule for what a viewer may *see*: `notes` is dropped for any non-GM, and an unidentified record collapses to its public shell (no `isMagic`, `uses`, `modifiers`, weapon/armor detail, `light.lightDescription`, treasure `gpValue`, or secret fields). See `MODEL_SPEC.md` → Player Visibility.
+
+- It fails closed on `null` (unresolved / non-member) roles, same as everything else here.
+- The viewer's role is provided once by `ViewerRoleContext` (`src/components/ViewerRole.tsx`) and consumed at display boundaries via `useVisibleRecord`. Do not redact where app state enters a page: derived calculations (AC, encumbrance, light burn) must keep using full records.
+- **This is not a security boundary.** The wire still carries full records — Firestore rules cannot filter fields inside a record — so a determined player with devtools can read them. Real GM-only secrets need a different storage shape, not a display rule.
 
 ## When you change permissions
 1. Update `firestore.rules` (party-level boundary) and `permissions.ts` (action/field granularity) together.

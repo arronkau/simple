@@ -1766,6 +1766,78 @@ const swordAfterPlayerEdit = permSwordId?.ok
     )
   : undefined;
 
+// GM: an identified item carrying GM notes
+const permNotesRecordResult = permCharId
+  ? useAppStore.getState().createInventoryRecord(permCharId, {
+      recordType: "equipment",
+      name: "Iron key",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      notes: "Opens the reliquary.",
+    })
+  : ({ ok: false, message: "no char" } as const);
+
+// Player: edit the unidentified sword without touching secret fields at all —
+// unidentified items are GM-only to edit.
+useAppStore.setState({ currentUserId: "uid-player" });
+const playerEditUnidentifiedResult = permSwordId?.ok
+  ? useAppStore.getState().updateInventoryRecord(permSwordId.recordId!, {
+      recordType: "weapon",
+      name: "Mystery Blade",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 1,
+    })
+  : { ok: false as const, message: "no record" };
+
+// Player: save the identified item from a form that never showed the notes.
+const playerEditNotesResult = permNotesRecordResult.ok
+  ? useAppStore.getState().updateInventoryRecord(permNotesRecordResult.recordId!, {
+      recordType: "equipment",
+      name: "Iron key",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+    })
+  : { ok: false as const, message: "no record" };
+const notesAfterPlayerEdit = permNotesRecordResult.ok
+  ? useAppStore.getState().appState.inventoryRecords.find(
+      (r) => r.id === permNotesRecordResult.recordId,
+    )?.notes
+  : undefined;
+
+useAppStore.setState({ currentUserId: "uid-gm" });
+
+// GM: an unidentified treasure whose gp value is a table secret. Audit
+// summaries are rendered verbatim to every viewer, so the value has to stay in
+// `details` (which no page renders) and out of the sentence.
+const permTreasureResult = permCharId
+  ? useAppStore.getState().createInventoryRecord(permCharId, {
+      recordType: "treasure",
+      name: "Dull stones",
+      gpValue: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      identification: { identified: false, secretName: "Star sapphires" },
+    })
+  : ({ ok: false, message: "no char" } as const);
+
+if (permTreasureResult.ok && permTreasureResult.recordId) {
+  useAppStore.getState().updateInventoryRecord(permTreasureResult.recordId, {
+    recordType: "treasure",
+    name: "Dull stones",
+    gpValue: 5000,
+    quantity: 1,
+    burden: { kind: "fixed", slotsPerItem: 1 },
+    identification: { identified: false, secretName: "Star sapphires" },
+  });
+}
+
+const permTreasureValueEntry = useAppStore
+  .getState()
+  .appState.auditLog.find(
+    (entry) => entry.eventType === "treasureValueChanged",
+  );
+
 export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
   {
     name: "GM can create entity with GM identification fields",
@@ -1844,6 +1916,44 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     expected: {
       ok: false,
       message: "Players cannot edit hidden unidentified-item fields.",
+    },
+  },
+  {
+    name: "player cannot edit an unidentified item at all",
+    actual: {
+      ok: playerEditUnidentifiedResult.ok,
+      message: playerEditUnidentifiedResult.ok
+        ? undefined
+        : playerEditUnidentifiedResult.message,
+    },
+    expected: {
+      ok: false,
+      message: "Only the GM can edit an unidentified item.",
+    },
+  },
+  {
+    name: "player save keeps GM notes it never saw",
+    actual: {
+      ok: playerEditNotesResult.ok,
+      notes: notesAfterPlayerEdit,
+    },
+    expected: { ok: true, notes: "Opens the reliquary." },
+  },
+  {
+    name: "audit summary omits the gp value of an unidentified treasure",
+    actual: {
+      summary: permTreasureValueEntry?.summary,
+      details: {
+        previousGpValue: permTreasureValueEntry?.details?.previousGpValue,
+        nextGpValue: permTreasureValueEntry?.details?.nextGpValue,
+      },
+    },
+    expected: {
+      summary: 'Changed treasure value for "Dull stones".',
+      details: {
+        previousGpValue: 0,
+        nextGpValue: 5000,
+      },
     },
   },
 ];
