@@ -133,18 +133,7 @@ export function CharacterSheetInventory({
             ? getRecordDisplayName(sections.topLevelStowedContainerRecord)
             : "Stowed"}
         </h6>
-        {sections.coinRecord ? (
-          <div className="sheet-inventory-row">
-            <span className="sheet-inventory-tag">Coins</span>
-            <InventoryRowSummary
-              record={sections.coinRecord}
-              allRecords={records}
-              onOpenRecord={onEditRecord}
-            />
-          </div>
-        ) : null}
-        {sections.topLevelStowedContainerContents.length === 0 &&
-        !sections.coinRecord ? (
+        {sections.topLevelStowedContainerContents.length === 0 ? (
           <p className="empty-state compact">Nothing stowed</p>
         ) : null}
         {sections.topLevelStowedContainerContents.map((record) => (

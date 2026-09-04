@@ -154,9 +154,6 @@ export type InventoryLocation =
       kind: "stowedRoot";
     }
   | {
-      kind: "coinPurse";
-    }
-  | {
       kind: "contents";
     }
   | {

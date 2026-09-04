@@ -10,7 +10,7 @@ A small TTRPG character, party, and inventory tracker built for table use.
 - Inventory tracking for weapons, armor, equipment, treasure, coins, and containers.
 - Slot-based encumbrance with separate equipped and stowed burden.
 - Movement warnings for overloaded characters and containers.
-- Character-like inventory sections for hands, equipped gear, coin purse, backpack, and stowed containers.
+- Character-like inventory sections for hands, equipped gear, backpack, and stowed containers.
 - Simpler contents inventory for mounts, vehicles, and storage.
 - A "Party Gear" board (Ready / Stowed) with drag-and-drop repacking and a "Floor" loot-staging bar. Drag-and-drop is an intended feature that reuses the same validated move and encumbrance logic as the non-drag workflows.
 - Add and edit modals for entities and inventory records.

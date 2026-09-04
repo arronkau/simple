@@ -118,17 +118,17 @@ For characters and retainers, stowed item count includes:
 
 - records inside the top-level stowed container, normally named Backpack;
 - records inside ordinary containers that are themselves stowed in the top-level stowed container;
-- the character-like entity's coin record in coin-purse placement;
+- coin records stowed like any other record (inside the top-level stowed container or a container within it);
 - records inside any valid same-entity container whose ancestor chain makes them effectively stowed;
 - other records that are effectively stowed by helper logic.
 
 A record inside a hand-held container should not be counted as stowed for movement if the helper classifies it as excluded.
 
-## Backpack and Coin Purse Treatment
+## Backpack and Coin Treatment
 
 The top-level stowed container is a literal container, normally named Backpack. It is identified by `location.kind === "stowedRoot"`, not by special container metadata.
 
-The coin purse is not a real container. It is a character-like coin placement/display concept.
+Coins are ordinary inventory records with no placement of their own. A coin record counts wherever it sits: stowed inside the top-level stowed container, equipped at `placement: "loose"`, or in a non-character entity's contents. Coins may not be placed in a hand.
 
 For encumbrance:
 
@@ -136,8 +136,7 @@ For encumbrance:
   record whose own location is `stowedRoot` contributes 0 own movement burden.
 - Contents inside containers also count toward movement encumbrance, except when the container is carried in hand.
 - When a container is carried in hand, the container itself still counts but its contents are excluded from movement encumbrance.
-- The character-like coin record in coin-purse placement counts toward stowed slots according to coin burden.
-- There is no coin-purse inventory record, container ID, capacity, or separate slot burden.
+- A coin record counts according to coin burden in whichever band its ancestor chain puts it (equipped or stowed).
 - Contents count according to their own slot burden unless excluded by the held-container contents rule.
 - Container used capacity excludes the container's own burden.
 - Contents inside hand-held containers are excluded from equipped and stowed movement burden.
@@ -488,7 +487,7 @@ backpack's own burden does not.
 - Containers count their own slot burden whether empty or full, except for the
   `stowedRoot` movement-burden exemption.
 - Contents inside containers count unless excluded by the held-container contents rule.
-- Coin purse is not a literal inventory record; character-like coin records in coin-purse placement count toward stowed burden.
+- Coins are ordinary records: a coin record inside the top-level stowed container counts toward stowed burden, one at equipped/loose counts toward equipped burden.
 - Coin burden is `ceil(totalCoins / 100)`.
 - Contents inside hand-held containers are excluded from equipped and stowed movement burden.
 - The held container itself still counts.

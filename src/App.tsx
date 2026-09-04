@@ -50,6 +50,7 @@ import {
   CoinSpendModal,
   CoinTransferModal,
   createEmptyCoinSpendAmounts,
+  toCoinSpendAmountInputs,
   toCoinSpendAmounts,
 } from "./inventory/CoinModals";
 import {
@@ -397,11 +398,13 @@ function LocalAppShell() {
       return;
     }
 
+    // A dragged pile means "hand this over": prefill every denomination so the
+    // common case is one click, and a split is an edit away.
     setCoinTransferForm({
       sourceEntityId: record.entityId,
       sourceRecordId: record.id,
       destinationEntityId,
-      amounts: createEmptyCoinSpendAmounts(),
+      amounts: toCoinSpendAmountInputs(record.coins),
       note: "",
     });
     setCoinTransferMessage(undefined);
@@ -533,7 +536,6 @@ function LocalAppShell() {
                 onIdentifyRecord={identifyInventoryRecord}
                 onLightRecord={(record) => lightInventoryRecord(record.id)}
                 onSnuffRecord={startSnuffingLight}
-                onSpendCoins={startSpendingCoins}
                 onRequestCoinTransfer={requestCoinTransfer}
               />
             }

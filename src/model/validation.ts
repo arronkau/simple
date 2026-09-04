@@ -19,11 +19,9 @@ export type ValidationIssueCode =
   | "missingEntity"
   | "invalidEntityLocationType"
   | "invalidCoinLocation"
-  | "invalidCoinCount"
   | "invalidInventoryQuantity"
   | "invalidInventoryBurden"
   | "invalidContainerData"
-  | "invalidCoinPursePlacement"
   | "invalidBackpackPlacement"
   | "invalidTreasureContainer"
   | "invalidContainerReference"
@@ -338,7 +336,7 @@ function validateRecordLocations(
         issues.push(
           errorIssue(
             "invalidEntityLocationType",
-            "Character-like entities must use equipped, stowed-root, coin-purse, or container locations.",
+            "Character-like entities must use equipped, stowed-root, or container locations.",
             { recordId: record.id, entityId: entity.id },
           ),
         );
@@ -368,19 +366,6 @@ function validateRecordLocations(
         errorIssue(
           "invalidTreasureContainer",
           "Treasure records cannot be containers.",
-          { recordId: record.id, entityId: entity.id },
-        ),
-      );
-    }
-
-    if (
-      record.recordType !== "coins" &&
-      record.location.kind === "coinPurse"
-    ) {
-      issues.push(
-        errorIssue(
-          "invalidCoinPursePlacement",
-          "Only coin records may use coin-purse placement.",
           { recordId: record.id, entityId: entity.id },
         ),
       );
@@ -490,13 +475,15 @@ function validateContainerData(records: InventoryRecord[]): ValidationIssue[] {
   });
 }
 
+// Coins are ordinary records: they may live anywhere a non-container record
+// may, on any entity. The one exception is a hand — a loose pile of coins is
+// not something a character grips.
 function validateCoinRules(
   entities: Entity[],
   records: InventoryRecord[],
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const entitiesById = new Map(entities.map((entity) => [entity.id, entity]));
-  const characterCoinCounts = new Map<EntityId, number>();
 
   for (const record of records) {
     if (record.recordType !== "coins") {
@@ -509,44 +496,15 @@ function validateCoinRules(
       continue;
     }
 
-    if (isCharacterLikeEntity(entity)) {
-      characterCoinCounts.set(
-        entity.id,
-        (characterCoinCounts.get(entity.id) ?? 0) + 1,
-      );
-
-      if (
-        record.location.kind !== "coinPurse"
-      ) {
-        issues.push(
-          errorIssue(
-            "invalidCoinLocation",
-            "Character-like coin records must use stowed coin-purse placement.",
-            { recordId: record.id, entityId: entity.id },
-          ),
-        );
-      }
-    } else if (
-      record.location.kind !== "contents" &&
-      record.location.kind !== "container"
+    if (
+      record.location.kind === "equipped" &&
+      record.location.placement !== "loose"
     ) {
       issues.push(
         errorIssue(
           "invalidCoinLocation",
-          "Non-character coin records must use contents placement or contents container placement.",
+          "Coins cannot be held in a hand.",
           { recordId: record.id, entityId: entity.id },
-        ),
-      );
-    }
-  }
-
-  for (const [entityId, coinCount] of characterCoinCounts.entries()) {
-    if (coinCount > 1) {
-      issues.push(
-        errorIssue(
-          "invalidCoinCount",
-          "Character-like entities may have at most one coin record.",
-          { entityId },
         ),
       );
     }

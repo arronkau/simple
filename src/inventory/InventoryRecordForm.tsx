@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  getDefaultCoinRecord,
   getUsableContainerRecords,
   getLocationPlacementKey,
   type InventoryRecordFormInput,
@@ -87,6 +88,12 @@ export function InventoryRecordForm({
     (placementOption) =>
       placementOption.value !== "container" || containerOptions.length > 0,
   );
+  // Coins created at Default merge into the entity's existing pile, so say so.
+  const defaultPlacementLabel =
+    formState.recordType === "coins" &&
+    getDefaultCoinRecord(targetEntity.id, appState.inventoryRecords)
+      ? "Default (adds to existing coins)"
+      : "Default";
   const showLocationControls = formState.showMovement;
   const showNonCoinFields = formState.recordType !== "coins";
   const showContainerFields =
@@ -1007,7 +1014,9 @@ export function InventoryRecordForm({
                     </option>
                   ) : null}
                   {formState.placement === "default" ? (
-                    <option value="default">Default</option>
+                    <option value="default">
+                      {defaultPlacementLabel}
+                    </option>
                   ) : null}
                   {placementOptions
                     .filter(
@@ -1059,7 +1068,7 @@ export function InventoryRecordForm({
               ) : null}
             </div>
           ) : null}
-          {onDelete && !isReadOnly && coinActionRecord?.recordType !== "coins" ? (
+          {onDelete && !isReadOnly ? (
             <button className="danger-button" type="button" onClick={onDelete}>
               Delete
             </button>
@@ -1496,8 +1505,12 @@ function getPlacementOptions({
   targetEntity: Entity;
 }): Array<{ value: InventoryRecordPlacementKey; label: string }> {
   if (recordType === "coins") {
+    // Coins go anywhere a plain record goes, except a hand.
     return isCharacterLikeEntity(targetEntity)
-      ? [{ value: "coinPurse", label: "Coin purse" }]
+      ? [
+          { value: "equippedLoose", label: "Equipped loose" },
+          { value: "container", label: "Inside container" },
+        ]
       : [
           { value: "contents", label: "Contents" },
           { value: "container", label: "Container" },

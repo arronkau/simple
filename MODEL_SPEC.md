@@ -230,7 +230,6 @@ They do not use:
 - equipped placement
 - stowed placement
 - hands
-- coin purse
 - top-level stowed-container requirement
 
 Mounts, vehicles, and storage may contain coin records directly in contents or inside ordinary containers.
@@ -392,9 +391,6 @@ export type InventoryLocation =
       kind: "stowedRoot";
     }
   | {
-      kind: "coinPurse";
-    }
-  | {
       kind: "contents";
     }
   | {
@@ -407,7 +403,6 @@ export type InventoryLocation =
 
 - `kind: "equipped"` means the root record is held, worn, actively used, or ready at short notice.
 - `kind: "stowedRoot"` is the character-like entity's one top-level stowed container.
-- `kind: "coinPurse"` is for a character-like entity's coin record.
 - `kind: "contents"` means the root record belongs directly to a non-character entity's contents.
 - `kind: "container"` means the record is inside another inventory record with `container` data.
 - `placement: "leftHand"`, `"rightHand"`, and `"bothHands"` are equipped hand placements.
@@ -419,7 +414,7 @@ export type InventoryLocation =
 - Every inventory record must have a location.
 - Every inventory record must have an owning `entityId`, including records inside containers.
 - `record.entityId` must point to an existing entity.
-- Character-like entities may use `equipped`, `stowedRoot`, `coinPurse`, or `container` locations.
+- Character-like entities may use `equipped`, `stowedRoot`, or `container` locations.
 - Non-character entities may use `contents` or `container` locations.
 - `kind: "container"` must include `containerId`.
 - `containerId` must point to an existing `InventoryRecord` with `container` data.
@@ -427,12 +422,12 @@ export type InventoryLocation =
 - A contained record's `entityId` must match the owning entity of its container.
 - Moving a container to another entity must also update all contained descendant records to the new `entityId`.
 - Cross-entity containment is invalid.
-- Character-like coin records must use `kind: "coinPurse"`.
-- Non-character coin records may use `kind: "contents"` or `kind: "container"`.
-- Non-coin records must not use `kind: "coinPurse"`.
+- Coin records use the same locations as any other non-container record, except a hand placement.
 - Hand placements must use `kind: "equipped"`.
 - Default location for newly created non-coin records on character-like entities is `kind: "equipped"` and `placement: "loose"` unless the user chooses another valid root/container location.
+- Default location for a newly created coin record on a character-like entity is `kind: "container"` pointing at the entity's top-level stowed container when it has one, otherwise `kind: "equipped"` with `placement: "loose"`.
 - Default location for newly created records on non-character entities is `kind: "contents"`.
+- The retired `kind: "coinPurse"` location is migrated when state is loaded: the record moves into its entity's top-level stowed container when one exists, otherwise to `kind: "equipped"` with `placement: "loose"`.
 
 ## Inventory Quantity And Burden
 
@@ -469,20 +464,16 @@ export type CoinData = {
 
 ### Coin Rules
 
-- Character-like entities may have at most one `recordType: "coins"` record.
-- Non-character entities may have multiple coin records, as long as each record has a valid contents/container location.
+- Coins are ordinary inventory records. Any entity may hold any number of them, wherever a non-container record may sit.
+- A coin record must not use a hand placement.
 - Coin denomination fields are required and default to `0`.
 - Coin denomination fields must be non-negative integers.
-- Character-like coin records must use `kind: "coinPurse"`.
-- Character-like coin records count toward stowed slots.
-- The coin purse is not a real container.
+- A coin record counts toward the burden of wherever it sits: stowed inside the top-level stowed container, equipped at `placement: "loose"`, contents on a non-character entity.
 - Coin records do not require a user-entered name.
-- Adding coins to a character-like entity with an existing coin record should update that record instead of creating a duplicate.
-- Adding coins to a non-character entity may create a new coin record or update a selected existing coin record, depending on the chosen valid contents/container location.
-- Non-character entities may contain coin records in contents or inside ordinary containers.
-- Non-character entities do not require a coin purse.
-- Coin transfers may target a specific source coin record (instead of the source entity's default coin record) so that a chosen pile on a non-character entity can be drawn down.
-- A transfer that fully drains a coin record on a **non-character** entity removes the emptied record as part of the transfer (with an audit entry). Character-like coin records are never auto-removed.
+- Adding coins without choosing a placement updates the entity's default coin record instead of creating a duplicate, on every entity type. Choosing a placement always creates a new record.
+- An entity's **default coin record** is the coin record inside its top-level stowed container if it has one, otherwise its first coin record in sort order. It is the destination for a transfer and the source when no record is named.
+- Coin transfers may target a specific source coin record (instead of the source entity's default coin record) so that a chosen pile can be drawn down.
+- A coin record drained to zero by a spend or a transfer is removed as part of that action (with an audit entry), on every entity type. The next transfer in recreates one at the default location.
 
 ## Treasure Data
 
@@ -858,8 +849,9 @@ For character-like entities:
 stowedSlots = sum(effectiveRecordSlots(record) for records directly or indirectly contributing to stowed burden)
 ```
 
-Stowed slots include coin-purse coins, backpack contents, and stowed container
-contents unless excluded by the held-container movement exception. The record
+Stowed slots include the top-level stowed container's contents (coin records
+included) and stowed container contents unless excluded by the held-container
+movement exception. The record
 whose own location is `stowedRoot` contributes 0 own movement burden.
 
 ### Contents Slots
@@ -985,10 +977,8 @@ The app should prevent state that violates these invariants:
 - Every container reference points to a record with `container` data.
 - No container cycles.
 - No cross-entity containment.
-- Character-like entities have at most one coin record.
-- Non-character entities may have multiple coin records if each has a valid contents/container location.
-- Character-like coins use only `recordType: "coins"`, `coins`, and stowed coin-purse location.
-- Non-character coins use only `recordType: "coins"`, `coins`, and a valid contents or container location.
+- Any entity may have multiple coin records.
+- Coin records use only `recordType: "coins"` and `coins`, at any location valid for their entity type other than a hand placement.
 - Coin records do not use identification data.
 - Character-like hand state cannot contain both `bothHands` and `leftHand`/`rightHand` records.
 - A hand placement cannot contain more than one record.

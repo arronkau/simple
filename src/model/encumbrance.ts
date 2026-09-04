@@ -121,7 +121,6 @@ export function getEffectiveCarryState(
     case "equipped":
       return "equipped";
     case "stowedRoot":
-    case "coinPurse":
       return "stowed";
     case "contents":
       return "contents";

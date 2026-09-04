@@ -1,6 +1,6 @@
 import { type FormEvent } from "react";
 import { getSortedEntities } from "../model/entities";
-import { getCharacterCoinRecord } from "../model/inventoryRecords";
+import { getDefaultCoinRecord } from "../model/inventoryRecords";
 import { getRecordById } from "../model/inventoryDisplay";
 import type { AppState } from "../model/appState";
 import type { CoinData, EntityId, InventoryRecord } from "../model/types";
@@ -152,12 +152,7 @@ export function CoinTransferModal({
   function takeAll() {
     onChange({
       ...formState,
-      amounts: {
-        pp: sourceCoins.pp > 0 ? sourceCoins.pp.toString() : "",
-        gp: sourceCoins.gp > 0 ? sourceCoins.gp.toString() : "",
-        sp: sourceCoins.sp > 0 ? sourceCoins.sp.toString() : "",
-        cp: sourceCoins.cp > 0 ? sourceCoins.cp.toString() : "",
-      },
+      amounts: toCoinSpendAmountInputs(sourceCoins),
     });
   }
 
@@ -323,6 +318,18 @@ export function createEmptyCoinSpendAmounts(): Record<CoinDenomination, string> 
   };
 }
 
+/** Coin form inputs holding an entire pile — the "take all" default. */
+export function toCoinSpendAmountInputs(
+  coins: CoinData,
+): Record<CoinDenomination, string> {
+  return {
+    pp: coins.pp > 0 ? coins.pp.toString() : "",
+    gp: coins.gp > 0 ? coins.gp.toString() : "",
+    sp: coins.sp > 0 ? coins.sp.toString() : "",
+    cp: coins.cp > 0 ? coins.cp.toString() : "",
+  };
+}
+
 export function toCoinSpendAmounts(
   amounts: Record<CoinDenomination, string>,
 ): Partial<CoinData> {
@@ -421,35 +428,10 @@ function getTransferSourceCoinRecord(
       : undefined;
   }
 
-  return getDefaultCoinRecordForEntity(
+  return getDefaultCoinRecord(
     formState.sourceEntityId,
     appState.inventoryRecords,
   );
-}
-
-export function getDefaultCoinRecordForEntity(
-  entityId: EntityId,
-  records: InventoryRecord[],
-): InventoryRecord | undefined {
-  const coinPurseRecord = getCharacterCoinRecord(entityId, records);
-
-  if (coinPurseRecord) {
-    return coinPurseRecord;
-  }
-
-  return records
-    .filter(
-      (record) => record.entityId === entityId && record.recordType === "coins",
-    )
-    .sort((recordA, recordB) =>
-      recordA.sortOrder !== recordB.sortOrder
-        ? recordA.sortOrder - recordB.sortOrder
-        : recordA.id < recordB.id
-          ? -1
-          : recordA.id > recordB.id
-            ? 1
-            : 0,
-    )[0];
 }
 
 function toCoinSpendNumber(value: string): number {

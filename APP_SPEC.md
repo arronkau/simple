@@ -13,8 +13,7 @@ The app should support:
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
 - Character-like inventory with a clear distinction between equipped and stowed carried items.
-- A top-level stowed container, normally a backpack, for character-like stowed non-coin inventory.
-- Character coin purse display for coin records.
+- A top-level stowed container, normally a backpack, for character-like stowed inventory.
 - Simple contents inventory for mounts, vehicles, and storage.
 - Coins, treasure, weapons, armor, and equipment as inventory records.
 - A read-only audit log for significant entity and inventory changes.
@@ -134,7 +133,7 @@ Examples:
 - Worn ring, amulet, cloak, or similar active gear
 - Any item not placed into valid stowed storage
 
-Default location for newly added non-coin records on character-like entities is equipped loose.
+Default location for newly added non-coin records on character-like entities is equipped loose. A newly added coin record defaults into the top-level stowed container when the entity has one, and to equipped loose when it does not.
 
 #### Stowed Items
 
@@ -142,7 +141,6 @@ Stowed items are packed away and not ready at short notice.
 
 For character-like entities, stowed inventory is allowed only in:
 
-- Coin purse placement for coin records.
 - The character's top-level stowed container, normally a backpack.
 - A valid container inside the top-level stowed container.
 - A valid container currently held in hand.
@@ -153,15 +151,15 @@ Validation hard rule: a character-like entity may not have more than one top-lev
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add hard rule: non-coin stowed records must be placed inside a valid container. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add hard rule: stowed records must be placed inside a valid container. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
-#### Coin Purse
+#### Coins
 
-The coin purse is not a real container.
+Coins are ordinary inventory records with no placement of their own. An entity may hold any number of them, anywhere a non-container record may sit — the only exception is a hand.
 
-It is a placement/display concept for a character-like entity's coin record.
+A coin record counts toward the burden of wherever it sits: stowed inside the top-level stowed container, equipped at loose placement, or contents on a non-character entity.
 
-Coin records in the coin purse count toward stowed slots.
+Dragging a coin record onto a target on the **same** entity is an ordinary move. Dragging it onto any target on a **different** entity opens the transfer dialog instead, prefilled with the whole pile: confirming hands it all over, editing the amounts splits it. A container holding coins is a plain move — the coins ride along with it.
 
 ### Non-Character Entities
 
@@ -179,7 +177,7 @@ These entities may contain:
 - Containers
 - Records inside containers
 
-Mounts, vehicles, and storage do not require a top-level stowed container or coin purse.
+Mounts, vehicles, and storage do not require a top-level stowed container.
 
 Coin records for mounts, vehicles, and storage may be placed directly in contents or inside ordinary containers.
 
@@ -242,7 +240,6 @@ For character and retainer entities, the inventory view uses:
    - Hands
    - Other equipped
 3. Stowed
-   - Coin purse
    - Stowed container and its contents
    - Containers inline
 
