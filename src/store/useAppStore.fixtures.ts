@@ -617,17 +617,27 @@ const phase5SpendAuditEntries = phase5SpendState.auditLog.filter(
 
 export const PHASE_5_STORE_MANUAL_FIXTURES = [
   {
-    name: "character coin creation merges into a single coin-purse record",
+    name: "character coin creation without a placement merges into one record in the stowed root",
     actual: {
       coinRecords: phase5CoinRecords.length,
       coins:
         phase5CoinRecords[0]?.recordType === "coins"
           ? phase5CoinRecords[0].coins
           : undefined,
+      locationKind: phase5CoinRecords[0]?.location.kind,
+      inStowedRoot:
+        phase5CoinRecords[0]?.location.kind === "container" &&
+        phase5StateAfterDefaults.inventoryRecords.find(
+          (record) =>
+            phase5CoinRecords[0]?.location.kind === "container" &&
+            record.id === phase5CoinRecords[0].location.containerId,
+        )?.location.kind === "stowedRoot",
     },
     expected: {
       coinRecords: 1,
       coins: { pp: 0, gp: 12, sp: 8, cp: 0 },
+      locationKind: "container",
+      inStowedRoot: true,
     },
   },
   {
@@ -1010,7 +1020,7 @@ export const PHASE_6_STORE_MANUAL_FIXTURES = [
   },
 ];
 
-// --- Coin drag transfer phase (Floor coin piles → character purse) ---
+// --- Coin drag transfer phase (Floor coin piles → a character) ---
 
 useAppStore.getState().resetLocalState();
 
@@ -1041,11 +1051,17 @@ if (coinDragFloorId) {
       coins: { gp: 300 },
     },
   );
+  // An explicit placement keeps this a second pile; a default placement would
+  // merge it into the gold pile.
   const silverResult = useAppStore.getState().createInventoryRecord(
     coinDragFloorId,
     {
       recordType: "coins",
       coins: { sp: 50 },
+      location: {
+        entityId: coinDragFloorId,
+        placement: "contents",
+      },
     },
   );
 
@@ -1088,7 +1104,7 @@ const coinDragWrongOwnerResult =
     : { ok: false as const, message: "setup failed" };
 
 const coinDragState = useAppStore.getState().appState;
-const coinDragPurseRecord = coinDragState.inventoryRecords.find(
+const coinDragDestinationRecord = coinDragState.inventoryRecords.find(
   (record) =>
     record.recordType === "coins" && record.entityId === coinDragCharacterId,
 );
@@ -1117,22 +1133,22 @@ export const COIN_DRAG_TRANSFER_STORE_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "draining a non-character coin pile removes the emptied record and merges into the purse",
+    name: "draining a non-character coin pile removes the emptied record and merges into the destination pile",
     actual: {
       takeAllOk: coinDragTakeAllResult.ok,
       goldPileRemains: coinDragState.inventoryRecords.some(
         (record) => record.id === coinDragGoldPileId,
       ),
-      purseCoins:
-        coinDragPurseRecord?.recordType === "coins"
-          ? coinDragPurseRecord.coins
+      destinationCoins:
+        coinDragDestinationRecord?.recordType === "coins"
+          ? coinDragDestinationRecord.coins
           : undefined,
       deleteAuditSummary: coinDragDeleteAuditEntry?.summary,
     },
     expected: {
       takeAllOk: true,
       goldPileRemains: false,
-      purseCoins: { pp: 0, gp: 312, sp: 20, cp: 0 },
+      destinationCoins: { pp: 0, gp: 312, sp: 20, cp: 0 },
       deleteAuditSummary: 'Deleted coins from "Floor" (emptied by transfer).',
     },
   },
@@ -2259,6 +2275,123 @@ export const QUICK_ADJUST_STORE_MANUAL_FIXTURES = [
           "Character sheets are only available for characters and retainers.",
       },
       missing: { ok: false, message: "Entity was not found." },
+    },
+  },
+];
+
+// --- Drained coin record phase (spend/transfer empty a character's pile) ---
+
+useAppStore.getState().resetLocalState();
+
+const coinDrainCharacterId = useAppStore.getState().createEntity({
+  name: "Drainer",
+  entityType: "character",
+});
+const coinDrainFloorId = useAppStore.getState().createEntity({
+  name: "Drain Floor",
+  entityType: "storage",
+});
+
+const coinDrainSpendPileResult = coinDrainCharacterId
+  ? useAppStore.getState().createInventoryRecord(coinDrainCharacterId, {
+      recordType: "coins",
+      coins: { gp: 5 },
+    })
+  : { ok: false as const, message: "setup failed" };
+const coinDrainSpendPileId = coinDrainSpendPileResult.ok
+  ? coinDrainSpendPileResult.recordId
+  : undefined;
+const coinDrainSpendResult = coinDrainSpendPileId
+  ? useAppStore.getState().spendCoins(coinDrainSpendPileId, {
+      amounts: { gp: 5 },
+    })
+  : { ok: false as const, message: "setup failed" };
+const coinDrainAfterSpendState = useAppStore.getState().appState;
+
+const coinDrainTransferPileResult = coinDrainCharacterId
+  ? useAppStore.getState().createInventoryRecord(coinDrainCharacterId, {
+      recordType: "coins",
+      coins: { sp: 8 },
+    })
+  : { ok: false as const, message: "setup failed" };
+const coinDrainTransferPileId = coinDrainTransferPileResult.ok
+  ? coinDrainTransferPileResult.recordId
+  : undefined;
+const coinDrainTransferResult =
+  coinDrainCharacterId && coinDrainFloorId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDrainCharacterId,
+        destinationEntityId: coinDrainFloorId,
+        amounts: { sp: 8 },
+      })
+    : { ok: false as const, message: "setup failed" };
+const coinDrainAfterTransferState = useAppStore.getState().appState;
+
+// A default-placement coin create on a non-character entity tops up the pile
+// the transfer just made instead of adding a second one.
+const coinDrainFloorTopUpResult = coinDrainFloorId
+  ? useAppStore.getState().createInventoryRecord(coinDrainFloorId, {
+      recordType: "coins",
+      coins: { sp: 2 },
+    })
+  : { ok: false as const, message: "setup failed" };
+const coinDrainFloorCoinRecords = useAppStore
+  .getState()
+  .appState.inventoryRecords.filter(
+    (record) =>
+      record.recordType === "coins" && record.entityId === coinDrainFloorId,
+  );
+
+export const COIN_DRAIN_STORE_MANUAL_FIXTURES = [
+  {
+    name: "spend that empties a character pile removes the record",
+    actual: {
+      spendOk: coinDrainSpendResult.ok,
+      recordRemains: coinDrainAfterSpendState.inventoryRecords.some(
+        (record) => record.id === coinDrainSpendPileId,
+      ),
+      deleteAuditSummary: coinDrainAfterSpendState.auditLog.find(
+        (entry) =>
+          entry.eventType === "inventoryRecordDeleted" &&
+          entry.recordId === coinDrainSpendPileId,
+      )?.summary,
+    },
+    expected: {
+      spendOk: true,
+      recordRemains: false,
+      deleteAuditSummary: 'Deleted coins from "Drainer" (emptied by spend).',
+    },
+  },
+  {
+    name: "transfer that empties a character pile removes the record",
+    actual: {
+      transferOk: coinDrainTransferResult.ok,
+      recordRemains: coinDrainAfterTransferState.inventoryRecords.some(
+        (record) => record.id === coinDrainTransferPileId,
+      ),
+      deleteAuditSummary: coinDrainAfterTransferState.auditLog.find(
+        (entry) =>
+          entry.eventType === "inventoryRecordDeleted" &&
+          entry.recordId === coinDrainTransferPileId,
+      )?.summary,
+    },
+    expected: {
+      transferOk: true,
+      recordRemains: false,
+      deleteAuditSummary: 'Deleted coins from "Drainer" (emptied by transfer).',
+    },
+  },
+  {
+    name: "non-character coin creation without a placement merges into the existing pile",
+    actual: {
+      topUpOk: coinDrainFloorTopUpResult.ok,
+      floorPiles: coinDrainFloorCoinRecords.map((record) =>
+        record.recordType === "coins" ? record.coins : undefined,
+      ),
+    },
+    expected: {
+      topUpOk: true,
+      floorPiles: [{ pp: 0, gp: 0, sp: 10, cp: 0 }],
     },
   },
 ];

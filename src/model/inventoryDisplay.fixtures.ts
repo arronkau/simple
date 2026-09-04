@@ -96,7 +96,8 @@ const coinsRecord: InventoryRecord = {
   recordType: "coins",
   entityId: characterEntity.id,
   location: {
-    kind: "coinPurse",
+    kind: "container",
+    containerId: characterBackpack.id,
   },
   sortOrder: 2000,
   coins: {
@@ -299,7 +300,7 @@ const unsortedContentsSections = getInventorySections(
 
 export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
   {
-    name: "character inventory sections include hands, other equipped, coin purse, and backpack",
+    name: "character inventory sections include hands, other equipped, and backpack contents (coins included)",
     actual: {
       mode: characterSections.mode,
       rightHand:
@@ -310,10 +311,6 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         characterSections.mode === "characterLike"
           ? characterSections.otherEquipped.map((record) => record.id)
           : [],
-      coinRecord:
-        characterSections.mode === "characterLike"
-          ? characterSections.coinRecord?.id
-          : undefined,
       topLevelStowedContainerContents:
         characterSections.mode === "characterLike"
           ? characterSections.topLevelStowedContainerContents.map((record) => record.id)
@@ -330,8 +327,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
       mode: "characterLike",
       rightHand: "sword-1",
       otherEquipped: ["armor-1"],
-      coinRecord: "coins-1",
-      topLevelStowedContainerContents: ["rope-1", "sack-1"],
+      topLevelStowedContainerContents: ["coins-1", "rope-1", "sack-1"],
       sackContents: ["rations-1"],
       encumbrance: {
         equippedItems: 3,
@@ -346,7 +342,7 @@ export const INVENTORY_DISPLAY_MANUAL_FIXTURES = [
         stowedCapacity: 16,
       },
       backpackUsage: {
-        usedSlots: 5,
+        usedSlots: 7,
       },
       sackUsage: {
         usedSlots: 3,

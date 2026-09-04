@@ -30,7 +30,6 @@ export type InventoryRecordPlacementKey =
   | "leftHand"
   | "rightHand"
   | "bothHands"
-  | "coinPurse"
   | "stowedRoot"
   | "contents"
   | "container";
@@ -194,43 +193,17 @@ export function createInventoryLocation({
 }): InventoryLocationBuildResult {
   const placement = location?.placement ?? "default";
 
-  if (recordType === "coins") {
-    if (isCharacterLikeEntity(entity)) {
-      return {
-        ok: true,
-        location: {
-          kind: "coinPurse",
-        },
-      };
-    }
-
-    if (placement === "container") {
-      const containerIdResult = getUsableContainerId({
-        entity,
-        records,
-        containerId: location?.containerId,
-        isContainer: false,
-        editingRecordId,
-      });
-
-      if (!containerIdResult.ok) {
-        return containerIdResult;
-      }
-
-      return {
-        ok: true,
-        location: {
-          kind: "container",
-          containerId: containerIdResult.containerId,
-        },
-      };
-    }
-
+  // Coins are ordinary records everywhere except a hand: a pile of loose coins
+  // is not something a character grips.
+  if (
+    recordType === "coins" &&
+    (placement === "leftHand" ||
+      placement === "rightHand" ||
+      placement === "bothHands")
+  ) {
     return {
-      ok: true,
-      location: {
-        kind: "contents",
-      },
+      ok: false,
+      message: "Coins cannot be held in a hand.",
     };
   }
 
@@ -324,9 +297,35 @@ export function createInventoryLocation({
         },
       };
     }
-    case "default":
+    case "default": {
+      // Coins default into the top-level stowed container when the entity has
+      // one; otherwise they sit with the equipped gear like any other record.
+      if (recordType === "coins") {
+        const stowedRootRecord = findTopLevelStowedContainerRecords(
+          entity.id,
+          records,
+        )[0];
+
+        if (stowedRootRecord) {
+          return {
+            ok: true,
+            location: {
+              kind: "container",
+              containerId: stowedRootRecord.id,
+            },
+          };
+        }
+      }
+
+      return {
+        ok: true,
+        location: {
+          kind: "equipped",
+          placement: "loose",
+        },
+      };
+    }
     case "equippedLoose":
-    case "coinPurse":
     case "contents":
       return {
         ok: true,
@@ -464,16 +463,38 @@ export function mergeCoinData(
   };
 }
 
-export function getCharacterCoinRecord(
+/**
+ * The coin record spend/transfer targets when the caller names no record: the
+ * pile inside the entity's top-level stowed container if there is one, else the
+ * first coin record in sort order. Undefined when the entity holds no coins.
+ */
+export function getDefaultCoinRecord(
   entityId: EntityId,
   records: InventoryRecord[],
 ): InventoryRecord | undefined {
-  return records.find(
-    (record) =>
-      record.recordType === "coins" &&
-      record.entityId === entityId &&
-      record.location.kind === "coinPurse",
+  const coinRecords = sortInventoryRecordsBySortOrder(
+    records.filter(
+      (record) => record.entityId === entityId && record.recordType === "coins",
+    ),
   );
+  const stowedRootRecord = findTopLevelStowedContainerRecords(
+    entityId,
+    records,
+  )[0];
+
+  if (stowedRootRecord) {
+    const stowedRootCoinRecord = coinRecords.find(
+      (record) =>
+        record.location.kind === "container" &&
+        record.location.containerId === stowedRootRecord.id,
+    );
+
+    if (stowedRootCoinRecord) {
+      return stowedRootCoinRecord;
+    }
+  }
+
+  return coinRecords[0];
 }
 
 export function isContainerRecordEmpty(

@@ -5,6 +5,7 @@ import {
   type Entity,
   type InventoryRecord,
 } from "./types";
+import { moveInventoryRecord } from "./inventoryRecords";
 import {
   createInitialInventoryRecordsForEntity,
   findTopLevelStowedContainerRecords,
@@ -131,7 +132,8 @@ const characterCoinsRecord: InventoryRecord = {
   recordType: "coins",
   entityId: characterEntity.id,
   location: {
-    kind: "coinPurse",
+    kind: "equipped",
+    placement: "loose",
   },
   sortOrder: 3000,
   coins: { pp: 0, gp: 1, sp: 0, cp: 0 },
@@ -141,6 +143,74 @@ const secondCharacterCoinsRecord: InventoryRecord = {
   ...characterCoinsRecord,
   id: "coins-2",
   sortOrder: 4000,
+};
+
+const characterSackRecord: InventoryRecord = {
+  id: "sack-1",
+  recordType: "equipment",
+  name: "Sack",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: topLevelStowedContainerRecord.id,
+  },
+  sortOrder: 5000,
+  quantity: 1,
+  burden: { kind: "none" },
+  handsRequired: 0,
+  container: {
+    capacitySlots: 6,
+  },
+};
+
+const sackCoinsRecord: InventoryRecord = {
+  id: "coins-3",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: characterSackRecord.id,
+  },
+  sortOrder: 0,
+  coins: { pp: 0, gp: 4, sp: 0, cp: 0 },
+};
+
+const floorSackRecord: InventoryRecord = {
+  id: "floor-sack-1",
+  recordType: "equipment",
+  name: "Sack",
+  entityId: storageEntity.id,
+  location: {
+    kind: "contents",
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "none" },
+  handsRequired: 0,
+  container: {
+    capacitySlots: 6,
+  },
+};
+
+const floorSackCoinsRecord: InventoryRecord = {
+  id: "floor-sack-coins-1",
+  recordType: "coins",
+  entityId: storageEntity.id,
+  location: {
+    kind: "container",
+    containerId: floorSackRecord.id,
+  },
+  sortOrder: 0,
+  coins: { pp: 0, gp: 30, sp: 0, cp: 0 },
+};
+
+const handCoinsRecord: InventoryRecord = {
+  ...characterCoinsRecord,
+  id: "coins-hand-1",
+  location: {
+    kind: "equipped",
+    placement: "rightHand",
+  },
 };
 
 const nonCharacterCoinsRecord: InventoryRecord = {
@@ -550,8 +620,42 @@ const invalidLocationAndHandsResult = validateInventoryState(
     emptyNameRecord,
     nonCharacterEquippedRecord,
     characterCoinsRecord,
-    secondCharacterCoinsRecord,
   ],
+);
+
+// Coins are ordinary records: several piles per entity, nested in a container,
+// and a sack of coins handed over from the Floor all validate. Only a hand is
+// off limits.
+const multipleCharacterCoinsResult = validateInventoryState(
+  [characterEntity],
+  [
+    topLevelStowedContainerRecord,
+    characterCoinsRecord,
+    secondCharacterCoinsRecord,
+    characterSackRecord,
+    sackCoinsRecord,
+  ],
+);
+
+const handCoinsResult = validateInventoryState(
+  [characterEntity],
+  [topLevelStowedContainerRecord, handCoinsRecord],
+);
+
+const movedFloorSackRecords = moveInventoryRecord({
+  recordId: floorSackRecord.id,
+  records: [
+    topLevelStowedContainerRecord,
+    floorSackRecord,
+    floorSackCoinsRecord,
+  ],
+  entityId: characterEntity.id,
+  location: { kind: "container", containerId: topLevelStowedContainerRecord.id },
+});
+
+const movedFloorSackResult = validateInventoryState(
+  [characterEntity, storageEntity],
+  movedFloorSackRecords,
 );
 
 const generalHandRequirementResult = validateInventoryState(
@@ -688,6 +792,51 @@ export const VALIDATION_MANUAL_FIXTURES = [
     },
   },
   {
+    name: "a character may hold several coin records, including one inside a sack",
+    actual: {
+      valid: multipleCharacterCoinsResult.valid,
+      errors: summarizeIssues(multipleCharacterCoinsResult.errors),
+      warnings: summarizeIssues(multipleCharacterCoinsResult.warnings),
+    },
+    expected: {
+      valid: true,
+      errors: {},
+      warnings: {},
+    },
+  },
+  {
+    name: "coins in a hand are rejected",
+    actual: {
+      valid: handCoinsResult.valid,
+      errors: summarizeIssues(handCoinsResult.errors),
+      message: handCoinsResult.errors[0]?.message,
+    },
+    expected: {
+      valid: false,
+      errors: {
+        invalidCoinLocation: 1,
+      },
+      message: "Coins cannot be held in a hand.",
+    },
+  },
+  {
+    name: "a floor sack holding coins validates after moving onto a character",
+    actual: {
+      valid: movedFloorSackResult.valid,
+      errors: summarizeIssues(movedFloorSackResult.errors),
+      warnings: summarizeIssues(movedFloorSackResult.warnings),
+      coinEntityId: movedFloorSackRecords.find(
+        (record) => record.id === floorSackCoinsRecord.id,
+      )?.entityId,
+    },
+    expected: {
+      valid: true,
+      errors: {},
+      warnings: {},
+      coinEntityId: characterEntity.id,
+    },
+  },
+  {
     name: "non-character entities may have multiple valid coin records",
     actual: {
       valid: nonCharacterCoinsResult.valid,
@@ -718,7 +867,6 @@ export const VALIDATION_MANUAL_FIXTURES = [
       errors: {
         emptyInventoryRecordName: 1,
         handCollision: 3,
-        invalidCoinCount: 1,
         invalidEntityLocationType: 1,
       },
       handErrors: 3,

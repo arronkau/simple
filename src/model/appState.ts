@@ -3,6 +3,7 @@ import {
   normalizeEntityCharacterData,
   validateCharacterData,
 } from "./characters";
+import { findTopLevelStowedContainerRecords } from "./validation";
 import type {
   AuditLogEntry,
   AuditEventType,
@@ -386,6 +387,47 @@ function normalizeEntities(entities: Entity[]): Entity[] {
 }
 
 function normalizeInventoryRecords(records: unknown[]): InventoryRecord[] {
+  return migrateCoinPurseLocations(normalizeInventoryRecordShapes(records));
+}
+
+/**
+ * Legacy migration: the retired `coinPurse` placement becomes an ordinary
+ * location — inside the owning entity's top-level stowed container when it has
+ * one, otherwise equipped loose. Runs after per-record normalization so the
+ * stowed-root records it looks for are already in their final shape.
+ */
+function migrateCoinPurseLocations(
+  records: InventoryRecord[],
+): InventoryRecord[] {
+  const isLegacyCoinPurse = (record: InventoryRecord) =>
+    (record.location as { kind: string }).kind === "coinPurse";
+
+  if (!records.some(isLegacyCoinPurse)) {
+    return records;
+  }
+
+  return records.map((record) => {
+    if (!isLegacyCoinPurse(record)) {
+      return record;
+    }
+
+    const stowedRootRecord = findTopLevelStowedContainerRecords(
+      record.entityId,
+      records,
+    )[0];
+
+    return {
+      ...record,
+      location: stowedRootRecord
+        ? { kind: "container" as const, containerId: stowedRootRecord.id }
+        : { kind: "equipped" as const, placement: "loose" as const },
+    };
+  });
+}
+
+function normalizeInventoryRecordShapes(
+  records: unknown[],
+): InventoryRecord[] {
   return records.flatMap((record) => {
     if (!isInventoryRecordLike(record)) {
       return [];
@@ -927,8 +969,11 @@ function validateInventoryLocationShape(
             message: "Invalid equipped placement.",
           };
     case "stowedRoot":
-    case "coinPurse":
     case "contents":
+      return { ok: true, value: value as InventoryLocation };
+    // Legacy: retired coin-purse placement, migrated in
+    // normalizeInventoryRecords.
+    case "coinPurse":
       return { ok: true, value: value as InventoryLocation };
     case "container":
       return typeof value.containerId === "string"
@@ -1067,8 +1112,10 @@ function isInventoryLocation(value: unknown): value is InventoryLocation {
     case "equipped":
       return EQUIPPED_PLACEMENTS.includes(value.placement as EquippedPlacement);
     case "stowedRoot":
-    case "coinPurse":
     case "contents":
+    // Legacy: retired coin-purse placement, migrated in
+    // normalizeInventoryRecords.
+    case "coinPurse":
       return true;
     case "container":
       return typeof value.containerId === "string";

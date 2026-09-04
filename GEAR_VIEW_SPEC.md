@@ -60,8 +60,7 @@ Mirrors the canonical inventory layout, restyled:
     (`container.capacityByHands`) or the Versatile weapon quality — so a plain
     one-handed record carries no grip button at all. It runs the same validated
     move sequence as a drag onto that hand.
-- **Stowed** (recessed background) — uppercase "Stowed" label; the coin-purse
-  line (denominations + `ceil(totalCoins/100)` slot cost, display-only); the
+- **Stowed** (recessed background) — uppercase "Stowed" label; the
   top-level stowed container (`stowedRoot`) with a resolved-capacity readout
   (`used/6`, `used/12`, or `used/—` when not applicable) and its child rows;
   nested containers inline.
@@ -157,21 +156,22 @@ displacements plus the placement are sent as one batched validated mutation.
 
 ### Coin drag
 
-Coin records on **non-character** entities (the Floor, mounts, storage) are
-draggable like any other record:
+Every coin record is a draggable row wherever it sits — inside a character's
+backpack, worn, in the Floor's contents, in a sack:
 
-- Dropped on a non-character zone → a whole-record validated move (non-character
-  entities may hold multiple coin records).
-- Dropped anywhere on a **character/retainer** card → no move. Instead the coin
-  **transfer modal** opens pre-filled (source = the dragged coin record,
-  destination = the character) with a **Take all** shortcut and per-denomination
-  amounts ("take some"); the remainder stays on the source. The transfer goes
-  through the validated `transferCoins` action, which merges into the
-  character's single purse record and removes a fully drained non-character
-  source record.
+- Dropped on a zone of the **same** entity → an ordinary whole-record validated
+  move (reorder, into a sack, out to worn), exactly like any other record.
+- Dropped on a zone of a **different** entity → no move. Instead the coin
+  **transfer modal** opens pre-filled: source = the dragged coin record,
+  destination = the target entity, amounts = the **whole pile**. Confirming is
+  one click; editing the amounts splits it and the remainder stays behind. The
+  transfer goes through the validated `transferCoins` action, which merges into
+  the destination's default coin record (creating one at the default location
+  when it holds none) and removes a source record the transfer drains to zero,
+  whatever kind of entity holds it.
+- A container holding coins is a plain move; the coins ride along inside it.
 
-The character coin-purse line itself is display-only (not draggable); partial
-amounts always go through the Spend/Transfer modals.
+Coin rows are not containers and never accept a drop.
 
 ### Live projection
 
@@ -187,8 +187,8 @@ pure `moveInventoryRecord` the store uses):
   (`used/cap · eq X/9 · st Y/16±STR` on a character-like entity, `used/capacity`
   alone elsewhere), red if the container would go over its resolved capacity.
 - contents target → `used/capacity`; red if it would exceed `capacitySlots`.
-- coins over a character-like target → a neutral `→ purse` pill (the drop opens
-  the transfer modal rather than moving the record).
+- coins over a target on another entity → a neutral `→ transfer` pill (the drop
+  opens the transfer modal rather than moving the record).
 
 Projection is display-only and must use the shared module — never hardcode the
 tables. A `DragOverlay` shows the dragged record's name; the dropped row briefly
@@ -196,7 +196,6 @@ flashes in its new location.
 
 ## Non-goals (first pass)
 
-- Within-zone sortable reordering, multi-select drag, dragging the character
-  coin purse.
+- Within-zone sortable reordering, multi-select drag.
 - The referee Party HUD and the Character detail sheet.
 - Any restyle of screens other than Party Gear.

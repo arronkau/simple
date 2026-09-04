@@ -15,7 +15,6 @@ export type CharacterInventorySections = {
     bothHands?: string;
   };
   otherEquipped: InventoryRecord[];
-  coinRecord?: InventoryRecord;
   topLevelStowedContainerRecord?: InventoryRecord;
   topLevelStowedContainerRecords: InventoryRecord[];
   topLevelStowedContainerContents: InventoryRecord[];
@@ -64,11 +63,6 @@ export function getInventorySections(
           record.location.placement === "loose" &&
           !topLevelStowedContainerRecordIds.has(record.id),
       ),
-    ),
-    coinRecord: ownedRecords.find(
-      (record) =>
-        record.recordType === "coins" &&
-        record.location.kind === "coinPurse",
     ),
     topLevelStowedContainerRecord,
     topLevelStowedContainerRecords,

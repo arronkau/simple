@@ -25,7 +25,7 @@ This skill keeps changes to `simple`'s inventory engine consistent with its spec
 - **Stowed-root container has no own capacity** (`getContainerCapacity` → `undefined` at `stowedRoot`); the stowed limit governs the packed list.
 - **Held-container rule:** contents inside any hand-held container are EXCLUDED from movement burden, but the container itself still counts in its equipped hand. Use `getEffectiveCarryState` / the ancestor chain — never infer from a record's own `location.kind` alone.
 - **Containers always count their own slot burden** whether empty or full. Container used-capacity EXCLUDES the container's own burden.
-- **Backpack is a literal record** (`location.kind === "stowedRoot"`). **Coin purse is NOT a record** — it's a coin placement; the coin record counts toward stowed slots.
+- **Backpack is a literal record** (`location.kind === "stowedRoot"`). **Coins are ordinary records** — a coin record counts wherever it sits (stowed inside the backpack, equipped at loose), and may never sit in a hand.
 - **Mounts/vehicles/storage** use `getContentsCapacity` only — never equipped/stowed bands. Imported OSE capacity = `floor(coinCapacity / 100)`.
 - Terminology: the rules PDF says **packed**; this app uses **stowed** everywhere (internal + display).
 - Drag-and-drop must reuse the same validated move + encumbrance logic as non-drag paths.

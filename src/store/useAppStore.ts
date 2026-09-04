@@ -53,7 +53,7 @@ import {
 import {
   createInventoryRecordFromInput,
   createInventoryLocation,
-  getCharacterCoinRecord,
+  getDefaultCoinRecord,
   getMoveDescendantRecordIds,
   isContainerRecordEmpty,
   mergeCoinData,
@@ -65,6 +65,7 @@ import {
 import type {
   AuditLogEntryId,
   CoinData,
+  CoinsRecord,
   CharacterData,
   Entity,
   EntityId,
@@ -643,21 +644,24 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const existingCharacterCoinRecord =
-        input.recordType === "coins"
-          ? getCharacterCoinRecord(entity.id, state.appState.inventoryRecords)
+      // Adding coins without naming a spot tops up the entity's default pile on
+      // any entity type; an explicit placement always makes a new record.
+      const existingDefaultCoinRecord =
+        input.recordType === "coins" &&
+        (input.location?.placement ?? "default") === "default"
+          ? getDefaultCoinRecord(entity.id, state.appState.inventoryRecords)
           : undefined;
 
       if (
         input.recordType === "coins" &&
-        existingCharacterCoinRecord?.recordType === "coins"
+        existingDefaultCoinRecord?.recordType === "coins"
       ) {
-        const previousCoins = existingCharacterCoinRecord.coins;
+        const previousCoins = existingDefaultCoinRecord.coins;
         const nextCoins = mergeCoinData(previousCoins, input.coins);
         const nextInventoryRecords = state.appState.inventoryRecords.map(
           (record) => {
             if (
-              record.id !== existingCharacterCoinRecord.id ||
+              record.id !== existingDefaultCoinRecord.id ||
               record.recordType !== "coins"
             ) {
               return record;
@@ -682,7 +686,7 @@ export const useAppStore = create<AppStore>((set) => ({
           return state;
         }
 
-        result = { ok: true, recordId: existingCharacterCoinRecord.id };
+        result = { ok: true, recordId: existingDefaultCoinRecord.id };
         const coinDelta = getCoinDelta(previousCoins, nextCoins);
 
         return {
@@ -695,7 +699,7 @@ export const useAppStore = create<AppStore>((set) => ({
               ? [
                   createCoinChangeAuditEntryInput({
                     entity,
-                    recordId: existingCharacterCoinRecord.id,
+                    recordId: existingDefaultCoinRecord.id,
                     previousCoins,
                     nextCoins,
                   }),
@@ -1591,12 +1595,21 @@ export const useAppStore = create<AppStore>((set) => ({
         sp: record.coins.sp - spendAmounts.amounts.sp,
         cp: record.coins.cp - spendAmounts.amounts.cp,
       };
-      const nextInventoryRecords = state.appState.inventoryRecords.map(
+      const spentInventoryRecords = state.appState.inventoryRecords.map(
         (candidateRecord) =>
           candidateRecord.id === record.id && candidateRecord.recordType === "coins"
             ? { ...candidateRecord, coins: nextCoins }
             : candidateRecord,
       );
+      const drainResult = removeDrainedCoinRecord({
+        records: spentInventoryRecords,
+        record,
+        nextCoins,
+        entity,
+        entities: state.appState.entities,
+        reason: "spend",
+      });
+      const nextInventoryRecords = drainResult.records;
       const validationResult = validateInventoryState(
         state.appState.entities,
         nextInventoryRecords,
@@ -1627,6 +1640,7 @@ export const useAppStore = create<AppStore>((set) => ({
               previousCoins,
               recordId,
             }),
+            ...drainResult.auditEntries,
           ],
         ),
       };
@@ -1693,7 +1707,7 @@ export const useAppStore = create<AppStore>((set) => ({
         ? state.appState.inventoryRecords.find(
             (record) => record.id === input.sourceRecordId,
           )
-        : getDefaultCoinRecordForEntity(
+        : getDefaultCoinRecord(
             sourceEntity.id,
             state.appState.inventoryRecords,
           );
@@ -1724,7 +1738,7 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const destinationRecord = getDefaultCoinRecordForEntity(
+      const destinationRecord = getDefaultCoinRecord(
         destinationEntity.id,
         state.appState.inventoryRecords,
       );
@@ -1796,22 +1810,16 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      // A fully drained coin pile on a non-character entity is removed so the
-      // Floor/storage doesn't accumulate empty "Coins" records. Character
-      // purses always stay.
-      const drainedSourceRecord: InventoryRecord = {
-        ...sourceRecord,
-        coins: nextSourceCoins,
-      };
-      const removeDrainedSourceRecord =
-        !isCharacterLikeEntityType(sourceEntity.entityType) &&
-        getCoinCount(nextSourceCoins) === 0;
+      const drainResult = removeDrainedCoinRecord({
+        records: nextInventoryRecords,
+        record: sourceRecord,
+        nextCoins: nextSourceCoins,
+        entity: sourceEntity,
+        entities: state.appState.entities,
+        reason: "transfer",
+      });
 
-      if (removeDrainedSourceRecord) {
-        nextInventoryRecords = nextInventoryRecords.filter(
-          (record) => record.id !== sourceRecord.id,
-        );
-      }
+      nextInventoryRecords = drainResult.records;
 
       const validationResult = validateInventoryState(
         state.appState.entities,
@@ -1847,22 +1855,7 @@ export const useAppStore = create<AppStore>((set) => ({
               sourceEntity,
               sourceRecordId: sourceRecord.id,
             }),
-            ...(removeDrainedSourceRecord
-              ? [
-                  {
-                    entityId: sourceEntity.id,
-                    eventType: "inventoryRecordDeleted" as const,
-                    recordId: sourceRecord.id,
-                    summary: `Deleted ${getInventoryRecordAuditLabel(
-                      drainedSourceRecord,
-                    )} from ${formatEntityName(sourceEntity)} (emptied by transfer).`,
-                    details: createInventoryRecordDetails(
-                      drainedSourceRecord,
-                      state.appState.entities,
-                    ),
-                  },
-                ]
-              : []),
+            ...drainResult.auditEntries,
           ],
         ),
       };
@@ -2380,29 +2373,46 @@ function formatCoinSpendAmounts(amounts: CoinData): string {
     .join(", ");
 }
 
-function getDefaultCoinRecordForEntity(
-  entityId: EntityId,
-  records: InventoryRecord[],
-): InventoryRecord | undefined {
-  const coinPurseRecord = getCharacterCoinRecord(entityId, records);
-
-  if (coinPurseRecord) {
-    return coinPurseRecord;
+/**
+ * A coins record drained to zero is removed on every entity type, so no empty
+ * "Coins" row lingers and no phantom child makes its container look loaded.
+ * The next transfer in recreates one at the default location. `records` must
+ * already carry `nextCoins`; the returned list drops the record when drained.
+ */
+function removeDrainedCoinRecord(input: {
+  records: InventoryRecord[];
+  record: CoinsRecord;
+  nextCoins: CoinData;
+  entity: Entity;
+  entities: Entity[];
+  reason: "spend" | "transfer";
+}): { records: InventoryRecord[]; auditEntries: AuditLogEntryInput[] } {
+  if (getCoinCount(input.nextCoins) !== 0) {
+    return { records: input.records, auditEntries: [] };
   }
 
-  return records
-    .filter(
-      (record) => record.entityId === entityId && record.recordType === "coins",
-    )
-    .sort((recordA, recordB) =>
-      recordA.sortOrder !== recordB.sortOrder
-        ? recordA.sortOrder - recordB.sortOrder
-        : recordA.id < recordB.id
-          ? -1
-          : recordA.id > recordB.id
-            ? 1
-            : 0,
-    )[0];
+  const drainedRecord: InventoryRecord = {
+    ...input.record,
+    coins: input.nextCoins,
+  };
+
+  return {
+    records: input.records.filter((record) => record.id !== input.record.id),
+    auditEntries: [
+      {
+        entityId: input.entity.id,
+        eventType: "inventoryRecordDeleted" as const,
+        recordId: input.record.id,
+        summary: `Deleted ${getInventoryRecordAuditLabel(
+          drainedRecord,
+        )} from ${formatEntityName(input.entity)} (emptied by ${input.reason}).`,
+        details: createInventoryRecordDetails(
+          drainedRecord,
+          input.entities,
+        ),
+      },
+    ],
+  };
 }
 
 function createInventoryMoveAuditEntryInput(input: {

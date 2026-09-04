@@ -47,12 +47,70 @@ const firebaseCoinRecord: InventoryRecord = {
   recordType: "coins",
   entityId: characterEntity.id,
   location: {
+    kind: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 1000,
+  coins: {
+    pp: 0,
+    gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+};
+
+const legacyBackpackRecord: InventoryRecord = {
+  id: "backpack-1",
+  recordType: "equipment",
+  name: "Backpack",
+  entityId: characterEntity.id,
+  location: {
+    kind: "stowedRoot",
+  },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 0,
+  container: {
+    capacitySlots: 16,
+  },
+};
+
+const legacyCoinPurseRecord = {
+  id: "coins-legacy-1",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
     kind: "coinPurse",
   },
   sortOrder: 1000,
   coins: {
     pp: 0,
     gp: 5,
+    sp: 0,
+    cp: 0,
+  },
+} as unknown as InventoryRecord;
+
+const storageEntity: Entity = {
+  id: "storage-1",
+  name: "Cart",
+  entityType: "storage",
+  active: true,
+  sortOrder: 1,
+};
+
+const storageCoinRecord: InventoryRecord = {
+  id: "coins-storage-1",
+  recordType: "coins",
+  entityId: storageEntity.id,
+  location: {
+    kind: "contents",
+  },
+  sortOrder: 0,
+  coins: {
+    pp: 0,
+    gp: 7,
     sp: 0,
     cp: 0,
   },
@@ -592,6 +650,45 @@ export const APP_STATE_MANUAL_FIXTURES = [
         },
       ],
     },
+  },
+  // --- Legacy coin-purse migration ---
+  {
+    name: "legacy coin-purse record migrates into the stowed root container",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [legacyBackpackRecord, legacyCoinPurseRecord],
+    })?.inventoryRecords,
+    expected: [
+      legacyBackpackRecord,
+      {
+        ...legacyCoinPurseRecord,
+        location: { kind: "container", containerId: "backpack-1" },
+      },
+    ],
+  },
+  {
+    name: "legacy coin-purse record with no stowed root migrates to equipped loose",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [characterEntity],
+      inventoryRecords: [legacyCoinPurseRecord],
+    })?.inventoryRecords,
+    expected: [
+      {
+        ...legacyCoinPurseRecord,
+        location: { kind: "equipped", placement: "loose" },
+      },
+    ],
+  },
+  {
+    name: "non-character coin record is left where it is",
+    actual: parseAppState({
+      schemaVersion: 1,
+      entities: [storageEntity],
+      inventoryRecords: [storageCoinRecord],
+    })?.inventoryRecords,
+    expected: [storageCoinRecord],
   },
   {
     name: "coin record with quantity field rejects app state",

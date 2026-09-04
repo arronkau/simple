@@ -1,11 +1,12 @@
 import {
   createInventoryRecordFromInput,
   createInventoryLocation,
+  getDefaultCoinRecord,
   moveInventoryRecord,
   updateInventoryRecordFromInput,
   getUsableContainerRecords,
 } from "./inventoryRecords";
-import type { Entity, InventoryRecord } from "./types";
+import { createDefaultBackpack, type Entity, type InventoryRecord } from "./types";
 
 const characterEntity: Entity = {
   id: "character-1",
@@ -137,6 +138,65 @@ const nonEmptyEditingContainerRecords = [
   editingContainerRecord,
   childRecord,
 ];
+
+const characterBackpackRecord = createDefaultBackpack({
+  entityId: characterEntity.id,
+  id: "backpack-1",
+});
+
+const backpackCoinsRecord: InventoryRecord = {
+  id: "coins-backpack",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: characterBackpackRecord.id,
+  },
+  sortOrder: 1000,
+  coins: { pp: 0, gp: 10, sp: 0, cp: 0 },
+};
+
+const looseCoinsRecord: InventoryRecord = {
+  id: "coins-loose",
+  recordType: "coins",
+  entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 0,
+  coins: { pp: 0, gp: 3, sp: 0, cp: 0 },
+};
+
+const defaultCharacterCoinLocation = createInventoryLocation({
+  entity: characterEntity,
+  recordType: "coins",
+  records: [characterBackpackRecord],
+  location: {
+    entityId: characterEntity.id,
+    placement: "default",
+  },
+});
+
+const defaultCharacterCoinLocationWithoutStowedRoot = createInventoryLocation({
+  entity: characterEntity,
+  recordType: "coins",
+  records: [],
+  location: {
+    entityId: characterEntity.id,
+    placement: "default",
+  },
+});
+
+const handCoinLocation = createInventoryLocation({
+  entity: characterEntity,
+  recordType: "coins",
+  records: [characterBackpackRecord],
+  location: {
+    entityId: characterEntity.id,
+    placement: "rightHand",
+  },
+});
 
 const directNonCharacterCoinLocation = createInventoryLocation({
   entity: mountEntity,
@@ -469,6 +529,59 @@ export const INVENTORY_RECORDS_MANUAL_FIXTURES = [
         ok: false,
         message: "Selected container is not available.",
       },
+    },
+  },
+  {
+    name: "character coins default into the stowed root, or equipped loose without one",
+    actual: {
+      withStowedRoot: defaultCharacterCoinLocation,
+      withoutStowedRoot: defaultCharacterCoinLocationWithoutStowedRoot,
+    },
+    expected: {
+      withStowedRoot: {
+        ok: true,
+        location: {
+          kind: "container",
+          containerId: characterBackpackRecord.id,
+        },
+      },
+      withoutStowedRoot: {
+        ok: true,
+        location: {
+          kind: "equipped",
+          placement: "loose",
+        },
+      },
+    },
+  },
+  {
+    name: "coins cannot be placed in a hand",
+    actual: handCoinLocation,
+    expected: {
+      ok: false,
+      message: "Coins cannot be held in a hand.",
+    },
+  },
+  {
+    name: "default coin record prefers the stowed root pile, then sort order",
+    actual: {
+      stowedRootPile: getDefaultCoinRecord(characterEntity.id, [
+        characterBackpackRecord,
+        looseCoinsRecord,
+        backpackCoinsRecord,
+      ])?.id,
+      firstBySortOrder: getDefaultCoinRecord(characterEntity.id, [
+        characterBackpackRecord,
+        looseCoinsRecord,
+      ])?.id,
+      noCoins: getDefaultCoinRecord(characterEntity.id, [
+        characterBackpackRecord,
+      ])?.id,
+    },
+    expected: {
+      stowedRootPile: "coins-backpack",
+      firstBySortOrder: "coins-loose",
+      noCoins: undefined,
     },
   },
   {

@@ -190,7 +190,8 @@ const fourSlotCoinsRecord: InventoryRecord = {
   recordType: "coins",
   entityId: characterEntity.id,
   location: {
-    kind: "coinPurse",
+    kind: "container",
+    containerId: topLevelStowedContainerRecord.id,
   },
   sortOrder: 1000,
   coins: {
@@ -603,14 +604,17 @@ const yostLoadedBackpackWithHeldLoadedSackEncumbrance = getCharacterEncumbrance(
   yostLoadedBackpackWithHeldLoadedSackRecords,
 );
 const morganEncumbrance = getCharacterEncumbrance(characterEntity, [
+  topLevelStowedContainerRecord,
   equippedSixSlotsRecord,
   fourSlotCoinsRecord,
 ]);
 const stowedOverloadEncumbrance = getCharacterEncumbrance(characterEntity, [
+  topLevelStowedContainerRecord,
   equippedSixSlotsRecord,
   seventeenSlotCoinsRecord,
 ]);
 const equippedOverloadEncumbrance = getCharacterEncumbrance(characterEntity, [
+  topLevelStowedContainerRecord,
   equippedTenSlotsRecord,
   fiveSlotCoinsRecord,
 ]);

@@ -124,7 +124,6 @@ export type GearActions = {
   onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
   /** Open the put-out dialog for a lit light source. */
   onSnuffRecord: (record: InventoryRecord) => void;
-  onSpendCoins: (record: InventoryRecord) => void;
   /** Open the take-all/take-some coin transfer modal for a dragged coin pile. */
   onRequestCoinTransfer: (
     record: InventoryRecord,
@@ -244,18 +243,16 @@ export function PartyGearPage(actions: GearActions) {
     });
   }
 
-  function isCoinDropOnCharacter(
+  // Coins dropped on another entity are a hand-off, not a move: the transfer
+  // dialog opens so the amount can be split. Within one entity they move like
+  // any other record.
+  function isCrossEntityCoinDrop(
     recordId: InventoryRecordId,
     targetEntityId: EntityId,
   ): boolean {
     const record = getRecordById(recordId, records);
-    const targetEntity = entities.find((entity) => entity.id === targetEntityId);
 
-    return (
-      record?.recordType === "coins" &&
-      targetEntity !== undefined &&
-      isCharacterLikeEntity(targetEntity)
-    );
+    return record?.recordType === "coins" && record.entityId !== targetEntityId;
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -269,11 +266,11 @@ export function PartyGearPage(actions: GearActions) {
       return;
     }
 
-    const projection = isCoinDropOnCharacter(
+    const projection = isCrossEntityCoinDrop(
       activeData.recordId,
       overData.target.entityId,
     )
-      ? { text: "→ purse", invalid: false }
+      ? { text: "→ transfer", invalid: false }
       : projectMove(records, activeData.recordId, overData.target, entities);
 
     setDragState((state) => ({ ...state, overId, projection }));
@@ -301,7 +298,7 @@ export function PartyGearPage(actions: GearActions) {
     target: GearDropTarget,
     targetIndex: number | undefined,
   ) {
-    if (isCoinDropOnCharacter(recordId, target.entityId)) {
+    if (isCrossEntityCoinDrop(recordId, target.entityId)) {
       const record = getRecordById(recordId, records);
 
       if (record) {
@@ -662,7 +659,6 @@ function CharacterGearCard({
         <div className="zhead">
           <span className="micro">Stowed</span>
         </div>
-        <CoinRow record={sections.coinRecord} />
         {backpack ? (
           <ContainerBlock
             entityId={entity.id}
@@ -1008,30 +1004,6 @@ function WornZone({
         emptyLabel="nothing worn — drop here"
       />
     </GearDropZone>
-  );
-}
-
-function CoinRow({ record }: { record?: InventoryRecord }) {
-  const actions = useGearActions();
-
-  if (!record || record.recordType !== "coins") {
-    return null;
-  }
-
-  const display = getInventoryRowDisplay(record, [record]);
-
-  return (
-    <div className="coinrow">
-      <button
-        type="button"
-        className="micro coins-label coins-label-button"
-        onClick={() => actions.onEditRecord(record)}
-      >
-        Coins
-      </button>
-      <span className="coins">{display.primaryText}</span>
-      <SlotPips slots={getRecordSlotBurden(record)} />
-    </div>
   );
 }
 

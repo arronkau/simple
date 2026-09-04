@@ -25,7 +25,8 @@ const emptyCoinRecord: InventoryRecord = {
   recordType: "coins",
   entityId: "character-1",
   location: {
-    kind: "coinPurse",
+    kind: "equipped",
+    placement: "loose",
   },
   sortOrder: 0,
   coins: {
