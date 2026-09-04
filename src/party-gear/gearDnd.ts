@@ -13,7 +13,13 @@ import type { EntityId, InventoryRecordId } from "../model/types";
 export type GearDropTarget =
   | {
       entityId: EntityId;
-      placement: "leftHand" | "rightHand" | "bothHands" | "equippedLoose" | "contents";
+      placement:
+        | "leftHand"
+        | "rightHand"
+        | "bothHands"
+        | "equippedLoose"
+        | "stowedRoot"
+        | "contents";
     }
   | {
       entityId: EntityId;
@@ -78,6 +84,11 @@ export function containerDropId(
   containerId: InventoryRecordId,
 ): string {
   return `drop:${entityId}:container:${containerId}`;
+}
+
+/** The empty Stowed zone of a character with no top-level stowed container. */
+export function stowedRootDropId(entityId: EntityId): string {
+  return `drop:${entityId}:stowedRoot`;
 }
 
 export function contentsDropId(entityId: EntityId): string {

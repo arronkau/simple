@@ -82,6 +82,7 @@ import {
   handDropId,
   looseDropId,
   recordDraggableId,
+  stowedRootDropId,
   zoneKeyForTarget,
   type GearDragData,
   type GearDropData,
@@ -89,6 +90,12 @@ import {
   type GearGapData,
   type GearOverData,
 } from "./gearDnd";
+import {
+  benefitsFromBothHands,
+  buildHandDropSequence,
+  isHandPlacement,
+  type HandPlacement,
+} from "./gearHands";
 import { projectMove, type MoveProjection } from "./gearProjection";
 import {
   findDefaultFloorEntity,
@@ -119,9 +126,15 @@ export type GearActions = {
   ) => void;
 };
 
-const GearActionsContext = createContext<GearActions | null>(null);
+/** The page's own board-level actions, added to what the shell passes in. */
+type GearBoardActions = GearActions & {
+  /** Click-driven hand regrip; runs the same validated moves as a drag. */
+  setHandPlacement: (record: InventoryRecord, placement: HandPlacement) => void;
+};
 
-function useGearActions(): GearActions {
+const GearActionsContext = createContext<GearBoardActions | null>(null);
+
+function useGearActions(): GearBoardActions {
   const actions = useContext(GearActionsContext);
 
   if (!actions) {
@@ -334,6 +347,25 @@ export function PartyGearPage(actions: GearActions) {
     flashMoved(recordId);
   }
 
+  // Row button: regrip a held record with both hands, or back to one.
+  function setHandPlacement(
+    record: InventoryRecord,
+    placement: HandPlacement,
+  ) {
+    setDragMessage(undefined);
+
+    const result = moveInventoryRecords(
+      buildHandDropSequence(record, placement, record.entityId, records),
+    );
+
+    if (!result.ok) {
+      setDragMessage(result.message);
+      return;
+    }
+
+    flashMoved(record.id);
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const activeData = event.active.data.current as GearDragData | undefined;
     const overData = event.over?.data.current as GearOverData | undefined;
@@ -391,7 +423,7 @@ export function PartyGearPage(actions: GearActions) {
     : undefined;
 
   return (
-    <GearActionsContext.Provider value={actions}>
+    <GearActionsContext.Provider value={{ ...actions, setHandPlacement }}>
       <GearDragContext.Provider value={dragState}>
         <DndContext
           sensors={sensors}
@@ -626,7 +658,17 @@ function CharacterGearCard({
             records={records}
           />
         ) : (
-          <p className="empty-label">No stowed container.</p>
+          // With no top-level stowed container there is nothing to drop into,
+          // so the empty zone itself accepts a container to become the root.
+          <GearDropZone
+            dropId={stowedRootDropId(entity.id)}
+            target={{ entityId: entity.id, placement: "stowedRoot" }}
+            className="stowed-root-target"
+          >
+            <span className="empty-label">
+              No stowed container — drop one here.
+            </span>
+          </GearDropZone>
         )}
       </div>
 
@@ -852,20 +894,80 @@ function HandSlot({
   records: InventoryRecord[];
 }) {
   const isBoth = placement === "bothHands";
+  const isContainer = Boolean(record?.container);
+  // The grip toggle rides in the row, in the same slot as Identify.
+  const handAction = record ? (
+    <HandGripButton record={record} placement={placement} />
+  ) : null;
 
   return (
     <GearDropZone
       dropId={handDropId(entityId, placement)}
       target={{ entityId, placement }}
-      className={`hand${record ? "" : " empty"}${isBoth ? " both" : ""}`}
+      className={`hand${record ? "" : " empty"}${isBoth ? " both" : ""}${
+        isContainer ? " has-cont" : ""
+      }`}
     >
       <span className="hlabel">{isBoth ? "Both hands" : label}</span>
       {record ? (
-        <DraggableRow record={record} allRecords={records} />
+        // A held container shows its contents and capacity like any other
+        // container; its body is a nested drop target of the hand.
+        record.container ? (
+          <ContainerBlock
+            entityId={entityId}
+            container={record}
+            records={records}
+            headerAction={handAction}
+            dropScope="body"
+          />
+        ) : (
+          <DraggableRow
+            record={record}
+            allRecords={records}
+            rowAction={handAction}
+          />
+        )
       ) : (
         <span className="empty-label">empty</span>
       )}
     </GearDropZone>
+  );
+}
+
+/** Regrip a held record: one hand ⇄ both hands. */
+function HandGripButton({
+  record,
+  placement,
+}: {
+  record: InventoryRecord;
+  placement: HandPlacement;
+}) {
+  const actions = useGearActions();
+  const toBothHands = placement !== "bothHands";
+
+  // Only offer the second hand to a record that gains something from it.
+  if (toBothHands && !benefitsFromBothHands(record)) {
+    return null;
+  }
+  // A two-handed record can never be held in one hand, so offer no way to try.
+  if (!toBothHands && getRecordHandsRequired(record) === 2) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      className="act"
+      onClick={(event) => {
+        event.stopPropagation();
+        actions.setHandPlacement(
+          record,
+          toBothHands ? "bothHands" : "rightHand",
+        );
+      }}
+    >
+      {toBothHands ? "both hands" : "one hand"}
+    </button>
   );
 }
 
@@ -931,6 +1033,8 @@ function ContainerBlock({
   records,
   zoneKey,
   index,
+  headerAction,
+  dropScope = "block",
 }: {
   entityId: string;
   container: InventoryRecord;
@@ -938,6 +1042,15 @@ function ContainerBlock({
   /** Parent list key + index, present when this container can be reordered. */
   zoneKey?: string;
   index?: number;
+  /** Inline action button for the header row (the hand grip toggle). */
+  headerAction?: ReactNode;
+  /**
+   * Which part of the block is the container's droppable. "block" (default)
+   * covers header + body; "body" leaves the header to the surrounding zone,
+   * which is what a hand slot needs so a drop on the held container's header
+   * still means "into this hand".
+   */
+  dropScope?: "block" | "body";
 }) {
   const contents = getContainerContents(container, records);
   const usage = getContainerSlotUsage(container, records);
@@ -953,41 +1066,62 @@ function ContainerBlock({
     containerId: container.id,
   };
 
+  const header = (
+    <ContainerHeader
+      container={container}
+      allRecords={records}
+      zoneKey={zoneKey}
+      index={index}
+      action={headerAction}
+    >
+      {usage.capacitySlots !== undefined ? (
+        <>
+          <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
+          <FreeBadge
+            free={usage.capacitySlots - usage.usedSlots}
+            tone={overCapacity ? "crit" : tone}
+          />
+        </>
+      ) : (
+        <span className="capnum">{usage.usedSlots} slots</span>
+      )}
+    </ContainerHeader>
+  );
+  const bodyClassName = `cbody${contents.length === 0 ? " empty" : ""}`;
+  const body = (
+    <RecordList
+      entityId={entityId}
+      target={containerTarget}
+      records={contents}
+      allRecords={records}
+      emptyLabel="empty — drop here"
+    />
+  );
+  const dropId = containerDropId(entityId, container.id);
+
+  // Body-only scope: the header row is left to whatever zone encloses the
+  // block, so a hand keeps its own drop area above its held container.
+  if (dropScope === "body") {
+    return (
+      <div className="cont">
+        {header}
+        <GearDropZone
+          dropId={dropId}
+          target={containerTarget}
+          className={bodyClassName}
+        >
+          {body}
+        </GearDropZone>
+      </div>
+    );
+  }
+
   // The whole container block (header + contents) is a single drop target, so
   // hovering anywhere over it outlines the entire block with one indicator.
   return (
-    <GearDropZone
-      dropId={containerDropId(entityId, container.id)}
-      target={containerTarget}
-      className="cont"
-    >
-      <ContainerHeader
-        container={container}
-        allRecords={records}
-        zoneKey={zoneKey}
-        index={index}
-      >
-        {usage.capacitySlots !== undefined ? (
-          <>
-            <CapBar used={usage.usedSlots} max={usage.capacitySlots} tone={tone} />
-            <FreeBadge
-              free={usage.capacitySlots - usage.usedSlots}
-              tone={overCapacity ? "crit" : tone}
-            />
-          </>
-        ) : (
-          <span className="capnum">{usage.usedSlots} slots</span>
-        )}
-      </ContainerHeader>
-      <div className={`cbody${contents.length === 0 ? " empty" : ""}`}>
-        <RecordList
-          entityId={entityId}
-          target={containerTarget}
-          records={contents}
-          allRecords={records}
-          emptyLabel="empty — drop here"
-        />
-      </div>
+    <GearDropZone dropId={dropId} target={containerTarget} className="cont">
+      {header}
+      <div className={bodyClassName}>{body}</div>
     </GearDropZone>
   );
 }
@@ -997,12 +1131,14 @@ function ContainerHeader({
   allRecords,
   zoneKey,
   index,
+  action,
   children,
 }: {
   container: InventoryRecord;
   allRecords: InventoryRecord[];
   zoneKey?: string;
   index?: number;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   const actions = useGearActions();
@@ -1039,6 +1175,7 @@ function ContainerHeader({
         {getInventoryRowDisplay(container, allRecords).primaryText}
       </button>
       {children}
+      {action}
     </div>
   );
 }
@@ -1119,11 +1256,14 @@ function DraggableRow({
   allRecords,
   zoneKey,
   index,
+  rowAction,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
   zoneKey?: string;
   index?: number;
+  /** Inline action button for this row (the hand grip toggle). */
+  rowAction?: ReactNode;
 }) {
   const drag = useContext(GearDragContext);
   const data: GearDragData = {
@@ -1158,7 +1298,11 @@ function DraggableRow({
       <span className="grip" aria-hidden="true">
         ⠿
       </span>
-      <RecordRowBody record={record} allRecords={allRecords} />
+      <RecordRowBody
+        record={record}
+        allRecords={allRecords}
+        rowAction={rowAction}
+      />
     </div>
   );
 }
@@ -1166,9 +1310,11 @@ function DraggableRow({
 function RecordRowBody({
   record,
   allRecords,
+  rowAction,
 }: {
   record: InventoryRecord;
   allRecords: InventoryRecord[];
+  rowAction?: ReactNode;
 }) {
   const actions = useGearActions();
   const display = getInventoryRowDisplay(record, allRecords);
@@ -1197,6 +1343,7 @@ function RecordRowBody({
           Identify
         </button>
       ) : null}
+      {rowAction}
       <SlotPips slots={getRecordSlotBurden(record)} />
     </>
   );
@@ -1379,79 +1526,6 @@ function FloorTray({
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const HAND_PLACEMENTS = ["leftHand", "rightHand", "bothHands"] as const;
-type HandPlacement = (typeof HAND_PLACEMENTS)[number];
-
-function isHandPlacement(
-  placement: GearDropTarget["placement"],
-): placement is HandPlacement {
-  return (
-    placement === "leftHand" ||
-    placement === "rightHand" ||
-    placement === "bothHands"
-  );
-}
-
-/**
- * Hand-occupancy management for a drop onto a hand slot, mirroring the original
- * design: a two-handed record takes both hands (any held items move to worn),
- * and a one-hander frees a two-hander that was occupying both hands. The
- * displacements run before the main placement so each validated move is legal.
- */
-function buildHandDropSequence(
-  record: InventoryRecord,
-  placement: HandPlacement,
-  entityId: EntityId,
-  records: InventoryRecord[],
-): { recordId: InventoryRecordId; location: InventoryRecordLocationInput }[] {
-  const occupant = (hand: HandPlacement) =>
-    records.find(
-      (candidate) =>
-        candidate.id !== record.id &&
-        candidate.entityId === entityId &&
-        candidate.location.kind === "equipped" &&
-        candidate.location.placement === hand,
-    );
-  const loose: InventoryRecordLocationInput = {
-    entityId,
-    placement: "equippedLoose",
-  };
-  const moves: {
-    recordId: InventoryRecordId;
-    location: InventoryRecordLocationInput;
-  }[] = [];
-
-  if (getRecordHandsRequired(record) === 2) {
-    for (const hand of HAND_PLACEMENTS) {
-      const held = occupant(hand);
-
-      if (held) {
-        moves.push({ recordId: held.id, location: loose });
-      }
-    }
-
-    moves.push({ recordId: record.id, location: { entityId, placement: "bothHands" } });
-    return moves;
-  }
-
-  const bothHander = occupant("bothHands");
-
-  if (bothHander) {
-    moves.push({ recordId: bothHander.id, location: loose });
-  }
-
-  const targetHand: HandPlacement =
-    placement === "bothHands" ? "rightHand" : placement;
-  const held = occupant(targetHand);
-
-  if (held) {
-    moves.push({ recordId: held.id, location: loose });
-  }
-
-  moves.push({ recordId: record.id, location: { entityId, placement: targetHand } });
-  return moves;
-}
 
 function isUnidentified(record: InventoryRecord): boolean {
   return (

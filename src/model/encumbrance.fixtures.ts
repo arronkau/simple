@@ -481,6 +481,24 @@ const nestedHandsRequiredSackRecords = [
   nestedHandsRequiredSackRecord,
   nestedSackRationsRecord,
 ];
+const nestedOverfilledSackContentsRecord: InventoryRecord = {
+  id: "nested-overfilled-contents-1",
+  recordType: "equipment",
+  name: "Iron spikes",
+  entityId: characterEntity.id,
+  location: {
+    kind: "container",
+    containerId: nestedHandsRequiredSackRecord.id,
+  },
+  sortOrder: 0,
+  quantity: 13,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+};
+const nestedOverfilledSackRecords = [
+  topLevelStowedContainerRecord,
+  nestedHandsRequiredSackRecord,
+  nestedOverfilledSackContentsRecord,
+];
 const wornHandsRequiredBackpackRecord: InventoryRecord = {
   id: topLevelStowedContainerRecord.id,
   entityId: characterEntity.id,
@@ -919,8 +937,34 @@ export const ENCUMBRANCE_MANUAL_FIXTURES = [
       overloadedReason: undefined,
       movement: { explorationFeet: 120, encounterFeet: 40 },
       stowedItems: 3,
-      visibleContainerUsage: { usedSlots: 3 },
+      visibleContainerUsage: { usedSlots: 3, capacitySlots: 12 },
       warnings: {},
+    },
+  },
+  {
+    name: "a stowed hand-capacity sack over its two-handed capacity warns and overloads",
+    actual: {
+      visibleContainerUsage: getContainerSlotUsage(
+        nestedHandsRequiredSackRecord,
+        nestedOverfilledSackRecords,
+      ),
+      warnings: summarizeWarnings(
+        getEncumbranceWarnings(characterEntity, nestedOverfilledSackRecords),
+      ),
+      overloaded: getCharacterEncumbrance(
+        characterEntity,
+        nestedOverfilledSackRecords,
+      ).overloaded,
+      overloadedReason: getCharacterEncumbrance(
+        characterEntity,
+        nestedOverfilledSackRecords,
+      ).overloadedReason,
+    },
+    expected: {
+      visibleContainerUsage: { usedSlots: 13, capacitySlots: 12 },
+      warnings: { containerOverCapacity: 1 },
+      overloaded: true,
+      overloadedReason: "container",
     },
   },
   {

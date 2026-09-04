@@ -46,6 +46,20 @@ Mirrors the canonical inventory layout, restyled:
   hands stacked vertically (a single full-width "Both hands" slot when a
   `bothHands` record is equipped, otherwise "Left" and "Right" rows); then a
   "Worn" sub-section listing `equipped` `loose` records.
+  - A held record that is a container renders as a full container block
+    (header + resolved capacity + its contents), not a bare row. Only its
+    **body** is a drop target nested inside the hand's; the header row belongs
+    to the hand, so dropping on it means "into this hand" (displacing the held
+    container to Worn) while dropping on the body means "into this container".
+  - Every held record carries an inline grip button, in the row for a plain
+    record and in the container header for a container: "both hands" while in
+    `leftHand`/`rightHand`, "one hand" while in `bothHands`. The "one hand"
+    direction is omitted for a `handsRequired: 2` record, which cannot be held
+    in one hand. The "both hands" direction shows only for a record that
+    benefits from a second hand — hand-dependent container capacity
+    (`container.capacityByHands`) or the Versatile weapon quality — so a plain
+    one-handed record carries no grip button at all. It runs the same validated
+    move sequence as a drag onto that hand.
 - **Stowed** (recessed background) — uppercase "Stowed" label; the coin-purse
   line (denominations + `ceil(totalCoins/100)` slot cost, display-only); the
   top-level stowed container (`stowedRoot`) with a resolved-capacity readout
@@ -109,8 +123,11 @@ announcements). The Party Gear page is wrapped in a single `DndContext`.
   - `drop:{entityId}:equipped:loose` (the "Worn" area)
   - `drop:{entityId}:container:{containerId}` (backpack + every nested/contents container)
   - `drop:{entityId}:contents` (mounts/vehicles/storage and the Floor)
+  - `drop:{entityId}:stowedRoot` — shown only when the character has **no**
+    top-level stowed container, so a container can be dropped in to become one.
   - The Stowed zone's empty area maps to the top-level stowed container as
-    `container:{backpackId}` (records cannot sit at a bare `stowedRoot`).
+    `container:{backpackId}` when one exists (ordinary records cannot sit at a
+    bare `stowedRoot`).
 
 `onDragEnd` parses `over.id` into an `InventoryRecordLocationInput` and calls
 the **existing validated move action** (`useAppStore.moveInventoryRecord`).
@@ -121,9 +138,16 @@ prevention) and reparents container descendants. A blocked/warning result is
 surfaced (toast/live region) and state is left unchanged. The drag layer holds
 **no copy** of the movement tables or invariants.
 
-Two-handed records dropped on `leftHand`/`rightHand` are passed straight
-through to the action (placement is allowed; hands-required never prohibits
-placement). The UI does not auto-displace items.
+A drop on `leftHand`/`rightHand` is taken literally, except that a
+`handsRequired: 2` record always takes both hands (placement is never
+prohibited; the upgrade is a convenience). A drop on **Both hands** grips with
+both hands only for a record that benefits from a second hand — a container
+with hand-dependent capacity (`container.capacityByHands`) or a weapon with the
+Versatile quality; any other one-handed record dropped on Both hands lands in
+the **right hand**. "Versatile" is matched as a catalog-authored quality string
+in `weapon.qualities` (free text, compared trimmed and case-insensitively).
+Whatever occupied the hands being claimed is displaced to Worn first, and the
+displacements plus the placement are sent as one batched validated mutation.
 
 ### Coin drag
 
@@ -153,6 +177,9 @@ pure `moveInventoryRecord` the store uses):
 - character-like target → `eq X/9 · st Y/16±STR`; pill + ring turn red if the
   move would overload (equipped > 9, stowed > 16 + STR modifier, a carried
   container over capacity, or a non-empty hands-required container left unheld).
+- container target → the container's own `used/capacity` leads the pill
+  (`used/cap · eq X/9 · st Y/16±STR` on a character-like entity, `used/capacity`
+  alone elsewhere), red if the container would go over its resolved capacity.
 - contents target → `used/capacity`; red if it would exceed `capacitySlots`.
 - coins over a character-like target → a neutral `→ purse` pill (the drop opens
   the transfer modal rather than moving the record).

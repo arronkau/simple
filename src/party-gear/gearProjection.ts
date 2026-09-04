@@ -8,6 +8,20 @@ import { isCharacterLikeEntity, validateInventoryState } from "../model/validati
 import type { Entity, InventoryRecord, InventoryRecordId } from "../model/types";
 import type { GearDropTarget } from "./gearDnd";
 import { dropTargetToLocationInput } from "./gearDnd";
+import { buildHandDropSequence, isHandPlacement, type HandMove } from "./gearHands";
+
+function getTargetContainerUsage(
+  containerId: InventoryRecordId,
+  nextRecords: InventoryRecord[],
+) {
+  const container = nextRecords.find(
+    (candidate) => candidate.id === containerId,
+  );
+
+  return container?.container
+    ? getContainerSlotUsage(container, nextRecords)
+    : undefined;
+}
 
 export type MoveProjection = {
   /** Short readout shown in the hover pill. */
@@ -35,52 +49,79 @@ export function projectMove(
     return null;
   }
 
-  const locationResult = createInventoryLocation({
-    entity,
-    recordType: record.recordType,
-    records,
-    location: dropTargetToLocationInput(target),
-    isContainer: Boolean(record.container),
-    editingRecordId: recordId,
-  });
+  // A drop on a hand runs the same displacement sequence the board applies, so
+  // the pill reflects the state the drop actually produces — not a lone move
+  // into an occupied hand.
+  const moves: HandMove[] = isHandPlacement(target.placement)
+    ? buildHandDropSequence(record, target.placement, target.entityId, records)
+    : [{ recordId, location: dropTargetToLocationInput(target) }];
 
-  if (!locationResult.ok) {
-    return { text: "blocked", invalid: true };
+  let nextRecords = records;
+
+  for (const move of moves) {
+    const moving = nextRecords.find(
+      (candidate) => candidate.id === move.recordId,
+    );
+    const moveEntity = entities.find(
+      (candidate) => candidate.id === move.location.entityId,
+    );
+
+    if (!moving || !moveEntity) {
+      return { text: "blocked", invalid: true };
+    }
+
+    const locationResult = createInventoryLocation({
+      entity: moveEntity,
+      recordType: moving.recordType,
+      records: nextRecords,
+      location: move.location,
+      isContainer: Boolean(moving.container),
+      editingRecordId: move.recordId,
+    });
+
+    if (!locationResult.ok) {
+      return { text: "blocked", invalid: true };
+    }
+
+    nextRecords = moveInventoryRecord({
+      recordId: move.recordId,
+      records: nextRecords,
+      entityId: moveEntity.id,
+      location: locationResult.location,
+    });
   }
 
-  const nextRecords = moveInventoryRecord({
-    recordId,
-    records,
-    entityId: entity.id,
-    location: locationResult.location,
-  });
   const validation = validateInventoryState(entities, nextRecords);
+  const containerUsage =
+    target.placement === "container" && target.containerId
+      ? getTargetContainerUsage(target.containerId, nextRecords)
+      : undefined;
 
   if (isCharacterLikeEntity(entity)) {
     const encumbrance = getCharacterEncumbrance(entity, nextRecords);
+    // A drop into a container leads with that container's own usage, so the
+    // pill answers "does it fit in here?" before the whole-body load.
+    const containerText = containerUsage
+      ? `${containerUsage.usedSlots}/${containerUsage.capacitySlots ?? "—"} · `
+      : "";
 
+    // getCharacterEncumbrance already flags every container this entity owns
+    // that is over capacity, so no separate container check is needed here.
     return {
-      text: `eq ${encumbrance.equippedItems}/${encumbrance.equippedCapacity} · st ${encumbrance.stowedItems}/${encumbrance.stowedCapacity}`,
+      text: `${containerText}eq ${encumbrance.equippedItems}/${encumbrance.equippedCapacity} · st ${encumbrance.stowedItems}/${encumbrance.stowedCapacity}`,
       invalid: encumbrance.overloaded || !validation.valid,
     };
   }
 
-  if (target.placement === "container" && target.containerId) {
-    const container = nextRecords.find(
-      (candidate) => candidate.id === target.containerId,
-    );
+  if (containerUsage) {
+    const overCapacity =
+      containerUsage.capacitySlots !== undefined &&
+      containerUsage.usedSlots > containerUsage.capacitySlots;
 
-    if (container?.container) {
-      const usage = getContainerSlotUsage(container, nextRecords);
-      const overCapacity =
-        usage.capacitySlots !== undefined &&
-        usage.usedSlots > usage.capacitySlots;
-
-      return {
-        text: `${usage.usedSlots}/${usage.capacitySlots ?? "—"}`,
-        invalid: overCapacity || !validation.valid,
-      };
-    }
+    return {
+      text: `${containerUsage.usedSlots}/${containerUsage.capacitySlots ?? "—"}`,
+      invalid: overCapacity || !validation.valid,
+    };
   }
 
   const capacity = getContentsCapacity(entity, nextRecords);

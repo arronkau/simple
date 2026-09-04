@@ -3060,6 +3060,34 @@ tr.pt-dragging {
 .gear-page .hand .empty-label {
   flex: 1;
 }
+/* A held container renders as a full container block inside the hand, so the
+   hand row grows and the label sits at the top of it. */
+.gear-page .hand.has-cont {
+  align-items: flex-start;
+  padding-top: 7px;
+}
+.gear-page .hand .cont {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+.gear-page .hand .chead {
+  margin-bottom: 3px;
+  padding-left: 0;
+}
+.gear-page .hand .cbody {
+  padding-left: 10px;
+}
+
+/* ---- stowed root drop target (no top-level stowed container yet) ---- */
+.gear-page .stowed-root-target {
+  display: flex;
+  align-items: center;
+  padding: 12px 10px;
+  border-radius: 7px;
+  border: 1px dashed var(--gear-line-2);
+}
 
 /* ---- worn ---- */
 .gear-page .worn {
