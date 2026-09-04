@@ -55,8 +55,11 @@ Mirrors the canonical inventory layout, restyled:
     record and in the container header for a container: "both hands" while in
     `leftHand`/`rightHand`, "one hand" while in `bothHands`. The "one hand"
     direction is omitted for a `handsRequired: 2` record, which cannot be held
-    in one hand; the "both hands" direction always shows. It runs the same
-    validated move sequence as a drag onto that hand.
+    in one hand. The "both hands" direction shows only for a record that
+    benefits from a second hand — hand-dependent container capacity
+    (`container.capacityByHands`) or the Versatile weapon quality — so a plain
+    one-handed record carries no grip button at all. It runs the same validated
+    move sequence as a drag onto that hand.
 - **Stowed** (recessed background) — uppercase "Stowed" label; the coin-purse
   line (denominations + `ceil(totalCoins/100)` slot cost, display-only); the
   top-level stowed container (`stowedRoot`) with a resolved-capacity readout
@@ -135,9 +138,14 @@ prevention) and reparents container descendants. A blocked/warning result is
 surfaced (toast/live region) and state is left unchanged. The drag layer holds
 **no copy** of the movement tables or invariants.
 
-A drop on a hand is taken literally: `bothHands` grips with both hands and
-`leftHand`/`rightHand` with one, except that a `handsRequired: 2` record always
-takes both hands (placement is never prohibited; the upgrade is a convenience).
+A drop on `leftHand`/`rightHand` is taken literally, except that a
+`handsRequired: 2` record always takes both hands (placement is never
+prohibited; the upgrade is a convenience). A drop on **Both hands** grips with
+both hands only for a record that benefits from a second hand — a container
+with hand-dependent capacity (`container.capacityByHands`) or a weapon with the
+Versatile quality; any other one-handed record dropped on Both hands lands in
+the **right hand**. "Versatile" is matched as a catalog-authored quality string
+in `weapon.qualities` (free text, compared trimmed and case-insensitively).
 Whatever occupied the hands being claimed is displaced to Worn first, and the
 displacements plus the placement are sent as one batched validated mutation.
 

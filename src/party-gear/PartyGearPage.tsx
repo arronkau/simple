@@ -91,6 +91,7 @@ import {
   type GearOverData,
 } from "./gearDnd";
 import {
+  benefitsFromBothHands,
   buildHandDropSequence,
   isHandPlacement,
   type HandPlacement,
@@ -944,6 +945,10 @@ function HandGripButton({
   const actions = useGearActions();
   const toBothHands = placement !== "bothHands";
 
+  // Only offer the second hand to a record that gains something from it.
+  if (toBothHands && !benefitsFromBothHands(record)) {
+    return null;
+  }
   // A two-handed record can never be held in one hand, so offer no way to try.
   if (!toBothHands && getRecordHandsRequired(record) === 2) {
     return null;

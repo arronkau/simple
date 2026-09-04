@@ -1,5 +1,9 @@
 import type { InventoryRecord } from "../model/types";
-import { buildHandDropSequence } from "./gearHands";
+import {
+  benefitsFromBothHands,
+  buildHandDropSequence,
+  resolveHandTarget,
+} from "./gearHands";
 
 const entityId = "character-1";
 const otherEntityId = "character-2";
@@ -67,6 +71,63 @@ const heldSack: InventoryRecord = {
   container: { capacityByHands: { oneHand: 6, twoHands: 12 } },
 };
 
+const dagger: InventoryRecord = {
+  ...sword,
+  id: "dagger-1",
+  name: "Dagger",
+  weapon: { damage: "1d4" },
+};
+
+const versatileSword: InventoryRecord = {
+  ...sword,
+  id: "versatile-sword-1",
+  name: "Versatile sword",
+  weapon: { damage: "1d8", qualities: ["Melee", "Quick draw", "Versatile"] },
+};
+
+// Qualities are free text authored in the catalog: match trimmed and folded.
+const scruffyVersatileSword: InventoryRecord = {
+  ...versatileSword,
+  id: "versatile-sword-2",
+  weapon: { damage: "1d8", qualities: [" versatile "] },
+};
+
+const looseSack: InventoryRecord = {
+  id: "sack-2",
+  entityId,
+  recordType: "equipment",
+  name: "Sack",
+  location: { kind: "equipped", placement: "loose" },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "none" },
+  handsRequired: 1,
+  container: { capacityByHands: { oneHand: 6, twoHands: 12 } },
+};
+
+// Fixed capacity, not hand-dependent: a second hand buys nothing.
+const backpack: InventoryRecord = {
+  id: "backpack-1",
+  entityId,
+  recordType: "equipment",
+  name: "Backpack",
+  location: { kind: "stowedRoot" },
+  sortOrder: 0,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+  handsRequired: 1,
+  container: { capacitySlots: 16 },
+};
+
+const coins: InventoryRecord = {
+  id: "coins-1",
+  entityId,
+  recordType: "coins",
+  location: { kind: "container", containerId: "backpack-1" },
+  sortOrder: 0,
+  coins: { pp: 0, gp: 10, sp: 0, cp: 0 },
+};
+
 // Same placement, different entity: it must never be treated as an occupant.
 const otherCharacterTorch: InventoryRecord = {
   ...torch,
@@ -122,9 +183,9 @@ export const GEAR_HANDS_MANUAL_FIXTURES = [
     ],
   },
   {
-    name: "one-handed record onto a bothHands target displaces the two-hander spanning both",
-    actual: buildHandDropSequence(sword, "bothHands", entityId, [
-      sword,
+    name: "record that gains nothing from a second hand lands in the right hand, displacing the two-hander spanning both",
+    actual: buildHandDropSequence(dagger, "bothHands", entityId, [
+      dagger,
       heldGreatsword,
     ]),
     expected: [
@@ -133,7 +194,19 @@ export const GEAR_HANDS_MANUAL_FIXTURES = [
         location: { entityId: "character-1", placement: "equippedLoose" },
       },
       {
-        recordId: "sword-1",
+        recordId: "dagger-1",
+        location: { entityId: "character-1", placement: "rightHand" },
+      },
+    ],
+  },
+  {
+    name: "container with hand-dependent capacity dropped on bothHands grips with both",
+    actual: buildHandDropSequence(looseSack, "bothHands", entityId, [
+      looseSack,
+    ]),
+    expected: [
+      {
+        recordId: "sack-2",
         location: { entityId: "character-1", placement: "bothHands" },
       },
     ],
@@ -165,5 +238,65 @@ export const GEAR_HANDS_MANUAL_FIXTURES = [
         location: { entityId: "character-2", placement: "rightHand" },
       },
     ],
+  },
+  {
+    name: "container with hand-dependent capacity benefits from both hands",
+    actual: benefitsFromBothHands(heldSack),
+    expected: true,
+  },
+  {
+    name: "weapon with a Versatile quality benefits from both hands",
+    actual: benefitsFromBothHands(versatileSword),
+    expected: true,
+  },
+  {
+    name: "Versatile quality is matched trimmed and case-insensitively",
+    actual: benefitsFromBothHands(scruffyVersatileSword),
+    expected: true,
+  },
+  {
+    name: "plain one-handed weapon does not benefit from both hands",
+    actual: benefitsFromBothHands(dagger),
+    expected: false,
+  },
+  {
+    name: "two-handed weapon has no second hand to offer",
+    actual: benefitsFromBothHands(greatsword),
+    expected: false,
+  },
+  {
+    name: "container with fixed capacity does not benefit from both hands",
+    actual: benefitsFromBothHands(backpack),
+    expected: false,
+  },
+  {
+    name: "coins never benefit from both hands",
+    actual: benefitsFromBothHands(coins),
+    expected: false,
+  },
+  {
+    name: "bothHands request on a plain one-handed record resolves to the right hand",
+    actual: resolveHandTarget(dagger, "bothHands"),
+    expected: "rightHand",
+  },
+  {
+    name: "bothHands request on a versatile weapon resolves to both hands",
+    actual: resolveHandTarget(versatileSword, "bothHands"),
+    expected: "bothHands",
+  },
+  {
+    name: "bothHands request on a hand-dependent container resolves to both hands",
+    actual: resolveHandTarget(looseSack, "bothHands"),
+    expected: "bothHands",
+  },
+  {
+    name: "one-hand request on a two-handed record resolves to both hands",
+    actual: resolveHandTarget(greatsword, "leftHand"),
+    expected: "bothHands",
+  },
+  {
+    name: "one-hand request on a one-handed record is taken as given",
+    actual: resolveHandTarget(dagger, "leftHand"),
+    expected: "leftHand",
   },
 ];
