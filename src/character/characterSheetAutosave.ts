@@ -113,3 +113,17 @@ export function shouldReseedSheetDraft(
 ): boolean {
   return seededEntityId !== entityId;
 }
+
+/**
+ * A queued commit belongs to the entity that was open when it was scheduled.
+ * By the time it runs the editor may be pointed at a different entity — the
+ * open one was deleted (locally or remotely) and the page fell back to another
+ * character — and running it then would write one character's draft onto
+ * another. A commit whose entity no longer matches is dropped instead.
+ */
+export function shouldRunQueuedCommit(
+  queuedEntityId: EntityId,
+  currentEntityId: EntityId,
+): boolean {
+  return queuedEntityId === currentEntityId;
+}

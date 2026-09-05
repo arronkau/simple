@@ -11,6 +11,7 @@ import {
   isCharacterDataDirty,
   isEntityDraftDirty,
   shouldReseedSheetDraft,
+  shouldRunQueuedCommit,
 } from "./characterSheetAutosave";
 
 const storedCharacterData: CharacterData = normalizeCharacterData({
@@ -185,5 +186,15 @@ export const CHARACTER_SHEET_AUTOSAVE_MANUAL_FIXTURES = [
     name: "autosave reseed: a freshly opened editor seeds the draft",
     actual: shouldReseedSheetDraft(undefined, "entity-1"),
     expected: true,
+  },
+  {
+    name: "autosave queue: a commit for the entity still open runs",
+    actual: shouldRunQueuedCommit("entity-1", "entity-1"),
+    expected: true,
+  },
+  {
+    name: "autosave queue: a commit queued for a gone entity never lands on another",
+    actual: shouldRunQueuedCommit("entity-1", "entity-2"),
+    expected: false,
   },
 ];

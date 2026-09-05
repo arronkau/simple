@@ -19,11 +19,12 @@ Post-1.0 items are out of scope until they are re-scoped here.
 - Character sheet edits save as you go from a single edit entry point that also covers entity name, type, bench, and delete — `src/character/`.
 - Documentation drift fixed and this backlog restored — specs, skills, `.claude/hooks/spec-sync-reminder.sh`.
 - A deleted party is no longer resurrected by a client that was subscribed when it went: sync stops before the delete and subscribed clients forget the party instead of writing it back — `src/persistence/firebaseSync.ts`, `src/store/useAppStore.ts`.
+- One shared native-dialog shell for every modal: `showModal()`, Escape, backdrop click, focus containment and restore, stacked confirmations, and a non-dismissible required dialog — `src/ui/Modal.tsx`, `src/modals/`, `src/inventory/`, `src/entity/`.
+- Vocabulary unified onto the spec terms across UI strings: Equipped (Hands / Other equipped) and Stowed, full hand names, "record" for inventory records, Bench, and an Inventory heading on the gear page — `src/character/`, `src/party-gear/`, `src/inventory/`, `src/formatters.ts`.
 
 ## In progress
 
-- One shared native-dialog shell for modals — `src/modals/`, `src/ui/`.
-- Vocabulary unification onto the spec terms across UI strings.
+- Nothing.
 
 ## Open
 

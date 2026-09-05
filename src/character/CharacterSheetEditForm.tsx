@@ -51,6 +51,7 @@ import {
   isCharacterDataDirty,
   isEntityDraftDirty,
   shouldReseedSheetDraft,
+  shouldRunQueuedCommit,
   type EntityDraft,
   type SheetEditKind,
   type SheetSaveState,
@@ -176,9 +177,19 @@ export function CharacterSheetEditForm({
     );
   }
 
-  function commitSheet(nextFormState: CharacterSheetFormState) {
+  function commitSheet(
+    entityId: EntityId,
+    nextFormState: CharacterSheetFormState,
+  ) {
     const { entity: currentEntity, onSaveCharacterData: saveCharacterData } =
       latestRef.current;
+
+    // The editor may have been pointed at another entity since this commit was
+    // queued; writing then would land one character's draft on another.
+    if (!shouldRunQueuedCommit(entityId, currentEntity.id)) {
+      return;
+    }
+
     const characterData = toCharacterDataFormInput(nextFormState);
 
     if (!isCharacterDataDirty(characterData, currentEntity.character)) {
@@ -191,9 +202,13 @@ export function CharacterSheetEditForm({
     reportResult(saveCharacterData(currentEntity.id, characterData));
   }
 
-  function commitEntity(nextDraft: EntityDraft) {
+  function commitEntity(entityId: EntityId, nextDraft: EntityDraft) {
     const { entity: currentEntity, onUpdateEntity: updateEntity } =
       latestRef.current;
+
+    if (!shouldRunQueuedCommit(entityId, currentEntity.id)) {
+      return;
+    }
 
     if (!isEntityDraftDirty(nextDraft, currentEntity)) {
       reportNoChange();
@@ -262,12 +277,12 @@ export function CharacterSheetEditForm({
     nextFormState: CharacterSheetFormState,
   ) {
     setFormState(nextFormState);
-    scheduleCommit(kind, "sheet", () => commitSheet(nextFormState));
+    scheduleCommit(kind, "sheet", () => commitSheet(entity.id, nextFormState));
   }
 
   function applyEntityChange(kind: SheetEditKind, nextDraft: EntityDraft) {
     setEntityDraft(nextDraft);
-    scheduleCommit(kind, "entity", () => commitEntity(nextDraft));
+    scheduleCommit(kind, "entity", () => commitEntity(entity.id, nextDraft));
   }
 
   function updateAbilityScore(key: AbilityScoreKey, value: string) {

@@ -35,7 +35,7 @@ Layers, from pure to stateful:
 - **`src/model/`** — pure domain logic, no React. This is where rules live: types, app/party state, entities, characters, inventory record creation/movement, slot/encumbrance math, AC and save-table calculations, validation, and the GM/player permission model. Functions here are the unit under test (nearly every module has a `.fixtures.ts` sibling; see Testing for the exceptions).
 - **`src/store/useAppStore.ts`** — a single Zustand store. All mutations (entity CRUD, inventory create/move/swap/delete, coin spend/transfer, party switching, user profiles) go through store actions, which call into `model/`, enforce permissions, and persist. It also owns the Firebase sync lifecycle.
 - **`src/persistence/`** — Firebase config detection + `firebaseSync.ts` (lazy-imports the `firebase` SDK, anonymous auth, Firestore real-time subscription). Mode is chosen automatically: Firebase if all `VITE_FIREBASE_*` vars are set, otherwise local.
-- **UI** — split into feature folders, not one file. [src/App.tsx](src/App.tsx) is the routing shell + top-level wiring. Feature views live in `src/pages/`, `src/party-gear/` (the Party Gear board and all drag-and-drop), `src/character/`, `src/inventory/`, `src/entity/`, `src/audit/`, `src/modals/`; reusable widgets in `src/ui/` and `src/components/`. Shared view types are in `src/view-types.ts`, display helpers in `src/formatters.ts`. Plain CSS in `src/styles.css`.
+- **UI** — split into feature folders, not one file. [src/App.tsx](src/App.tsx) is the routing shell + top-level wiring. Feature views live in `src/pages/`, `src/party-gear/` (the Inventory board — Party Gear internally — and all drag-and-drop), `src/character/`, `src/inventory/`, `src/entity/`, `src/audit/`, `src/modals/`; reusable widgets in `src/ui/` and `src/components/`. Shared view types are in `src/view-types.ts`, display helpers in `src/formatters.ts`. Plain CSS in `src/styles.css`.
 
 ### Key data-model concepts (see `MODEL_SPEC.md` for canon)
 
@@ -52,7 +52,7 @@ Behavior is spec-driven. Treat these as authoritative and update the spec *befor
 - `APP_SPEC.md` — goals, constraints, persistence behavior.
 - `MODEL_SPEC.md` — canonical data model, invariants, derived calculations.
 - `ENCUMBRANCE_SPEC.md` — encumbrance/movement rules.
-- `GEAR_VIEW_SPEC.md` — the Party Gear board, the Floor, and the drag-and-drop contract (view + interaction only).
+- `GEAR_VIEW_SPEC.md` — the Inventory board (Party Gear internally), the Floor, and the drag-and-drop contract (view + interaction only).
 - `SYNC_SPEC.md` — Firestore document shape and field-level write/merge behavior.
 - `CONTENT_GUIDE.md` — how to author the bundled rule-content JSON libraries and their provenance requirements.
 - `TASKS.md` — what is done, in progress, and open, plus the explicit **post-1.0** list (e.g. stack splitting). Don't implement post-1.0 items unless re-scoped.

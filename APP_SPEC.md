@@ -27,7 +27,7 @@ Use these files as the implementation source of truth:
 - `APP_SPEC.md` — app-level goals, constraints, tech stack, and persistence expectations.
 - `MODEL_SPEC.md` — canonical data model, interfaces, invariants, and derived calculations.
 - `ENCUMBRANCE_SPEC.md` — movement-rate and encumbrance rules.
-- `GEAR_VIEW_SPEC.md` — the Party Gear board, the Floor, and the drag-and-drop contract (view + interaction only).
+- `GEAR_VIEW_SPEC.md` — the Inventory board (Party Gear internally), the Floor, and the drag-and-drop contract (view + interaction only).
 - `SYNC_SPEC.md` — the Firestore document shape, field-level writes, and sync failure handling.
 - `CONTENT_GUIDE.md` — authoring format and provenance for the bundled rule-content JSON libraries.
 - `TASKS.md` — what is done, in progress, and open, plus the post-1.0 list.
