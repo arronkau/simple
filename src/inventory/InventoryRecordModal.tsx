@@ -42,12 +42,12 @@ export function InventoryRecordModal({
           <p>
             {formState.mode === "edit"
               ? `${RECORD_TYPE_LABELS[formState.recordType]} for ${entity.name}`
-              : `New item for ${entity.name}`}
+              : `New record for ${entity.name}`}
           </p>
           {message ? <p className="form-error">{message}</p> : null}
         </>
       }
-      title={formState.mode === "edit" ? "Edit item" : "Add item"}
+      title={formState.mode === "edit" ? "Edit record" : "Add record"}
       onClose={onCancel}
     >
       <InventoryRecordForm

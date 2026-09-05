@@ -472,11 +472,17 @@ export const APP_MANUAL_FIXTURES = [
         hands: [
           {
             label: "L",
+            title: "Left hand",
             text: "Torch",
             statuses: ["lit"],
             detail: { light: "30' radius" },
           },
-          { label: "R", text: "Shield", statuses: ["activeAc"] },
+          {
+            label: "R",
+            title: "Right hand",
+            text: "Shield",
+            statuses: ["activeAc"],
+          },
         ],
         warningCount: 0,
         warningSummary: "No warnings",
@@ -496,8 +502,8 @@ export const APP_MANUAL_FIXTURES = [
         litSources: [],
         spellLines: [],
         hands: [
-          { label: "L", text: null, statuses: [] },
-          { label: "R", text: null, statuses: [] },
+          { label: "L", title: "Left hand", text: null, statuses: [] },
+          { label: "R", title: "Right hand", text: null, statuses: [] },
         ],
         warningCount: 1,
         warningSummary: "1 warning",
@@ -515,15 +521,17 @@ export const APP_MANUAL_FIXTURES = [
       player: [
         {
           label: "L",
+          title: "Left hand",
           text: "Ivory wand",
           statuses: ["unidentified"],
           detail: { description: "Faintly warm." },
         },
-        { label: "R", text: null, statuses: [] },
+        { label: "R", title: "Right hand", text: null, statuses: [] },
       ],
       gm: [
         {
           label: "L",
+          title: "Left hand",
           text: "Ivory wand",
           statuses: ["unidentified"],
           detail: {
@@ -533,7 +541,7 @@ export const APP_MANUAL_FIXTURES = [
             secretDescription: "One missile per charge.",
           },
         },
-        { label: "R", text: null, statuses: [] },
+        { label: "R", title: "Right hand", text: null, statuses: [] },
       ],
     },
   },

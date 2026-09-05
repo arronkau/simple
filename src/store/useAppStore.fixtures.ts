@@ -1886,7 +1886,7 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       ok: false,
-      message: "Players cannot edit hidden unidentified-item fields.",
+      message: "Players cannot edit hidden unidentified-record fields.",
     },
   },
   {
@@ -1943,7 +1943,7 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       ok: false,
-      message: "Players cannot edit hidden unidentified-item fields.",
+      message: "Players cannot edit hidden unidentified-record fields.",
     },
   },
   {
@@ -1956,7 +1956,7 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       ok: false,
-      message: "Only the GM can edit an unidentified item.",
+      message: "Only the GM can edit an unidentified record.",
     },
   },
   {

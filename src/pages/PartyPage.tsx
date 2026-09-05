@@ -206,7 +206,7 @@ function ActivateDropZone() {
       ref={setNodeRef}
       className={`empty-state party-drop-strip${isOver ? " drop-over" : ""}`}
     >
-      No active characters — drag someone here to activate.
+      No active entities — drag someone here to activate.
     </p>
   );
 }
@@ -228,12 +228,12 @@ function BenchedSection({
       <h3 className="micro">Benched</h3>
       {benchedCards.length === 0 ? (
         <p className="empty-state party-drop-strip">
-          Drag a character here to bench them — splitting the party, staying in
+          Drag an entity here to bench it — splitting the party, staying in
           town, and so on.
         </p>
       ) : (
         <div className="party-table-scroll">
-          <table className="party-table" aria-label="Benched characters">
+          <table className="party-table" aria-label="Benched entities">
             <tbody>
               {benchedCards.map((card) => (
                 <DraggablePartyRow card={card} key={card.id}>
@@ -473,7 +473,9 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
   if (hand.text === null) {
     return (
       <div className="pt-hand">
-        <span className="pt-hlabel">{hand.label}</span>
+        <span className="pt-hlabel" title={hand.title}>
+          {hand.label}
+        </span>
         <span className="empty-label">empty</span>
       </div>
     );
@@ -482,7 +484,9 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
   if (!hand.detail) {
     return (
       <div className="pt-hand">
-        <span className="pt-hlabel">{hand.label}</span>
+        <span className="pt-hlabel" title={hand.title}>
+          {hand.label}
+        </span>
         <span className="pt-hand-item">{hand.text}</span>
         {glyphs}
       </div>
@@ -491,7 +495,9 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
 
   return (
     <div className="pt-hand">
-      <span className="pt-hlabel">{hand.label}</span>
+      <span className="pt-hlabel" title={hand.title}>
+        {hand.label}
+      </span>
       <details className="pt-hand-pop">
         <summary className="pt-hand-item">{hand.text}</summary>
         <div className="pt-hand-pop-panel">

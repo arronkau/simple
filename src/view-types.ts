@@ -237,7 +237,10 @@ export type PartyHandDetail = {
 };
 
 export type PartyHandDisplay = {
+  /** Compact chip shown in the party table: "L", "R", "Both". */
   label: string;
+  /** The full placement name the chip abbreviates, used as its tooltip. */
+  title: string;
   text: string | null;
   statuses: InventoryRowStatus[];
   detail?: PartyHandDetail;

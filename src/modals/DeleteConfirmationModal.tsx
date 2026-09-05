@@ -68,7 +68,7 @@ function getDeleteTarget(
   const record = getVisibleInventoryRecord(confirmation.record, viewerRole);
 
   return {
-    title: "Delete item",
+    title: "Delete record",
     name: getRecordDisplayName(record),
     consequence: getRecordDeleteConsequence(record, allRecords),
   };

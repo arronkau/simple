@@ -181,7 +181,7 @@ export function EntityEditModal({
           type="button"
           onClick={() => onSetEntityActive(entity.id, !entity.active)}
         >
-          {entity.active ? "Deactivate" : "Reactivate"}
+          {entity.active ? "Bench" : "Reactivate"}
         </button>
         <div className="record-form-action-group">
           <button type="button" onClick={onCancel}>

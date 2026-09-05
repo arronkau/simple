@@ -1658,6 +1658,12 @@ tr.pt-dragging {
   margin-bottom: 3px;
 }
 
+/* "Hands" / "Other equipped" sit under the section label, one step quieter. */
+.sheet-inventory-group h6.sheet-inventory-subgroup {
+  margin-top: 7px;
+  color: var(--gear-faint);
+}
+
 .sheet-inventory-row {
   display: flex;
   gap: 6px;
@@ -2797,10 +2803,15 @@ a.file-button {
 /* ====================================================================== */
 
 .gear-page {
+  padding-top: 16px;
   padding-bottom: 150px; /* clear the fixed Floor tray */
   color: var(--gear-ink);
   font-size: 14px;
   line-height: 1.4;
+}
+
+.gear-page .section-heading {
+  margin-bottom: 10px;
 }
 
 .tray {
@@ -3058,6 +3069,9 @@ a.file-button {
 .gear-page .worn-label {
   margin: 9px 0 5px;
 }
+.gear-page .hands-label {
+  margin: 0 0 5px;
+}
 
 /* ---- hands ---- */
 .gear-page .hand {
@@ -3081,7 +3095,7 @@ a.file-button {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--gear-accent);
-  width: 42px;
+  width: 68px;
   flex: none;
 }
 .gear-page .hand.both .hlabel {

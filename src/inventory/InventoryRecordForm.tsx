@@ -148,7 +148,7 @@ export function InventoryRecordForm({
     );
   }, [standardItemSuggestions.length]);
 
-  // Opening "Move item..." removes the button that had focus. Move focus to the
+  // Opening "Move record…" removes the button that had focus. Move focus to the
   // first location control so it does not fall back to <body>.
   useEffect(() => {
     if (formState.showMovement && !previousShowMovementRef.current) {
@@ -251,7 +251,7 @@ export function InventoryRecordForm({
   return (
     <form className="record-form modal-form" onSubmit={onSubmit}>
       <div
-        aria-label="Item type"
+        aria-label="Record type"
         className="record-type-tabs"
         role="tablist"
       >
@@ -276,7 +276,7 @@ export function InventoryRecordForm({
 
       {isReadOnly ? (
         <p className="form-help record-form-readonly-note">
-          Unidentified — only the GM can edit this item.
+          Unidentified — only the GM can edit this record.
         </p>
       ) : null}
 
@@ -520,7 +520,7 @@ export function InventoryRecordForm({
                     })
                   }
                 />
-                <span>This item modifies a stat</span>
+                <span>This record modifies a stat</span>
               </label>
               {formState.recordType === "weapon" ? (
                 <label className="checkbox-field">
@@ -944,14 +944,14 @@ export function InventoryRecordForm({
                 type="button"
                 onClick={() => onChange({ ...formState, showMovement: true })}
               >
-                Move item...
+                Move record…
               </button>
             ) : null}
           </div>
           {showLocationControls ? (
             <div className="record-location-controls">
               <label>
-                <span>Owner / Holder</span>
+                <span>Entity</span>
                 <select
                   ref={moveLocationRef}
                   value={formState.targetEntityId}
@@ -1509,7 +1509,7 @@ function getPlacementOptions({
     // Coins go anywhere a plain record goes, except a hand.
     return isCharacterLikeEntity(targetEntity)
       ? [
-          { value: "equippedLoose", label: "Equipped loose" },
+          { value: "equippedLoose", label: "Other equipped" },
           { value: "container", label: "Inside container" },
         ]
       : [
@@ -1526,7 +1526,7 @@ function getPlacementOptions({
   }
 
   const options: Array<{ value: InventoryRecordPlacementKey; label: string }> = [
-    { value: "equippedLoose", label: "Equipped loose" },
+    { value: "equippedLoose", label: "Other equipped" },
     { value: "leftHand", label: "Left hand" },
     { value: "rightHand", label: "Right hand" },
     { value: "bothHands", label: "Both hands" },

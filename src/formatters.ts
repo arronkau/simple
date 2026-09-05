@@ -115,18 +115,28 @@ export function formatPartyHands(
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
 
   if (bothHandsRecord) {
-    return [getPartyHandDisplay("Both", bothHandsRecord, records, viewerRole)];
+    return [
+      getPartyHandDisplay(
+        "Both",
+        "Both hands",
+        bothHandsRecord,
+        records,
+        viewerRole,
+      ),
+    ];
   }
 
   return [
     getPartyHandDisplay(
       "L",
+      "Left hand",
       getRecordById(sections.handRecordIds.leftHand, records),
       records,
       viewerRole,
     ),
     getPartyHandDisplay(
       "R",
+      "Right hand",
       getRecordById(sections.handRecordIds.rightHand, records),
       records,
       viewerRole,
@@ -134,14 +144,17 @@ export function formatPartyHands(
   ];
 }
 
+/** The table is too narrow for "Left hand", so the chip is abbreviated and
+ * `title` carries the full form used everywhere else. */
 function getPartyHandDisplay(
   label: string,
+  title: string,
   record: InventoryRecord | undefined,
   records: InventoryRecord[],
   viewerRole: PartyRole | null,
 ): PartyHandDisplay {
   if (!record) {
-    return { label, text: null, statuses: [] };
+    return { label, title, text: null, statuses: [] };
   }
 
   // Redact once, at the display boundary; `records` stays whole because the
@@ -152,6 +165,7 @@ function getPartyHandDisplay(
 
   return {
     label,
+    title,
     text: display.primaryText,
     statuses: display.statusIcons,
     ...(detail ? { detail } : {}),

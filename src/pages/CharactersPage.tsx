@@ -195,7 +195,10 @@ export function CharactersPage({
             sensors={sensors}
             onDragEnd={handleDragEnd}
           >
-            <aside className="character-selector" aria-label="Characters">
+            <aside
+              className="character-selector"
+              aria-label="Characters and retainers"
+            >
               <SortableContext
                 items={activeCharacters.map((entity) => entity.id)}
                 strategy={verticalListSortingStrategy}

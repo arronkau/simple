@@ -808,7 +808,7 @@ export const useAppStore = create<AppStore>((set) => ({
     if (role !== "gm") {
       const violations = getProtectedInventoryFieldViolations(input);
       if (violations.length > 0) {
-        return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
+        return { ok: false, message: "Players cannot edit hidden unidentified-record fields." };
       }
     }
 
@@ -970,7 +970,7 @@ export const useAppStore = create<AppStore>((set) => ({
     if (role !== "gm") {
       const violations = getProtectedInventoryFieldViolations(input);
       if (violations.length > 0) {
-        return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
+        return { ok: false, message: "Players cannot edit hidden unidentified-record fields." };
       }
     }
 
@@ -983,7 +983,7 @@ export const useAppStore = create<AppStore>((set) => ({
     // Unidentified items are read-only for players; the GM edits them. Players
     // can still move, light, and snuff them through their own actions.
     if (role !== "gm" && storedRecord && isUnidentifiedRecord(storedRecord)) {
-      return { ok: false, message: "Only the GM can edit an unidentified item." };
+      return { ok: false, message: "Only the GM can edit an unidentified record." };
     }
 
     // GM notes are GM-only always: a player save carries the stored notes
