@@ -1,5 +1,6 @@
 import bundledClassContent from "./ose_class_content.json";
 import { normalizeContentName } from "./spellLibrary";
+import { loadClassContentFiles, resolveContentLibrary } from "./systemContent";
 import type { AbilityScores } from "./types";
 
 export type ClassAbility = {
@@ -51,7 +52,11 @@ export type ResolvedLevelTable = {
   values: Array<string | number> | null;
 };
 
-const DEFAULT_LIBRARY = bundledClassContent as ClassContentLibrary;
+const DEFAULT_LIBRARY = resolveContentLibrary(
+  bundledClassContent as ClassContentLibrary,
+  "classes",
+  loadClassContentFiles(),
+);
 
 export function getClassContentLookup(
   className: string,
@@ -90,6 +95,16 @@ export function getClassContentLookup(
     abilities: classEntry.abilities,
     levelTables: classEntry.levelTables,
   };
+}
+
+/** The spell list a class casts from, or undefined for a non-caster or an unknown class. */
+export function getClassSpellListId(
+  className: string,
+  library: ClassContentLibrary = DEFAULT_LIBRARY,
+): string | undefined {
+  const lookup = getClassContentLookup(className, library);
+
+  return lookup.ok ? lookup.spellListId : undefined;
 }
 
 export function getClassLevelTables(

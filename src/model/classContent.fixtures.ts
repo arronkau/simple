@@ -1,6 +1,7 @@
 import {
   getClassContentLookup,
   getClassLevelTables,
+  getClassSpellListId,
   type ClassContentLibrary,
 } from "./classContent";
 
@@ -138,5 +139,20 @@ export const CLASS_CONTENT_MANUAL_FIXTURES = [
     name: "class level tables are empty for unauthored class",
     actual: getClassLevelTables("Fighter", 1, testLibrary),
     expected: [],
+  },
+  {
+    name: "class spell list id resolves through a fuzzy class name",
+    actual: getClassSpellListId("test class", testLibrary),
+    expected: "listA",
+  },
+  {
+    name: "class spell list id is undefined for a non-caster",
+    actual: getClassSpellListId("Plain Class", testLibrary),
+    expected: undefined,
+  },
+  {
+    name: "class spell list id is undefined for an unknown class",
+    actual: getClassSpellListId("Fighter", testLibrary),
+    expected: undefined,
   },
 ];

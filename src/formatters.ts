@@ -143,7 +143,11 @@ function getPartySpellDisplay(
  * entry carries none of those facts. */
 export function formatSpellLibraryMeta(spell: SpellEntry): string {
   return [
-    spell.reversible ? "Reversible" : "",
+    spell.reversible
+      ? spell.reversedName
+        ? `Reversible (${spell.reversedName})`
+        : "Reversible"
+      : "",
     spell.duration ? `Duration ${spell.duration}` : "",
     spell.range ? `Range ${spell.range}` : "",
   ]

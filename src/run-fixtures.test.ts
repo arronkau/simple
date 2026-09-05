@@ -6,6 +6,7 @@ import { CLASS_CONTENT_MANUAL_FIXTURES } from "./model/classContent.fixtures";
 import { CLASS_DERIVATIONS_MANUAL_FIXTURES } from "./model/classDerivations.fixtures";
 import { CAMPAIGN_MANUAL_FIXTURES } from "./model/campaign.fixtures";
 import { SPELL_LIBRARY_MANUAL_FIXTURES } from "./model/spellLibrary.fixtures";
+import { SYSTEM_CONTENT_MANUAL_FIXTURES } from "./model/systemContent.fixtures";
 import { PERMISSIONS_MANUAL_FIXTURES } from "./model/permissions.fixtures";
 import { PARTY_INVITE_MANUAL_FIXTURES } from "./model/partyInvite.fixtures";
 import { CALCULATION_MANUAL_FIXTURES } from "./model/calculations.fixtures";
@@ -71,6 +72,7 @@ const manualFixtures: ManualFixture[] = [
   ...CLASS_DERIVATIONS_MANUAL_FIXTURES,
   ...CLASS_CONTENT_MANUAL_FIXTURES,
   ...SPELL_LIBRARY_MANUAL_FIXTURES,
+  ...SYSTEM_CONTENT_MANUAL_FIXTURES,
   ...PERMISSIONS_MANUAL_FIXTURES,
   ...PARTY_INVITE_MANUAL_FIXTURES,
   ...CALCULATION_MANUAL_FIXTURES,

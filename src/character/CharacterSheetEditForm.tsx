@@ -10,7 +10,7 @@ import {
   ABILITY_SCORE_LABELS,
   normalizeCharacterData,
 } from "../model/characters";
-import { getClassContentLookup } from "../model/classContent";
+import { getClassSpellListId } from "../model/classContent";
 import {
   ENTITY_TYPE_LABELS,
   getEditableEntityTypes,
@@ -20,7 +20,10 @@ import {
   getAllowedClassDisplayNames,
   isClassAllowed,
 } from "../model/campaign";
-import { getSpellListLookup } from "../model/spellLibrary";
+import {
+  filterSpellSuggestions,
+  type SpellSuggestion,
+} from "../model/spellLibrary";
 import type {
   CharacterAlignment,
   CharacterData,
@@ -37,6 +40,7 @@ import type {
   CharacterSkillFormState,
   CharacterSpellFormState,
 } from "../view-types";
+import { AutocompleteField } from "../ui/AutocompleteField";
 import { NumberField } from "../ui/NumberField";
 import {
   createCharacterSheetFormState,
@@ -57,7 +61,6 @@ import {
   type SheetSaveState,
 } from "./characterSheetAutosave";
 
-const SPELL_NAME_DATALIST_ID = "character-sheet-spell-names";
 const CLASS_NAME_DATALIST_ID = "character-sheet-class-names";
 
 /** Which draft a queued commit belongs to, so switching between the entity
@@ -68,24 +71,6 @@ type QueuedCommit = {
   target: CommitTarget;
   run: () => void;
 };
-
-function getSpellNameOptions(className: string): string[] {
-  const classContent = getClassContentLookup(className);
-
-  if (!classContent.ok || !classContent.spellListId) {
-    return [];
-  }
-
-  const spellList = getSpellListLookup(classContent.spellListId);
-
-  if (!spellList.ok) {
-    return [];
-  }
-
-  return spellList.levels.flatMap((level) =>
-    level.spells.map((spell) => spell.displayName),
-  );
-}
 
 /**
  * The one edit surface for a character. There is no Save button: selects,
@@ -356,7 +341,7 @@ export function CharacterSheetEditForm({
     onDone();
   }
 
-  const spellNameOptions = getSpellNameOptions(formState.className);
+  const spellListId = getClassSpellListId(formState.className);
   const classNameOptions = getAllowedClassDisplayNames();
   const showClassWarning =
     formState.className.trim().length > 0 &&
@@ -595,41 +580,34 @@ export function CharacterSheetEditForm({
             </button>
           </div>
 
-          {spellNameOptions.length > 0 ? (
-            <datalist id={SPELL_NAME_DATALIST_ID}>
-              {spellNameOptions.map((name) => (
-                <option key={name} value={name} />
-              ))}
-            </datalist>
-          ) : null}
-
           {formState.spells.length === 0 ? (
             <p className="empty-state compact">No spells</p>
           ) : (
             <div className="repeatable-list">
               {formState.spells.map((spell) => (
                 <div className="repeatable-row spell-row" key={spell.id}>
-                  <label>
-                    <span>Name</span>
-                    <input
-                      autoComplete="off"
-                      list={
-                        spellNameOptions.length > 0
-                          ? SPELL_NAME_DATALIST_ID
-                          : undefined
-                      }
-                      maxLength={80}
-                      type="text"
-                      value={spell.name}
-                      onChange={(event) =>
-                        updateSpell(
-                          spell.id,
-                          { name: event.target.value },
-                          "text",
-                        )
-                      }
-                    />
-                  </label>
+                  <AutocompleteField
+                    label="Name"
+                    value={spell.name}
+                    onChange={(name) => updateSpell(spell.id, { name }, "text")}
+                    suggestions={filterSpellSuggestions(spell.name, spellListId)}
+                    getSuggestionKey={(suggestion) =>
+                      `${suggestion.spellLevel}-${suggestion.spell.id}`
+                    }
+                    renderSuggestion={renderSpellSuggestion}
+                    onSelect={(suggestion) =>
+                      updateSpell(
+                        spell.id,
+                        {
+                          name: suggestion.spell.displayName,
+                          level: suggestion.spellLevel.toString(),
+                        },
+                        "choice",
+                      )
+                    }
+                    suggestionsLabel="Spell suggestions"
+                    inputProps={{ maxLength: 80 }}
+                  />
                   <label>
                     <span>Level</span>
                     <select
@@ -902,5 +880,15 @@ export function CharacterSheetEditForm({
         </div>
       </form>
     </section>
+  );
+}
+
+/** "L1  Charm Person" — the level tag matches the sheet's spell rows. */
+function renderSpellSuggestion(suggestion: SpellSuggestion) {
+  return (
+    <>
+      <span className="autocomplete-suggestion-tag">L{suggestion.spellLevel}</span>
+      {suggestion.spell.displayName}
+    </>
   );
 }
