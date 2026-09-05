@@ -103,19 +103,29 @@ import {
 import { getRuntimeFirebaseConfig } from "../persistence/firebaseConfig";
 import {
   deletePartyDocument,
+  formatFirebaseError,
   linkOrSignInWithGoogle,
   signOutFirebase,
   startFirebaseAppStateSync,
   type FirebaseAuthAccount,
   type FirebaseWriter,
+  type RemoteSnapshotMetadata,
 } from "../persistence/firebaseSync";
-import { runFirebaseWriteForGeneration } from "../persistence/firebaseWriteLifecycle";
+import {
+  classifyFirebaseWriteFailure,
+  deriveSnapshotSyncStatus,
+  getPermissionDeniedWriteMessage,
+  runFirebaseWriteForGeneration,
+  shouldBlockUnloadForFirebaseWrites,
+} from "../persistence/firebaseWriteLifecycle";
 import { canonicalizePartyState } from "../persistence/firestoreDocument";
 import {
   diffPartyStates,
   mergeFieldUpdates,
   type FieldUpdate,
 } from "../persistence/partyStateDiff";
+import { createRetryScheduler } from "../persistence/retryBackoff";
+import { createSyncWindowListeners } from "../persistence/syncWindowListeners";
 import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 export type AccountActionResult = { ok: true } | { ok: false; message: string };
@@ -2103,9 +2113,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 }));
 
+const FIREBASE_WRITE_RETRY_DELAY_MS = 1000;
+const FIREBASE_WRITE_MAX_RETRY_DELAY_MS = 30_000;
+
 let applyingRemotePartyState = false;
 let firebaseUnsubscribe: (() => void) | undefined;
 let firebaseWriter: FirebaseWriter | undefined;
+let firebaseOfflineWritesDurable = false;
 let pendingFirebaseFieldUpdates: FieldUpdate[] = [];
 let writingFirebaseFieldUpdates = false;
 let firebaseSyncGeneration = 0;
@@ -2114,6 +2128,41 @@ let firebaseSyncGeneration = 0;
 // local party is empty) would clobber the real party document. This stays
 // false until the first remote snapshot has been processed.
 let firebaseFirstSnapshotHandled = false;
+// The last party state received from Firestore. A write the rules reject is
+// rolled back to it, so local state cannot keep an edit the server refused.
+let lastRemotePartyState: PartyState | undefined;
+
+// A failed write must retry on its own: nothing else re-sends it, and waiting
+// for the user's next edit would leave the batch unsent indefinitely.
+const firebaseWriteRetries = createRetryScheduler({
+  maxRetryDelayMs: FIREBASE_WRITE_MAX_RETRY_DELAY_MS,
+  onRetry: () => {
+    void flushFirebasePartyStateWrite();
+  },
+  retryDelayMs: FIREBASE_WRITE_RETRY_DELAY_MS,
+});
+
+const firebaseSyncWindowListeners = createSyncWindowListeners({
+  onOnline: () => {
+    // Connectivity is back: retry now instead of waiting out the backoff.
+    firebaseWriteRetries.reset();
+    void flushFirebasePartyStateWrite();
+  },
+  onPageHide: () => {
+    if (writingFirebaseFieldUpdates) {
+      handOffPendingFirebaseFieldUpdates();
+      return;
+    }
+
+    void flushFirebasePartyStateWrite();
+  },
+  shouldBlockUnload: () =>
+    shouldBlockUnloadForFirebaseWrites({
+      offlineWritesDurable: firebaseOfflineWritesDurable,
+      pendingUpdateCount: pendingFirebaseFieldUpdates.length,
+      writeInFlight: writingFirebaseFieldUpdates,
+    }),
+});
 
 useAppStore.subscribe((state, previousState) => {
   if (
@@ -2693,6 +2742,9 @@ async function startConfiguredFirebaseSync(): Promise<void> {
   firebaseSyncGeneration += 1;
   const activeSyncGeneration = firebaseSyncGeneration;
   stopConfiguredFirebaseSync();
+  // Unload/online handling belongs to a running sync session; stop() above
+  // removed the previous session's handlers, so this cannot stack up.
+  firebaseSyncWindowListeners.start();
   // Re-gate writes for the new connection until its first snapshot lands.
   // Any write still in flight belongs to the previous generation: its
   // settlement is ignored, so release the write flag here.
@@ -2749,14 +2801,15 @@ async function startConfiguredFirebaseSync(): Promise<void> {
       }
 
       firebaseWriter = writer;
+      firebaseOfflineWritesDurable = writer.offlineWritesDurable;
       void flushFirebasePartyStateWrite();
     },
-    onRemotePartyState: (partyState) => {
+    onRemotePartyState: (partyState, metadata) => {
       if (!isActiveSync() || partyState.party.id !== activePartyId) {
         return;
       }
 
-      applyRemotePartyState(partyState);
+      applyRemotePartyState(partyState, metadata);
     },
     onStatusChange: (syncStatus) => {
       if (!isActiveSync()) {
@@ -2776,16 +2829,47 @@ async function startConfiguredFirebaseSync(): Promise<void> {
 }
 
 function stopConfiguredFirebaseSync(): void {
+  firebaseSyncWindowListeners.stop();
+  firebaseWriteRetries.cancel();
   firebaseUnsubscribe?.();
   firebaseUnsubscribe = undefined;
 }
 
 function resetFirebaseWriteQueue(): void {
+  handOffPendingFirebaseFieldUpdates();
   firebaseSyncGeneration += 1;
   firebaseWriter = undefined;
+  firebaseOfflineWritesDurable = false;
+  firebaseWriteRetries.reset();
+  lastRemotePartyState = undefined;
   pendingFirebaseFieldUpdates = [];
   writingFirebaseFieldUpdates = false;
   firebaseFirstSnapshotHandled = false;
+}
+
+/**
+ * Last chance to get queued updates to Firestore before the queue is dropped
+ * (sign-in, sign-out, party switch) or the page goes away. The write belongs to
+ * a generation that is about to be superseded, so its result is ignored; what
+ * matters is that the Firestore SDK has taken it, which makes it durable
+ * whenever the persistent cache is active.
+ *
+ * Updates queued before the writer exists or before the first snapshot cannot
+ * be sent at all — they stay in localStorage and the next snapshot is
+ * authoritative for the party document (see SYNC_SPEC.md).
+ */
+function handOffPendingFirebaseFieldUpdates(): void {
+  if (
+    !firebaseWriter ||
+    !firebaseFirstSnapshotHandled ||
+    pendingFirebaseFieldUpdates.length === 0
+  ) {
+    return;
+  }
+
+  const updates = pendingFirebaseFieldUpdates;
+  pendingFirebaseFieldUpdates = [];
+  void firebaseWriter.applyFieldUpdates(updates).catch(() => undefined);
 }
 
 function queueFirebaseFieldUpdates(updates: FieldUpdate[]): void {
@@ -2825,29 +2909,55 @@ async function flushFirebasePartyStateWrite(): Promise<void> {
     write: () => writer.applyFieldUpdates(updates),
     onSuccess: () => {
       writingFirebaseFieldUpdates = false;
+      firebaseWriteRetries.reset();
 
       if (pendingFirebaseFieldUpdates.length > 0) {
         void flushFirebasePartyStateWrite();
         return;
       }
 
+      // The write promise settles on server acknowledgement, so the document
+      // is now committed, not just echoed locally.
       setSyncMetadata("synced");
     },
     onFailure: (error) => {
       writingFirebaseFieldUpdates = false;
+
+      // Rules rejected the batch; repeating it can only fail again. Drop it and
+      // roll local state back to the last thing the server sent us.
+      if (classifyFirebaseWriteFailure(error) === "permission-denied") {
+        pendingFirebaseFieldUpdates = [];
+        firebaseWriteRetries.reset();
+        restoreLastRemotePartyState();
+        setSyncMetadata(
+          "error",
+          getPermissionDeniedWriteMessage(
+            getStateUserRole(useAppStore.getState()),
+          ),
+        );
+        return;
+      }
+
       pendingFirebaseFieldUpdates = mergeFieldUpdates(
         updates,
         pendingFirebaseFieldUpdates,
       );
+      const retryDelayMs = firebaseWriteRetries.recordFailure();
 
-      setSyncMetadata("error", formatSyncError(error));
+      setSyncMetadata(
+        "error",
+        `${formatSyncError(error)} Retrying in ${Math.round(
+          retryDelayMs / 1000,
+        )}s.`,
+      );
     },
   });
 }
 
-function applyRemotePartyState(partyState: PartyState): void {
-  setSyncMetadata("synced");
-
+function applyRemotePartyState(
+  partyState: PartyState,
+  metadata: RemoteSnapshotMetadata,
+): void {
   // The remote document is authoritative on first contact. Any local write
   // queued before we saw it (e.g. an empty party from a freshly-loaded client)
   // must be discarded so it can't overwrite the real party.
@@ -2856,25 +2966,36 @@ function applyRemotePartyState(partyState: PartyState): void {
     pendingFirebaseFieldUpdates = [];
   }
 
+  const snapshotSyncStatus = deriveSnapshotSyncStatus({
+    fromCache: metadata.fromCache,
+    hasPendingWrites: metadata.hasPendingWrites,
+    pendingUpdateCount: pendingFirebaseFieldUpdates.length,
+    retryPending: firebaseWriteRetries.hasPendingRetry(),
+    writeInFlight: writingFirebaseFieldUpdates,
+  });
+
+  if (snapshotSyncStatus) {
+    setSyncMetadata(snapshotSyncStatus);
+  }
+
+  // A snapshot carrying unacknowledged local writes is this client's own echo.
+  // It shows what the Firestore SDK holds, which is behind any update still
+  // queued here and ahead of what the server has confirmed, so it moves the
+  // status only. The acknowledgement snapshot carries the same content plus
+  // anything another client changed meanwhile.
+  if (metadata.hasPendingWrites) {
+    return;
+  }
+
   // The document was readable, so this party is safe to reopen by default.
   writeLastPartyId(partyState.party.id);
 
   const currentState = useAppStore.getState();
   // Repair only: GM identity comes from the document, never from the reader.
   const resolvedPartyState = repairPartyMembership(partyState);
-  const currentPartyState = getPartyStateFromStoreState(currentState);
+  lastRemotePartyState = resolvedPartyState;
 
-  if (!arePartyStatesEqual(currentPartyState, resolvedPartyState)) {
-    applyingRemotePartyState = true;
-    useAppStore.setState({
-      appState: resolvedPartyState.appState,
-      gmUid: resolvedPartyState.party.gmUid,
-      inviteCode: resolvedPartyState.party.inviteCode,
-      members: resolvedPartyState.party.members,
-      partyDisplayName: resolvedPartyState.party.displayName,
-      userProfiles: resolvedPartyState.userProfiles,
-    });
-  }
+  applyPartyStateFromRemote(resolvedPartyState);
 
   // A GM client gives a pre-invite party its first invite code. This is a
   // real local change (not a remote apply) so it is written back to Firestore.
@@ -2886,6 +3007,37 @@ function applyRemotePartyState(partyState: PartyState): void {
   if (partyStateWithInvite.party.inviteCode !== resolvedPartyState.party.inviteCode) {
     useAppStore.setState({ inviteCode: partyStateWithInvite.party.inviteCode });
   }
+}
+
+function applyPartyStateFromRemote(partyState: PartyState): void {
+  const currentPartyState = getPartyStateFromStoreState(useAppStore.getState());
+
+  if (arePartyStatesEqual(currentPartyState, partyState)) {
+    return;
+  }
+
+  applyingRemotePartyState = true;
+  useAppStore.setState({
+    appState: partyState.appState,
+    gmUid: partyState.party.gmUid,
+    inviteCode: partyState.party.inviteCode,
+    members: partyState.party.members,
+    partyDisplayName: partyState.party.displayName,
+    userProfiles: partyState.userProfiles,
+  });
+}
+
+/**
+ * Rolls local state back to the last snapshot after the server refused a write.
+ * Without this the client would keep showing an edit that does not exist in the
+ * party document and has no way of ever getting there.
+ */
+function restoreLastRemotePartyState(): void {
+  if (!lastRemotePartyState) {
+    return;
+  }
+
+  applyPartyStateFromRemote(lastRemotePartyState);
 }
 
 function setSyncMetadata(syncStatus: SyncStatus, syncError?: string): void {
@@ -3187,9 +3339,7 @@ function getCurrentAuditActor(): Pick<
 }
 
 function formatSyncError(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "Firebase sync failed.";
+  // One formatter for every surfaced sync failure, so the store never shows a
+  // raw Firestore message where the sync layer has a readable one.
+  return formatFirebaseError(error);
 }
