@@ -64,6 +64,12 @@ Mirrors the canonical inventory layout, restyled:
   top-level stowed container (`stowedRoot`) with a resolved-capacity readout
   (`used/6`, `used/12`, or `used/—` when not applicable) and its child rows;
   nested containers inline.
+  - An **empty container that is not in a hand** (a spare sack in the
+    backpack, an empty container on the Floor or in contents) folds down to
+    its header row with an "empty" label — no capacity bar, no body — so a
+    backpack holding a few empty sacks does not read as full. The header row
+    remains the container's drop target. A held container always renders in
+    full, since its capacity is what the hand is for.
 
 All header/section numbers come from the encumbrance module. The component
 never recomputes movement or burden.
@@ -109,7 +115,10 @@ Floor" is only offered when no such entity exists.
 It renders as a fixed bottom bar on the Party Gear page (page content is given
 bottom padding so nothing hides behind it):
 
-- Header: "The Floor" label, a `N lots · M slots` summary, collapse/expand.
+- Header: "The Floor" label, a `N lots · M slots` summary, a "+ Add item"
+  link that opens the record form for the Floor entity (GM only — placing loot
+  is the referee's job; the role is fail-closed, so it is hidden until a GM
+  role is confirmed), collapse/expand.
 - Body: the Floor entity's top-level Contents as draggable chips/rows.
 - The whole bar is a drop target → moves the dropped record into the Floor
   entity's Contents (a cross-entity validated move).
@@ -163,12 +172,17 @@ backpack, worn, in the Floor's contents, in a sack:
   move (reorder, into a sack, out to worn), exactly like any other record.
 - Dropped on a zone of a **different** entity → no move. Instead the coin
   **transfer modal** opens pre-filled: source = the dragged coin record,
-  destination = the target entity, amounts = the **whole pile**. Confirming is
-  one click; editing the amounts splits it and the remainder stays behind. The
-  transfer goes through the validated `transferCoins` action, which merges into
-  the destination's default coin record (creating one at the default location
-  when it holds none) and removes a source record the transfer drains to zero,
-  whatever kind of entity holds it.
+  destination = the target entity **and the dropped zone** (a sack, worn,
+  contents — shown under the destination picker), amounts = the **whole
+  pile**. Confirming is one click; editing the amounts splits it and the
+  remainder stays behind. The transfer goes through the validated
+  `transferCoins` action with that zone as its destination location: it merges
+  into the coin record already sitting exactly there (creating one there when
+  none is) and removes a source record the transfer drains to zero, whatever
+  kind of entity holds it. Picking a different destination entity in the modal
+  discards the zone and falls back to that entity's default coin record.
+- Dropped on another entity's **hand** → blocked (red pill, no modal): coins
+  are never held.
 - A container holding coins is a plain move; the coins ride along inside it.
 
 Coin rows are not containers and never accept a drop.
@@ -188,7 +202,8 @@ pure `moveInventoryRecord` the store uses):
   alone elsewhere), red if the container would go over its resolved capacity.
 - contents target → `used/capacity`; red if it would exceed `capacitySlots`.
 - coins over a target on another entity → a neutral `→ transfer` pill (the drop
-  opens the transfer modal rather than moving the record).
+  opens the transfer modal rather than moving the record); over another
+  entity's hand → a red `blocked` pill.
 
 Projection is display-only and must use the shared module — never hardcode the
 tables. A `DragOverlay` shows the dragged record's name; the dropped row briefly

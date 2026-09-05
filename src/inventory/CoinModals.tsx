@@ -157,11 +157,20 @@ export function CoinTransferModal({
   }
 
   function changeDestinationEntity(destinationEntityId: EntityId) {
+    // A hand-picked destination lands in its default coin record; the dragged
+    // drop target only made sense for the entity it was dropped on.
+    const { destinationLocation: _dropped, ...rest } = formState;
+
     onChange({
-      ...formState,
+      ...rest,
       destinationEntityId,
     });
   }
+
+  const destinationPlaceText = formatTransferDestinationPlace(
+    formState,
+    appState,
+  );
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -212,6 +221,9 @@ export function CoinTransferModal({
                     </option>
                   ))}
                 </select>
+                {destinationPlaceText ? (
+                  <span className="field-help">{destinationPlaceText}</span>
+                ) : null}
               </label>
             </section>
 
@@ -409,6 +421,36 @@ export function getCoinTransferValidationMessage(
   return spendValidationMessage
     ?.replace("spend", "transfer")
     .replace("Spend", "Transfer");
+}
+
+/** "Into Sack" / "Worn" / "Contents" — where a dragged transfer will land. */
+function formatTransferDestinationPlace(
+  formState: CoinTransferFormState,
+  appState: AppState,
+): string | undefined {
+  const destination = formState.destinationLocation;
+
+  if (!destination) {
+    return undefined;
+  }
+
+  switch (destination.placement) {
+    case "container": {
+      const container = destination.containerId
+        ? getRecordById(destination.containerId, appState.inventoryRecords)
+        : undefined;
+
+      return `Into ${container?.name ?? "container"}`;
+    }
+    case "equippedLoose":
+      return "Worn";
+    case "contents":
+      return "Contents";
+    case "stowedRoot":
+      return "Stowed";
+    default:
+      return undefined;
+  }
 }
 
 function getTransferSourceCoinRecord(

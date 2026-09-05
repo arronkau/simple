@@ -159,7 +159,7 @@ Coins are ordinary inventory records with no placement of their own. An entity m
 
 A coin record counts toward the burden of wherever it sits: stowed inside the top-level stowed container, equipped at loose placement, or contents on a non-character entity.
 
-Dragging a coin record onto a target on the **same** entity is an ordinary move. Dragging it onto any target on a **different** entity opens the transfer dialog instead, prefilled with the whole pile: confirming hands it all over, editing the amounts splits it. A container holding coins is a plain move — the coins ride along with it.
+Dragging a coin record onto a target on the **same** entity is an ordinary move. Dragging it onto any target on a **different** entity opens the transfer dialog instead, prefilled with the whole pile and aimed at that exact target (a sack, worn, contents): confirming hands it all over into that spot, editing the amounts splits it. Changing the destination entity in the dialog drops the aimed target and falls back to that entity's default coin record. A hand is never a coin target. A container holding coins is a plain move — the coins ride along with it.
 
 ### Non-Character Entities
 

@@ -2165,7 +2165,7 @@ const quickAdjustBaseline = {
     { id: "skill-1", name: "Lore", chanceInSix: 2, description: "Old tales" },
   ],
   spells: [
-    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, notes: "at dawn" },
+    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, description: "at dawn" },
     { id: "spell-web", name: "Web", level: 2, memorized: 1 },
   ],
   languages: ["Common", "Elvish"],
@@ -2232,7 +2232,7 @@ export const QUICK_ADJUST_STORE_MANUAL_FIXTURES = [
             name: "Sleep",
             level: 1,
             memorized: 2,
-            notes: "at dawn",
+            description: "at dawn",
           },
           { id: "spell-web", name: "Web", level: 2, memorized: 1 },
         ],
@@ -2342,7 +2342,100 @@ const coinDrainFloorCoinRecords = useAppStore
       record.recordType === "coins" && record.entityId === coinDrainFloorId,
   );
 
+// A dragged coin drop names where the coins land on the other side: a worn
+// sack here. The first transfer creates a pile in the sack, the second merges
+// into it, and a hand is rejected the way any coin placement in a hand is.
+const coinTargetReceiverId = useAppStore.getState().createEntity({
+  name: "Receiver",
+  entityType: "character",
+});
+const coinTargetSackResult = coinTargetReceiverId
+  ? useAppStore.getState().createInventoryRecord(coinTargetReceiverId, {
+      recordType: "equipment",
+      name: "Sack",
+      container: { capacitySlots: 6 },
+      location: { entityId: coinTargetReceiverId, placement: "equippedLoose" },
+    })
+  : { ok: false as const, message: "setup failed" };
+const coinTargetSackId = coinTargetSackResult.ok
+  ? coinTargetSackResult.recordId
+  : undefined;
+const coinTargetSourcePileResult = coinDrainCharacterId
+  ? useAppStore.getState().createInventoryRecord(coinDrainCharacterId, {
+      recordType: "coins",
+      coins: { gp: 10 },
+    })
+  : { ok: false as const, message: "setup failed" };
+const coinTargetSourcePileId = coinTargetSourcePileResult.ok
+  ? coinTargetSourcePileResult.recordId
+  : undefined;
+const coinTargetFirstResult =
+  coinDrainCharacterId && coinTargetReceiverId && coinTargetSackId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDrainCharacterId,
+        sourceRecordId: coinTargetSourcePileId,
+        destinationEntityId: coinTargetReceiverId,
+        destinationLocation: {
+          placement: "container",
+          containerId: coinTargetSackId,
+        },
+        amounts: { gp: 3 },
+      })
+    : { ok: false as const, message: "setup failed" };
+const coinTargetSecondResult =
+  coinDrainCharacterId && coinTargetReceiverId && coinTargetSackId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDrainCharacterId,
+        sourceRecordId: coinTargetSourcePileId,
+        destinationEntityId: coinTargetReceiverId,
+        destinationLocation: {
+          placement: "container",
+          containerId: coinTargetSackId,
+        },
+        amounts: { gp: 2 },
+      })
+    : { ok: false as const, message: "setup failed" };
+const coinTargetHandResult =
+  coinDrainCharacterId && coinTargetReceiverId
+    ? useAppStore.getState().transferCoins({
+        sourceEntityId: coinDrainCharacterId,
+        sourceRecordId: coinTargetSourcePileId,
+        destinationEntityId: coinTargetReceiverId,
+        destinationLocation: { placement: "leftHand" },
+        amounts: { gp: 1 },
+      })
+    : { ok: false as const, message: "setup failed" };
+const coinTargetReceiverCoinRecords = useAppStore
+  .getState()
+  .appState.inventoryRecords.filter(
+    (record) =>
+      record.recordType === "coins" && record.entityId === coinTargetReceiverId,
+  );
+
 export const COIN_DRAIN_STORE_MANUAL_FIXTURES = [
+  {
+    name: "transfer with a destination location lands in that container and merges on repeat",
+    actual: {
+      firstOk: coinTargetFirstResult.ok,
+      secondOk: coinTargetSecondResult.ok,
+      hand: coinTargetHandResult,
+      receiverPiles: coinTargetReceiverCoinRecords.map((record) => ({
+        location: record.location,
+        coins: record.recordType === "coins" ? record.coins : undefined,
+      })),
+    },
+    expected: {
+      firstOk: true,
+      secondOk: true,
+      hand: { ok: false, message: "Coins cannot be held in a hand." },
+      receiverPiles: [
+        {
+          location: { kind: "container", containerId: coinTargetSackId },
+          coins: { pp: 0, gp: 5, sp: 0, cp: 0 },
+        },
+      ],
+    },
+  },
   {
     name: "spend that empties a character pile removes the record",
     actual: {

@@ -56,7 +56,7 @@ export function createCharacterSheetFormState(
       name: spell.name,
       level: spell.level.toString(),
       memorized: spell.memorized.toString(),
-      notes: spell.notes ?? "",
+      description: spell.description ?? "",
     })),
     languagesText: normalizedCharacterData.languages.join("\n"),
     description: normalizedCharacterData.description,
@@ -100,14 +100,18 @@ export function toCharacterDataFormInput(
         charisma: null,
       },
     ),
-    skills: formState.skills.map((skill) => ({
-      id: skill.id,
-      name: skill.name.trim(),
-      chanceInSix: parseIntegerInput(skill.chanceInSix),
-      ...(skill.description.trim()
-        ? { description: skill.description.trim() }
-        : {}),
-    })),
+    // Unnamed skill and spell rows are still being typed; leave them out of
+    // the saved sheet (auto-save runs while the row is half-filled).
+    skills: formState.skills
+      .filter((skill) => skill.name.trim())
+      .map((skill) => ({
+        id: skill.id,
+        name: skill.name.trim(),
+        chanceInSix: parseIntegerInput(skill.chanceInSix),
+        ...(skill.description.trim()
+          ? { description: skill.description.trim() }
+          : {}),
+      })),
     spells: formState.spells
       .filter((spell) => spell.name.trim())
       .map((spell) => ({
@@ -117,7 +121,9 @@ export function toCharacterDataFormInput(
         memorized: spell.memorized.trim()
           ? parseIntegerInput(spell.memorized)
           : 0,
-        ...(spell.notes.trim() ? { notes: spell.notes.trim() } : {}),
+        ...(spell.description.trim()
+          ? { description: spell.description.trim() }
+          : {}),
       })),
     languages: parseLanguagesInput(formState.languagesText),
     description: formState.description.trim(),
@@ -154,7 +160,7 @@ export function createEmptySpellFormState(): CharacterSpellFormState {
     name: "",
     level: "1",
     memorized: "0",
-    notes: "",
+    description: "",
   };
 }
 

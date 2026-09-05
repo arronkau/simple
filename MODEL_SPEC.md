@@ -266,7 +266,7 @@ export type CharacterSpell = {
   name: string;
   level: number;
   memorized: number;
-  notes?: string;
+  description?: string;
 };
 
 export type CharacterData = {
@@ -301,7 +301,7 @@ Character data supports a lightweight character-sheet layer in addition to inven
 
 `CharacterFeature.name` is the feature's display name. Legacy stored data may use `title` as an alias; parsers should accept both and normalize to `name`.
 
-`CharacterSpell` rows are the character's spell state. `name` is fuzzy-matched against the spell library for display details; an unmatched name is allowed and simply renders without library details. `level` is the spell's level (integer, at least 1) and is stored, not looked up — the model never silently corrects a stored level that disagrees with the library. `memorized` is the number of copies currently memorized/prepared (integer, at least 0). A magic-user's spellbook is the full row set including `memorized: 0` entries (known but not prepared); divine casters typically only carry rows for what is memorized today. Older stored data without `spells` normalizes to an empty array.
+`CharacterSpell` rows are the character's spell state. `name` is fuzzy-matched against the spell library for display details; an unmatched name is allowed and simply renders without library details. `level` is the spell's level (integer, at least 1) and is stored, not looked up — the model never silently corrects a stored level that disagrees with the library. `memorized` is the number of copies currently memorized/prepared (integer, at least 0). `description` is optional free text (a house-ruled effect, a spellbook annotation); it is never shown inline — the character sheet and the party overview reveal it on demand, behind the spell's name, alongside any library details. Older stored data may use `notes` for this field; parsers accept it and normalize to `description`. A magic-user's spellbook is the full row set including `memorized: 0` entries (known but not prepared); divine casters typically only carry rows for what is memorized today. Older stored data without `spells` normalizes to an empty array.
 
 Memorized totals exceeding the class's derived spell slots are a soft warning, never a block (scrolls, bonuses, and house rules are table-adjudicated).
 
@@ -471,9 +471,10 @@ export type CoinData = {
 - A coin record counts toward the burden of wherever it sits: stowed inside the top-level stowed container, equipped at `placement: "loose"`, contents on a non-character entity.
 - Coin records do not require a user-entered name.
 - Adding coins without choosing a placement updates the entity's default coin record instead of creating a duplicate, on every entity type. Choosing a placement always creates a new record.
-- An entity's **default coin record** is the coin record inside its top-level stowed container if it has one, otherwise its first coin record in sort order. It is the destination for a transfer and the source when no record is named.
+- An entity's **default coin record** is the coin record inside its top-level stowed container if it has one, otherwise its first coin record in sort order. It is the destination for a transfer that names no destination location, and the source when no record is named.
 - Coin transfers may target a specific source coin record (instead of the source entity's default coin record) so that a chosen pile can be drawn down.
-- A coin record drained to zero by a spend or a transfer is removed as part of that action (with an audit entry), on every entity type. The next transfer in recreates one at the default location.
+- Coin transfers may name a **destination location** on the receiving entity (a placement plus container id, as resolved by the same location rules as record creation — so a hand is rejected). The coins merge into the coin record already at exactly that location, or a new coin record is created there. Without a destination location the default coin record receives them.
+- A coin record drained to zero by a spend or a transfer is removed as part of that action (with an audit entry), on every entity type. The next transfer in recreates one at the default location (or at the named destination location).
 
 ## Treasure Data
 

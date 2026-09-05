@@ -79,6 +79,7 @@ import type {
 import {
   useAppStore,
   type InventoryMutationResult,
+  type TransferCoinsDestinationLocation,
 } from "../store/useAppStore";
 import {
   containerDropId,
@@ -124,12 +125,24 @@ export type GearActions = {
   onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
   /** Open the put-out dialog for a lit light source. */
   onSnuffRecord: (record: InventoryRecord) => void;
-  /** Open the take-all/take-some coin transfer modal for a dragged coin pile. */
+  /** Open the take-all/take-some coin transfer modal for a dragged coin pile,
+   * aimed at the exact drop target (a sack, worn, contents). */
   onRequestCoinTransfer: (
     record: InventoryRecord,
     destinationEntityId: EntityId,
+    destinationLocation: TransferCoinsDestinationLocation,
   ) => void;
 };
+
+/** The transfer destination a coin drop describes: the drop target without
+ * its entity (the transfer names the entity separately). */
+function toTransferDestination(
+  target: GearDropTarget,
+): TransferCoinsDestinationLocation {
+  const { placement, containerId } = dropTargetToLocationInput(target);
+
+  return containerId ? { placement, containerId } : { placement };
+}
 
 /** The page's own board-level actions, added to what the shell passes in. */
 type GearBoardActions = GearActions & {
@@ -270,7 +283,9 @@ export function PartyGearPage(actions: GearActions) {
       activeData.recordId,
       overData.target.entityId,
     )
-      ? { text: "→ transfer", invalid: false }
+      ? isHandPlacement(overData.target.placement)
+        ? { text: "blocked", invalid: true }
+        : { text: "→ transfer", invalid: false }
       : projectMove(records, activeData.recordId, overData.target, entities);
 
     setDragState((state) => ({ ...state, overId, projection }));
@@ -301,8 +316,14 @@ export function PartyGearPage(actions: GearActions) {
     if (isCrossEntityCoinDrop(recordId, target.entityId)) {
       const record = getRecordById(recordId, records);
 
-      if (record) {
-        actions.onRequestCoinTransfer(record, target.entityId);
+      if (isHandPlacement(target.placement)) {
+        setDragMessage("Coins cannot be held in a hand.");
+      } else if (record) {
+        actions.onRequestCoinTransfer(
+          record,
+          target.entityId,
+          toTransferDestination(target),
+        );
       }
 
       resetDrag();
@@ -1071,6 +1092,31 @@ function ContainerBlock({
       )}
     </ContainerHeader>
   );
+  const dropId = containerDropId(entityId, container.id);
+
+  // An empty container that is not in a hand folds down to its header: no
+  // capacity readout, no body, so a backpack full of empty sacks does not
+  // look full. The header is still the drop target.
+  if (dropScope === "block" && contents.length === 0) {
+    return (
+      <GearDropZone
+        dropId={dropId}
+        target={containerTarget}
+        className="cont cont-empty"
+      >
+        <ContainerHeader
+          container={container}
+          allRecords={records}
+          zoneKey={zoneKey}
+          index={index}
+          action={headerAction}
+        >
+          <span className="empty-label">empty</span>
+        </ContainerHeader>
+      </GearDropZone>
+    );
+  }
+
   const bodyClassName = `cbody${contents.length === 0 ? " empty" : ""}`;
   const body = (
     <RecordList
@@ -1081,7 +1127,6 @@ function ContainerBlock({
       emptyLabel="empty — drop here"
     />
   );
-  const dropId = containerDropId(entityId, container.id);
 
   // Body-only scope: the header row is left to whatever zone encloses the
   // block, so a hand keeps its own drop area above its held container.
@@ -1449,6 +1494,10 @@ function FloorTray({
   onCreateFloor: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const actions = useGearActions();
+  // Placing loot on the Floor is the GM's job; players move it off with a
+  // drag. Fail closed while the role is unresolved.
+  const canAddToFloor = actions.currentUserPartyRole === "gm";
 
   if (!floorEntity) {
     return (
@@ -1483,6 +1532,15 @@ function FloorTray({
             <b>{capacity.usedSlots}</b>{" "}
             {capacity.usedSlots === 1 ? "slot" : "slots"} to place
           </span>
+          {canAddToFloor ? (
+            <button
+              type="button"
+              className="add-link"
+              onClick={() => actions.onStartAddRecord(floorEntity)}
+            >
+              + Add item
+            </button>
+          ) : null}
           <button
             type="button"
             className="collapse"

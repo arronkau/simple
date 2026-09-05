@@ -23,10 +23,15 @@ import {
   getVisibleInventoryRecord,
   hasSecretIdentification,
 } from "./model/recordVisibility";
+import { getClassContentLookup } from "./model/classContent";
+import { getSpellLookup, type SpellEntry } from "./model/spellLibrary";
+import { sortInventoryRecordsBySortOrder } from "./model/inventoryRecords";
 import type {
   AuditLogEntry,
   CharacterAlignment,
   CharacterData,
+  CharacterSpell,
+  EntityId,
   InventoryRecord,
   InventoryRecordId,
   PartyRole,
@@ -35,6 +40,8 @@ import type {
   PartyHandDetail,
   PartyHandDisplay,
   PartyLitSource,
+  PartySpellDetail,
+  PartySpellDisplay,
   PartySpellLine,
 } from "./view-types";
 
@@ -88,6 +95,8 @@ export function formatPartyLanguages(character: CharacterData): string {
 export function formatPartySpellLines(
   character: CharacterData,
 ): PartySpellLine[] {
+  const classContent = getClassContentLookup(character.className);
+  const preferredListId = classContent.ok ? classContent.spellListId : undefined;
   const memorizedSpells = character.spells.filter(
     (spell) => spell.memorized > 0,
   );
@@ -97,14 +106,75 @@ export function formatPartySpellLines(
 
   return levels.map((level) => ({
     label: `L${level}`,
-    text: memorizedSpells
+    spells: memorizedSpells
       .filter((spell) => spell.level === level)
       .sort((left, right) => left.name.localeCompare(right.name))
-      .map((spell) =>
-        spell.memorized > 1 ? `${spell.name} ×${spell.memorized}` : spell.name,
-      )
-      .join(", "),
+      .map((spell) => getPartySpellDisplay(spell, preferredListId)),
   }));
+}
+
+function getPartySpellDisplay(
+  spell: CharacterSpell,
+  preferredListId: string | undefined,
+): PartySpellDisplay {
+  const lookup = getSpellLookup(spell.name, preferredListId);
+  const detail: PartySpellDetail = {};
+
+  if (lookup.ok) {
+    const meta = formatSpellLibraryMeta(lookup.spell);
+
+    if (meta) {
+      detail.meta = meta;
+    }
+
+    detail.libraryDescription = lookup.spell.description;
+  }
+
+  if (spell.description?.trim()) {
+    detail.description = spell.description;
+  }
+
+  return {
+    text:
+      spell.memorized > 1 ? `${spell.name} ×${spell.memorized}` : spell.name,
+    ...(Object.keys(detail).length > 0 ? { detail } : {}),
+  };
+}
+
+/** "Reversible · Duration 1 turn · Range 60′" — empty when the library entry
+ * carries none of those. */
+export function formatSpellLibraryMeta(spell: SpellEntry): string {
+  return [
+    spell.reversible ? "Reversible" : "",
+    spell.duration ? `Duration ${spell.duration}` : "",
+    spell.range ? `Range ${spell.range}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * The entity's equipped (held or worn) magic items, as the viewer may see
+ * them. Redaction decides visibility: a player's view of an unidentified item
+ * is a shell without `isMagic`, so unidentified magic shows to the GM only.
+ */
+export function formatPartyEquippedMagic(
+  entityId: EntityId,
+  records: InventoryRecord[],
+  viewerRole: PartyRole | null = null,
+): PartyHandDisplay[] {
+  return sortInventoryRecordsBySortOrder(
+    records.filter(
+      (record) =>
+        record.entityId === entityId && record.location.kind === "equipped",
+    ),
+  )
+    .filter((record) => {
+      const visible = getVisibleInventoryRecord(record, viewerRole);
+
+      return visible.recordType !== "coins" && visible.isMagic === true;
+    })
+    .map((record) => getPartyHandDisplay("", record, records, viewerRole));
 }
 
 export function formatPartyHands(

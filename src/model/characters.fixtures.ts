@@ -173,7 +173,7 @@ const richCharacterData: CharacterData = {
   },
   skills: [{ id: "skill-1", name: "Lore", chanceInSix: 2, description: "Old tales" }],
   spells: [
-    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, notes: "at dawn" },
+    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, description: "at dawn" },
     { id: "spell-web", name: "Web", level: 2, memorized: 1 },
   ],
   languages: ["Common", "Elvish"],
@@ -295,7 +295,7 @@ export const CHARACTER_MANUAL_FIXTURES = [
         name: "Sleep",
         level: 1,
         memorized: 1,
-        notes: "memorized at dawn",
+        description: "memorized at dawn",
       },
       {
         id: "spell-keep",
@@ -395,7 +395,7 @@ export const CHARACTER_MANUAL_FIXTURES = [
     expected: {
       ...richCharacterData,
       spells: [
-        { id: "spell-sleep", name: "Sleep", level: 1, memorized: 2, notes: "at dawn" },
+        { id: "spell-sleep", name: "Sleep", level: 1, memorized: 2, description: "at dawn" },
         { id: "spell-web", name: "Web", level: 2, memorized: 1 },
       ],
     },

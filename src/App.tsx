@@ -29,7 +29,11 @@ import { ManageDataModal } from "./modals/ManageDataModal";
 import { UserIdentityModal } from "./modals/UserIdentityModal";
 import { DeleteConfirmationModal } from "./modals/DeleteConfirmationModal";
 import { AuditPage } from "./audit/AuditPage";
-import { useAppStore, createPartyId } from "./store/useAppStore";
+import {
+  useAppStore,
+  createPartyId,
+  type TransferCoinsDestinationLocation,
+} from "./store/useAppStore";
 import {
   EMPTY_ENTITY_FORM,
   type CoinSpendFormState,
@@ -393,17 +397,20 @@ function LocalAppShell() {
   function requestCoinTransfer(
     record: InventoryRecord,
     destinationEntityId: EntityId,
+    destinationLocation: TransferCoinsDestinationLocation,
   ) {
     if (record.recordType !== "coins") {
       return;
     }
 
     // A dragged pile means "hand this over": prefill every denomination so the
-    // common case is one click, and a split is an edit away.
+    // common case is one click, and a split is an edit away. The drop target
+    // is where the coins land on the other side.
     setCoinTransferForm({
       sourceEntityId: record.entityId,
       sourceRecordId: record.id,
       destinationEntityId,
+      destinationLocation,
       amounts: toCoinSpendAmountInputs(record.coins),
       note: "",
     });
@@ -426,6 +433,7 @@ function LocalAppShell() {
       sourceEntityId: coinTransferForm.sourceEntityId,
       sourceRecordId: coinTransferForm.sourceRecordId,
       destinationEntityId: coinTransferForm.destinationEntityId,
+      destinationLocation: coinTransferForm.destinationLocation,
       amounts: toCoinSpendAmounts(coinTransferForm.amounts),
       note: coinTransferForm.note,
     });

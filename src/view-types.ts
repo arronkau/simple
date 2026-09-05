@@ -158,7 +158,7 @@ export type CharacterSpellFormState = {
   name: string;
   level: string;
   memorized: string;
-  notes: string;
+  description: string;
 };
 
 export type CharacterSheetFormState = {
@@ -189,6 +189,13 @@ export type CoinTransferFormState = {
   /** Draw from this coin record instead of the source entity's default one. */
   sourceRecordId?: InventoryRecordId;
   destinationEntityId: EntityId;
+  /** Where on the destination the coins land (set by a drag); absent means
+   * the destination's default coin record. Cleared when the destination
+   * entity is changed by hand. */
+  destinationLocation?: {
+    placement: InventoryRecordPlacementKey;
+    containerId?: InventoryRecordId;
+  };
   amounts: Record<CoinDenomination, string>;
   note: string;
 };
@@ -220,9 +227,23 @@ export type AppStateExport = {
 };
 
 /** One level's worth of memorized spells, e.g. label "L1", text "Sleep ×2". */
+/** Spell facts surfaced by the party table popover: library metadata and
+ * description when the name matches the library, plus the character's own
+ * description. */
+export type PartySpellDetail = {
+  meta?: string;
+  libraryDescription?: string;
+  description?: string;
+};
+
+export type PartySpellDisplay = {
+  text: string;
+  detail?: PartySpellDetail;
+};
+
 export type PartySpellLine = {
   label: string;
-  text: string;
+  spells: PartySpellDisplay[];
 };
 
 /** Extra hand-item facts surfaced by the party table popover. Secret fields
@@ -266,6 +287,9 @@ export type PartyOverviewCard = {
   litSources: PartyLitSource[];
   spellLines: PartySpellLine[];
   hands: PartyHandDisplay[];
+  /** Equipped magic items as the viewer may see them (unidentified ones are
+   * GM-only because the player-visible shell drops `isMagic`). */
+  magicItems: PartyHandDisplay[];
   validationIssues: ValidationIssue[];
   warningCount: number;
   warningSummary: string;

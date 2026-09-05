@@ -61,6 +61,7 @@ import {
   updateInventoryRecordFromInput,
   type InventoryRecordFormInput,
   type InventoryRecordLocationInput,
+  type InventoryRecordPlacementKey,
 } from "../model/inventoryRecords";
 import type {
   AuditLogEntryId,
@@ -204,10 +205,21 @@ export type SpendCoinsInput = {
 export type TransferCoinsInput = {
   amounts: Partial<CoinData>;
   destinationEntityId: EntityId;
+  /**
+   * Put the coins at this spot on the destination (a dragged drop target)
+   * instead of its default coin record: merged into the coin record already
+   * there, or a new one created there.
+   */
+  destinationLocation?: TransferCoinsDestinationLocation;
   note?: string;
   sourceEntityId: EntityId;
   /** Draw from this coin record instead of the entity's default one. */
   sourceRecordId?: InventoryRecordId;
+};
+
+export type TransferCoinsDestinationLocation = {
+  placement: InventoryRecordPlacementKey;
+  containerId?: InventoryRecordId;
 };
 
 export type InventoryMutationResult =
@@ -1738,10 +1750,40 @@ export const useAppStore = create<AppStore>((set) => ({
         return state;
       }
 
-      const destinationRecord = getDefaultCoinRecord(
-        destinationEntity.id,
-        state.appState.inventoryRecords,
-      );
+      let destinationLocationInput: InventoryRecordLocationInput | undefined;
+      let destinationRecord: InventoryRecord | undefined;
+
+      if (input.destinationLocation) {
+        destinationLocationInput = {
+          entityId: destinationEntity.id,
+          ...input.destinationLocation,
+        };
+
+        const locationResult = createInventoryLocation({
+          entity: destinationEntity,
+          recordType: "coins",
+          records: state.appState.inventoryRecords,
+          location: destinationLocationInput,
+        });
+
+        if (!locationResult.ok) {
+          result = { ok: false, message: locationResult.message };
+          return state;
+        }
+
+        destinationRecord = state.appState.inventoryRecords.find(
+          (record) =>
+            record.recordType === "coins" &&
+            record.entityId === destinationEntity.id &&
+            isSameInventoryLocation(record.location, locationResult.location),
+        );
+      } else {
+        destinationRecord = getDefaultCoinRecord(
+          destinationEntity.id,
+          state.appState.inventoryRecords,
+        );
+      }
+
       const previousSourceCoins = sourceRecord.coins;
       const nextSourceCoins: CoinData = {
         pp: sourceRecord.coins.pp - transferAmounts.amounts.pp,
@@ -1783,7 +1825,7 @@ export const useAppStore = create<AppStore>((set) => ({
           input: {
             recordType: "coins",
             coins: transferAmounts.amounts,
-            location: {
+            location: destinationLocationInput ?? {
               entityId: destinationEntity.id,
               placement: "default",
             },
@@ -2817,6 +2859,24 @@ function getPartyStateFromStoreState(
     partyId: state.partyId,
     userProfiles: state.userProfiles,
   });
+}
+
+function isSameInventoryLocation(
+  left: InventoryLocation,
+  right: InventoryLocation,
+): boolean {
+  if (left.kind !== right.kind) {
+    return false;
+  }
+
+  switch (left.kind) {
+    case "equipped":
+      return right.kind === "equipped" && left.placement === right.placement;
+    case "container":
+      return right.kind === "container" && left.containerId === right.containerId;
+    default:
+      return true;
+  }
 }
 
 function getStateUserRole(

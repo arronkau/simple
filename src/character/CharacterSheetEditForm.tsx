@@ -1,4 +1,11 @@
-import { type FormEvent, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ABILITY_SCORE_KEYS,
   ABILITY_SCORE_LABELS,
@@ -36,6 +43,17 @@ import {
 
 const SPELL_NAME_DATALIST_ID = "character-sheet-spell-names";
 const CLASS_NAME_DATALIST_ID = "character-sheet-class-names";
+/** Edits commit to the store this long after the last keystroke. */
+const AUTOSAVE_DELAY_MS = 400;
+
+type SaveStatus =
+  | { kind: "saved" }
+  | { kind: "pending" }
+  | { kind: "error"; message: string };
+
+function serializeCharacterData(characterData: CharacterData | undefined) {
+  return JSON.stringify(normalizeCharacterData(characterData));
+}
 
 function getSpellNameOptions(className: string): string[] {
   const classContent = getClassContentLookup(className);
@@ -67,33 +85,110 @@ export function CharacterSheetEditForm({
   ) => EntityMutationResult;
   onDone: () => void;
 }) {
-  const [formState, setFormState] = useState<CharacterSheetFormState>(() =>
+  const [formState, setFormStateRaw] = useState<CharacterSheetFormState>(() =>
     createCharacterSheetFormState(normalizeCharacterData(entity.character)),
   );
-  const [message, setMessage] = useState<
-    { tone: "error" | "success"; text: string } | undefined
-  >();
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>({ kind: "saved" });
+
+  // Auto-save: every edit schedules a debounced commit; Done and unmount
+  // flush whatever is still pending, so leaving the form never drops edits.
+  // Refs carry the latest values into timers and the unmount cleanup.
+  const formStateRef = useRef(formState);
+  formStateRef.current = formState;
+  const dirtyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // What this form last wrote, so the store echoing it back (local or via
+  // sync) is not mistaken for a remote edit.
+  const lastCommittedRef = useRef(serializeCharacterData(entity.character));
+  const commitRef = useRef<(state: CharacterSheetFormState) => boolean>(
+    () => true,
+  );
+
+  commitRef.current = (state) => {
+    const characterData = toCharacterDataFormInput(state);
+    const result = onSaveCharacterData(entity.id, characterData);
+
+    if (!result.ok) {
+      if (mountedRef.current) {
+        setSaveStatus({ kind: "error", message: result.message });
+      }
+      return false;
+    }
+
+    dirtyRef.current = false;
+    lastCommittedRef.current = serializeCharacterData(characterData);
+
+    if (mountedRef.current) {
+      setSaveStatus({ kind: "saved" });
+    }
+
+    return true;
+  };
+
+  function flushPendingSave(): boolean {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+
+    return dirtyRef.current ? commitRef.current(formStateRef.current) : true;
+  }
+
+  const setFormState = useCallback(
+    (next: SetStateAction<CharacterSheetFormState>) => {
+      setFormStateRaw(next);
+      dirtyRef.current = true;
+      setSaveStatus({ kind: "pending" });
+
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+
+      timerRef.current = setTimeout(() => {
+        timerRef.current = undefined;
+        commitRef.current(formStateRef.current);
+      }, AUTOSAVE_DELAY_MS);
+    },
+    [],
+  );
 
   useEffect(() => {
-    setFormState(
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      flushPendingSave();
+    };
+    // Runs once per mounted form; the parent keys the form by entity id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Adopt a change that arrived from elsewhere (another device, a quick
+  // control) — but only while nothing is pending here, and never for the echo
+  // of our own write.
+  useEffect(() => {
+    const incoming = serializeCharacterData(entity.character);
+
+    if (incoming === lastCommittedRef.current || dirtyRef.current) {
+      return;
+    }
+
+    lastCommittedRef.current = incoming;
+    setFormStateRaw(
       createCharacterSheetFormState(normalizeCharacterData(entity.character)),
     );
   }, [entity.character]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    handleDone();
+  }
 
-    const result = onSaveCharacterData(
-      entity.id,
-      toCharacterDataFormInput(formState),
-    );
-
-    if (!result.ok) {
-      setMessage({ tone: "error", text: result.message });
-      return;
+  function handleDone() {
+    if (flushPendingSave()) {
+      onDone();
     }
-
-    onDone();
   }
 
   function updateAbilityScore(key: AbilityScoreKey, value: string) {
@@ -156,15 +251,13 @@ export function CharacterSheetEditForm({
       <form className="character-sheet-form" onSubmit={handleSubmit}>
         <div className="record-form-heading">
           <h4>Edit Character Sheet</h4>
-          {message ? (
-            <p
-              className={
-                message.tone === "error" ? "form-error" : "form-success"
-              }
-            >
-              {message.text}
+          {saveStatus.kind === "error" ? (
+            <p className="form-error">{saveStatus.message}</p>
+          ) : (
+            <p className="form-save-status" role="status">
+              {saveStatus.kind === "pending" ? "Saving…" : "Saved"}
             </p>
-          ) : null}
+          )}
         </div>
 
         <section className="character-sheet-section">
@@ -359,14 +452,14 @@ export function CharacterSheetEditForm({
                     }
                   />
                   <label className="wide-field">
-                    <span>Notes</span>
-                    <input
-                      autoComplete="off"
-                      maxLength={160}
-                      type="text"
-                      value={spell.notes}
+                    <span>Description</span>
+                    <textarea
+                      rows={2}
+                      value={spell.description}
                       onChange={(event) =>
-                        updateSpell(spell.id, { notes: event.target.value })
+                        updateSpell(spell.id, {
+                          description: event.target.value,
+                        })
                       }
                     />
                   </label>
@@ -583,9 +676,8 @@ export function CharacterSheetEditForm({
         </section>
 
         <div className="record-form-actions">
-          <button type="submit">Save character sheet</button>
-          <button type="button" onClick={onDone}>
-            Cancel
+          <button type="button" onClick={handleDone}>
+            Done
           </button>
         </div>
       </form>

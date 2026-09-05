@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   closestCenter,
@@ -43,6 +44,7 @@ import {
   formatMovementPair,
   formatNullablePartyNumber,
   formatPartyClassLevel,
+  formatPartyEquippedMagic,
   formatPartyHands,
   formatPartyHp,
   formatPartyLanguages,
@@ -54,7 +56,11 @@ import {
   getPartyLitSources,
   isPartyMemberHurt,
 } from "../formatters";
-import type { PartyHandDisplay, PartyOverviewCard } from "../view-types";
+import type {
+  PartyHandDisplay,
+  PartyOverviewCard,
+  PartySpellDisplay,
+} from "../view-types";
 import { ItemStatusIcon } from "../components/InventoryIcons";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { getDisplayValidationIssues } from "../entity/EntityStatus";
@@ -256,6 +262,7 @@ function PartyHeaderCells() {
       <th className="pt-num">AC</th>
       <th className="pt-num">MV</th>
       <th className="pt-hands">Hands</th>
+      <th className="pt-magic">Magic</th>
       <th className="pt-spells">Spells</th>
       <th className="pt-languages">Languages</th>
     </>
@@ -382,11 +389,29 @@ function PartyRowCells({
           <PartyHandRow hand={hand} key={hand.label} />
         ))}
       </td>
+      <td className="pt-magic">
+        {card.magicItems.length === 0 ? (
+          <span className="empty-label">none</span>
+        ) : (
+          card.magicItems.map((item, index) => (
+            <div className="pt-hand" key={`${item.text}-${index}`}>
+              <PartyItemPopover item={item} />
+            </div>
+          ))
+        )}
+      </td>
       <td className="pt-spells">
         {card.spellLines.map((line) => (
           <div className="pt-spell-line" key={line.label}>
             <span className="pt-hlabel">{line.label}</span>
-            <span className="pt-spell-names">{line.text}</span>
+            <span className="pt-spell-names">
+              {line.spells.map((spell, index) => (
+                <Fragment key={`${spell.text}-${index}`}>
+                  {index > 0 ? ", " : null}
+                  <PartySpellPopover spell={spell} />
+                </Fragment>
+              ))}
+            </span>
           </div>
         ))}
       </td>
@@ -453,6 +478,51 @@ function PartySummary({ cards }: { cards: PartyOverviewCard[] }) {
 }
 
 function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
+  if (hand.text === null) {
+    return (
+      <div className="pt-hand">
+        <span className="pt-hlabel">{hand.label}</span>
+        <span className="empty-label">empty</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pt-hand">
+      <span className="pt-hlabel">{hand.label}</span>
+      <PartyItemPopover item={hand} />
+    </div>
+  );
+}
+
+/** A memorized spell: plain text, or click-to-show details when the library
+ * knows it or the character wrote a description. */
+function PartySpellPopover({ spell }: { spell: PartySpellDisplay }) {
+  if (!spell.detail) {
+    return <span>{spell.text}</span>;
+  }
+
+  return (
+    <details className="pt-hand-pop pt-spell-pop">
+      <summary className="pt-hand-item">{spell.text}</summary>
+      <div className="pt-hand-pop-panel">
+        {spell.detail.meta ? (
+          <p className="pt-pop-line mono">{spell.detail.meta}</p>
+        ) : null}
+        {spell.detail.libraryDescription ? (
+          <p className="pt-pop-line">{spell.detail.libraryDescription}</p>
+        ) : null}
+        {spell.detail.description ? (
+          <p className="pt-pop-line pt-pop-own">{spell.detail.description}</p>
+        ) : null}
+      </div>
+    </details>
+  );
+}
+
+/** An item name with its status glyphs; click-to-show details when there are
+ * any. Shared by the Hands and Magic columns. */
+function PartyItemPopover({ item: hand }: { item: PartyHandDisplay }) {
   const glyphs = hand.statuses.map((status) =>
     status === "lit" ? (
       <span className="dot lit" key={status} title="Lit" />
@@ -470,28 +540,17 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
     ),
   );
 
-  if (hand.text === null) {
-    return (
-      <div className="pt-hand">
-        <span className="pt-hlabel">{hand.label}</span>
-        <span className="empty-label">empty</span>
-      </div>
-    );
-  }
-
   if (!hand.detail) {
     return (
-      <div className="pt-hand">
-        <span className="pt-hlabel">{hand.label}</span>
+      <>
         <span className="pt-hand-item">{hand.text}</span>
         {glyphs}
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="pt-hand">
-      <span className="pt-hlabel">{hand.label}</span>
+    <>
       <details className="pt-hand-pop">
         <summary className="pt-hand-item">{hand.text}</summary>
         <div className="pt-hand-pop-panel">
@@ -518,7 +577,7 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
         </div>
       </details>
       {glyphs}
-    </div>
+    </>
   );
 }
 
@@ -586,6 +645,11 @@ export function getPartyOverviewCards(
               viewerRole,
             )
           : [],
+      magicItems: formatPartyEquippedMagic(
+        entity.id,
+        appState.inventoryRecords,
+        viewerRole,
+      ),
       ac: formatNullablePartyNumber(armorClass.armorClass),
       validationIssues,
       warningCount: warnings.length + validationIssues.length,

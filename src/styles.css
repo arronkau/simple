@@ -374,6 +374,13 @@ h5 {
   font-size: 11px;
 }
 
+/* Auto-save readout on the character sheet editor ("Saved" / "Saving…"). */
+.form-save-status {
+  margin: 0;
+  color: var(--gear-muted);
+  font-size: 12px;
+}
+
 /* ---- shared idiom utilities (match the gear page values exactly) ---- */
 
 .micro {
@@ -799,6 +806,24 @@ tr.pt-dragging {
 
 .pt-spells {
   min-width: 10rem;
+}
+
+/* Spell names sit inline in a comma list; a known spell is a popover. */
+.pt-spell-pop {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.pt-pop-own {
+  border-top: 1px dashed var(--gear-line-2);
+  padding-top: 5px;
+  color: var(--gear-ink);
+}
+
+/* ---- equipped magic column ---- */
+
+.pt-magic {
+  min-width: 9rem;
 }
 
 .pt-spell-line {
@@ -3178,6 +3203,11 @@ fieldset.record-form-body {
 .gear-page .cbody.empty {
   padding: 7px 0 7px 14px;
 }
+/* Empty, not held: the header is the whole block. */
+.gear-page .cont-empty .chead,
+.tray .cont-empty .chead {
+  margin-bottom: 0;
+}
 
 /* ---- item row ---- */
 .gear-page .item {
@@ -3506,6 +3536,13 @@ fieldset.record-form-body {
 }
 .tray .tmeta b {
   color: #fff;
+}
+.tray .add-link {
+  margin-left: auto;
+  color: #cfd3d9;
+}
+.tray .add-link + .collapse {
+  margin-left: 0;
 }
 .tray .collapse {
   margin-left: auto;

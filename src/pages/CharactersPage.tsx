@@ -234,6 +234,7 @@ export function CharactersPage({
                 />
               ) : (
                 <CharacterSheetEditForm
+                  key={selectedEntity.id}
                   entity={selectedEntity}
                   onDone={() => setSheetMode("read")}
                   onSaveCharacterData={onSaveCharacterData}

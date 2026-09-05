@@ -91,7 +91,8 @@ export type CharacterSpell = {
   name: string;
   level: number;
   memorized: number;
-  notes?: string;
+  /** Free text shown on demand (character sheet and party overview). */
+  description?: string;
 };
 
 export type CharacterData = {
