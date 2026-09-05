@@ -189,13 +189,6 @@ export type CoinTransferFormState = {
   /** Draw from this coin record instead of the source entity's default one. */
   sourceRecordId?: InventoryRecordId;
   destinationEntityId: EntityId;
-  /** Where on the destination the coins land (set by a drag); absent means
-   * the destination's default coin record. Cleared when the destination
-   * entity is changed by hand. */
-  destinationLocation?: {
-    placement: InventoryRecordPlacementKey;
-    containerId?: InventoryRecordId;
-  };
   amounts: Record<CoinDenomination, string>;
   note: string;
 };
@@ -226,7 +219,6 @@ export type AppStateExport = {
   data: AppState;
 };
 
-/** One level's worth of memorized spells, e.g. label "L1", text "Sleep ×2". */
 /** Spell facts surfaced by the party table popover: library metadata and
  * description when the name matches the library, plus the character's own
  * description. */
@@ -241,6 +233,7 @@ export type PartySpellDisplay = {
   detail?: PartySpellDetail;
 };
 
+/** One level's worth of memorized spells, e.g. label "L1", spells "Sleep ×2". */
 export type PartySpellLine = {
   label: string;
   spells: PartySpellDisplay[];
@@ -258,7 +251,10 @@ export type PartyHandDetail = {
 };
 
 export type PartyHandDisplay = {
+  /** Compact chip shown in the party table: "L", "R", "Both". */
   label: string;
+  /** The full placement name the chip abbreviates, used as its tooltip. */
+  title: string;
   text: string | null;
   statuses: InventoryRowStatus[];
   detail?: PartyHandDetail;
@@ -287,9 +283,6 @@ export type PartyOverviewCard = {
   litSources: PartyLitSource[];
   spellLines: PartySpellLine[];
   hands: PartyHandDisplay[];
-  /** Equipped magic items as the viewer may see them (unidentified ones are
-   * GM-only because the player-visible shell drops `isMagic`). */
-  magicItems: PartyHandDisplay[];
   validationIssues: ValidationIssue[];
   warningCount: number;
   warningSummary: string;

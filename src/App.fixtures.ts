@@ -313,35 +313,6 @@ const secretWandAppState: AppState = {
         secretDescription: "One missile per charge.",
       },
       uses: { current: 7 },
-      isMagic: true,
-    },
-    {
-      id: "secret-wand-ring",
-      recordType: "equipment",
-      name: "Ring of Protection +1",
-      entityId: secretWandCharacterId,
-      location: {
-        kind: "equipped",
-        placement: "loose",
-      },
-      sortOrder: 2,
-      quantity: 1,
-      burden: { kind: "none" },
-      isMagic: true,
-    },
-    {
-      id: "secret-wand-potion",
-      recordType: "equipment",
-      name: "Potion of Healing",
-      entityId: secretWandCharacterId,
-      location: {
-        kind: "container",
-        containerId: "secret-wand-backpack",
-      },
-      sortOrder: 3,
-      quantity: 1,
-      burden: { kind: "fixed", slotsPerItem: 1 },
-      isMagic: true,
     },
   ],
   auditLog: [],
@@ -502,11 +473,17 @@ export const APP_MANUAL_FIXTURES = [
         hands: [
           {
             label: "L",
+            title: "Left hand",
             text: "Torch",
             statuses: ["lit"],
             detail: { light: "30' radius" },
           },
-          { label: "R", text: "Shield", statuses: ["activeAc"] },
+          {
+            label: "R",
+            title: "Right hand",
+            text: "Shield",
+            statuses: ["activeAc"],
+          },
         ],
         warningCount: 0,
         warningSummary: "No warnings",
@@ -526,8 +503,8 @@ export const APP_MANUAL_FIXTURES = [
         litSources: [],
         spellLines: [],
         hands: [
-          { label: "L", text: null, statuses: [] },
-          { label: "R", text: null, statuses: [] },
+          { label: "L", title: "Left hand", text: null, statuses: [] },
+          { label: "R", title: "Right hand", text: null, statuses: [] },
         ],
         warningCount: 1,
         warningSummary: "1 warning",
@@ -545,15 +522,17 @@ export const APP_MANUAL_FIXTURES = [
       player: [
         {
           label: "L",
+          title: "Left hand",
           text: "Ivory wand",
           statuses: ["unidentified"],
           detail: { description: "Faintly warm." },
         },
-        { label: "R", text: null, statuses: [] },
+        { label: "R", title: "Right hand", text: null, statuses: [] },
       ],
       gm: [
         {
           label: "L",
+          title: "Left hand",
           text: "Ivory wand",
           statuses: ["unidentified"],
           detail: {
@@ -563,33 +542,7 @@ export const APP_MANUAL_FIXTURES = [
             secretDescription: "One missile per charge.",
           },
         },
-        { label: "R", text: null, statuses: [] },
-      ],
-    },
-  },
-  {
-    name: "party magic column lists equipped magic; unidentified only for the GM",
-    actual: {
-      player: getPartyOverviewCards(secretWandAppState, undefined, "player")[0]
-        .magicItems,
-      gm: getPartyOverviewCards(secretWandAppState, undefined, "gm")[0]
-        .magicItems,
-    },
-    expected: {
-      player: [{ label: "", text: "Ring of Protection +1", statuses: [] }],
-      gm: [
-        {
-          label: "",
-          text: "Ivory wand",
-          statuses: ["unidentified"],
-          detail: {
-            uses: "7 uses",
-            description: "Faintly warm.",
-            secretName: "Wand of Magic Missiles",
-            secretDescription: "One missile per charge.",
-          },
-        },
-        { label: "", text: "Ring of Protection +1", statuses: [] },
+        { label: "R", title: "Right hand", text: null, statuses: [] },
       ],
     },
   },
@@ -599,7 +552,13 @@ export const APP_MANUAL_FIXTURES = [
       ...createEmptyCharacterData(),
       className: "Sample Class",
       spells: [
-        { id: "s1", name: "Sample Spell", level: 1, memorized: 2, description: "Cast from the tower scroll." },
+        {
+          id: "s1",
+          name: "Sample Spell",
+          level: 1,
+          memorized: 2,
+          description: "Cast from the tower scroll.",
+        },
         { id: "s2", name: "Zorbo's Fizz", level: 1, memorized: 1 },
         { id: "s3", name: "Web", level: 2, memorized: 0 },
       ],

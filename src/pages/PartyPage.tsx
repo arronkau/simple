@@ -44,7 +44,6 @@ import {
   formatMovementPair,
   formatNullablePartyNumber,
   formatPartyClassLevel,
-  formatPartyEquippedMagic,
   formatPartyHands,
   formatPartyHp,
   formatPartyLanguages,
@@ -212,7 +211,7 @@ function ActivateDropZone() {
       ref={setNodeRef}
       className={`empty-state party-drop-strip${isOver ? " drop-over" : ""}`}
     >
-      No active characters — drag someone here to activate.
+      No active entities — drag someone here to activate.
     </p>
   );
 }
@@ -234,12 +233,12 @@ function BenchedSection({
       <h3 className="micro">Benched</h3>
       {benchedCards.length === 0 ? (
         <p className="empty-state party-drop-strip">
-          Drag a character here to bench them — splitting the party, staying in
+          Drag an entity here to bench it — splitting the party, staying in
           town, and so on.
         </p>
       ) : (
         <div className="party-table-scroll">
-          <table className="party-table" aria-label="Benched characters">
+          <table className="party-table" aria-label="Benched entities">
             <tbody>
               {benchedCards.map((card) => (
                 <DraggablePartyRow card={card} key={card.id}>
@@ -262,7 +261,6 @@ function PartyHeaderCells() {
       <th className="pt-num">AC</th>
       <th className="pt-num">MV</th>
       <th className="pt-hands">Hands</th>
-      <th className="pt-magic">Magic</th>
       <th className="pt-spells">Spells</th>
       <th className="pt-languages">Languages</th>
     </>
@@ -389,17 +387,6 @@ function PartyRowCells({
           <PartyHandRow hand={hand} key={hand.label} />
         ))}
       </td>
-      <td className="pt-magic">
-        {card.magicItems.length === 0 ? (
-          <span className="empty-label">none</span>
-        ) : (
-          card.magicItems.map((item, index) => (
-            <div className="pt-hand" key={`${item.text}-${index}`}>
-              <PartyItemPopover item={item} />
-            </div>
-          ))
-        )}
-      </td>
       <td className="pt-spells">
         {card.spellLines.map((line) => (
           <div className="pt-spell-line" key={line.label}>
@@ -478,51 +465,6 @@ function PartySummary({ cards }: { cards: PartyOverviewCard[] }) {
 }
 
 function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
-  if (hand.text === null) {
-    return (
-      <div className="pt-hand">
-        <span className="pt-hlabel">{hand.label}</span>
-        <span className="empty-label">empty</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="pt-hand">
-      <span className="pt-hlabel">{hand.label}</span>
-      <PartyItemPopover item={hand} />
-    </div>
-  );
-}
-
-/** A memorized spell: plain text, or click-to-show details when the library
- * knows it or the character wrote a description. */
-function PartySpellPopover({ spell }: { spell: PartySpellDisplay }) {
-  if (!spell.detail) {
-    return <span>{spell.text}</span>;
-  }
-
-  return (
-    <details className="pt-hand-pop pt-spell-pop">
-      <summary className="pt-hand-item">{spell.text}</summary>
-      <div className="pt-hand-pop-panel">
-        {spell.detail.meta ? (
-          <p className="pt-pop-line mono">{spell.detail.meta}</p>
-        ) : null}
-        {spell.detail.libraryDescription ? (
-          <p className="pt-pop-line">{spell.detail.libraryDescription}</p>
-        ) : null}
-        {spell.detail.description ? (
-          <p className="pt-pop-line pt-pop-own">{spell.detail.description}</p>
-        ) : null}
-      </div>
-    </details>
-  );
-}
-
-/** An item name with its status glyphs; click-to-show details when there are
- * any. Shared by the Hands and Magic columns. */
-function PartyItemPopover({ item: hand }: { item: PartyHandDisplay }) {
   const glyphs = hand.statuses.map((status) =>
     status === "lit" ? (
       <span className="dot lit" key={status} title="Lit" />
@@ -540,17 +482,34 @@ function PartyItemPopover({ item: hand }: { item: PartyHandDisplay }) {
     ),
   );
 
+  if (hand.text === null) {
+    return (
+      <div className="pt-hand">
+        <span className="pt-hlabel" title={hand.title}>
+          {hand.label}
+        </span>
+        <span className="empty-label">empty</span>
+      </div>
+    );
+  }
+
   if (!hand.detail) {
     return (
-      <>
+      <div className="pt-hand">
+        <span className="pt-hlabel" title={hand.title}>
+          {hand.label}
+        </span>
         <span className="pt-hand-item">{hand.text}</span>
         {glyphs}
-      </>
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="pt-hand">
+      <span className="pt-hlabel" title={hand.title}>
+        {hand.label}
+      </span>
       <details className="pt-hand-pop">
         <summary className="pt-hand-item">{hand.text}</summary>
         <div className="pt-hand-pop-panel">
@@ -577,7 +536,32 @@ function PartyItemPopover({ item: hand }: { item: PartyHandDisplay }) {
         </div>
       </details>
       {glyphs}
-    </>
+    </div>
+  );
+}
+
+/** A memorized spell stays compact until its library or character-written
+ * description is requested. */
+function PartySpellPopover({ spell }: { spell: PartySpellDisplay }) {
+  if (!spell.detail) {
+    return <span>{spell.text}</span>;
+  }
+
+  return (
+    <details className="pt-hand-pop pt-spell-pop">
+      <summary className="pt-hand-item">{spell.text}</summary>
+      <div className="pt-hand-pop-panel">
+        {spell.detail.meta ? (
+          <p className="pt-pop-line mono">{spell.detail.meta}</p>
+        ) : null}
+        {spell.detail.libraryDescription ? (
+          <p className="pt-pop-line">{spell.detail.libraryDescription}</p>
+        ) : null}
+        {spell.detail.description ? (
+          <p className="pt-pop-line pt-pop-own">{spell.detail.description}</p>
+        ) : null}
+      </div>
+    </details>
   );
 }
 
@@ -645,11 +629,6 @@ export function getPartyOverviewCards(
               viewerRole,
             )
           : [],
-      magicItems: formatPartyEquippedMagic(
-        entity.id,
-        appState.inventoryRecords,
-        viewerRole,
-      ),
       ac: formatNullablePartyNumber(armorClass.armorClass),
       validationIssues,
       warningCount: warnings.length + validationIssues.length,

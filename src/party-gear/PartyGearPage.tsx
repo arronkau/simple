@@ -79,7 +79,6 @@ import type {
 import {
   useAppStore,
   type InventoryMutationResult,
-  type TransferCoinsDestinationLocation,
 } from "../store/useAppStore";
 import {
   containerDropId,
@@ -125,24 +124,12 @@ export type GearActions = {
   onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
   /** Open the put-out dialog for a lit light source. */
   onSnuffRecord: (record: InventoryRecord) => void;
-  /** Open the take-all/take-some coin transfer modal for a dragged coin pile,
-   * aimed at the exact drop target (a sack, worn, contents). */
+  /** Open the take-all/take-some coin transfer modal for a dragged coin pile. */
   onRequestCoinTransfer: (
     record: InventoryRecord,
     destinationEntityId: EntityId,
-    destinationLocation: TransferCoinsDestinationLocation,
   ) => void;
 };
-
-/** The transfer destination a coin drop describes: the drop target without
- * its entity (the transfer names the entity separately). */
-function toTransferDestination(
-  target: GearDropTarget,
-): TransferCoinsDestinationLocation {
-  const { placement, containerId } = dropTargetToLocationInput(target);
-
-  return containerId ? { placement, containerId } : { placement };
-}
 
 /** The page's own board-level actions, added to what the shell passes in. */
 type GearBoardActions = GearActions & {
@@ -283,9 +270,7 @@ export function PartyGearPage(actions: GearActions) {
       activeData.recordId,
       overData.target.entityId,
     )
-      ? isHandPlacement(overData.target.placement)
-        ? { text: "blocked", invalid: true }
-        : { text: "→ transfer", invalid: false }
+      ? { text: "→ transfer", invalid: false }
       : projectMove(records, activeData.recordId, overData.target, entities);
 
     setDragState((state) => ({ ...state, overId, projection }));
@@ -316,14 +301,8 @@ export function PartyGearPage(actions: GearActions) {
     if (isCrossEntityCoinDrop(recordId, target.entityId)) {
       const record = getRecordById(recordId, records);
 
-      if (isHandPlacement(target.placement)) {
-        setDragMessage("Coins cannot be held in a hand.");
-      } else if (record) {
-        actions.onRequestCoinTransfer(
-          record,
-          target.entityId,
-          toTransferDestination(target),
-        );
+      if (record) {
+        actions.onRequestCoinTransfer(record, target.entityId);
       }
 
       resetDrag();
@@ -463,9 +442,14 @@ export function PartyGearPage(actions: GearActions) {
           onDragEnd={handleDragEnd}
           onDragCancel={() => resetDrag()}
         >
-          <div
+          <section
+            aria-labelledby="inventory-title"
             className={`gear-page${dragState.activeRecordId ? " dragging" : ""}`}
           >
+            <div className="section-heading">
+              <h2 id="inventory-title">Inventory</h2>
+            </div>
+
             <div className="gear-subbar">
               <div className="gear-legend">
                 <span className="leg">
@@ -523,7 +507,7 @@ export function PartyGearPage(actions: GearActions) {
                 </div>
               </div>
             ) : null}
-          </div>
+          </section>
 
           <FloorTray
             floorEntity={floorEntity}
@@ -665,10 +649,11 @@ function CharacterGearCard({
 
       <div className="zone ready-zone">
         <div className="zhead">
-          <span className="micro">Ready</span>
+          <span className="micro">Equipped</span>
         </div>
+        <div className="hands-label micro">Hands</div>
         <HandRows entityId={entity.id} sections={sections} records={records} />
-        <div className="worn-label micro">Worn</div>
+        <div className="worn-label micro">Other equipped</div>
         <WornZone
           entityId={entity.id}
           records={records}
@@ -707,7 +692,7 @@ function CharacterGearCard({
           className="add-link"
           onClick={() => actions.onStartAddRecord(entity)}
         >
-          + Add item
+          + Add record
         </button>
       </div>
     </article>
@@ -796,7 +781,7 @@ function ContentsGearCard({
           className="add-link"
           onClick={() => actions.onStartAddRecord(entity)}
         >
-          + Add item
+          + Add record
         </button>
       </div>
     </article>
@@ -860,7 +845,7 @@ function MovementBadge({
 }
 
 // ---------------------------------------------------------------------------
-// Ready zone
+// Equipped zone
 // ---------------------------------------------------------------------------
 
 function HandRows({
@@ -894,14 +879,14 @@ function HandRows({
       <HandSlot
         entityId={entityId}
         placement="leftHand"
-        label="Left"
+        label="Left hand"
         record={getRecordById(sections.handRecordIds.leftHand, records)}
         records={records}
       />
       <HandSlot
         entityId={entityId}
         placement="rightHand"
-        label="Right"
+        label="Right hand"
         record={getRecordById(sections.handRecordIds.rightHand, records)}
         records={records}
       />
@@ -1022,7 +1007,7 @@ function WornZone({
         target={target}
         records={worn}
         allRecords={records}
-        emptyLabel="nothing worn — drop here"
+        emptyLabel="nothing else equipped — drop here"
       />
     </GearDropZone>
   );
@@ -1092,31 +1077,6 @@ function ContainerBlock({
       )}
     </ContainerHeader>
   );
-  const dropId = containerDropId(entityId, container.id);
-
-  // An empty container that is not in a hand folds down to its header: no
-  // capacity readout, no body, so a backpack full of empty sacks does not
-  // look full. The header is still the drop target.
-  if (dropScope === "block" && contents.length === 0) {
-    return (
-      <GearDropZone
-        dropId={dropId}
-        target={containerTarget}
-        className="cont cont-empty"
-      >
-        <ContainerHeader
-          container={container}
-          allRecords={records}
-          zoneKey={zoneKey}
-          index={index}
-          action={headerAction}
-        >
-          <span className="empty-label">empty</span>
-        </ContainerHeader>
-      </GearDropZone>
-    );
-  }
-
   const bodyClassName = `cbody${contents.length === 0 ? " empty" : ""}`;
   const body = (
     <RecordList
@@ -1127,6 +1087,7 @@ function ContainerBlock({
       emptyLabel="empty — drop here"
     />
   );
+  const dropId = containerDropId(entityId, container.id);
 
   // Body-only scope: the header row is left to whatever zone encloses the
   // block, so a hand keeps its own drop area above its held container.
@@ -1172,6 +1133,7 @@ function ContainerHeader({
 }) {
   const actions = useGearActions();
   const visibleContainer = useVisibleRecord(container);
+  const containerDisplay = getInventoryRowDisplay(visibleContainer, allRecords);
   const drag = useContext(GearDragContext);
   const dragData: GearDragData = {
     type: "gear-record",
@@ -1202,10 +1164,11 @@ function ContainerHeader({
         className="cname"
         onClick={() => actions.onEditRecord(container)}
       >
-        {getInventoryRowDisplay(visibleContainer, allRecords).primaryText}
+        {containerDisplay.primaryText}
       </button>
       <StateGlyphs
         record={visibleContainer}
+        label={containerDisplay.primaryText}
         activeAc={isArmorClassActiveRecord(container)}
       />
       {children}
@@ -1369,6 +1332,7 @@ function RecordRowBody({
       </button>
       <StateGlyphs
         record={visibleRecord}
+        label={display.primaryText}
         activeAc={isArmorClassActiveRecord(record)}
       />
       {display.secondaryText ? (
@@ -1395,9 +1359,12 @@ function RecordRowBody({
  * for every viewer, so the caller computes it there and passes it in. */
 function StateGlyphs({
   record,
+  label,
   activeAc,
 }: {
   record: InventoryRecord;
+  /** The row's rendered display label, so aria labels read as the row does. */
+  label: string;
   activeAc: boolean;
 }) {
   const actions = useGearActions();
@@ -1415,7 +1382,7 @@ function StateGlyphs({
     <span className="rs-glyphs">
       {lightSource ? (
         <button
-          aria-label={lit ? `Put out ${record.name}` : `Light ${record.name}`}
+          aria-label={lit ? `Put out ${label}` : `Light ${label}`}
           aria-pressed={lit}
           className="light-toggle"
           data-lit={lit}

@@ -48,12 +48,38 @@ export type PartyState = {
   userProfiles: UserProfile[];
 };
 
+/** One party this device knows about. Local-only; never written to Firestore. */
+export type PartyIndexEntry = {
+  id: PartyId;
+  displayName: string;
+  lastOpenedAt: ISODateTimeString;
+};
+
 export type ParseResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string; path?: string };
 
+export type StoredPartyStateClassification =
+  | { status: "absent" }
+  | { status: "readable"; partyState: PartyState }
+  | { status: "unreadable" };
+
+export type LocalPartyStateReadResult = {
+  partyState: PartyState;
+  /** Key the unreadable raw value was copied to, when a backup was written. */
+  backupKey?: string;
+  /** Set when stored data could not be read; shown by the app shell. */
+  warning?: string;
+};
+
 export const APP_STATE_STORAGE_KEY = "simple.inventory.appState.v1";
 export const PARTY_STATE_STORAGE_KEY_PREFIX = "simple.inventory.partyState.v1.";
+export const CORRUPT_PARTY_STATE_STORAGE_KEY_PREFIX =
+  "simple.inventory.partyState.corrupt.v1.";
+export const PARTY_INDEX_STORAGE_KEY = "simple.inventory.parties.v1";
+
+// Seeded entries sort below anything actually opened on this device.
+const NEVER_OPENED_AT = "1970-01-01T00:00:00.000Z";
 
 export const EMPTY_APP_STATE: AppState = {
   schemaVersion: 1,
@@ -156,8 +182,12 @@ export function createPartyState({
 
 /**
  * Ensures a party has valid membership data keyed by Firebase Auth UID.
- * Called after loading a party — assigns the current user as GM if the party
- * has no membership yet (pragmatic migration for pre-permission parties).
+ * Assigns the current user as GM if the party has no membership yet (pragmatic
+ * migration for pre-permission parties). Only safe where the current user
+ * really does own the party: local-mode parties and the Firebase
+ * document-creation path. A Firebase client that has not read the remote
+ * document yet must use `repairPartyMembership` instead, or a non-member who
+ * merely opens the party URL becomes its GM locally.
  */
 export function migratePartyMembership(
   partyState: PartyState,
@@ -186,51 +216,184 @@ export function migratePartyMembership(
     };
   }
 
-  // gmUid exists but members record for GM is missing — repair
-  if (gmUid && (!members || !members[gmUid])) {
-    const now = new Date().toISOString() as ISODateTimeString;
-    const repairedMembers: PartyMembers = {
-      ...(members ?? {}),
-      [gmUid]: { role: "gm" as PartyRole, joinedAt: now },
-    };
-    return {
-      ...partyState,
-      party: { ...partyState.party, members: repairedMembers },
-    };
+  return repairPartyMembership(partyState);
+}
+
+/**
+ * Repairs a party whose `gmUid` has no matching `members` entry. Unlike
+ * `migratePartyMembership` it never hands GM to the current user, so it is safe
+ * for Firebase parties, where `gmUid` and `members` come from the remote
+ * document and a reader may be a player or no member at all.
+ */
+export function repairPartyMembership(partyState: PartyState): PartyState {
+  const { gmUid, members } = partyState.party;
+
+  if (!gmUid || (members && members[gmUid])) {
+    return partyState;
   }
 
-  return partyState;
+  const now = new Date().toISOString() as ISODateTimeString;
+  const repairedMembers: PartyMembers = {
+    ...(members ?? {}),
+    [gmUid]: { role: "gm" as PartyRole, joinedAt: now },
+  };
+
+  return {
+    ...partyState,
+    party: { ...partyState.party, members: repairedMembers },
+  };
+}
+
+/**
+ * Makes `uid` the GM of a party document that is about to be created. The
+ * Firestore create rule requires the creator to be both `party.gmUid` and a
+ * member, so any GM identity inherited from a local cache is replaced.
+ */
+export function assignPartyGm(
+  partyState: PartyState,
+  uid: string,
+  joinedAt: ISODateTimeString = new Date().toISOString() as ISODateTimeString,
+): PartyState {
+  const { gmUid, members } = partyState.party;
+
+  if (gmUid === uid && members?.[uid]?.role === "gm") {
+    return partyState;
+  }
+
+  const previousGmEntry = gmUid ? members?.[gmUid] : undefined;
+  const remainingMembers: PartyMembers = { ...(members ?? {}) };
+
+  if (gmUid && gmUid !== uid) {
+    delete remainingMembers[gmUid];
+  }
+
+  return {
+    ...partyState,
+    party: {
+      ...partyState.party,
+      gmUid: uid,
+      members: {
+        ...remainingMembers,
+        [uid]: {
+          role: "gm" as PartyRole,
+          joinedAt:
+            members?.[uid]?.joinedAt ?? previousGmEntry?.joinedAt ?? joinedAt,
+        },
+      },
+    },
+  };
 }
 
 export function getLocalPartyStateStorageKey(partyId: PartyId): string {
   return `${PARTY_STATE_STORAGE_KEY_PREFIX}${partyId}`;
 }
 
-export function readLocalPartyState(partyId: PartyId): PartyState {
-  if (!canUseLocalStorage()) {
-    return createPartyState({ partyId });
+export function getCorruptPartyStateStorageKey(
+  partyId: PartyId,
+  occurredAt: string,
+): string {
+  return `${CORRUPT_PARTY_STATE_STORAGE_KEY_PREFIX}${partyId}.${occurredAt}`;
+}
+
+/**
+ * Classifies a raw localStorage value for a party. "unreadable" means the
+ * string exists but is not usable party data (bad JSON, wrong party, or a shape
+ * `parsePartyState` rejects) — it must never be silently overwritten.
+ */
+export function classifyStoredPartyState(
+  storedValue: string | null | undefined,
+  partyId: PartyId,
+): StoredPartyStateClassification {
+  if (
+    storedValue === null ||
+    storedValue === undefined ||
+    storedValue.trim().length === 0
+  ) {
+    return { status: "absent" };
   }
+
+  let parsedPartyState: PartyState | undefined;
 
   try {
-    const storedValue = window.localStorage.getItem(
-      getLocalPartyStateStorageKey(partyId),
-    );
-
-    if (!storedValue) {
-      return createPartyState({ partyId });
-    }
-
-    const parsedValue: unknown = JSON.parse(storedValue);
-    const parsedPartyState = parsePartyState(parsedValue, partyId);
-
-    if (parsedPartyState) {
-      return parsedPartyState;
-    }
+    parsedPartyState = parsePartyState(JSON.parse(storedValue), partyId);
   } catch {
-    return createPartyState({ partyId });
+    return { status: "unreadable" };
   }
 
-  return createPartyState({ partyId });
+  return parsedPartyState
+    ? { status: "readable", partyState: parsedPartyState }
+    : { status: "unreadable" };
+}
+
+export function formatUnreadablePartyStateWarning(backupKey?: string): string {
+  const kept = backupKey
+    ? `it was kept in browser storage as "${backupKey}"`
+    : "a backup copy could not be saved";
+
+  return `Saved data for this party could not be read, so ${kept} and the party opened empty. Restore a JSON export from Manage → Import JSON.`;
+}
+
+/**
+ * Reads a party from localStorage, distinguishing "nothing stored" from
+ * "stored data could not be read". Unreadable data is copied to a timestamped
+ * backup key before the caller writes anything to the original key.
+ */
+export function readLocalPartyStateResult(
+  partyId: PartyId,
+): LocalPartyStateReadResult {
+  if (!canUseLocalStorage()) {
+    return { partyState: createPartyState({ partyId }) };
+  }
+
+  let storedValue: string | null = null;
+
+  try {
+    storedValue = window.localStorage.getItem(
+      getLocalPartyStateStorageKey(partyId),
+    );
+  } catch {
+    return { partyState: createPartyState({ partyId }) };
+  }
+
+  const classification = classifyStoredPartyState(storedValue, partyId);
+
+  if (classification.status === "readable") {
+    return { partyState: classification.partyState };
+  }
+
+  if (classification.status === "absent") {
+    return { partyState: createPartyState({ partyId }) };
+  }
+
+  const backupKey = backupUnreadablePartyState(partyId, storedValue ?? "");
+
+  return {
+    partyState: createPartyState({ partyId }),
+    ...(backupKey !== undefined ? { backupKey } : {}),
+    warning: formatUnreadablePartyStateWarning(backupKey),
+  };
+}
+
+export function readLocalPartyState(partyId: PartyId): PartyState {
+  return readLocalPartyStateResult(partyId).partyState;
+}
+
+function backupUnreadablePartyState(
+  partyId: PartyId,
+  storedValue: string,
+): string | undefined {
+  const backupKey = getCorruptPartyStateStorageKey(
+    partyId,
+    new Date().toISOString(),
+  );
+
+  try {
+    window.localStorage.setItem(backupKey, storedValue);
+    return backupKey;
+  } catch {
+    // Storage can fail in private contexts or when quota is exceeded.
+    return undefined;
+  }
 }
 
 export function writeLocalPartyState(partyState: PartyState): void {
@@ -246,6 +409,247 @@ export function writeLocalPartyState(partyState: PartyState): void {
   } catch {
     // Storage can fail in private contexts or when quota is exceeded.
   }
+}
+
+export function deleteLocalPartyState(partyId: PartyId): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(getLocalPartyStateStorageKey(partyId));
+  } catch {
+    // Storage can fail in private contexts.
+  }
+}
+
+// ---- Party index ----
+// A per-device list of the parties this browser knows about, so a party can be
+// reopened without its URL. It is local in both persistence modes: Firebase
+// holds party documents, not a per-user list of them.
+
+export function parsePartyIndex(value: unknown): PartyIndexEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const entries: PartyIndexEntry[] = [];
+
+  for (const candidateEntry of value) {
+    if (!isRecordLike(candidateEntry)) {
+      continue;
+    }
+
+    const { displayName, id, lastOpenedAt } = candidateEntry;
+
+    if (typeof id !== "string" || id.length === 0) {
+      continue;
+    }
+
+    if (entries.some((entry) => entry.id === id)) {
+      continue;
+    }
+
+    entries.push({
+      id,
+      displayName: normalizePartyDisplayName(
+        typeof displayName === "string" ? displayName : "",
+      ),
+      lastOpenedAt:
+        typeof lastOpenedAt === "string" && lastOpenedAt.length > 0
+          ? lastOpenedAt
+          : NEVER_OPENED_AT,
+    });
+  }
+
+  return sortPartyIndexEntries(entries);
+}
+
+export function upsertPartyIndexEntry(
+  entries: PartyIndexEntry[],
+  entry: PartyIndexEntry,
+): PartyIndexEntry[] {
+  return sortPartyIndexEntries([
+    ...entries.filter((candidateEntry) => candidateEntry.id !== entry.id),
+    {
+      id: entry.id,
+      displayName: normalizePartyDisplayName(entry.displayName),
+      lastOpenedAt: entry.lastOpenedAt,
+    },
+  ]);
+}
+
+export function removePartyIndexEntry(
+  entries: PartyIndexEntry[],
+  partyId: PartyId,
+): PartyIndexEntry[] {
+  return entries.filter((entry) => entry.id !== partyId);
+}
+
+/** Adds discovered parties the index does not list yet; known ids stay as they are. */
+export function seedPartyIndexEntries(
+  entries: PartyIndexEntry[],
+  discoveredEntries: PartyIndexEntry[],
+): PartyIndexEntry[] {
+  return discoveredEntries.reduce(
+    (seededEntries, discoveredEntry) =>
+      seededEntries.some((entry) => entry.id === discoveredEntry.id)
+        ? seededEntries
+        : upsertPartyIndexEntry(seededEntries, discoveredEntry),
+    entries,
+  );
+}
+
+/**
+ * Reads the party index, seeding it once from party states already stored on
+ * this device so parties created before the index existed stay reachable.
+ */
+export function readPartyIndex(): PartyIndexEntry[] {
+  if (!canUseLocalStorage()) {
+    return [];
+  }
+
+  let storedValue: string | null = null;
+
+  try {
+    storedValue = window.localStorage.getItem(PARTY_INDEX_STORAGE_KEY);
+  } catch {
+    return [];
+  }
+
+  if (storedValue !== null) {
+    try {
+      return parsePartyIndex(JSON.parse(storedValue));
+    } catch {
+      return [];
+    }
+  }
+
+  const seededEntries = seedPartyIndexEntries([], listStoredLocalParties());
+
+  writePartyIndex(seededEntries);
+
+  return seededEntries;
+}
+
+export function writePartyIndex(entries: PartyIndexEntry[]): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      PARTY_INDEX_STORAGE_KEY,
+      JSON.stringify(entries),
+    );
+  } catch {
+    // Storage can fail in private contexts or when quota is exceeded.
+  }
+}
+
+/** Every party with stored local state, used to seed the index once. */
+export function listStoredLocalParties(): PartyIndexEntry[] {
+  const entries: PartyIndexEntry[] = [];
+
+  if (!canUseLocalStorage()) {
+    return entries;
+  }
+
+  try {
+    const storage = window.localStorage;
+
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+
+      if (!key || !key.startsWith(PARTY_STATE_STORAGE_KEY_PREFIX)) {
+        continue;
+      }
+
+      const partyId = key.slice(PARTY_STATE_STORAGE_KEY_PREFIX.length);
+
+      if (partyId.length === 0) {
+        continue;
+      }
+
+      // Seeding must not write. Reading through `readLocalPartyState` would
+      // copy unreadable data to a backup key, so merely opening some other
+      // party would back up every broken one. An unreadable party is left out
+      // of the index; the backup is made when that party is actually opened.
+      const classification = classifyStoredPartyState(
+        storage.getItem(key),
+        partyId,
+      );
+
+      if (classification.status !== "readable") {
+        continue;
+      }
+
+      entries.push({
+        id: partyId,
+        displayName: classification.partyState.party.displayName,
+        lastOpenedAt: NEVER_OPENED_AT,
+      });
+    }
+  } catch {
+    return entries;
+  }
+
+  return entries;
+}
+
+export function rememberOpenedParty(
+  partyId: PartyId,
+  displayName: string,
+  openedAt: ISODateTimeString = new Date().toISOString(),
+): PartyIndexEntry[] {
+  const entries = upsertPartyIndexEntry(readPartyIndex(), {
+    id: partyId,
+    displayName,
+    lastOpenedAt: openedAt,
+  });
+
+  writePartyIndex(entries);
+
+  return entries;
+}
+
+export function renameIndexedParty(
+  partyId: PartyId,
+  displayName: string,
+): PartyIndexEntry[] {
+  const entries = readPartyIndex();
+  const existingEntry = entries.find((entry) => entry.id === partyId);
+  const renamedEntries = upsertPartyIndexEntry(entries, {
+    id: partyId,
+    displayName,
+    lastOpenedAt: existingEntry?.lastOpenedAt ?? new Date().toISOString(),
+  });
+
+  writePartyIndex(renamedEntries);
+
+  return renamedEntries;
+}
+
+export function forgetIndexedParty(partyId: PartyId): PartyIndexEntry[] {
+  const entries = removePartyIndexEntry(readPartyIndex(), partyId);
+
+  writePartyIndex(entries);
+
+  return entries;
+}
+
+function sortPartyIndexEntries(entries: PartyIndexEntry[]): PartyIndexEntry[] {
+  return [...entries].sort((leftEntry, rightEntry) => {
+    if (leftEntry.lastOpenedAt !== rightEntry.lastOpenedAt) {
+      return leftEntry.lastOpenedAt < rightEntry.lastOpenedAt ? 1 : -1;
+    }
+
+    if (leftEntry.displayName !== rightEntry.displayName) {
+      return leftEntry.displayName < rightEntry.displayName ? -1 : 1;
+    }
+
+    return leftEntry.id < rightEntry.id ? -1 : 1;
+  });
 }
 
 export function readLocalAppState(): AppState {

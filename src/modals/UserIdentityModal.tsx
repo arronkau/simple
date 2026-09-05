@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import type { UserProfile } from "../model/types";
 import type { UserProfileFormState } from "../view-types";
+import { Modal } from "../ui/Modal";
 
 export function UserIdentityModal({
   profile,
@@ -30,77 +31,63 @@ export function UserIdentityModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section
-        aria-label="User identity"
-        aria-modal="true"
-        className="modal-panel manage-modal"
-        role="dialog"
-      >
-        <form className="modal-form" onSubmit={handleSubmit}>
-          <div className="modal-header">
-            <div>
-              <h2>{profile ? "Edit User" : "Join Party"}</h2>
-              <p>Name yourself for this party.</p>
-            </div>
-            {required ? null : (
-              <button type="button" onClick={onCancel}>
-                Close
-              </button>
-            )}
-          </div>
+    <Modal
+      dismissible={!required}
+      subtitle={<p>Name yourself for this party.</p>}
+      title={profile ? "Edit user" : "Join party"}
+      onClose={onCancel}
+    >
+      <form className="modal-form" onSubmit={handleSubmit}>
+        <div className="modal-body">
+          <section className="manage-section">
+            <label>
+              <span>Display name</span>
+              <input
+                autoFocus
+                autoComplete="name"
+                value={formState.displayName}
+                onChange={(event) =>
+                  setFormState((currentState) => ({
+                    ...currentState,
+                    displayName: event.target.value,
+                  }))
+                }
+              />
+            </label>
 
-          <div className="modal-body">
-            <section className="manage-section">
-              <label>
-                <span>Display name</span>
-                <input
-                  autoFocus
-                  autoComplete="name"
-                  value={formState.displayName}
-                  onChange={(event) =>
-                    setFormState((currentState) => ({
-                      ...currentState,
-                      displayName: event.target.value,
-                    }))
-                  }
-                />
-              </label>
+            <label>
+              <span>Role</span>
+              <select
+                value={formState.role}
+                onChange={(event) =>
+                  setFormState((currentState) => ({
+                    ...currentState,
+                    role: event.target.value as "GM" | "Player",
+                  }))
+                }
+              >
+                <option value="Player">Player</option>
+                <option value="GM">GM</option>
+              </select>
+            </label>
 
-              <label>
-                <span>Role</span>
-                <select
-                  value={formState.role}
-                  onChange={(event) =>
-                    setFormState((currentState) => ({
-                      ...currentState,
-                      role: event.target.value as "GM" | "Player",
-                    }))
-                  }
-                >
-                  <option value="Player">Player</option>
-                  <option value="GM">GM</option>
-                </select>
-              </label>
+            {!displayNameValid ? (
+              <p className="form-error">Enter a display name.</p>
+            ) : null}
+          </section>
+        </div>
 
-              {!displayNameValid ? (
-                <p className="form-error">Enter a display name.</p>
-              ) : null}
-            </section>
-          </div>
-
-          <div className="modal-footer">
-            {required ? null : (
-              <button type="button" onClick={onCancel}>
-                Cancel
-              </button>
-            )}
-            <button disabled={!displayNameValid} type="submit">
-              Save user
+        <div className="modal-footer">
+          {required ? null : (
+            <button type="button" onClick={onCancel}>
+              Cancel
             </button>
-          </div>
-        </form>
-      </section>
-    </div>
+          )}
+          <button disabled={!displayNameValid} type="submit">
+            Save user
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

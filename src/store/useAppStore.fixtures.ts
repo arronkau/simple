@@ -2,7 +2,19 @@ import { createEmptyCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
 import { getUsableContainerRecords } from "../model/inventoryRecords";
 import { findTopLevelStowedContainerRecords } from "../model/validation";
-import { useAppStore } from "./useAppStore";
+import { PermissionError } from "../model/permissions";
+import {
+  PARTY_INDEX_STORAGE_KEY,
+  createPartyState,
+  getLocalPartyStateStorageKey,
+} from "../model/appState";
+import {
+  forgetDeletedParty,
+  formatPartyActionRefusal,
+  formatUnresolvedRoleMessage,
+  resolveActionRole,
+  useAppStore,
+} from "./useAppStore";
 
 useAppStore.getState().resetLocalState();
 
@@ -1874,7 +1886,7 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       ok: false,
-      message: "Players cannot edit hidden unidentified-item fields.",
+      message: "Players cannot edit hidden unidentified-record fields.",
     },
   },
   {
@@ -1931,7 +1943,7 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       ok: false,
-      message: "Players cannot edit hidden unidentified-item fields.",
+      message: "Players cannot edit hidden unidentified-record fields.",
     },
   },
   {
@@ -1944,7 +1956,7 @@ export const PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES = [
     },
     expected: {
       ok: false,
-      message: "Only the GM can edit an unidentified item.",
+      message: "Only the GM can edit an unidentified record.",
     },
   },
   {
@@ -1995,7 +2007,8 @@ const promoEntityId = useAppStore.getState().createEntity({
   entityType: "character",
 });
 
-// Simulate what the fixed onAuthUserId does when Firebase UID arrives.
+// Simulate GM identity arriving under the Firebase UID, as the party
+// document-creation path and the first remote snapshot do.
 {
   const s = useAppStore.getState();
   const prev = s.currentUserId;
@@ -2165,7 +2178,13 @@ const quickAdjustBaseline = {
     { id: "skill-1", name: "Lore", chanceInSix: 2, description: "Old tales" },
   ],
   spells: [
-    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, description: "at dawn" },
+    {
+      id: "spell-sleep",
+      name: "Sleep",
+      level: 1,
+      memorized: 1,
+      description: "at dawn",
+    },
     { id: "spell-web", name: "Web", level: 2, memorized: 1 },
   ],
   languages: ["Common", "Elvish"],
@@ -2342,100 +2361,7 @@ const coinDrainFloorCoinRecords = useAppStore
       record.recordType === "coins" && record.entityId === coinDrainFloorId,
   );
 
-// A dragged coin drop names where the coins land on the other side: a worn
-// sack here. The first transfer creates a pile in the sack, the second merges
-// into it, and a hand is rejected the way any coin placement in a hand is.
-const coinTargetReceiverId = useAppStore.getState().createEntity({
-  name: "Receiver",
-  entityType: "character",
-});
-const coinTargetSackResult = coinTargetReceiverId
-  ? useAppStore.getState().createInventoryRecord(coinTargetReceiverId, {
-      recordType: "equipment",
-      name: "Sack",
-      container: { capacitySlots: 6 },
-      location: { entityId: coinTargetReceiverId, placement: "equippedLoose" },
-    })
-  : { ok: false as const, message: "setup failed" };
-const coinTargetSackId = coinTargetSackResult.ok
-  ? coinTargetSackResult.recordId
-  : undefined;
-const coinTargetSourcePileResult = coinDrainCharacterId
-  ? useAppStore.getState().createInventoryRecord(coinDrainCharacterId, {
-      recordType: "coins",
-      coins: { gp: 10 },
-    })
-  : { ok: false as const, message: "setup failed" };
-const coinTargetSourcePileId = coinTargetSourcePileResult.ok
-  ? coinTargetSourcePileResult.recordId
-  : undefined;
-const coinTargetFirstResult =
-  coinDrainCharacterId && coinTargetReceiverId && coinTargetSackId
-    ? useAppStore.getState().transferCoins({
-        sourceEntityId: coinDrainCharacterId,
-        sourceRecordId: coinTargetSourcePileId,
-        destinationEntityId: coinTargetReceiverId,
-        destinationLocation: {
-          placement: "container",
-          containerId: coinTargetSackId,
-        },
-        amounts: { gp: 3 },
-      })
-    : { ok: false as const, message: "setup failed" };
-const coinTargetSecondResult =
-  coinDrainCharacterId && coinTargetReceiverId && coinTargetSackId
-    ? useAppStore.getState().transferCoins({
-        sourceEntityId: coinDrainCharacterId,
-        sourceRecordId: coinTargetSourcePileId,
-        destinationEntityId: coinTargetReceiverId,
-        destinationLocation: {
-          placement: "container",
-          containerId: coinTargetSackId,
-        },
-        amounts: { gp: 2 },
-      })
-    : { ok: false as const, message: "setup failed" };
-const coinTargetHandResult =
-  coinDrainCharacterId && coinTargetReceiverId
-    ? useAppStore.getState().transferCoins({
-        sourceEntityId: coinDrainCharacterId,
-        sourceRecordId: coinTargetSourcePileId,
-        destinationEntityId: coinTargetReceiverId,
-        destinationLocation: { placement: "leftHand" },
-        amounts: { gp: 1 },
-      })
-    : { ok: false as const, message: "setup failed" };
-const coinTargetReceiverCoinRecords = useAppStore
-  .getState()
-  .appState.inventoryRecords.filter(
-    (record) =>
-      record.recordType === "coins" && record.entityId === coinTargetReceiverId,
-  );
-
 export const COIN_DRAIN_STORE_MANUAL_FIXTURES = [
-  {
-    name: "transfer with a destination location lands in that container and merges on repeat",
-    actual: {
-      firstOk: coinTargetFirstResult.ok,
-      secondOk: coinTargetSecondResult.ok,
-      hand: coinTargetHandResult,
-      receiverPiles: coinTargetReceiverCoinRecords.map((record) => ({
-        location: record.location,
-        coins: record.recordType === "coins" ? record.coins : undefined,
-      })),
-    },
-    expected: {
-      firstOk: true,
-      secondOk: true,
-      hand: { ok: false, message: "Coins cannot be held in a hand." },
-      receiverPiles: [
-        {
-          location: { kind: "container", containerId: coinTargetSackId },
-          coins: { pp: 0, gp: 5, sp: 0, cp: 0 },
-        },
-      ],
-    },
-  },
   {
     name: "spend that empties a character pile removes the record",
     actual: {
@@ -2488,3 +2414,246 @@ export const COIN_DRAIN_STORE_MANUAL_FIXTURES = [
     },
   },
 ];
+
+// --- Role resolution for store actions ---
+
+export const ACTION_ROLE_STORE_MANUAL_FIXTURES = [
+  {
+    name: "local mode treats an unresolved role as a player",
+    actual: resolveActionRole(null, "local"),
+    expected: "player",
+  },
+  {
+    name: "Firebase mode refuses an unresolved role instead of downgrading it",
+    actual: resolveActionRole(null, "firebase"),
+    expected: null,
+  },
+  {
+    name: "a resolved role is used in both persistence modes",
+    actual: {
+      local: resolveActionRole("gm", "local"),
+      firebase: resolveActionRole("player", "firebase"),
+    },
+    expected: { local: "gm", firebase: "player" },
+  },
+  {
+    name: "denied party read explains that membership is missing",
+    actual: formatUnresolvedRoleMessage("error"),
+    expected:
+      "You are not a member of this party. Ask the GM for an invite link.",
+  },
+  {
+    name: "unresolved role before the first snapshot asks the user to wait",
+    actual: formatUnresolvedRoleMessage("syncing"),
+    expected: "This party has not finished loading. Try again in a moment.",
+  },
+  {
+    name: "a refused party action reports GM-only for a player",
+    actual: formatPartyActionRefusal(
+      new PermissionError("Requires GM role.", "gm-only"),
+      "Only the GM can clear the audit log.",
+    ),
+    expected: "Only the GM can clear the audit log.",
+  },
+  {
+    name: "a refused party action keeps the unresolved-role explanation",
+    actual: formatPartyActionRefusal(
+      new PermissionError(
+        "You are not a member of this party. Ask the GM for an invite link.",
+        "not-party-member",
+      ),
+      "Only the GM can clear the audit log.",
+    ),
+    expected:
+      "You are not a member of this party. Ask the GM for an invite link.",
+  },
+];
+
+// --- Party management phase (create / forget / delete) ---
+// Storage is unavailable in this environment, so the party index stays empty;
+// what is asserted here is the store's own create/forget/delete contract.
+
+useAppStore.setState({
+  currentUserId: "uid-gm",
+  gmUid: "uid-gm",
+  members: {
+    "uid-gm": { role: "gm" as const },
+    "uid-player": { role: "player" as const },
+  },
+});
+
+const partyManagementCurrentId = useAppStore.getState().partyId;
+const partyManagementCreatedId = useAppStore.getState().createParty();
+const partyManagementForgetCurrentResult = useAppStore
+  .getState()
+  .forgetParty(partyManagementCurrentId);
+const partyManagementForgetOtherResult = useAppStore
+  .getState()
+  .forgetParty(partyManagementCreatedId);
+
+useAppStore.setState({ currentUserId: "uid-player" });
+const partyManagementPlayerDeleteResult = await useAppStore
+  .getState()
+  .deleteCurrentParty();
+
+useAppStore.setState({ currentUserId: "uid-gm" });
+const partyManagementGmDeleteResult = await useAppStore
+  .getState()
+  .deleteCurrentParty();
+
+export const PARTY_MANAGEMENT_STORE_MANUAL_FIXTURES = [
+  {
+    name: "createParty returns a new party id and leaves the open party alone",
+    actual: {
+      createdIsNew: partyManagementCreatedId !== partyManagementCurrentId,
+      createdIsPartyId: partyManagementCreatedId.startsWith("party-"),
+      openPartyUnchanged:
+        useAppStore.getState().partyId === partyManagementCurrentId,
+    },
+    expected: {
+      createdIsNew: true,
+      createdIsPartyId: true,
+      openPartyUnchanged: true,
+    },
+  },
+  {
+    name: "forgetting the open party is refused, forgetting another is not",
+    actual: {
+      current: partyManagementForgetCurrentResult,
+      other: partyManagementForgetOtherResult,
+    },
+    expected: {
+      current: {
+        ok: false,
+        message: "Open another party before forgetting this one.",
+      },
+      other: { ok: true },
+    },
+  },
+  {
+    name: "only the GM can delete the open party",
+    actual: {
+      player: partyManagementPlayerDeleteResult,
+      gmOk: partyManagementGmDeleteResult.ok,
+      gmOpensAnotherParty: partyManagementGmDeleteResult.ok
+        ? partyManagementGmDeleteResult.nextPartyId !== partyManagementCurrentId
+        : false,
+    },
+    expected: {
+      player: { ok: false, message: "Only the GM can delete this party." },
+      gmOk: true,
+      gmOpensAnotherParty: true,
+    },
+  },
+];
+
+// --- Forgetting a party the GM deleted while this client was subscribed ---
+// The store reads localStorage at call time, so a memory storage stands in for
+// the browser's.
+
+// Pinned here on purpose: the store owns this key, and the cleanup is only
+// correct if it clears exactly it.
+const LAST_PARTY_ID_KEY = "simple.inventory.lastPartyId.v1";
+
+const deletedPartyRun = withMemoryLocalStorage((localStorage) => {
+  localStorage.setItem(LAST_PARTY_ID_KEY, "party-gone");
+  localStorage.setItem(
+    PARTY_INDEX_STORAGE_KEY,
+    JSON.stringify([
+      {
+        id: "party-gone",
+        displayName: "Gone",
+        lastOpenedAt: "2026-09-05T09:00:00.000Z",
+      },
+      {
+        id: "party-kept",
+        displayName: "Kept",
+        lastOpenedAt: "2026-09-04T09:00:00.000Z",
+      },
+    ]),
+  );
+  localStorage.setItem(
+    getLocalPartyStateStorageKey("party-gone"),
+    JSON.stringify(createPartyState({ partyId: "party-gone" })),
+  );
+  localStorage.setItem(
+    getLocalPartyStateStorageKey("party-kept"),
+    JSON.stringify(createPartyState({ partyId: "party-kept" })),
+  );
+
+  const parties = forgetDeletedParty("party-gone");
+
+  return {
+    parties,
+    lastPartyId: localStorage.getItem(LAST_PARTY_ID_KEY),
+    deletedStateRemains:
+      localStorage.getItem(getLocalPartyStateStorageKey("party-gone")) !== null,
+    keptStateRemains:
+      localStorage.getItem(getLocalPartyStateStorageKey("party-kept")) !== null,
+  };
+});
+
+const deletedOtherPartyRun = withMemoryLocalStorage((localStorage) => {
+  localStorage.setItem(LAST_PARTY_ID_KEY, "party-open");
+  localStorage.setItem(PARTY_INDEX_STORAGE_KEY, JSON.stringify([]));
+
+  forgetDeletedParty("party-gone");
+
+  return localStorage.getItem(LAST_PARTY_ID_KEY);
+});
+
+export const DELETED_PARTY_CLEANUP_STORE_MANUAL_FIXTURES = [
+  {
+    name: "a remotely deleted party is dropped from the index, cache, and last-opened id",
+    actual: deletedPartyRun,
+    expected: {
+      parties: [
+        {
+          id: "party-kept",
+          displayName: "Kept",
+          lastOpenedAt: "2026-09-04T09:00:00.000Z",
+        },
+      ],
+      lastPartyId: null,
+      deletedStateRemains: false,
+      keptStateRemains: true,
+    },
+  },
+  {
+    name: "deleting a party that is not the last-opened one leaves that id alone",
+    actual: deletedOtherPartyRun,
+    expected: "party-open",
+  },
+];
+
+function withMemoryLocalStorage<T>(run: (localStorage: Storage) => T): T {
+  const globalValue = globalThis as unknown as { window?: Window };
+  const previousWindow = globalValue.window;
+  const values = new Map<string, string>();
+  const localStorage: Storage = {
+    get length() {
+      return values.size;
+    },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+  };
+
+  globalValue.window = { localStorage } as Window;
+
+  try {
+    return run(localStorage);
+  } finally {
+    if (previousWindow) {
+      globalValue.window = previousWindow;
+    } else {
+      delete globalValue.window;
+    }
+  }
+}

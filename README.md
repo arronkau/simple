@@ -10,13 +10,14 @@ A small TTRPG character, party, and inventory tracker built for table use.
 - Inventory tracking for weapons, armor, equipment, treasure, coins, and containers.
 - Slot-based encumbrance with separate equipped and stowed burden.
 - Movement warnings for overloaded characters and containers.
-- Character-like inventory sections for hands, equipped gear, backpack, and stowed containers.
+- Character-like inventory sections for equipped gear (hands and other equipped) and stowed containers.
 - Simpler contents inventory for mounts, vehicles, and storage.
-- A "Party Gear" board (Ready / Stowed) with drag-and-drop repacking and a "Floor" loot-staging bar. Drag-and-drop is an intended feature that reuses the same validated move and encumbrance logic as the non-drag workflows.
+- An "Inventory" board (Equipped / Stowed) with drag-and-drop repacking and a "Floor" loot-staging bar. Drag-and-drop is an intended feature that reuses the same validated move and encumbrance logic as the non-drag workflows.
 - Add and edit modals for entities and inventory records.
 - Audit log for significant party and inventory changes.
+- Party management in Manage: create a party, switch to a recent one, forget one on this device, or delete the open party as the GM.
 - Local-only mode with `localStorage`.
-- Optional Firebase anonymous auth and Firestore sync when configured.
+- Optional Firebase anonymous auth and Firestore sync when configured, tolerant of a dropped connection: edits are cached offline, failed writes retry on a backoff, and a refused write is rolled back.
 
 ## Tech Stack
 
@@ -59,6 +60,14 @@ npm run build
 ```bash
 npm run typecheck
 ```
+
+### Test
+
+```bash
+npm run test
+```
+
+Bundles and runs the manual fixture suite (`src/run-fixtures.test.ts`). There is no test framework and no single-test runner; the whole suite runs together.
 
 ## Configuration
 
@@ -104,8 +113,10 @@ The main project documents are:
 - `APP_SPEC.md` — app goals, constraints, stack, and persistence behavior.
 - `MODEL_SPEC.md` — canonical data model and rule calculations.
 - `ENCUMBRANCE_SPEC.md` — encumbrance rules and expected behavior.
-- `GEAR_VIEW_SPEC.md` — the Party Gear board, the Floor, and the drag-and-drop contract (view + interaction only).
-- `TASKS.md` — current implementation priorities and sequencing.
+- `GEAR_VIEW_SPEC.md` — the Inventory board (Party Gear internally), the Floor, and the drag-and-drop contract (view + interaction only).
+- `SYNC_SPEC.md` — the Firestore document shape, field-level writes, and sync failure handling.
+- `CONTENT_GUIDE.md` — how to author the bundled rule-content JSON libraries.
+- `TASKS.md` — what is done, in progress, and open, plus the post-1.0 list.
 
 Use these documents as the source of truth when changing behavior.
 

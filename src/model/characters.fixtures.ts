@@ -107,6 +107,13 @@ const legacySpellsCharacterData = normalizeCharacterData({
   className: "Magic-User",
   spells: [
     { name: "Sleep", level: 1, memorized: 1, notes: "memorized at dawn" },
+    {
+      name: "Read Magic",
+      level: 1,
+      memorized: 0,
+      description: "Copied from the tower scroll.",
+      notes: "older text should lose",
+    },
     { id: "spell-keep", name: "Charm Person", level: 1, memorized: 0 },
     { name: "", level: 2, memorized: 1 },
     { name: "Web", level: "two", memorized: -3 },
@@ -173,7 +180,13 @@ const richCharacterData: CharacterData = {
   },
   skills: [{ id: "skill-1", name: "Lore", chanceInSix: 2, description: "Old tales" }],
   spells: [
-    { id: "spell-sleep", name: "Sleep", level: 1, memorized: 1, description: "at dawn" },
+    {
+      id: "spell-sleep",
+      name: "Sleep",
+      level: 1,
+      memorized: 1,
+      description: "at dawn",
+    },
     { id: "spell-web", name: "Web", level: 2, memorized: 1 },
   ],
   languages: ["Common", "Elvish"],
@@ -298,13 +311,20 @@ export const CHARACTER_MANUAL_FIXTURES = [
         description: "memorized at dawn",
       },
       {
+        id: "spell-2",
+        name: "Read Magic",
+        level: 1,
+        memorized: 0,
+        description: "Copied from the tower scroll.",
+      },
+      {
         id: "spell-keep",
         name: "Charm Person",
         level: 1,
         memorized: 0,
       },
       {
-        id: "spell-4",
+        id: "spell-5",
         name: "Web",
         level: 1,
         memorized: 0,
@@ -395,7 +415,13 @@ export const CHARACTER_MANUAL_FIXTURES = [
     expected: {
       ...richCharacterData,
       spells: [
-        { id: "spell-sleep", name: "Sleep", level: 1, memorized: 2, description: "at dawn" },
+        {
+          id: "spell-sleep",
+          name: "Sleep",
+          level: 1,
+          memorized: 2,
+          description: "at dawn",
+        },
         { id: "spell-web", name: "Web", level: 2, memorized: 1 },
       ],
     },

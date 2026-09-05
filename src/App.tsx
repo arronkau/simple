@@ -4,6 +4,7 @@ import {
   NavLink,
   Route,
   Routes,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 import {
@@ -32,7 +33,7 @@ import { AuditPage } from "./audit/AuditPage";
 import {
   useAppStore,
   createPartyId,
-  type TransferCoinsDestinationLocation,
+  type PartyActionResult,
 } from "./store/useAppStore";
 import {
   EMPTY_ENTITY_FORM,
@@ -70,10 +71,15 @@ function LocalAppShell() {
   const partyDisplayName = useAppStore((state) => state.partyDisplayName);
   const activePartyId = useAppStore((state) => state.partyId);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
+  const storageWarning = useAppStore((state) => state.storageWarning);
   const syncError = useAppStore((state) => state.syncError);
   const syncStatus = useAppStore((state) => state.syncStatus);
   const renameParty = useAppStore((state) => state.renameParty);
   const setCurrentParty = useAppStore((state) => state.setCurrentParty);
+  const parties = useAppStore((state) => state.parties);
+  const createParty = useAppStore((state) => state.createParty);
+  const forgetParty = useAppStore((state) => state.forgetParty);
+  const deleteCurrentParty = useAppStore((state) => state.deleteCurrentParty);
   const updateCurrentUserProfile = useAppStore(
     (state) => state.updateCurrentUserProfile,
   );
@@ -116,6 +122,7 @@ function LocalAppShell() {
   const inviteCode = useAppStore((state) => state.inviteCode);
   const authAccount = useAppStore((state) => state.authAccount);
   const regenerateInviteCode = useAppStore((state) => state.regenerateInviteCode);
+  const clearAuditLog = useAppStore((state) => state.clearAuditLog);
   const signInWithGoogle = useAppStore((state) => state.signInWithGoogle);
   const signOutAccount = useAppStore((state) => state.signOutAccount);
   const currentUserPartyRole = gmUid && members
@@ -162,6 +169,7 @@ function LocalAppShell() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<
     DeleteConfirmationState | undefined
   >();
+  const navigate = useNavigate();
   const currentUserProfile = userProfiles.find(
     (profile) => profile.id === currentUserId,
   );
@@ -195,6 +203,26 @@ function LocalAppShell() {
 
   if (!partyId) {
     return <Navigate to={`/party/${createPartyId()}`} replace />;
+  }
+
+  function createAndOpenParty() {
+    const newPartyId = createParty();
+
+    setManageModalOpen(false);
+    navigate(`/party/${newPartyId}`);
+  }
+
+  async function deleteCurrentPartyAndLeave(): Promise<PartyActionResult> {
+    const result = await deleteCurrentParty();
+
+    if (!result.ok) {
+      return result;
+    }
+
+    setManageModalOpen(false);
+    navigate(`/party/${result.nextPartyId}`);
+
+    return { ok: true };
   }
 
   function openIdentityModal() {
@@ -397,20 +425,17 @@ function LocalAppShell() {
   function requestCoinTransfer(
     record: InventoryRecord,
     destinationEntityId: EntityId,
-    destinationLocation: TransferCoinsDestinationLocation,
   ) {
     if (record.recordType !== "coins") {
       return;
     }
 
     // A dragged pile means "hand this over": prefill every denomination so the
-    // common case is one click, and a split is an edit away. The drop target
-    // is where the coins land on the other side.
+    // common case is one click, and a split is an edit away.
     setCoinTransferForm({
       sourceEntityId: record.entityId,
       sourceRecordId: record.id,
       destinationEntityId,
-      destinationLocation,
       amounts: toCoinSpendAmountInputs(record.coins),
       note: "",
     });
@@ -433,7 +458,6 @@ function LocalAppShell() {
       sourceEntityId: coinTransferForm.sourceEntityId,
       sourceRecordId: coinTransferForm.sourceRecordId,
       destinationEntityId: coinTransferForm.destinationEntityId,
-      destinationLocation: coinTransferForm.destinationLocation,
       amounts: toCoinSpendAmounts(coinTransferForm.amounts),
       note: coinTransferForm.note,
     });
@@ -492,6 +516,9 @@ function LocalAppShell() {
               {formatPersistenceSummary(persistenceMode, syncStatus)}
             </p>
             <h1 id="app-title">{partyDisplayName}</h1>
+            {storageWarning ? (
+              <p className="sync-message">{storageWarning}</p>
+            ) : null}
             {syncError ? <p className="sync-message">{syncError}</p> : null}
           </div>
           <div className="header-actions">
@@ -554,8 +581,8 @@ function LocalAppShell() {
               <CharactersPage
                 appState={appState}
                 sortedEntities={sortedEntities}
-                onEditEntity={startEditing}
                 onSaveCharacterData={updateCharacterData}
+                onUpdateEntity={updateEntity}
                 onAdjustHp={adjustCharacterHp}
                 onAdjustXp={adjustCharacterXp}
                 onAdjustSpellMemorized={adjustCharacterSpellMemorized}
@@ -564,6 +591,7 @@ function LocalAppShell() {
                 onLightRecord={(record) => lightInventoryRecord(record.id)}
                 onSnuffRecord={startSnuffingLight}
                 onSetEntityActive={setEntityActive}
+                onDeleteEntity={requestDeleteEntity}
                 onReorderEntity={reorderEntity}
               />
             }
@@ -603,10 +631,15 @@ function LocalAppShell() {
             authAccount={authAccount}
             currentUserPartyRole={currentUserPartyRole}
             inviteCode={inviteCode}
+            parties={parties}
             partyDisplayName={partyDisplayName}
             partyId={activePartyId}
             persistenceMode={persistenceMode}
+            onClearAuditLog={clearAuditLog}
             onClose={() => setManageModalOpen(false)}
+            onCreateParty={createAndOpenParty}
+            onDeleteParty={deleteCurrentPartyAndLeave}
+            onForgetParty={forgetParty}
             onImportAppState={replaceAppState}
             onRegenerateInviteCode={regenerateInviteCode}
             onRenameParty={renameParty}

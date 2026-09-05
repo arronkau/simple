@@ -9,7 +9,7 @@ Favor practical, table-usable behavior over heavy abstractions. Local responsive
 The app should support:
 
 - Character and party inventory tracking.
-- Lightweight character-sheet fields for class, level, HP, XP, alignment, ability scores, skills, languages, features, and notes.
+- Lightweight character-sheet fields for class, level, HP, XP, alignment, armor class (modifier and override), ability scores, skills, spells, languages, features, and a free-text description.
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
 - Character-like inventory with a clear distinction between equipped and stowed carried items.
@@ -26,7 +26,11 @@ Use these files as the implementation source of truth:
 
 - `APP_SPEC.md` — app-level goals, constraints, tech stack, and persistence expectations.
 - `MODEL_SPEC.md` — canonical data model, interfaces, invariants, and derived calculations.
-- `TASKS.md` — current implementation priorities and sequencing.
+- `ENCUMBRANCE_SPEC.md` — movement-rate and encumbrance rules.
+- `GEAR_VIEW_SPEC.md` — the Inventory board (Party Gear internally), the Floor, and the drag-and-drop contract (view + interaction only).
+- `SYNC_SPEC.md` — the Firestore document shape, field-level writes, and sync failure handling.
+- `CONTENT_GUIDE.md` — authoring format and provenance for the bundled rule-content JSON libraries.
+- `TASKS.md` — what is done, in progress, and open, plus the post-1.0 list.
 
 Do not duplicate model rules inside view specs.
 
@@ -73,10 +77,15 @@ Firebase mode should:
 - Use Firebase anonymous auth so a first visit needs no account.
 - Let any user upgrade the anonymous session to a Google account (account linking keeps the same UID, so GM and member status survive). If the Google account is already bound to another Firebase user, sign in as that user instead and re-resolve membership.
 - Grant party access by membership, not by URL. The party URL alone does not let a new user read the party.
+- Take membership and `gmUid` from the party document only. A client must not assign itself GM from local state before the first remote snapshot, or opening a party URL would make a visitor its GM locally.
+- Make document creation the moment GM is assigned: the first visitor of a party whose document does not exist writes it with their authenticated UID as `party.gmUid` and as a `gm` member (which is also what the Firestore create rule requires).
+- Treat a denied read as no access: the role stays unresolved, sync status is `error` with "You are not a member of this party. Ask the GM for an invite link.", GM controls stay hidden, store mutations are refused instead of being treated as player actions, and the party is not remembered as the last party.
 - Let the GM share an invite link (`/party/{partyId}?invite={inviteCode}`). Opening it as a non-member adds the user to `party.members` as a player. The GM can regenerate the invite code to invalidate old links.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
+- Let the GM delete the party, which removes the party document for every member. Deletion is GM-only in both enforcement layers. A member whose client is subscribed when this happens is told the party was deleted and forgets it on that device, rather than writing it back.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
+- Keep working while the connection does not: edits are cached offline, a failed write retries on a backoff instead of waiting for the user's next edit, and a write the server refuses is rolled back rather than left showing locally — see [SYNC_SPEC.md](SYNC_SPEC.md) for the write lifecycle, retry schedule, and sync-status meanings.
 
 Firestore's wire shape, field-level merge behavior, and legacy-document upgrade path are defined in [SYNC_SPEC.md](SYNC_SPEC.md).
 
@@ -87,10 +96,29 @@ Use local mode automatically when Firebase config is missing.
 Local mode should:
 
 - Store state in localStorage.
+- Treat the local user as the GM of every local party (there is no remote membership document to resolve a role against).
+- Distinguish "nothing stored" from "stored data could not be read". Unreadable stored party data (invalid JSON, another party's id, or a shape validation rejects, such as a future `schemaVersion`) is never silently overwritten: the raw string is copied to `simple.inventory.partyState.corrupt.v1.{partyId}.{ISO timestamp}` before anything writes to the party key, the party then opens empty, and the app header shows a warning naming the backup key and pointing to Manage → Import JSON.
 - Require no cloud setup.
 - Support local development, demos, and single-table play.
 - Preserve the same visible app behavior except for unavailable sync.
+- Hide affordances that grant nothing without Firebase, such as the account section and the invite link. The party URL still works, since it selects the party on this device.
+- Let the GM delete the party, which removes its stored party state.
 - Persist audit entries in the same app-state document shape used by Firebase mode.
+
+### Parties On A Device
+
+The app is multi-party, and a browser keeps a local party index at
+`simple.inventory.parties.v1`: an array of `{ id, displayName, lastOpenedAt }`
+entries, one per party this device knows about. The index is local in both
+modes — Firebase stores party documents, not a per-user list of them — and is
+never written to Firestore.
+
+- Seed the index once from any party states already stored under `simple.inventory.partyState.v1.*`, so parties created before the index existed stay reachable. Seeding only reads: an unreadable stored party is left out of the index rather than backed up, since the backup belongs to the moment that party is actually opened.
+- Record a party in the index when it is opened, and update its entry when it is renamed.
+- Creating a party mints a new party id and opens it. Local mode writes the new empty party state at once; Firebase mode leaves creation to the sync path that runs when the party opens.
+- Forgetting a party removes its index entry only. The party's data stays where it is — the stored party state in local mode, the party document in Firebase mode — and its URL still opens it. Local mode also offers erasing the stored party state, behind a typed confirmation.
+- Deleting a party is GM-only. Firebase mode deletes the party document first (stopping sync before the delete, because a subscribed client treats a missing document as one it must create). Both modes then drop the stored party state, the index entry, and the last-opened party id, and open the most recently used remaining party, creating a new one if none is left.
+- Resetting data is a different action: it empties the party's entities, inventory, and audit log and keeps the party, its name, and its members.
 
 ## Design Constraints
 
@@ -159,7 +187,7 @@ Coins are ordinary inventory records with no placement of their own. An entity m
 
 A coin record counts toward the burden of wherever it sits: stowed inside the top-level stowed container, equipped at loose placement, or contents on a non-character entity.
 
-Dragging a coin record onto a target on the **same** entity is an ordinary move. Dragging it onto any target on a **different** entity opens the transfer dialog instead, prefilled with the whole pile and aimed at that exact target (a sack, worn, contents): confirming hands it all over into that spot, editing the amounts splits it. Changing the destination entity in the dialog drops the aimed target and falls back to that entity's default coin record. A hand is never a coin target. A container holding coins is a plain move — the coins ride along with it.
+Dragging a coin record onto a target on the **same** entity is an ordinary move. Dragging it onto any target on a **different** entity opens the transfer dialog instead, prefilled with the whole pile: confirming hands it all over, editing the amounts splits it. A container holding coins is a plain move — the coins ride along with it.
 
 ### Non-Character Entities
 
@@ -253,24 +281,37 @@ Containers are displayed inline in the stowed-container or contents list rather 
 
 ## Record Add/Edit Modal
 
+**Dialogs.** Every modal in the app renders through one shell (`src/ui/Modal.tsx`): a native `<dialog>` opened with `showModal()`, so it sits in the top layer, contains focus, and restores focus to the opener when it closes. Escape and a click on the backdrop close a dialog, except a required one (the identity dialog when the current user has no profile yet), which suppresses both. Every dialog has a sentence-case `h2` title wired to `aria-labelledby`, and every dismissible dialog has a header close button labelled "Close"; form dialogs put Cancel before the primary action in the footer. Nested dialogs stack natively — a delete confirmation opens over the record dialog and closing it returns to that dialog.
+
 The inventory page uses its existing add/edit entry points. The record modal owns item creation and editing details; adding modal fields must not add new page-level add buttons or inventory-page controls.
 
-For non-coin records, the default modal stays compact: type, name, quantity, slots/items field, stackable checkbox, description, type-specific core fields, and checkbox-driven optional sections. Location controls are hidden by default and open from a Move button in the footer.
+For non-coin records, the default modal stays compact: type, name, quantity, slots/items field, stackable checkbox, magic-item checkbox (`isMagic`), description, type-specific core fields, and checkbox-driven optional sections. Location controls are hidden by default and open from a Move button in the footer.
 
 Coin records use a compact coin-only body with PP, GP, SP, and CP fields. Movement remains available through the same hidden Move section.
 
-Optional modal sections expose container data, unidentified data, light source data, uses/charges, modifiers, GM notes, and weapon qualities. The unidentified and GM-notes sections are GM-only: a non-GM never sees an item's notes, and a non-GM opening an unidentified item gets a read-only form (every field disabled, no Save, a one-line "only the GM can edit this item" note) built from the redacted record. Redaction itself is one rule in the model (`MODEL_SPEC.md`, Player Visibility); the app supplies the viewer's role once, at the app shell, and display surfaces read it from there. Light source burn state uses the shared uses object; light data stores only lit state and free-text light description. On the character sheet, each light source row carries a flame toggle: unlit lights one item (splitting it off a stack and moving it to a free hand when it needs one); lit opens a "Put out" dialog offering "burned out" or "turns remaining" (see `MODEL_SPEC.md`, Light and Snuff Actions).
+Optional modal sections expose container data, unidentified data, light source data, uses/charges, modifiers, GM notes, and weapon qualities. The unidentified and GM-notes sections are GM-only: a non-GM never sees an item's notes, and a non-GM opening an unidentified item gets a read-only form (every field disabled, no Save, a one-line "only the GM can edit this record" note) built from the redacted record. Redaction itself is one rule in the model (`MODEL_SPEC.md`, Player Visibility); the app supplies the viewer's role once, at the app shell, and display surfaces read it from there. Light source burn state uses the shared uses object; light data stores only lit state and free-text light description. On the character sheet, each light source row carries a flame toggle: unlit lights one item (splitting it off a stack and moving it to a free hand when it needs one); lit opens a "Put out" dialog offering "burned out" or "turns remaining" (see `MODEL_SPEC.md`, Light and Snuff Actions).
+
+## Character Sheet
+
+The characters page shows one character or retainer at a time, read-first, with an inline editor behind a single "Edit sheet" toggle.
+
+- **Sheet edits save automatically.** The editor has no Save/Cancel pair. Selects, checkboxes, steppers, and adding or removing a repeatable row commit as they change; typed text and number fields commit a short pause after the last keystroke, and immediately on blur. Every commit goes through the store's character-sheet action so validation stays in the model. One small inline status in the editor header reads "Saved", "Saving…", or "Couldn't save: <message>". A rejected save leaves the typed draft on screen — nothing is reverted or silently fixed — and the next change retries. "Done" only closes the editor, flushing anything still waiting. The editor seeds its draft when it opens and does not merge remote updates that arrive while it is open, so a field being typed in is never overwritten; a remote edit to the same sheet shows up on reopen.
+- **One edit entry point on the sheet.** The sheet header has no separate entity-edit button. The inline editor's first section owns the entity itself: name, type, Bench/Reactivate, and Delete (through the shared delete confirmation). The gear board and party page still open the entity modal.
+- **Quick controls are unchanged.** HP −/+, the XP add box, and the spell memorized steppers stay on the read view and keep saving immediately through their own adjust actions.
 
 ## High-Level UI Areas
 
 The app should eventually include:
 
 - Party overview
+- Party management: create a party, open a recent one, forget one, and delete the open party
 - Character/entity detail view
 - Inventory view
 - Record add/edit modal
 - Entity add/edit modal
 - Settings or data-management view if needed
+
+Every modal area above uses the shared dialog shell and conventions described under Record Add/Edit Modal.
 
 ## Non-Goals
 

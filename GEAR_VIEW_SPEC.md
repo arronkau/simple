@@ -2,9 +2,11 @@
 
 ## Goal
 
-Define the **Party Gear** screen — the "Ready / Stowed" party board and the
+Define the **Inventory** screen — the "Equipped / Stowed" party board and the
 **Floor** loot-staging bar — as a presentation + interaction layer over the
-existing model.
+existing model. The board is called **Party Gear** internally (route, folder,
+component names, and the rest of this spec); the only name the user sees, in
+the top navigation and the page heading, is "Inventory".
 
 This file is the source of truth for the Party Gear *layout and drag-and-drop
 contract* only. It does not define new model rules. Where this file and the
@@ -12,7 +14,7 @@ model/encumbrance specs disagree on rules, the model specs win.
 
 - Data model fields: see `MODEL_SPEC.md`.
 - Movement/encumbrance numbers: see `ENCUMBRANCE_SPEC.md`.
-- Canonical inventory view layout: see `APP_SPEC.md` / `INVENTORY_VIEW_SPEC.md`.
+- Canonical inventory view layout: see `APP_SPEC.md`, "Inventory View Layout".
 
 This feature adds **no new domain-model fields**. The Floor is an ordinary
 `storage` entity; the only new state is a UI-only setting recording which
@@ -21,20 +23,21 @@ This feature adds **no new domain-model fields**. The Floor is an ordinary
 ## Route
 
 The screen lives at `/party/:partyId/gear`, reachable from the primary
-top navigation ("Gear"). It has no left sidebar.
+top navigation ("Inventory"), and carries an `h2` "Inventory" heading like the
+Party and Characters pages. It has no left sidebar.
 
 ## Party board
 
 A responsive grid of entity cards:
 
 ```css
-grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+grid-template-columns: repeat(auto-fill, minmax(338px, 1fr));
 ```
 
 All **active** entities are shown, sorted by `sortOrder`, except the entity
 currently designated as the Floor (which is rendered in the bottom bar).
 
-### Character / retainer card ("Ready / Stowed")
+### Character / retainer card ("Equipped / Stowed")
 
 Mirrors the canonical inventory layout, restyled:
 
@@ -42,15 +45,20 @@ Mirrors the canonical inventory layout, restyled:
   badge `120′ (40′)` colored by tier (normal / amber / red; overloaded shows
   `0′`), and a load readout `Eq X/9 · St Y/16±STR` — each side against its own
   limit, no combined total (plus the overload reason when overloaded).
-- **Ready** (the `equipped` zone, accent left edge) — uppercase "Ready" label;
-  hands stacked vertically (a single full-width "Both hands" slot when a
-  `bothHands` record is equipped, otherwise "Left" and "Right" rows); then a
-  "Worn" sub-section listing `equipped` `loose` records.
+- **Equipped** (the `equipped` zone, accent left edge) — uppercase "Equipped"
+  label; a "Hands" sub-section with the hands stacked vertically (a single
+  full-width "Both hands" slot when a `bothHands` record is equipped, otherwise
+  "Left hand" and "Right hand" rows); then an "Other equipped" sub-section
+  listing `equipped` `loose` records. Hand placements are always written out in
+  full — "Left hand", "Right hand", "Both hands" — here and on the character
+  sheet; only the party table abbreviates them (L / R / Both, each with the full
+  form as its `title`).
   - A held record that is a container renders as a full container block
     (header + resolved capacity + its contents), not a bare row. Only its
     **body** is a drop target nested inside the hand's; the header row belongs
     to the hand, so dropping on it means "into this hand" (displacing the held
-    container to Worn) while dropping on the body means "into this container".
+    container to Other equipped) while dropping on the body means "into this
+    container".
   - Every held record carries an inline grip button, in the row for a plain
     record and in the container header for a container: "both hands" while in
     `leftHand`/`rightHand`, "one hand" while in `bothHands`. The "one hand"
@@ -64,12 +72,6 @@ Mirrors the canonical inventory layout, restyled:
   top-level stowed container (`stowedRoot`) with a resolved-capacity readout
   (`used/6`, `used/12`, or `used/—` when not applicable) and its child rows;
   nested containers inline.
-  - An **empty container that is not in a hand** (a spare sack in the
-    backpack, an empty container on the Floor or in contents) folds down to
-    its header row with an "empty" label — no capacity bar, no body — so a
-    backpack holding a few empty sacks does not read as full. The header row
-    remains the container's drop target. A held container always renders in
-    full, since its capacity is what the hand is for.
 
 All header/section numbers come from the encumbrance module. The component
 never recomputes movement or burden.
@@ -134,7 +136,7 @@ announcements). The Party Gear page is wrapped in a single `DndContext`.
   - `drop:{entityId}:equipped:leftHand`
   - `drop:{entityId}:equipped:rightHand`
   - `drop:{entityId}:equipped:bothHands`
-  - `drop:{entityId}:equipped:loose` (the "Worn" area)
+  - `drop:{entityId}:equipped:loose` (the "Other equipped" area)
   - `drop:{entityId}:container:{containerId}` (backpack + every nested/contents container)
   - `drop:{entityId}:contents` (mounts/vehicles/storage and the Floor)
   - `drop:{entityId}:stowedRoot` — shown only when the character has **no**
@@ -146,8 +148,8 @@ announcements). The Party Gear page is wrapped in a single `DndContext`.
 `onDragEnd` parses `over.id` into an `InventoryRecordLocationInput` and calls
 the **existing validated move action** (`useAppStore.moveInventoryRecord`).
 The action enforces every invariant (single stowed root, hand-occupancy
-collisions, `bothHands` vs `leftHand`/`rightHand` exclusivity, non-coin must be
-in a container, held-container rules, no cross-entity containment, cycle
+collisions, `bothHands` vs `leftHand`/`rightHand` exclusivity, a stowed record
+must be in a container, held-container rules, no cross-entity containment, cycle
 prevention) and reparents container descendants. A blocked/warning result is
 surfaced (toast/live region) and state is left unchanged. The drag layer holds
 **no copy** of the movement tables or invariants.
@@ -160,29 +162,26 @@ with hand-dependent capacity (`container.capacityByHands`) or a weapon with the
 Versatile quality; any other one-handed record dropped on Both hands lands in
 the **right hand**. "Versatile" is matched as a catalog-authored quality string
 in `weapon.qualities` (free text, compared trimmed and case-insensitively).
-Whatever occupied the hands being claimed is displaced to Worn first, and the
-displacements plus the placement are sent as one batched validated mutation.
+Whatever occupied the hands being claimed is displaced to Other equipped first,
+and the displacements plus the placement are sent as one batched validated
+mutation.
 
 ### Coin drag
 
 Every coin record is a draggable row wherever it sits — inside a character's
-backpack, worn, in the Floor's contents, in a sack:
+backpack, equipped, in the Floor's contents, in a sack:
 
 - Dropped on a zone of the **same** entity → an ordinary whole-record validated
-  move (reorder, into a sack, out to worn), exactly like any other record.
+  move (reorder, into a sack, out to Other equipped), exactly like any other
+  record.
 - Dropped on a zone of a **different** entity → no move. Instead the coin
   **transfer modal** opens pre-filled: source = the dragged coin record,
-  destination = the target entity **and the dropped zone** (a sack, worn,
-  contents — shown under the destination picker), amounts = the **whole
-  pile**. Confirming is one click; editing the amounts splits it and the
-  remainder stays behind. The transfer goes through the validated
-  `transferCoins` action with that zone as its destination location: it merges
-  into the coin record already sitting exactly there (creating one there when
-  none is) and removes a source record the transfer drains to zero, whatever
-  kind of entity holds it. Picking a different destination entity in the modal
-  discards the zone and falls back to that entity's default coin record.
-- Dropped on another entity's **hand** → blocked (red pill, no modal): coins
-  are never held.
+  destination = the target entity, amounts = the **whole pile**. Confirming is
+  one click; editing the amounts splits it and the remainder stays behind. The
+  transfer goes through the validated `transferCoins` action, which merges into
+  the destination's default coin record (creating one at the default location
+  when it holds none) and removes a source record the transfer drains to zero,
+  whatever kind of entity holds it.
 - A container holding coins is a plain move; the coins ride along inside it.
 
 Coin rows are not containers and never accept a drop.
@@ -202,15 +201,25 @@ pure `moveInventoryRecord` the store uses):
   alone elsewhere), red if the container would go over its resolved capacity.
 - contents target → `used/capacity`; red if it would exceed `capacitySlots`.
 - coins over a target on another entity → a neutral `→ transfer` pill (the drop
-  opens the transfer modal rather than moving the record); over another
-  entity's hand → a red `blocked` pill.
+  opens the transfer modal rather than moving the record).
 
 Projection is display-only and must use the shared module — never hardcode the
 tables. A `DragOverlay` shows the dragged record's name; the dropped row briefly
 flashes in its new location.
 
+### Within-zone reordering
+
+Reordering inside a zone is implemented. Each list renders gap droppables
+(`gear-gap`) between its rows; the collision strategy prefers a gap when the
+pointer is between two rows, and `onDragEnd` turns the gap's index into a
+`targetIndex` on the move location, adjusting by one when the dragged row is
+already earlier in the same list and cancelling the drop when the index does not
+change. `targetIndex` rides through the same validated
+`useAppStore.moveInventoryRecord` action as every other drop and only decides
+`sortOrder` among siblings; it never changes containment or burden.
+
 ## Non-goals (first pass)
 
-- Within-zone sortable reordering, multi-select drag.
+- Multi-select drag.
 - The referee Party HUD and the Character detail sheet.
 - Any restyle of screens other than Party Gear.

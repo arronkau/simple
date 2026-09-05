@@ -100,18 +100,14 @@ export function toCharacterDataFormInput(
         charisma: null,
       },
     ),
-    // Unnamed skill and spell rows are still being typed; leave them out of
-    // the saved sheet (auto-save runs while the row is half-filled).
-    skills: formState.skills
-      .filter((skill) => skill.name.trim())
-      .map((skill) => ({
-        id: skill.id,
-        name: skill.name.trim(),
-        chanceInSix: parseIntegerInput(skill.chanceInSix),
-        ...(skill.description.trim()
-          ? { description: skill.description.trim() }
-          : {}),
-      })),
+    skills: formState.skills.map((skill) => ({
+      id: skill.id,
+      name: skill.name.trim(),
+      chanceInSix: parseIntegerInput(skill.chanceInSix),
+      ...(skill.description.trim()
+        ? { description: skill.description.trim() }
+        : {}),
+    })),
     spells: formState.spells
       .filter((spell) => spell.name.trim())
       .map((spell) => ({

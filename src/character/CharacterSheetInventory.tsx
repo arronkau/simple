@@ -14,7 +14,6 @@ import type { AppState } from "../model/appState";
 import { isLitRecord } from "../model/lightSources";
 import type { Entity, InventoryRecord } from "../model/types";
 import type { InventoryMutationResult } from "../store/useAppStore";
-import { getRecordDisplayName } from "../formatters";
 import { LoadReadout } from "../components/GearMeters";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { InventoryRowSummary } from "../inventory/InventoryDisplay";
@@ -74,10 +73,10 @@ export function CharacterSheetInventory({
   const rightHandRecord = getRecordById(sections.handRecordIds.rightHand, records);
   const handRows: Array<{ label: string; record: InventoryRecord | undefined }> =
     bothHandsRecord
-      ? [{ label: "Both", record: bothHandsRecord }]
+      ? [{ label: "Both hands", record: bothHandsRecord }]
       : [
-          { label: "L", record: leftHandRecord },
-          { label: "R", record: rightHandRecord },
+          { label: "Left hand", record: leftHandRecord },
+          { label: "Right hand", record: rightHandRecord },
         ];
 
   return (
@@ -93,7 +92,8 @@ export function CharacterSheetInventory({
       {lightError ? <p className="form-error">{lightError}</p> : null}
 
       <div className="sheet-inventory-group">
-        <h6>Hands</h6>
+        <h6>Equipped</h6>
+        <h6 className="sheet-inventory-subgroup">Hands</h6>
         {handRows.map(({ label, record }) => (
           <div className="sheet-inventory-row" key={label}>
             <span className="sheet-inventory-tag">{label}</span>
@@ -109,43 +109,39 @@ export function CharacterSheetInventory({
             )}
           </div>
         ))}
+        {sections.otherEquipped.length > 0 ? (
+          <>
+            <h6 className="sheet-inventory-subgroup">Other equipped</h6>
+            {sections.otherEquipped.map((record) => (
+              <div className="sheet-inventory-row" key={record.id}>
+                <InventoryRowSummary
+                  record={record}
+                  allRecords={records}
+                  onOpenRecord={onEditRecord}
+                  onToggleLight={toggleLight}
+                />
+              </div>
+            ))}
+          </>
+        ) : null}
       </div>
 
-      {sections.otherEquipped.length > 0 ? (
-        <div className="sheet-inventory-group">
-          <h6>Equipped</h6>
-          {sections.otherEquipped.map((record) => (
-            <div className="sheet-inventory-row" key={record.id}>
-              <InventoryRowSummary
-                record={record}
-                allRecords={records}
-                onOpenRecord={onEditRecord}
-                onToggleLight={toggleLight}
-              />
-            </div>
-          ))}
-        </div>
-      ) : null}
-
       <div className="sheet-inventory-group">
-        <h6>
-          {sections.topLevelStowedContainerRecord
-            ? getRecordDisplayName(sections.topLevelStowedContainerRecord)
-            : "Stowed"}
-        </h6>
-        {sections.topLevelStowedContainerContents.length === 0 ? (
-          <p className="empty-state compact">Nothing stowed</p>
-        ) : null}
-        {sections.topLevelStowedContainerContents.map((record) => (
+        <h6>Stowed</h6>
+        {/* The top-level stowed container keeps its own name as a row label;
+            the section itself is always "Stowed". */}
+        {sections.topLevelStowedContainerRecord ? (
           <SheetInventoryRecordRow
             depth={0}
-            key={record.id}
-            record={record}
+            record={sections.topLevelStowedContainerRecord}
             records={records}
             onEditRecord={onEditRecord}
             onToggleLight={toggleLight}
           />
-        ))}
+        ) : null}
+        {sections.topLevelStowedContainerContents.length === 0 ? (
+          <p className="empty-state compact">Nothing stowed</p>
+        ) : null}
       </div>
 
       {onStartAddRecord ? (
@@ -154,7 +150,7 @@ export function CharacterSheetInventory({
           type="button"
           onClick={() => onStartAddRecord(entity)}
         >
-          + Add item
+          + Add record
         </button>
       ) : null}
     </section>

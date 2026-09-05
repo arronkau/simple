@@ -49,7 +49,6 @@ export function InventoryRecordForm({
   currentUserPartyRole,
   entity,
   formState,
-  message,
   onCancel,
   onChange,
   onDelete,
@@ -61,7 +60,6 @@ export function InventoryRecordForm({
   currentUserPartyRole?: PartyRole | null;
   entity: Entity;
   formState: RecordFormState;
-  message?: string;
   onCancel: () => void;
   onChange: (formState: RecordFormState) => void;
   onDelete?: () => void;
@@ -116,6 +114,8 @@ export function InventoryRecordForm({
   const [highlightedItemSuggestionIndex, setHighlightedItemSuggestionIndex] =
     useState(0);
   const autocompleteRef = useRef<HTMLDivElement | null>(null);
+  const moveLocationRef = useRef<HTMLSelectElement | null>(null);
+  const previousShowMovementRef = useRef(formState.showMovement);
   const autocompleteListboxId = useId();
   const highlightedItemSuggestion =
     itemSuggestionsOpen && standardItemSuggestions.length > 0
@@ -147,6 +147,16 @@ export function InventoryRecordForm({
       Math.min(currentIndex, standardItemSuggestions.length - 1),
     );
   }, [standardItemSuggestions.length]);
+
+  // Opening "Move record…" removes the button that had focus. Move focus to the
+  // first location control so it does not fall back to <body>.
+  useEffect(() => {
+    if (formState.showMovement && !previousShowMovementRef.current) {
+      moveLocationRef.current?.focus();
+    }
+
+    previousShowMovementRef.current = formState.showMovement;
+  }, [formState.showMovement]);
 
   useEffect(() => {
     function closeSuggestionsOnOutsidePointerDown(event: PointerEvent) {
@@ -240,20 +250,8 @@ export function InventoryRecordForm({
 
   return (
     <form className="record-form modal-form" onSubmit={onSubmit}>
-      <div className="modal-header record-form-heading">
-        <div>
-          <h4>{formState.mode === "edit" ? "Edit item" : "Add item"}</h4>
-          <p className="form-help">
-            {formState.mode === "edit"
-              ? `${RECORD_TYPE_LABELS[formState.recordType]} for ${entity.name}`
-              : `New item for ${entity.name}`}
-          </p>
-          {message ? <p className="form-error">{message}</p> : null}
-        </div>
-      </div>
-
       <div
-        aria-label="Item type"
+        aria-label="Record type"
         className="record-type-tabs"
         role="tablist"
       >
@@ -278,7 +276,7 @@ export function InventoryRecordForm({
 
       {isReadOnly ? (
         <p className="form-help record-form-readonly-note">
-          Unidentified — only the GM can edit this item.
+          Unidentified — only the GM can edit this record.
         </p>
       ) : null}
 
@@ -522,7 +520,7 @@ export function InventoryRecordForm({
                     })
                   }
                 />
-                <span>This item modifies a stat</span>
+                <span>This record modifies a stat</span>
               </label>
               {formState.recordType === "weapon" ? (
                 <label className="checkbox-field">
@@ -946,15 +944,16 @@ export function InventoryRecordForm({
                 type="button"
                 onClick={() => onChange({ ...formState, showMovement: true })}
               >
-                Move item...
+                Move record…
               </button>
             ) : null}
           </div>
           {showLocationControls ? (
             <div className="record-location-controls">
               <label>
-                <span>Owner / Holder</span>
+                <span>Entity</span>
                 <select
+                  ref={moveLocationRef}
                   value={formState.targetEntityId}
                   onChange={(event) =>
                     onChange({
@@ -1046,45 +1045,47 @@ export function InventoryRecordForm({
         </section>
       </fieldset>
 
-      <div className="modal-footer split-actions">
-        <div>
-          {coinActionRecord?.recordType === "coins" ? (
-            <div className="record-form-action-group left-actions">
-              {onSpendCoins ? (
-                <button
-                  type="button"
-                  onClick={() => onSpendCoins(coinActionRecord)}
-                >
-                  Spend coins
-                </button>
-              ) : null}
-              {onTransferCoins ? (
-                <button
-                  type="button"
-                  onClick={() => onTransferCoins(coinActionRecord)}
-                >
-                  Transfer coins
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {onDelete && !isReadOnly ? (
-            <button className="danger-button" type="button" onClick={onDelete}>
-              Delete
+      {/* Read-only (a player looking at an unidentified item) has nothing to
+          delete, cancel, or save: the header close button is the way out. */}
+      {isReadOnly ? null : (
+        <div className="modal-footer split-actions">
+          <div>
+            {coinActionRecord?.recordType === "coins" ? (
+              <div className="record-form-action-group left-actions">
+                {onSpendCoins ? (
+                  <button
+                    type="button"
+                    onClick={() => onSpendCoins(coinActionRecord)}
+                  >
+                    Spend coins
+                  </button>
+                ) : null}
+                {onTransferCoins ? (
+                  <button
+                    type="button"
+                    onClick={() => onTransferCoins(coinActionRecord)}
+                  >
+                    Transfer coins
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {onDelete ? (
+              <button className="danger-button" type="button" onClick={onDelete}>
+                Delete
+              </button>
+            ) : null}
+          </div>
+          <div className="record-form-action-group">
+            <button type="button" onClick={onCancel}>
+              Cancel
             </button>
-          ) : null}
-        </div>
-        <div className="record-form-action-group">
-          <button type="button" onClick={onCancel}>
-            {isReadOnly ? "Close" : "Cancel"}
-          </button>
-          {isReadOnly ? null : (
             <button type="submit">
               {formState.mode === "edit" ? "Save record" : "Create record"}
             </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </form>
   );
 }
@@ -1508,7 +1509,7 @@ function getPlacementOptions({
     // Coins go anywhere a plain record goes, except a hand.
     return isCharacterLikeEntity(targetEntity)
       ? [
-          { value: "equippedLoose", label: "Equipped loose" },
+          { value: "equippedLoose", label: "Other equipped" },
           { value: "container", label: "Inside container" },
         ]
       : [
@@ -1525,7 +1526,7 @@ function getPlacementOptions({
   }
 
   const options: Array<{ value: InventoryRecordPlacementKey; label: string }> = [
-    { value: "equippedLoose", label: "Equipped loose" },
+    { value: "equippedLoose", label: "Other equipped" },
     { value: "leftHand", label: "Left hand" },
     { value: "rightHand", label: "Right hand" },
     { value: "bothHands", label: "Both hands" },

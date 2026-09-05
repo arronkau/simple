@@ -522,8 +522,6 @@ function SpellRow({
 }) {
   const lookup = getSpellLookup(spell.name, preferredListId);
   const libraryMeta = lookup.ok ? formatSpellLibraryMeta(lookup.spell) : "";
-  // Library details and the character's own description both stay behind the
-  // name until asked for.
   const hasDetails = lookup.ok || Boolean(spell.description);
 
   return (

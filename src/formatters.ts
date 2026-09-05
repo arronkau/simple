@@ -25,13 +25,11 @@ import {
 } from "./model/recordVisibility";
 import { getClassContentLookup } from "./model/classContent";
 import { getSpellLookup, type SpellEntry } from "./model/spellLibrary";
-import { sortInventoryRecordsBySortOrder } from "./model/inventoryRecords";
 import type {
   AuditLogEntry,
   CharacterAlignment,
   CharacterData,
   CharacterSpell,
-  EntityId,
   InventoryRecord,
   InventoryRecordId,
   PartyRole,
@@ -141,8 +139,8 @@ function getPartySpellDisplay(
   };
 }
 
-/** "Reversible · Duration 1 turn · Range 60′" — empty when the library entry
- * carries none of those. */
+/** "Reversible · Duration 1 turn · Range 60′" — empty when the library
+ * entry carries none of those facts. */
 export function formatSpellLibraryMeta(spell: SpellEntry): string {
   return [
     spell.reversible ? "Reversible" : "",
@@ -153,30 +151,6 @@ export function formatSpellLibraryMeta(spell: SpellEntry): string {
     .join(" · ");
 }
 
-/**
- * The entity's equipped (held or worn) magic items, as the viewer may see
- * them. Redaction decides visibility: a player's view of an unidentified item
- * is a shell without `isMagic`, so unidentified magic shows to the GM only.
- */
-export function formatPartyEquippedMagic(
-  entityId: EntityId,
-  records: InventoryRecord[],
-  viewerRole: PartyRole | null = null,
-): PartyHandDisplay[] {
-  return sortInventoryRecordsBySortOrder(
-    records.filter(
-      (record) =>
-        record.entityId === entityId && record.location.kind === "equipped",
-    ),
-  )
-    .filter((record) => {
-      const visible = getVisibleInventoryRecord(record, viewerRole);
-
-      return visible.recordType !== "coins" && visible.isMagic === true;
-    })
-    .map((record) => getPartyHandDisplay("", record, records, viewerRole));
-}
-
 export function formatPartyHands(
   sections: ReturnType<typeof getInventorySections> & { mode: "characterLike" },
   records: InventoryRecord[],
@@ -185,18 +159,28 @@ export function formatPartyHands(
   const bothHandsRecord = getRecordById(sections.handRecordIds.bothHands, records);
 
   if (bothHandsRecord) {
-    return [getPartyHandDisplay("Both", bothHandsRecord, records, viewerRole)];
+    return [
+      getPartyHandDisplay(
+        "Both",
+        "Both hands",
+        bothHandsRecord,
+        records,
+        viewerRole,
+      ),
+    ];
   }
 
   return [
     getPartyHandDisplay(
       "L",
+      "Left hand",
       getRecordById(sections.handRecordIds.leftHand, records),
       records,
       viewerRole,
     ),
     getPartyHandDisplay(
       "R",
+      "Right hand",
       getRecordById(sections.handRecordIds.rightHand, records),
       records,
       viewerRole,
@@ -204,14 +188,17 @@ export function formatPartyHands(
   ];
 }
 
+/** The table is too narrow for "Left hand", so the chip is abbreviated and
+ * `title` carries the full form used everywhere else. */
 function getPartyHandDisplay(
   label: string,
+  title: string,
   record: InventoryRecord | undefined,
   records: InventoryRecord[],
   viewerRole: PartyRole | null,
 ): PartyHandDisplay {
   if (!record) {
-    return { label, text: null, statuses: [] };
+    return { label, title, text: null, statuses: [] };
   }
 
   // Redact once, at the display boundary; `records` stays whole because the
@@ -222,6 +209,7 @@ function getPartyHandDisplay(
 
   return {
     label,
+    title,
     text: display.primaryText,
     statuses: display.statusIcons,
     ...(detail ? { detail } : {}),
