@@ -536,8 +536,11 @@ function SpellRow({
           <details className="sheet-spell-details">
             <summary>{spell.name}</summary>
             {libraryMeta ? <p>{libraryMeta}</p> : null}
-            {lookup.ok ? <p>{lookup.spell.description}</p> : null}
-            {spell.description ? <p>{spell.description}</p> : null}
+            {spell.description ? (
+              <p>{spell.description}</p>
+            ) : lookup.ok ? (
+              <p>{lookup.spell.description}</p>
+            ) : null}
           </details>
         ) : (
           <span className="sheet-spell-name">{spell.name}</span>

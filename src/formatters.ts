@@ -124,12 +124,14 @@ function getPartySpellDisplay(
     if (meta) {
       detail.meta = meta;
     }
-
-    detail.libraryDescription = lookup.spell.description;
   }
 
+  // The stored description is the one the table reads; the library's text
+  // only fills in for a row that has none.
   if (spell.description?.trim()) {
     detail.description = spell.description;
+  } else if (lookup.ok) {
+    detail.libraryDescription = lookup.spell.description;
   }
 
   return {

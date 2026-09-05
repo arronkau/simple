@@ -547,7 +547,7 @@ export const APP_MANUAL_FIXTURES = [
     },
   },
   {
-    name: "party spell lines carry library and character descriptions",
+    name: "party spell lines show the character's description, else the library's",
     actual: formatPartySpellLines({
       ...createEmptyCharacterData(),
       className: "Sample Class",
@@ -576,7 +576,7 @@ export const APP_MANUAL_FIXTURES = [
         spells: [
           {
             text: "Sample Spell ×2",
-            hasLibrary: true,
+            hasLibrary: false,
             description: "Cast from the tower scroll.",
           },
           { text: "Zorbo's Fizz", hasLibrary: false, description: undefined },

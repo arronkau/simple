@@ -601,6 +601,7 @@ export function CharacterSheetEditForm({
                         {
                           name: suggestion.spell.displayName,
                           level: suggestion.spellLevel.toString(),
+                          description: suggestion.spell.description,
                         },
                         "choice",
                       )
@@ -636,10 +637,8 @@ export function CharacterSheetEditForm({
                   />
                   <label className="wide-field">
                     <span>Description</span>
-                    <input
-                      autoComplete="off"
-                      maxLength={160}
-                      type="text"
+                    <textarea
+                      rows={2}
                       value={spell.description}
                       onChange={(event) =>
                         updateSpell(
