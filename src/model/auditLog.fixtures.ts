@@ -1,5 +1,6 @@
 import {
   AUDIT_LOG_MAX_ENTRIES,
+  AUDIT_LOG_TRIM_SLACK,
   createAuditLogEntry,
   formatCoinDelta,
   getAuditEventTypeLabel,
@@ -49,8 +50,11 @@ const attributedEntry = createAuditLogEntry({
   summary: "Created entity.",
 });
 
-const trimEntries = makeAuditLogEntries(5);
-const overflowingAuditLog = makeAuditLogEntries(AUDIT_LOG_MAX_ENTRIES + 2);
+// Cap 3 with slack 2: nothing trims until the log passes 5 entries.
+const trimEntries = makeAuditLogEntries(6);
+const overflowingAuditLog = makeAuditLogEntries(
+  AUDIT_LOG_MAX_ENTRIES + AUDIT_LOG_TRIM_SLACK + 1,
+);
 const trimmedAuditLog = trimAuditLog(overflowingAuditLog);
 
 export const AUDIT_LOG_MANUAL_FIXTURES = [
@@ -92,30 +96,39 @@ export const AUDIT_LOG_MANUAL_FIXTURES = [
   },
   {
     name: "audit log trim keeps a log shorter than the cap untouched",
-    actual: trimAuditLog(trimEntries.slice(0, 2), 3).map((entry) => entry.id),
+    actual: trimAuditLog(trimEntries.slice(0, 2), 3, 2).map((entry) => entry.id),
     expected: ["audit-0", "audit-1"],
   },
   {
     name: "audit log trim keeps a log exactly at the cap untouched",
-    actual: trimAuditLog(trimEntries.slice(0, 3), 3).map((entry) => entry.id),
+    actual: trimAuditLog(trimEntries.slice(0, 3), 3, 2).map((entry) => entry.id),
     expected: ["audit-0", "audit-1", "audit-2"],
   },
   {
-    name: "audit log trim drops the oldest entries and preserves order",
-    actual: trimAuditLog(trimEntries, 3).map((entry) => entry.id),
-    expected: ["audit-2", "audit-3", "audit-4"],
+    name: "audit log trim keeps a log at the cap plus slack untouched",
+    actual: trimAuditLog(trimEntries.slice(0, 5), 3, 2).map((entry) => entry.id),
+    expected: ["audit-0", "audit-1", "audit-2", "audit-3", "audit-4"],
   },
   {
-    name: "audit log trim caps at AUDIT_LOG_MAX_ENTRIES by default",
+    name: "audit log trim past the cap plus slack cuts back to the cap in order",
+    actual: trimAuditLog(trimEntries, 3, 2).map((entry) => entry.id),
+    expected: ["audit-3", "audit-4", "audit-5"],
+  },
+  {
+    name: "audit log trim uses AUDIT_LOG_MAX_ENTRIES and slack by default",
     actual: {
       length: trimmedAuditLog.length,
       firstId: trimmedAuditLog[0]?.id,
       lastId: trimmedAuditLog[trimmedAuditLog.length - 1]?.id,
+      untouchedAtSlackLength: trimAuditLog(
+        overflowingAuditLog.slice(0, AUDIT_LOG_MAX_ENTRIES + AUDIT_LOG_TRIM_SLACK),
+      ).length,
     },
     expected: {
       length: AUDIT_LOG_MAX_ENTRIES,
-      firstId: "audit-2",
-      lastId: `audit-${AUDIT_LOG_MAX_ENTRIES + 1}`,
+      firstId: `audit-${AUDIT_LOG_TRIM_SLACK + 1}`,
+      lastId: `audit-${AUDIT_LOG_MAX_ENTRIES + AUDIT_LOG_TRIM_SLACK}`,
+      untouchedAtSlackLength: AUDIT_LOG_MAX_ENTRIES + AUDIT_LOG_TRIM_SLACK,
     },
   },
   {

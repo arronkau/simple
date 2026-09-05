@@ -153,15 +153,22 @@ Audit log rules:
 
 Bounding the log:
 
-- `AUDIT_LOG_MAX_ENTRIES` (500, in `src/model/auditLog.ts`) is the hard cap on
-  `AppState.auditLog`. The whole log lives inside the single Firestore party
-  document, which Firestore caps at 1 MiB; an unbounded log eventually makes
-  every write for that party fail permanently.
-- `trimAuditLog(auditLog, maxEntries = AUDIT_LOG_MAX_ENTRIES)` is pure: it keeps
-  the newest entries (the log is stored oldest-first, so it drops from the
-  front) in their existing order, and returns the input unchanged when it is at
-  or under the cap. The store applies it in `appendAuditLogEntries`, so the cap
-  holds after every mutation that logs.
+- `AUDIT_LOG_MAX_ENTRIES` (500, in `src/model/auditLog.ts`) is the size
+  `AppState.auditLog` is trimmed back to. The whole log lives inside the single
+  Firestore party document, which Firestore caps at 1 MiB; an unbounded log
+  eventually makes every write for that party fail permanently.
+- `AUDIT_LOG_TRIM_SLACK` (50) is headroom above that size before a trim runs, so
+  the log drifts between 500 and 550 entries. The slack exists for sync, not for
+  the model: a trim shortens the array and so must be written to Firestore as a
+  whole-array `set` instead of a merging `arrayUnion`. Trimming on every append
+  past the cap would make *every* later audit write a `set` and permanently give
+  up merging; with slack only one write in every `slack + 1` appends is a `set`.
+- `trimAuditLog(auditLog, maxEntries = AUDIT_LOG_MAX_ENTRIES, slack =
+  AUDIT_LOG_TRIM_SLACK)` is pure: it returns the input unchanged while the log
+  is at or under `maxEntries + slack`, and otherwise keeps the newest
+  `maxEntries` entries (the log is stored oldest-first, so it drops from the
+  front) in their existing order. The store applies it in
+  `appendAuditLogEntries`, so the bound holds after every mutation that logs.
 - The GM may empty the log outright with the store's `clearAuditLog` action
   (GM-only via `assertPartyAction(role, "clearAuditLog")`; it returns
   `{ ok: true } | { ok: false; message }` rather than failing silently).

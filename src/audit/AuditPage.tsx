@@ -208,5 +208,8 @@ export function getAuditEntityFilterOptions(
 function formatAuditEntryCount(count: number) {
   const entries = count === 1 ? "1 entry" : `${count} entries`;
 
-  return `${entries} · newest ${AUDIT_LOG_MAX_ENTRIES} kept`;
+  // The cap only matters once the log is long enough to be trimmed.
+  return count >= AUDIT_LOG_MAX_ENTRIES
+    ? `${entries} · newest ${AUDIT_LOG_MAX_ENTRIES} kept`
+    : entries;
 }

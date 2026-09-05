@@ -14,7 +14,7 @@ import type {
 export const DEFAULT_AUDIT_ACTOR_LABEL = "Local user";
 
 /**
- * Upper bound on entries kept in `AppState.auditLog`.
+ * Target size for `AppState.auditLog` after a trim.
  *
  * The whole log lives inside the single Firestore party document, which is
  * capped at 1 MiB. Entries are a few hundred bytes each, so 500 entries stay
@@ -23,6 +23,18 @@ export const DEFAULT_AUDIT_ACTOR_LABEL = "Local user";
  * for the party eventually fails once the document hits the limit.
  */
 export const AUDIT_LOG_MAX_ENTRIES = 500;
+
+/**
+ * Headroom above `AUDIT_LOG_MAX_ENTRIES` before a trim actually runs.
+ *
+ * A trim shortens the array, which the Firestore wire can only express as a
+ * whole-array `set` (last-writer-wins) instead of a merging `arrayUnion`.
+ * Trimming to the cap on every append past it would make every audit write
+ * from then on a `set` — a permanent loss of merging, not a one-write window.
+ * With slack the log is allowed to drift up to `max + slack` and is then cut
+ * back to `max`, so at most one write in every `slack + 1` appends is a `set`.
+ */
+export const AUDIT_LOG_TRIM_SLACK = 50;
 
 export const AUDIT_EVENT_TYPE_LABELS: Record<AuditEventType, string> = {
   coinsChanged: "Coins changed",
@@ -102,16 +114,18 @@ export function getNewestAuditLogEntries(
 }
 
 /**
- * Keeps at most `maxEntries` entries, dropping the oldest first. The log is
+ * Trims with hysteresis: the log is left alone until it is longer than
+ * `maxEntries + slack`, and is then cut back to `maxEntries`. The log is
  * stored oldest-first, so the newest entries are its tail; the kept entries
- * stay in their existing order. Returns the input array untouched when it is
- * already within the cap.
+ * stay in their existing order. Returns the input array untouched whenever no
+ * trim is due.
  */
 export function trimAuditLog(
   auditLog: AuditLogEntry[],
   maxEntries: number = AUDIT_LOG_MAX_ENTRIES,
+  slack: number = AUDIT_LOG_TRIM_SLACK,
 ): AuditLogEntry[] {
-  if (auditLog.length <= maxEntries) {
+  if (auditLog.length <= maxEntries + slack) {
     return auditLog;
   }
 

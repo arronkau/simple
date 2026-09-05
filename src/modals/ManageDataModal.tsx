@@ -415,8 +415,8 @@ export function ManageDataModal({
               </div>
               <p className="field-help">
                 Deletes every audit entry for everyone in the party. Entities,
-                inventory, and coins are untouched. The log already keeps only
-                its newest {AUDIT_LOG_MAX_ENTRIES} entries.
+                inventory, and coins are untouched. The log trims itself back
+                to its newest {AUDIT_LOG_MAX_ENTRIES} entries as it grows.
               </p>
               {auditMessage ? (
                 <p
