@@ -24,7 +24,7 @@ UI layout belongs outside this model spec.
 
 ## Content Libraries
 
-Rule content (class reference tables, spell lists, per-class content, ability-score modifiers) lives in bundled, audited JSON files under `src/model/`, read by pure lookup functions:
+Rule content (class reference tables, spell lists, per-class content, ability-score modifiers) lives in bundled JSON files under `src/model/`, read by pure lookup functions. Provenance is per file and declared in each file's `schemaVersion` / `sourceBasis` (see `CONTENT_GUIDE.md`): the class reference, ability modifiers, and campaign files carry a real `sourceBasis`, while `ose_spell_library.json` and `ose_class_content.json` are still `0.1.0-skeleton` — format references with sample entries, not audited content.
 
 - `ose_class_reference.json` — per-class metadata (`hitDie` and optional `expertise`) plus per-level progression (xp, attack, saves, spell slots). See Class Progression Derivations.
 - `arden_vul_campaign.json` — campaign class and standard-item allowlists; hidden library entries remain resolvable for existing records.
@@ -78,7 +78,22 @@ export type PartyMember = {
   displayName?: string;
   inviteCode?: string;       // the party invite code this member joined with
 };
+
+export type UserProfile = {
+  id: UserId;                // the local user id, not the Firebase Auth UID
+  displayName: string;
+  role: UserRole;            // "GM" | "Player" — a self-chosen display label
+  updatedAt?: ISODateTimeString;
+};
 ```
+
+`UserProfile` and `PartyMember` both carry a "role" and they are not the same
+thing. `PartyMember.role` (`"gm" | "player"`, keyed by Firebase Auth UID) is the
+permission authority: `resolvePartyRole` reads it, `permissions.ts` and
+`firestore.rules` enforce it. `UserProfile.role` (`"GM" | "Player"`) is a label
+the user picks for themselves in the identity modal; it grants nothing and is
+only used to stamp audit entries (see Audit Log). A player who sets their
+profile role to "GM" gains no permission.
 
 Party state rules:
 
@@ -145,10 +160,12 @@ Audit log rules:
 - Log entity create/delete and active/inactive changes.
 - Log inventory record create/delete.
 - Log record moves only when the owning entity changes. Do not log reordering or movement within the same entity.
+  - Known deviation: the record edit form's save path logs a move whenever the location differs, including a same-entity move, while the drag/move action follows the rule. See `TASKS.md`.
 - Log character coin merges with denomination deltas where practical.
 - Log treasure value edits when the value changes.
 - Detail values may be omitted or set to `undefined` when a field is optional and not meaningful for that event.
-- Use `actorLabel: "Local user"` until app-level actor identity exists.
+- `actorLabel` is stamped by the store at append time from the current user's `UserProfile`: `"<displayName> (<role>)"` — for example `"Wren (Player)"` — using the profile's self-chosen `UserProfile.role`, and `actorRole`/`actorUserId` alongside it. A user with no stored profile is logged as `"Anonymous user"` with `actorUserId` but no `actorRole`.
+- `DEFAULT_AUDIT_ACTOR_LABEL` (`"Local user"`, in `src/model/auditLog.ts`) is only the parser/factory default for an entry that arrives without a label; display treats it as "no known actor" and omits the actor line.
 - Keep audit entries in `AppState.auditLog`; do not split them into a separate Firestore collection for v1.
 
 Bounding the log:
@@ -239,7 +256,7 @@ Validation hard rule: a character-like entity may not have more than one top-lev
 
 Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
 
-Move/add rule: non-coin stowed records should be placed inside a valid same-entity container. That container may be the top-level stowed container, a valid nested container, or a valid container currently carried in hand. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
+Move/add hard rule: stowed records must be placed inside a valid same-entity container. That container may be the top-level stowed container, a valid nested container, or a valid container currently carried in hand. Coins are no exception: only a container may sit at `stowedRoot`, so a coin record dropped there is refused like any other non-container. Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
 
 ## Non-Character Entities
 
@@ -349,6 +366,11 @@ Character-sheet fields may be displayed, edited, and validated, but inventory ow
 
 ## Inventory Record
 
+`InventoryRecord` is a discriminated union on `recordType`, not one flat object.
+Every variant excludes the other variants' type-specific data with `?: never`,
+so a weapon record cannot carry `coins` and a coin record cannot carry
+`container` — the exclusions are checked by the compiler, not by convention.
+
 ```ts
 export type InventoryRecordType =
   | "coins"
@@ -357,33 +379,75 @@ export type InventoryRecordType =
   | "armor"
   | "equipment";
 
-export type InventoryRecord = {
+type InventoryRecordShared = {
   id: InventoryRecordId;
-  recordType: InventoryRecordType;
-
-  name?: string;
+  entityId: EntityId;
   description?: string;
-
   location: InventoryLocation;
   sortOrder: number;
-  quantity?: number;
-  burden?: InventoryBurden;
-
-  coins?: CoinData;
-  treasure?: TreasureData;
-  weapon?: WeaponData;
-  armor?: ArmorData;
-  container?: ContainerData;
-
-  identification?: IdentificationData;
   uses?: UsesData;
   light?: LightData;
   modifiers?: Modifier[];
-
-  notes?: string;
+  notes?: string;              // GM-only, see Player Visibility
   createdAt?: ISODateTimeString;
   updatedAt?: ISODateTimeString;
 };
+
+type NonCoinInventoryRecordShared = InventoryRecordShared & {
+  quantity: number;
+  burden: InventoryBurden;
+  handsRequired?: HandsRequired;   // 0 | 1 | 2, see General Hand Requirement
+  isMagic?: boolean;
+};
+
+export type CoinsRecord = InventoryRecordShared & {
+  recordType: "coins";
+  name?: string;
+  coins: CoinData;
+  treasure?: never; weapon?: never; armor?: never;
+  container?: never; identification?: never;
+};
+
+export type TreasureRecord = NonCoinInventoryRecordShared & {
+  recordType: "treasure";
+  name: string;
+  treasure: TreasureData;
+  identification?: IdentificationData;
+  container?: never; coins?: never; weapon?: never; armor?: never;
+};
+
+export type WeaponRecord = NonCoinInventoryRecordShared & {
+  recordType: "weapon";
+  name: string;
+  weapon: WeaponData;
+  container?: ContainerData;
+  identification?: IdentificationData;
+  coins?: never; treasure?: never; armor?: never;
+};
+
+export type ArmorRecord = NonCoinInventoryRecordShared & {
+  recordType: "armor";
+  name: string;
+  armor: ArmorData;
+  container?: ContainerData;
+  identification?: IdentificationData;
+  coins?: never; treasure?: never; weapon?: never;
+};
+
+export type EquipmentRecord = NonCoinInventoryRecordShared & {
+  recordType: "equipment";
+  name: string;
+  container?: ContainerData;
+  identification?: IdentificationData;
+  coins?: never; treasure?: never; weapon?: never; armor?: never;
+};
+
+export type InventoryRecord =
+  | CoinsRecord
+  | TreasureRecord
+  | WeaponRecord
+  | ArmorRecord
+  | EquipmentRecord;
 ```
 
 ### Inventory Record Field Rules
@@ -400,6 +464,7 @@ export type InventoryRecord = {
 - `container` may appear on weapon, armor, or equipment records if that record can contain other records; treasure records do not use container data.
 - `identification` may appear on `treasure`, `weapon`, `armor`, or `equipment` records. It may also be tolerated on imported or legacy records.
 - Coins are always identified in normal inventory display.
+- `isMagic` is optional on non-coin records: a flag the item modal sets ("Magic item") that drives the `✦` display glyph and nothing else. It is never set on coins, and it is dropped from an unidentified record shown to a non-GM (see Player Visibility).
 - `modifiers` are optional.
 - `armorClass` modifiers on an equipped record are applied to the derived armor class: every such modifier counts, positive or negative. All other modifier targets are edit/display-only for v1 — do not apply them automatically to attack, saves, movement, or character sheet fields.
 - When creating a record, assign `sortOrder` as max existing sibling sort order + 1000.
@@ -558,7 +623,8 @@ Rules:
 - `handsRequired: 1` is active when equipped in `leftHand`, `rightHand`, or `bothHands`.
 - `handsRequired: 2` is active when equipped in `bothHands`.
 - `handsRequired` does not prohibit hand placement; hand placements are still allowed for any non-coin equipped record subject to occupancy collisions.
-- Defaults: weapons use `1`; treasure, armor, and equipment use `0`.
+- Creation defaults: a weapon created through the record form gets `1`; treasure, armor, and equipment get `0`.
+- Reading a stored record is a different rule and does not re-apply the creation default. `getRecordHandsRequired` takes an explicit record-level `handsRequired`, else derives it from legacy `weapon.hands` (`"twoHands"` → 2, `"oneHand"` → 1), else from legacy `container.handsRequired`, else `0`. State parsing normalizes every stored record through it, so a legacy weapon with neither a record-level value nor `weapon.hands` normalizes to `0`, not `1`.
 - Examples: torch `1`, shield `1`, 10 foot pole `2`, ring `0`.
 
 ## Armor Data
@@ -635,14 +701,14 @@ export type ContainerData = {
 - On character or retainer creation, create exactly one default top-level stowed container record.
 - Validation hard rule: a character-like entity may not have more than one top-level stowed container.
 - Soft warning: an existing character-like entity with zero top-level stowed containers should warn.
-- Move/add rule: non-coin stowed records should be placed inside a valid same-entity container.
+- Move/add hard rule: stowed records must be placed inside a valid same-entity container.
 - The top-level stowed container is represented by an `InventoryRecord` with `recordType: "equipment"`, `container` data, and `location.kind === "stowedRoot"`.
 - Its authored raw burden and container-usage math are unchanged, but its own
   burden contributes 0 to equipped/stowed movement totals while it remains at
   `stowedRoot`.
 - Do not use `container.isBackpack` or any replacement special-case flag in current-state creation, updates, or calculations. The stowed-root role is location-derived. Parsers may tolerate and discard old `container.isBackpack` values during migration.
 - Additional containers may be carried in hand if hand-capacity rules allow, but they do not become additional stowed roots.
-- Character-like stowed non-coin records directly in the top-level stowed container use `kind: "container"` and `containerId` set to the stowed-root record ID.
+- Character-like stowed records directly in the top-level stowed container, coin records included, use `kind: "container"` and `containerId` set to the stowed-root record ID.
 - The UI should offer an action to create a top-level stowed container for a character-like entity if missing.
 
 Suggested default top-level stowed container factory:
@@ -959,8 +1025,6 @@ Do not duplicate movement calculations in UI components.
 
 The load readout shows equipped and stowed against their own limits
 (`Eq n/9 · St n/16±STR`). There is no combined total limit to show.
-- overloaded warning if applicable
-- a placeholder movement state based on the slower burden category
 
 ### Hand Occupancy
 
@@ -1019,6 +1083,7 @@ The app should prevent state that violates these invariants:
 - If a record uses `leftHand`, no other record may use `leftHand` or `bothHands`.
 - If a record uses `rightHand`, no other record may use `rightHand` or `bothHands`.
 - A record cannot be placed inside a non-container.
+- Only a container record may sit at `stowedRoot`. Stowing anything else — a coin record included — is refused, and so is a stow request naming a container that does not exist or is not a valid target, so stowing on a character-like entity with no top-level stowed container is blocked rather than warned.
 - A nested container may contain ordinary non-container records.
 - A nested container may not contain another container.
 - All non-coin records must have a non-empty trimmed `name`.
@@ -1030,7 +1095,6 @@ The app may warn without blocking for:
 - Entity over capacity.
 - Container over capacity on non-character entities.
 - Character-like entity missing a top-level stowed container.
-- Attempting to stow a non-coin character-like record when no top-level stowed container exists.
 - Missing optional metadata.
 - Unidentified treasure, equipment, armor, or weapon lacking a secret name (spec intention; not yet implemented in `validation.ts`).
 - Memorized spells exceeding the class's derived spell slots at a given spell level, or a spell above the class's maximum castable spell level.

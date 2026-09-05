@@ -9,7 +9,7 @@ Favor practical, table-usable behavior over heavy abstractions. Local responsive
 The app should support:
 
 - Character and party inventory tracking.
-- Lightweight character-sheet fields for class, level, HP, XP, alignment, ability scores, skills, languages, features, and notes.
+- Lightweight character-sheet fields for class, level, HP, XP, alignment, armor class (modifier and override), ability scores, skills, spells, languages, features, and a free-text description.
 - Retainers, mounts, vehicles, and storage as inventory-carrying entities.
 - Slot-based encumbrance.
 - Character-like inventory with a clear distinction between equipped and stowed carried items.
@@ -26,7 +26,11 @@ Use these files as the implementation source of truth:
 
 - `APP_SPEC.md` — app-level goals, constraints, tech stack, and persistence expectations.
 - `MODEL_SPEC.md` — canonical data model, interfaces, invariants, and derived calculations.
-- `TASKS.md` — current implementation priorities and sequencing.
+- `ENCUMBRANCE_SPEC.md` — movement-rate and encumbrance rules.
+- `GEAR_VIEW_SPEC.md` — the Party Gear board, the Floor, and the drag-and-drop contract (view + interaction only).
+- `SYNC_SPEC.md` — the Firestore document shape, field-level writes, and sync failure handling.
+- `CONTENT_GUIDE.md` — authoring format and provenance for the bundled rule-content JSON libraries.
+- `TASKS.md` — what is done, in progress, and open, plus the post-1.0 list.
 
 Do not duplicate model rules inside view specs.
 
@@ -279,7 +283,7 @@ Containers are displayed inline in the stowed-container or contents list rather 
 
 The inventory page uses its existing add/edit entry points. The record modal owns item creation and editing details; adding modal fields must not add new page-level add buttons or inventory-page controls.
 
-For non-coin records, the default modal stays compact: type, name, quantity, slots/items field, stackable checkbox, description, type-specific core fields, and checkbox-driven optional sections. Location controls are hidden by default and open from a Move button in the footer.
+For non-coin records, the default modal stays compact: type, name, quantity, slots/items field, stackable checkbox, magic-item checkbox (`isMagic`), description, type-specific core fields, and checkbox-driven optional sections. Location controls are hidden by default and open from a Move button in the footer.
 
 Coin records use a compact coin-only body with PP, GP, SP, and CP fields. Movement remains available through the same hidden Move section.
 

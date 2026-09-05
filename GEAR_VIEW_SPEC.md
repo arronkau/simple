@@ -12,7 +12,7 @@ model/encumbrance specs disagree on rules, the model specs win.
 
 - Data model fields: see `MODEL_SPEC.md`.
 - Movement/encumbrance numbers: see `ENCUMBRANCE_SPEC.md`.
-- Canonical inventory view layout: see `APP_SPEC.md` / `INVENTORY_VIEW_SPEC.md`.
+- Canonical inventory view layout: see `APP_SPEC.md`, "Inventory View Layout".
 
 This feature adds **no new domain-model fields**. The Floor is an ordinary
 `storage` entity; the only new state is a UI-only setting recording which
@@ -28,7 +28,7 @@ top navigation ("Gear"). It has no left sidebar.
 A responsive grid of entity cards:
 
 ```css
-grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+grid-template-columns: repeat(auto-fill, minmax(338px, 1fr));
 ```
 
 All **active** entities are shown, sorted by `sortOrder`, except the entity
@@ -137,8 +137,8 @@ announcements). The Party Gear page is wrapped in a single `DndContext`.
 `onDragEnd` parses `over.id` into an `InventoryRecordLocationInput` and calls
 the **existing validated move action** (`useAppStore.moveInventoryRecord`).
 The action enforces every invariant (single stowed root, hand-occupancy
-collisions, `bothHands` vs `leftHand`/`rightHand` exclusivity, non-coin must be
-in a container, held-container rules, no cross-entity containment, cycle
+collisions, `bothHands` vs `leftHand`/`rightHand` exclusivity, a stowed record
+must be in a container, held-container rules, no cross-entity containment, cycle
 prevention) and reparents container descendants. A blocked/warning result is
 surfaced (toast/live region) and state is left unchanged. The drag layer holds
 **no copy** of the movement tables or invariants.
@@ -194,8 +194,19 @@ Projection is display-only and must use the shared module — never hardcode the
 tables. A `DragOverlay` shows the dragged record's name; the dropped row briefly
 flashes in its new location.
 
+### Within-zone reordering
+
+Reordering inside a zone is implemented. Each list renders gap droppables
+(`gear-gap`) between its rows; the collision strategy prefers a gap when the
+pointer is between two rows, and `onDragEnd` turns the gap's index into a
+`targetIndex` on the move location, adjusting by one when the dragged row is
+already earlier in the same list and cancelling the drop when the index does not
+change. `targetIndex` rides through the same validated
+`useAppStore.moveInventoryRecord` action as every other drop and only decides
+`sortOrder` among siblings; it never changes containment or burden.
+
 ## Non-goals (first pass)
 
-- Within-zone sortable reordering, multi-select drag.
+- Multi-select drag.
 - The referee Party HUD and the Character detail sheet.
 - Any restyle of screens other than Party Gear.

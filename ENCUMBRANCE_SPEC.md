@@ -81,7 +81,7 @@ export type ContentsCapacityResult = {
 
 ## Counting Item Burden
 
-The app uses the slot burden calculated from `SlotProfile` as item count for this encumbrance system.
+The app uses the slot burden calculated from the record's `InventoryBurden` (`MODEL_SPEC.md`, Inventory Quantity And Burden) as item count for this encumbrance system. `slotProfile` is a retired field name that survives only as a legacy input to state parsing (`src/model/appState.ts`).
 
 ```ts
 itemCount = recordSlots(record)
@@ -247,11 +247,16 @@ Rules:
 - If `entity.capacitySlots` exists, warn when used slots exceed capacity.
 - Do not calculate equipped/stowed movement for mounts, vehicles, or storage.
 
-Mounts and vehicles may derive their capacity from coin capacity divided by 100 when importing OSE-style mount/vehicle data.
+Aspirational, not implemented: mounts and vehicles may derive their capacity
+from coin capacity divided by 100 when importing OSE-style mount/vehicle data.
 
 ```ts
 capacitySlots = Math.floor(coinCapacity / 100)
 ```
+
+No code path applies this rule today — there is no mount/vehicle import, and
+`entity.capacitySlots` has no editor either, so the value can only arrive
+through imported JSON. See `TASKS.md` (missing entity capacity/movement editor).
 
 ## Strength Modifier Rule
 

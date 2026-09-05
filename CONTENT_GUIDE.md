@@ -13,6 +13,7 @@ The app never blocks on missing content: an unauthored class hides its content s
   - `sourceBasis` — cite the book and **printed page numbers** for every table/list you author.
 - **Sample entries** (`sampleList`, `sampleClass`) exist only as format references and can be deleted once real content exists. The fixture suite does not depend on them — model fixtures inject their own test libraries.
 - After editing a JSON file, run `npm run typecheck && npm run test`. A malformed shape fails the typecheck or the fixture suite.
+- **Current status:** `ose_class_reference.json`, `ose_ability_modifiers.json`, and `arden_vul_campaign.json` carry a real `sourceBasis`. `ose_spell_library.json` and `ose_class_content.json` are still `0.1.0-skeleton` — format references holding sample entries and a `TODO` `sourceBasis`. Don't describe them as audited until their provenance is filled in. (`standardItemCatalog.json` predates this format and carries its own `modelCompatibility` metadata instead; its values are checked against the transcribed handout in `src/model/handoutRoster.fixtures.ts`.)
 
 ## `ose_class_reference.json` — class metadata
 
