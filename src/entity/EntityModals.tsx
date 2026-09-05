@@ -9,6 +9,7 @@ import type { Entity, EntityId, EntityType } from "../model/types";
 import { formatWarningState } from "../formatters";
 import { type EntityFormState } from "../view-types";
 import { getEntityInventoryStatus } from "./EntityStatus";
+import { Modal } from "../ui/Modal";
 
 function EntityForm({
   formState,
@@ -70,17 +71,8 @@ export function EntityCreateModal({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   return (
-    <div className="modal-backdrop" role="presentation">
-      <form
-        aria-label="Add entity"
-        aria-modal="true"
-        className="modal-panel entity-modal"
-        role="dialog"
-        onSubmit={onSubmit}
-      >
-        <div className="modal-header">
-          <h3>Add Entity</h3>
-        </div>
+    <Modal title="Add entity" onClose={onCancel}>
+      <form className="modal-form" onSubmit={onSubmit}>
         <div className="modal-body">
           <EntityForm formState={formState} onChange={onChange} />
         </div>
@@ -91,7 +83,7 @@ export function EntityCreateModal({
           <button type="submit">Create entity</button>
         </div>
       </form>
-    </div>
+    </Modal>
   );
 }
 
@@ -123,93 +115,83 @@ export function EntityEditModal({
   const canEditEntityType = editableEntityTypes.length > 1;
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section
-        aria-label={`Edit ${entity.name}`}
-        aria-modal="true"
-        className="modal-panel entity-modal"
-        role="dialog"
-      >
-        <div className="modal-header">
-          <div>
-            <h3>Edit Entity</h3>
-            <p className="form-help">{ENTITY_TYPE_LABELS[entity.entityType]}</p>
-          </div>
-        </div>
+    <Modal
+      subtitle={<p>{ENTITY_TYPE_LABELS[entity.entityType]}</p>}
+      title="Edit entity"
+      onClose={onCancel}
+    >
+      <div className="modal-body">
+        <label className="edit-name">
+          <span>Name</span>
+          <input
+            autoComplete="off"
+            maxLength={80}
+            required
+            type="text"
+            value={editingName}
+            onChange={(event) => onChangeEditingName(event.target.value)}
+          />
+        </label>
 
-        <div className="modal-body">
-          <label className="edit-name">
-            <span>Name</span>
-            <input
-              autoComplete="off"
-              maxLength={80}
-              required
-              type="text"
-              value={editingName}
-              onChange={(event) => onChangeEditingName(event.target.value)}
-            />
-          </label>
-
-          <label>
-            <span>Type</span>
-            <select
-              disabled={!canEditEntityType}
-              value={editingEntityType}
-              onChange={(event) =>
-                onChangeEditingEntityType(event.target.value as EntityType)
-              }
-            >
-              {editableEntityTypes.map((entityType) => (
-                <option key={entityType} value={entityType}>
-                  {ENTITY_TYPE_LABELS[entityType]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <p className="form-help">
-            {canEditEntityType
-              ? "Type controls whether this entity is treated as a character or retainer. Class and level remain character-sheet data."
-              : "This entity type cannot be changed here."}
-          </p>
-
-          <div className="entity-modal-summary">
-            {status.movement ? <span>{status.movement}</span> : null}
-            {status.capacity ? <span>{status.capacity}</span> : null}
-            {status.warningCount > 0 ? (
-              <span>
-                {formatWarningState(status.warnings, status.validationIssues)}
-              </span>
-            ) : (
-              <span>No warnings</span>
-            )}
-          </div>
-        </div>
-
-        <div className="modal-footer split-actions">
-          <button
-            className="danger-button"
-            type="button"
-            onClick={() => onDeleteEntity(entity)}
+        <label>
+          <span>Type</span>
+          <select
+            disabled={!canEditEntityType}
+            value={editingEntityType}
+            onChange={(event) =>
+              onChangeEditingEntityType(event.target.value as EntityType)
+            }
           >
-            Delete
-          </button>
-          <button
-            type="button"
-            onClick={() => onSetEntityActive(entity.id, !entity.active)}
-          >
-            {entity.active ? "Deactivate" : "Reactivate"}
-          </button>
-          <div className="record-form-action-group">
-            <button type="button" onClick={onCancel}>
-              Cancel
-            </button>
-            <button type="button" onClick={() => onSaveEditing(entity.id)}>
-              Save entity
-            </button>
-          </div>
+            {editableEntityTypes.map((entityType) => (
+              <option key={entityType} value={entityType}>
+                {ENTITY_TYPE_LABELS[entityType]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <p className="form-help">
+          {canEditEntityType
+            ? "Type controls whether this entity is treated as a character or retainer. Class and level remain character-sheet data."
+            : "This entity type cannot be changed here."}
+        </p>
+
+        <div className="entity-modal-summary">
+          {status.movement ? <span>{status.movement}</span> : null}
+          {status.capacity ? <span>{status.capacity}</span> : null}
+          {status.warningCount > 0 ? (
+            <span>
+              {formatWarningState(status.warnings, status.validationIssues)}
+            </span>
+          ) : (
+            <span>No warnings</span>
+          )}
         </div>
-      </section>
-    </div>
+      </div>
+
+      <div className="modal-footer split-actions">
+        <button
+          className="danger-button"
+          type="button"
+          onClick={() => onDeleteEntity(entity)}
+        >
+          Delete
+        </button>
+        <button
+          type="button"
+          onClick={() => onSetEntityActive(entity.id, !entity.active)}
+        >
+          {entity.active ? "Deactivate" : "Reactivate"}
+        </button>
+        <div className="record-form-action-group">
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button type="button" onClick={() => onSaveEditing(entity.id)}>
+            Save entity
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }

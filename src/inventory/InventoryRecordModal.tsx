@@ -1,9 +1,9 @@
 import { type FormEvent } from "react";
 import { getRecordById } from "../model/inventoryDisplay";
 import type { AppState } from "../model/appState";
-import type { Entity, InventoryRecord, InventoryRecordId, PartyRole } from "../model/types";
-import type { InventoryMutationResult } from "../store/useAppStore";
-import type { RecordFormState } from "../view-types";
+import type { Entity, InventoryRecord, PartyRole } from "../model/types";
+import { RECORD_TYPE_LABELS, type RecordFormState } from "../view-types";
+import { Modal } from "../ui/Modal";
 import { InventoryRecordForm } from "./InventoryRecordForm";
 
 export function InventoryRecordModal({
@@ -36,33 +36,38 @@ export function InventoryRecordModal({
     : undefined;
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section
-        aria-label={formState.mode === "edit" ? "Edit inventory record" : "Add inventory record"}
-        aria-modal="true"
-        className="modal-panel inventory-item-modal"
-        role="dialog"
-      >
-        <InventoryRecordForm
-          appState={appState}
-          currentUserPartyRole={currentUserPartyRole}
-          entity={entity}
-          formState={formState}
-          message={message}
-          onCancel={onCancel}
-          onChange={onChange}
-          onDelete={
-            editingRecord
-              ? () => {
-                  onDeleteRecord(editingRecord);
-                }
-              : undefined
-          }
-          onSpendCoins={onSpendCoins}
-          onSubmit={onSubmit}
-          onTransferCoins={onTransferCoins}
-        />
-      </section>
-    </div>
+    <Modal
+      subtitle={
+        <>
+          <p>
+            {formState.mode === "edit"
+              ? `${RECORD_TYPE_LABELS[formState.recordType]} for ${entity.name}`
+              : `New item for ${entity.name}`}
+          </p>
+          {message ? <p className="form-error">{message}</p> : null}
+        </>
+      }
+      title={formState.mode === "edit" ? "Edit item" : "Add item"}
+      onClose={onCancel}
+    >
+      <InventoryRecordForm
+        appState={appState}
+        currentUserPartyRole={currentUserPartyRole}
+        entity={entity}
+        formState={formState}
+        onCancel={onCancel}
+        onChange={onChange}
+        onDelete={
+          editingRecord
+            ? () => {
+                onDeleteRecord(editingRecord);
+              }
+            : undefined
+        }
+        onSpendCoins={onSpendCoins}
+        onSubmit={onSubmit}
+        onTransferCoins={onTransferCoins}
+      />
+    </Modal>
   );
 }

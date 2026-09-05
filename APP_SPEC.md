@@ -281,6 +281,8 @@ Containers are displayed inline in the stowed-container or contents list rather 
 
 ## Record Add/Edit Modal
 
+**Dialogs.** Every modal in the app renders through one shell (`src/ui/Modal.tsx`): a native `<dialog>` opened with `showModal()`, so it sits in the top layer, contains focus, and restores focus to the opener when it closes. Escape and a click on the backdrop close a dialog, except a required one (the identity dialog when the current user has no profile yet), which suppresses both. Every dialog has a sentence-case `h2` title wired to `aria-labelledby`, and every dismissible dialog has a header close button labelled "Close"; form dialogs put Cancel before the primary action in the footer. Nested dialogs stack natively — a delete confirmation opens over the record dialog and closing it returns to that dialog.
+
 The inventory page uses its existing add/edit entry points. The record modal owns item creation and editing details; adding modal fields must not add new page-level add buttons or inventory-page controls.
 
 For non-coin records, the default modal stays compact: type, name, quantity, slots/items field, stackable checkbox, magic-item checkbox (`isMagic`), description, type-specific core fields, and checkbox-driven optional sections. Location controls are hidden by default and open from a Move button in the footer.
@@ -308,6 +310,8 @@ The app should eventually include:
 - Record add/edit modal
 - Entity add/edit modal
 - Settings or data-management view if needed
+
+Every modal area above uses the shared dialog shell and conventions described under Record Add/Edit Modal.
 
 ## Non-Goals
 

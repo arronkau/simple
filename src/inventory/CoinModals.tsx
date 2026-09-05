@@ -11,6 +11,7 @@ import {
   type CoinSpendFormState,
   type CoinTransferFormState,
 } from "../view-types";
+import { Modal } from "../ui/Modal";
 
 export function CoinSpendModal({
   formState,
@@ -37,77 +38,67 @@ export function CoinSpendModal({
   );
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section
-        aria-label="Spend coins"
-        aria-modal="true"
-        className="modal-panel record-modal"
-        role="dialog"
-      >
-        <form className="record-form modal-form" onSubmit={onSubmit}>
-          <div className="modal-header record-form-heading">
-            <div>
-              <h4>Spend Coins</h4>
-              {message ? <p className="form-error">{message}</p> : null}
+    <Modal
+      subtitle={message ? <p className="form-error">{message}</p> : undefined}
+      title="Spend coins"
+      onClose={onCancel}
+    >
+      <form className="record-form modal-form" onSubmit={onSubmit}>
+        <div className="modal-body coin-spend-layout">
+          <section className="coin-spend-section">
+            <h5>Spend amount</h5>
+            <div className="coin-spend-grid">
+              <div className="coin-spend-heading">Denomination</div>
+              <div className="coin-spend-heading">Available</div>
+              <div className="coin-spend-heading">Spend</div>
+              {COIN_DENOMINATIONS.map((denomination) => (
+                <CoinSpendRow
+                  actionLabel="Spend"
+                  available={record.coins[denomination]}
+                  denomination={denomination}
+                  key={denomination}
+                  value={formState.amounts[denomination]}
+                  onChange={(value) =>
+                    onChange({
+                      ...formState,
+                      amounts: {
+                        ...formState.amounts,
+                        [denomination]: value,
+                      },
+                    })
+                  }
+                />
+              ))}
             </div>
-          </div>
+            {validationMessage ? (
+              <p className="form-error">{validationMessage}</p>
+            ) : null}
+          </section>
 
-          <div className="modal-body coin-spend-layout">
-            <section className="coin-spend-section">
-              <h5>Spend amount</h5>
-              <div className="coin-spend-grid">
-                <div className="coin-spend-heading">Denomination</div>
-                <div className="coin-spend-heading">Available</div>
-                <div className="coin-spend-heading">Spend</div>
-                {COIN_DENOMINATIONS.map((denomination) => (
-                  <CoinSpendRow
-                    actionLabel="Spend"
-                    available={record.coins[denomination]}
-                    denomination={denomination}
-                    key={denomination}
-                    value={formState.amounts[denomination]}
-                    onChange={(value) =>
-                      onChange({
-                        ...formState,
-                        amounts: {
-                          ...formState.amounts,
-                          [denomination]: value,
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </div>
-              {validationMessage ? (
-                <p className="form-error">{validationMessage}</p>
-              ) : null}
-            </section>
+          <label>
+            <span>Note</span>
+            <span className="field-help">Optional reason for the spend</span>
+            <input
+              autoComplete="off"
+              maxLength={160}
+              value={formState.note}
+              onChange={(event) =>
+                onChange({ ...formState, note: event.target.value })
+              }
+            />
+          </label>
+        </div>
 
-            <label>
-              <span>Note</span>
-              <span className="field-help">Optional reason for the spend</span>
-              <input
-                autoComplete="off"
-                maxLength={160}
-                value={formState.note}
-                onChange={(event) =>
-                  onChange({ ...formState, note: event.target.value })
-                }
-              />
-            </label>
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" onClick={onCancel}>
-              Cancel
-            </button>
-            <button disabled={validationMessage !== undefined} type="submit">
-              Spend coins
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+        <div className="modal-footer">
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button disabled={validationMessage !== undefined} type="submit">
+            Spend coins
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -164,117 +155,111 @@ export function CoinTransferModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section
-        aria-label="Transfer coins"
-        aria-modal="true"
-        className="modal-panel record-modal"
-        role="dialog"
-      >
-        <form className="record-form modal-form" onSubmit={onSubmit}>
-          <div className="modal-header record-form-heading">
-            <div>
-              <h4>Transfer Coins</h4>
-              <p className="form-help">Move exact denominations between entities.</p>
-              {message ? <p className="form-error">{message}</p> : null}
-            </div>
-          </div>
-
-          <div className="modal-body coin-spend-layout">
-            <section className="coin-transfer-entities">
-              <label>
-                <span>Source</span>
-                <select
-                  value={formState.sourceEntityId}
-                  onChange={(event) =>
-                    changeSourceEntity(event.target.value as EntityId)
-                  }
-                >
-                  {sortedEntities.map((entity) => (
-                    <option key={entity.id} value={entity.id}>
-                      {entity.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Destination</span>
-                <select
-                  value={formState.destinationEntityId}
-                  onChange={(event) =>
-                    changeDestinationEntity(event.target.value as EntityId)
-                  }
-                >
-                  <option value="">Select destination</option>
-                  {sortedEntities.map((entity) => (
-                    <option key={entity.id} value={entity.id}>
-                      {entity.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </section>
-
-            <section className="coin-spend-section">
-              <div className="coin-transfer-amount-heading">
-                <h5>Transfer amount</h5>
-                <button type="button" className="compact-row-action" onClick={takeAll}>
-                  Take all
-                </button>
-              </div>
-              <div className="coin-spend-grid">
-                <div className="coin-spend-heading">Denomination</div>
-                <div className="coin-spend-heading">Available</div>
-                <div className="coin-spend-heading">Transfer</div>
-                {COIN_DENOMINATIONS.map((denomination) => (
-                  <CoinSpendRow
-                    actionLabel="Transfer"
-                    available={sourceCoins[denomination]}
-                    denomination={denomination}
-                    key={denomination}
-                    value={formState.amounts[denomination]}
-                    onChange={(value) =>
-                      onChange({
-                        ...formState,
-                        amounts: {
-                          ...formState.amounts,
-                          [denomination]: value,
-                        },
-                      })
-                    }
-                  />
-                ))}
-              </div>
-              {validationMessage ? (
-                <p className="form-error">{validationMessage}</p>
-              ) : null}
-            </section>
-
+    <Modal
+      subtitle={
+        <>
+          <p>Move exact denominations between entities.</p>
+          {message ? <p className="form-error">{message}</p> : null}
+        </>
+      }
+      title="Transfer coins"
+      onClose={onCancel}
+    >
+      <form className="record-form modal-form" onSubmit={onSubmit}>
+        <div className="modal-body coin-spend-layout">
+          <section className="coin-transfer-entities">
             <label>
-              <span>Note</span>
-              <span className="field-help">Optional transfer note</span>
-              <input
-                autoComplete="off"
-                maxLength={160}
-                value={formState.note}
+              <span>Source</span>
+              <select
+                value={formState.sourceEntityId}
                 onChange={(event) =>
-                  onChange({ ...formState, note: event.target.value })
+                  changeSourceEntity(event.target.value as EntityId)
                 }
-              />
+              >
+                {sortedEntities.map((entity) => (
+                  <option key={entity.id} value={entity.id}>
+                    {entity.name}
+                  </option>
+                ))}
+              </select>
             </label>
-          </div>
+            <label>
+              <span>Destination</span>
+              <select
+                value={formState.destinationEntityId}
+                onChange={(event) =>
+                  changeDestinationEntity(event.target.value as EntityId)
+                }
+              >
+                <option value="">Select destination</option>
+                {sortedEntities.map((entity) => (
+                  <option key={entity.id} value={entity.id}>
+                    {entity.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </section>
 
-          <div className="modal-footer">
-            <button type="button" onClick={onCancel}>
-              Cancel
-            </button>
-            <button disabled={validationMessage !== undefined} type="submit">
-              Transfer coins
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+          <section className="coin-spend-section">
+            <div className="coin-transfer-amount-heading">
+              <h5>Transfer amount</h5>
+              <button type="button" className="compact-row-action" onClick={takeAll}>
+                Take all
+              </button>
+            </div>
+            <div className="coin-spend-grid">
+              <div className="coin-spend-heading">Denomination</div>
+              <div className="coin-spend-heading">Available</div>
+              <div className="coin-spend-heading">Transfer</div>
+              {COIN_DENOMINATIONS.map((denomination) => (
+                <CoinSpendRow
+                  actionLabel="Transfer"
+                  available={sourceCoins[denomination]}
+                  denomination={denomination}
+                  key={denomination}
+                  value={formState.amounts[denomination]}
+                  onChange={(value) =>
+                    onChange({
+                      ...formState,
+                      amounts: {
+                        ...formState.amounts,
+                        [denomination]: value,
+                      },
+                    })
+                  }
+                />
+              ))}
+            </div>
+            {validationMessage ? (
+              <p className="form-error">{validationMessage}</p>
+            ) : null}
+          </section>
+
+          <label>
+            <span>Note</span>
+            <span className="field-help">Optional transfer note</span>
+            <input
+              autoComplete="off"
+              maxLength={160}
+              value={formState.note}
+              onChange={(event) =>
+                onChange({ ...formState, note: event.target.value })
+              }
+            />
+          </label>
+        </div>
+
+        <div className="modal-footer">
+          <button type="button" onClick={onCancel}>
+            Cancel
+          </button>
+          <button disabled={validationMessage !== undefined} type="submit">
+            Transfer coins
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
