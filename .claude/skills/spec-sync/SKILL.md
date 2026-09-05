@@ -1,6 +1,6 @@
 ---
 name: spec-sync
-description: Keep the spec docs (MODEL_SPEC, ENCUMBRANCE_SPEC, APP_SPEC, TASKS) in sync with code in the `simple` repo. Use when editing anything in src/model, the store, persistence, or the data model, when adding a model field, or when finishing a scoped task — to update the governing spec in the same change.
+description: Keep the spec docs (MODEL_SPEC, ENCUMBRANCE_SPEC, APP_SPEC, GEAR_VIEW_SPEC, SYNC_SPEC, CONTENT_GUIDE, TASKS) in sync with code in the `simple` repo. Use when editing anything in src/model, the store, persistence, or the data model, when adding a model field, or when finishing a scoped task — to update the governing spec in the same change.
 ---
 
 # Spec sync
@@ -17,8 +17,10 @@ This is the general, cross-cutting policy plus an automated reminder. The domain
 |--------------|---------|
 | `src/model/types.ts`, `appState.ts`, `entities.ts`, `inventoryRecords.ts`, `characters.ts`, `validation.ts` — data model, interfaces, invariants, validation rules | `MODEL_SPEC.md` |
 | `src/model/encumbrance.ts`, or slot / burden / movement logic in `calculations.ts` | `ENCUMBRANCE_SPEC.md` (see the `encumbrance-rules` skill) |
-| `src/model/permissions.ts`, `firestore.rules`, store permission checks, party `gmUid`/`members`, secret inventory fields | `APP_SPEC.md` (see the `firestore-permissions` skill) |
-| `src/persistence/**`, `src/store/**`, persistence behavior, local/Firebase parity, terminology, high-level app behavior | `APP_SPEC.md` |
+| `src/model/permissions.ts`, `firestore.rules`, store permission checks, party `gmUid`/`members`, secret inventory fields | `MODEL_SPEC.md` — party-state rules (GM-only fields, invite code, the one write a non-member may make) and Player Visibility own these; add or change a rules-emulator case in the `SYNC_SPEC.md` Firestore-rules list too. `APP_SPEC.md` only when the user-visible access story changes (see the `firestore-permissions` skill) |
+| `src/persistence/**`, `src/store/**`, persistence behavior, local/Firebase parity, terminology, high-level app behavior | `APP_SPEC.md`, plus `SYNC_SPEC.md` for anything about the Firestore wire shape, field-level writes, or sync failure handling |
+| `src/party-gear/**`, drag-and-drop, the Party Gear board or the Floor | `GEAR_VIEW_SPEC.md` (view + interaction only; model rules stay in `MODEL_SPEC.md`) |
+| A bundled rule-content JSON library under `src/model/` | `CONTENT_GUIDE.md` (authoring format and provenance) |
 | Class tables, saves, AC, item-catalog conventions | see the `ose-conventions` skill (data lives in JSON; specs describe intent) |
 | Completed or re-scoped a phase from the 1.0 plan / post-1.0 backlog | `TASKS.md` |
 
@@ -38,4 +40,4 @@ This is the general, cross-cutting policy plus an automated reminder. The domain
 
 Treat the spec as intent and the disagreement as a bug to surface, not silently "fix" by editing whichever is easier. If the code is right and the spec is stale, update the spec. If the spec is right and the code drifted, flag it. If genuinely unsure which is intended, ask rather than guessing.
 
-> A `Stop` hook prints a reminder when `src/model/**` changed in the working tree without a matching spec edit. That's a prompt to run this checklist, not proof anything is wrong — a pure refactor with no behavior change is a legitimate reason to skip a spec edit.
+> A `Stop` hook prints a reminder when `src/model/**`, `src/store/**`, or `src/persistence/**` changed in the working tree without a matching spec edit (spec files: MODEL_SPEC, ENCUMBRANCE_SPEC, APP_SPEC, SYNC_SPEC, GEAR_VIEW_SPEC, CONTENT_GUIDE, TASKS). That's a prompt to run this checklist, not proof anything is wrong — a pure refactor with no behavior change is a legitimate reason to skip a spec edit.

@@ -1,10 +1,12 @@
 import {
+  assignPartyGm,
   type PartyId,
   type PartyState,
 } from "../model/appState";
 import { createJoinMemberEntry } from "../model/partyInvite";
 import type { ISODateTimeString } from "../model/types";
 import type { FirebaseConfig } from "./firebaseConfig";
+import { getFirebaseErrorCode } from "./firebaseWriteLifecycle";
 import {
   fromFirestorePartyDocument,
   isLegacyFirestorePartyDocument,
@@ -20,7 +22,15 @@ const LEGACY_UPGRADE_MAX_RETRY_DELAY_MS = 30_000;
 
 export type FirebaseWriter = {
   applyFieldUpdates: (updates: FieldUpdate[]) => Promise<void>;
+  // True when the Firestore SDK persists unsent writes to IndexedDB, so an
+  // accepted write survives a reload without the app holding it in memory.
+  offlineWritesDurable: boolean;
   replaceDocument: (partyState: PartyState) => Promise<void>;
+};
+
+export type RemoteSnapshotMetadata = {
+  fromCache: boolean;
+  hasPendingWrites: boolean;
 };
 
 export type FirebaseAuthAccount = {
@@ -40,11 +50,65 @@ type StartFirebaseAppStateSyncInput = {
   onAuthUserId: (userId: string) => void;
   onAuthAccount?: (account: FirebaseAuthAccount) => void;
   onJoined?: () => void;
+  // The party document was deleted while this client was subscribed to it.
+  onPartyDeleted: (partyId: PartyId) => void;
   onReadyToWrite: (writer: FirebaseWriter) => void;
-  onRemotePartyState: (partyState: PartyState) => void;
+  onRemotePartyState: (
+    partyState: PartyState,
+    metadata: RemoteSnapshotMetadata,
+  ) => void;
   onStatusChange: (syncStatus: SyncStatus) => void;
   partyId: PartyId;
 };
+
+let firestoreDatabase: import("firebase/firestore").Firestore | undefined;
+let firestoreOfflineWritesDurable = false;
+
+/**
+ * Firestore may only be initialized once per app, and `initializeFirestore`
+ * throws when called again with different settings, so the instance is created
+ * on first use and reused by every later sync session (party switch, re-auth).
+ *
+ * The IndexedDB cache keeps unsent writes across reloads and lets the app run
+ * offline. Environments without it (private modes, unsupported browsers, the
+ * fixture runner) fall back to the default in-memory cache; sync still works,
+ * writes are just not durable across a reload.
+ */
+function getFirestoreDatabase(
+  app: import("firebase/app").FirebaseApp,
+  firestore: typeof import("firebase/firestore"),
+): {
+  database: import("firebase/firestore").Firestore;
+  offlineWritesDurable: boolean;
+} {
+  if (!firestoreDatabase) {
+    if (typeof indexedDB !== "undefined") {
+      try {
+        firestoreDatabase = firestore.initializeFirestore(app, {
+          ignoreUndefinedProperties: true,
+          localCache: firestore.persistentLocalCache({
+            tabManager: firestore.persistentMultipleTabManager(),
+          }),
+        });
+        firestoreOfflineWritesDurable = true;
+      } catch {
+        firestoreDatabase = undefined;
+      }
+    }
+
+    if (!firestoreDatabase) {
+      firestoreDatabase = firestore.initializeFirestore(app, {
+        ignoreUndefinedProperties: true,
+      });
+      firestoreOfflineWritesDurable = false;
+    }
+  }
+
+  return {
+    database: firestoreDatabase,
+    offlineWritesDurable: firestoreOfflineWritesDurable,
+  };
+}
 
 async function loadFirebase(config: FirebaseConfig) {
   const [{ getApps, initializeApp }, authModule, firestore] = await Promise.all([
@@ -80,6 +144,7 @@ export async function startFirebaseAppStateSync({
   onAuthUserId,
   onError,
   onJoined,
+  onPartyDeleted,
   onReadyToWrite,
   onRemotePartyState,
   onStatusChange,
@@ -105,9 +170,10 @@ export async function startFirebaseAppStateSync({
 
     onStatusChange("syncing");
 
-    const database = firestore.initializeFirestore(app, {
-      ignoreUndefinedProperties: true,
-    });
+    const { database, offlineWritesDurable } = getFirestoreDatabase(
+      app,
+      firestore,
+    );
     const partyStateRef = firestore.doc(
       database,
       FIREBASE_PARTY_STATE_COLLECTION,
@@ -168,6 +234,7 @@ export async function startFirebaseAppStateSync({
           ...remainingFieldValues,
         );
       },
+      offlineWritesDurable,
       replaceDocument: async (partyState) => {
         await firestore.setDoc(
           partyStateRef,
@@ -180,8 +247,17 @@ export async function startFirebaseAppStateSync({
 
     let stopped = false;
     let creatingDocument = false;
+    // Set once a snapshot reports the document exists. A document that then
+    // disappears was deleted by its GM, and must not be written back.
+    let documentSeen = false;
 
-    const applyVersion2PartyState = (partyState: PartyState) => {
+    const applyVersion2PartyState = ({
+      metadata,
+      partyState,
+    }: {
+      metadata: RemoteSnapshotMetadata;
+      partyState: PartyState;
+    }) => {
       if (stopped) {
         return;
       }
@@ -191,7 +267,7 @@ export async function startFirebaseAppStateSync({
         resolveFieldUpdatesReady?.();
       }
 
-      onRemotePartyState(partyState);
+      onRemotePartyState(partyState, metadata);
     };
 
     const legacyUpgradeLifecycle = createLegacyUpgradeLifecycle({
@@ -229,22 +305,57 @@ export async function startFirebaseAppStateSync({
 
     const unsubscribe = firestore.onSnapshot(
       partyStateRef,
+      // Metadata changes carry the write acknowledgements the status depends
+      // on: without them a write that leaves the document unchanged never
+      // reports back that the server accepted it.
+      { includeMetadataChanges: true },
       (snapshot) => {
+        const metadata: RemoteSnapshotMetadata = {
+          fromCache: snapshot.metadata.fromCache,
+          hasPendingWrites: snapshot.metadata.hasPendingWrites,
+        };
+
         if (!snapshot.exists()) {
-          if (creatingDocument) {
+          // An offline client sees "missing" for any document it has never
+          // cached. Creating it from local state there would overwrite the
+          // real party once the connection returns.
+          if (creatingDocument || metadata.fromCache) {
+            return;
+          }
+
+          // The document existed a moment ago, so the GM deleted it. Creating
+          // it again would resurrect the party and, because creation assigns
+          // GM to the creating uid, hand GM to whichever member happened to
+          // still be subscribed.
+          if (documentSeen) {
+            // Reported as its own event, not just an error string: the store
+            // has to forget the party locally, or the next visit to "/" would
+            // reopen the deleted id and create it again.
+            onPartyDeleted(partyId);
+            onError("This party was deleted by the GM.");
+            return;
+          }
+
+          if (!user) {
+            onError("Sign-in is required before a party can be created.");
             return;
           }
 
           creatingDocument = true;
           onStatusChange("saving");
-          void writer.replaceDocument(getCurrentPartyState()).catch(
-            (error: unknown) => {
+          // Creating the document is what makes someone the GM of a new party:
+          // the Firestore create rule requires the caller to be both
+          // `party.gmUid` and a member, and no earlier step may assume it.
+          void writer
+            .replaceDocument(assignPartyGm(getCurrentPartyState(), user.uid))
+            .catch((error: unknown) => {
               creatingDocument = false;
               onError(formatFirebaseError(error));
-            },
-          );
+            });
           return;
         }
+
+        documentSeen = true;
 
         const data = snapshot.data();
         const partyState = fromFirestorePartyDocument(data, partyId);
@@ -260,7 +371,7 @@ export async function startFirebaseAppStateSync({
           return;
         }
 
-        legacyUpgradeLifecycle.handleVersion2Document(partyState);
+        legacyUpgradeLifecycle.handleVersion2Document({ metadata, partyState });
       },
       (error) => onError(formatFirebaseError(error)),
     );
@@ -381,25 +492,45 @@ export async function linkOrSignInWithGoogle(
   }
 }
 
+export type DeletePartyDocumentResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Removes the party document. Only the GM may do this (see the delete rule in
+ * firestore.rules); callers must stop the snapshot subscription first, because
+ * a subscribed client recreates a party document that disappears under it.
+ */
+export async function deletePartyDocument(
+  config: FirebaseConfig,
+  partyId: PartyId,
+): Promise<DeletePartyDocumentResult> {
+  try {
+    const { app, firestore } = await loadFirebase(config);
+    const database = firestore.getFirestore(app);
+
+    await firestore.deleteDoc(
+      firestore.doc(database, FIREBASE_PARTY_STATE_COLLECTION, partyId),
+    );
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        getFirebaseErrorCode(error) === "permission-denied"
+          ? "Only the GM can delete this party."
+          : formatFirebaseError(error),
+    };
+  }
+}
+
 export async function signOutFirebase(config: FirebaseConfig): Promise<void> {
   const { authModule, auth } = await loadFirebase(config);
   await authModule.signOut(auth);
 }
 
-function getFirebaseErrorCode(error: unknown): string | undefined {
-  if (
-    error &&
-    typeof error === "object" &&
-    "code" in error &&
-    typeof error.code === "string"
-  ) {
-    return error.code;
-  }
-
-  return undefined;
-}
-
-function formatFirebaseError(error: unknown): string {
+export function formatFirebaseError(error: unknown): string {
   const code = getFirebaseErrorCode(error);
 
   if (code === "permission-denied") {

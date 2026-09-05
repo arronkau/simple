@@ -1,10 +1,21 @@
-import { type FormEvent, useEffect, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import {
   ABILITY_SCORE_KEYS,
   ABILITY_SCORE_LABELS,
   normalizeCharacterData,
 } from "../model/characters";
 import { getClassContentLookup } from "../model/classContent";
+import {
+  ENTITY_TYPE_LABELS,
+  getEditableEntityTypes,
+  type UpdateEntityInput,
+} from "../model/entities";
 import {
   getAllowedClassDisplayNames,
   isClassAllowed,
@@ -15,6 +26,7 @@ import type {
   CharacterData,
   Entity,
   EntityId,
+  EntityType,
 } from "../model/types";
 import type { EntityMutationResult } from "../store/useAppStore";
 import { formatPartyAlignment } from "../formatters";
@@ -33,9 +45,29 @@ import {
   createEmptySpellFormState,
   toCharacterDataFormInput,
 } from "./characterSheetForm";
+import {
+  getSheetCommitSchedule,
+  getSheetSaveStatus,
+  isCharacterDataDirty,
+  isEntityDraftDirty,
+  shouldReseedSheetDraft,
+  shouldRunQueuedCommit,
+  type EntityDraft,
+  type SheetEditKind,
+  type SheetSaveState,
+} from "./characterSheetAutosave";
 
 const SPELL_NAME_DATALIST_ID = "character-sheet-spell-names";
 const CLASS_NAME_DATALIST_ID = "character-sheet-class-names";
+
+/** Which draft a queued commit belongs to, so switching between the entity
+ * fields and the sheet fields flushes the earlier one instead of dropping it. */
+type CommitTarget = "sheet" | "entity";
+
+type QueuedCommit = {
+  target: CommitTarget;
+  run: () => void;
+};
 
 function getSpellNameOptions(className: string): string[] {
   const classContent = getClassContentLookup(className);
@@ -55,9 +87,19 @@ function getSpellNameOptions(className: string): string[] {
   );
 }
 
+/**
+ * The one edit surface for a character. There is no Save button: selects,
+ * steppers and row add/remove commit as they change, typed fields commit a
+ * short pause after the last keystroke (or immediately on blur), and "Done"
+ * only closes the editor after flushing anything still queued. Every sheet
+ * commit goes through `updateCharacterData` so validation stays in the model.
+ */
 export function CharacterSheetEditForm({
   entity,
   onSaveCharacterData,
+  onUpdateEntity,
+  onSetEntityActive,
+  onDeleteEntity,
   onDone,
 }: {
   entity: Entity;
@@ -65,81 +107,253 @@ export function CharacterSheetEditForm({
     entityId: EntityId,
     characterData: CharacterData,
   ) => EntityMutationResult;
+  onUpdateEntity: (
+    entityId: EntityId,
+    input: UpdateEntityInput,
+  ) => EntityMutationResult;
+  onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onDeleteEntity: (entity: Entity) => void;
   onDone: () => void;
 }) {
+  const [seededEntityId, setSeededEntityId] = useState<EntityId>(entity.id);
   const [formState, setFormState] = useState<CharacterSheetFormState>(() =>
     createCharacterSheetFormState(normalizeCharacterData(entity.character)),
   );
-  const [message, setMessage] = useState<
-    { tone: "error" | "success"; text: string } | undefined
-  >();
+  const [entityDraft, setEntityDraft] = useState<EntityDraft>(() => ({
+    name: entity.name,
+    entityType: entity.entityType,
+  }));
+  const [saveState, setSaveState] = useState<SheetSaveState>({ phase: "idle" });
 
-  useEffect(() => {
+  // The draft is seeded when the editor opens and re-seeded only if it is
+  // pointed at a different entity. A remote update that lands while the editor
+  // is open is deliberately not merged in, so it can never overwrite the field
+  // being typed in; see `shouldReseedSheetDraft` for the trade-off that buys.
+  if (shouldReseedSheetDraft(seededEntityId, entity.id)) {
+    setSeededEntityId(entity.id);
     setFormState(
       createCharacterSheetFormState(normalizeCharacterData(entity.character)),
     );
-  }, [entity.character]);
+    setEntityDraft({ name: entity.name, entityType: entity.entityType });
+    setSaveState({ phase: "idle" });
+  }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const timerRef = useRef<number | undefined>(undefined);
+  const queuedCommitRef = useRef<QueuedCommit | undefined>(undefined);
+  // A queued commit can run after several renders, so it reads the entity and
+  // the store actions from here rather than from its own closure.
+  const latestRef = useRef({ entity, onSaveCharacterData, onUpdateEntity });
 
-    const result = onSaveCharacterData(
-      entity.id,
-      toCharacterDataFormInput(formState),
+  useEffect(() => {
+    latestRef.current = { entity, onSaveCharacterData, onUpdateEntity };
+  });
+
+  useEffect(
+    () => () => {
+      // Closing the editor (or navigating away) must not lose a keystroke that
+      // is still inside its debounce window.
+      if (timerRef.current !== undefined) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = undefined;
+      }
+
+      const queued = queuedCommitRef.current;
+      queuedCommitRef.current = undefined;
+      queued?.run();
+    },
+    [],
+  );
+
+  function reportResult(result: EntityMutationResult) {
+    setSaveState(
+      result.ok ? { phase: "saved" } : { phase: "error", message: result.message },
     );
+  }
 
-    if (!result.ok) {
-      setMessage({ tone: "error", text: result.message });
+  /** Nothing to write: clear a pending/failed status but keep a "Saved". */
+  function reportNoChange() {
+    setSaveState((currentState) =>
+      currentState.phase === "saved" ? currentState : { phase: "idle" },
+    );
+  }
+
+  function commitSheet(
+    entityId: EntityId,
+    nextFormState: CharacterSheetFormState,
+  ) {
+    const { entity: currentEntity, onSaveCharacterData: saveCharacterData } =
+      latestRef.current;
+
+    // The editor may have been pointed at another entity since this commit was
+    // queued; writing then would land one character's draft on another.
+    if (!shouldRunQueuedCommit(entityId, currentEntity.id)) {
       return;
     }
 
-    onDone();
+    const characterData = toCharacterDataFormInput(nextFormState);
+
+    if (!isCharacterDataDirty(characterData, currentEntity.character)) {
+      reportNoChange();
+      return;
+    }
+
+    // A rejected save leaves the typed draft alone: the model message is shown
+    // and the next change tries again.
+    reportResult(saveCharacterData(currentEntity.id, characterData));
+  }
+
+  function commitEntity(entityId: EntityId, nextDraft: EntityDraft) {
+    const { entity: currentEntity, onUpdateEntity: updateEntity } =
+      latestRef.current;
+
+    if (!shouldRunQueuedCommit(entityId, currentEntity.id)) {
+      return;
+    }
+
+    if (!isEntityDraftDirty(nextDraft, currentEntity)) {
+      reportNoChange();
+      return;
+    }
+
+    reportResult(
+      updateEntity(currentEntity.id, {
+        name: nextDraft.name,
+        entityType: nextDraft.entityType,
+      }),
+    );
+  }
+
+  function clearTimer() {
+    if (timerRef.current !== undefined) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+  }
+
+  function scheduleCommit(
+    kind: SheetEditKind,
+    target: CommitTarget,
+    run: () => void,
+  ) {
+    const queued = queuedCommitRef.current;
+
+    clearTimer();
+    queuedCommitRef.current = undefined;
+
+    // A queued commit for the *other* draft still has to happen; a queued
+    // commit for this one is superseded by the newer state it carries.
+    if (queued && queued.target !== target) {
+      queued.run();
+    }
+
+    const schedule = getSheetCommitSchedule(kind);
+
+    if (schedule.mode === "immediate") {
+      run();
+      return;
+    }
+
+    queuedCommitRef.current = { target, run };
+    setSaveState({ phase: "saving" });
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = undefined;
+
+      const pending = queuedCommitRef.current;
+      queuedCommitRef.current = undefined;
+      pending?.run();
+    }, schedule.delayMs);
+  }
+
+  function flushQueuedCommit() {
+    clearTimer();
+
+    const queued = queuedCommitRef.current;
+    queuedCommitRef.current = undefined;
+    queued?.run();
+  }
+
+  function applySheetChange(
+    kind: SheetEditKind,
+    nextFormState: CharacterSheetFormState,
+  ) {
+    setFormState(nextFormState);
+    scheduleCommit(kind, "sheet", () => commitSheet(entity.id, nextFormState));
+  }
+
+  function applyEntityChange(kind: SheetEditKind, nextDraft: EntityDraft) {
+    setEntityDraft(nextDraft);
+    scheduleCommit(kind, "entity", () => commitEntity(entity.id, nextDraft));
   }
 
   function updateAbilityScore(key: AbilityScoreKey, value: string) {
-    setFormState((currentState) => ({
-      ...currentState,
+    applySheetChange("number", {
+      ...formState,
       abilityScores: {
-        ...currentState.abilityScores,
+        ...formState.abilityScores,
         [key]: value,
       },
-    }));
+    });
   }
 
   function updateSkill(
     skillId: string,
     patch: Partial<CharacterSkillFormState>,
+    kind: SheetEditKind,
   ) {
-    setFormState((currentState) => ({
-      ...currentState,
-      skills: currentState.skills.map((skill) =>
+    applySheetChange(kind, {
+      ...formState,
+      skills: formState.skills.map((skill) =>
         skill.id === skillId ? { ...skill, ...patch } : skill,
       ),
-    }));
+    });
   }
 
   function updateFeature(
     featureId: string,
     patch: Partial<CharacterFeatureFormState>,
+    kind: SheetEditKind,
   ) {
-    setFormState((currentState) => ({
-      ...currentState,
-      features: currentState.features.map((feature) =>
+    applySheetChange(kind, {
+      ...formState,
+      features: formState.features.map((feature) =>
         feature.id === featureId ? { ...feature, ...patch } : feature,
       ),
-    }));
+    });
   }
 
   function updateSpell(
     spellId: string,
     patch: Partial<CharacterSpellFormState>,
+    kind: SheetEditKind,
   ) {
-    setFormState((currentState) => ({
-      ...currentState,
-      spells: currentState.spells.map((spell) =>
+    applySheetChange(kind, {
+      ...formState,
+      spells: formState.spells.map((spell) =>
         spell.id === spellId ? { ...spell, ...patch } : spell,
       ),
-    }));
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    flushQueuedCommit();
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLFormElement>) {
+    // Enter used to submit the sheet; it now commits whatever is queued so the
+    // old keyboard habit still means "save this now". Buttons, selects and
+    // textareas keep their own Enter behavior.
+    if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
+      return;
+    }
+
+    event.preventDefault();
+    flushQueuedCommit();
+  }
+
+  function handleDone() {
+    flushQueuedCommit();
+    onDone();
   }
 
   const spellNameOptions = getSpellNameOptions(formState.className);
@@ -147,25 +361,94 @@ export function CharacterSheetEditForm({
   const showClassWarning =
     formState.className.trim().length > 0 &&
     !isClassAllowed(formState.className);
+  const editableEntityTypes = getEditableEntityTypes(entity);
+  const canEditEntityType = editableEntityTypes.length > 1;
+  const saveStatus = getSheetSaveStatus(saveState);
 
   return (
     <section
       className="character-sheet-panel"
       aria-label={`${entity.name} character sheet editor`}
     >
-      <form className="character-sheet-form" onSubmit={handleSubmit}>
+      <form
+        className="character-sheet-form"
+        noValidate
+        onBlur={flushQueuedCommit}
+        onKeyDown={handleKeyDown}
+        onSubmit={handleSubmit}
+      >
         <div className="record-form-heading">
           <h4>Edit Character Sheet</h4>
-          {message ? (
-            <p
-              className={
-                message.tone === "error" ? "form-error" : "form-success"
-              }
-            >
-              {message.text}
-            </p>
-          ) : null}
+          <p
+            aria-live="polite"
+            className={
+              saveStatus?.tone === "error"
+                ? "form-error"
+                : saveStatus?.tone === "success"
+                  ? "form-success"
+                  : "form-help"
+            }
+            role="status"
+          >
+            {saveStatus ? saveStatus.text : ""}
+          </p>
         </div>
+
+        <section className="character-sheet-section">
+          <h5>Entity</h5>
+          <div className="character-sheet-grid compact-grid">
+            <label>
+              <span>Name</span>
+              <input
+                autoComplete="off"
+                maxLength={80}
+                type="text"
+                value={entityDraft.name}
+                onChange={(event) =>
+                  applyEntityChange("text", {
+                    ...entityDraft,
+                    name: event.target.value,
+                  })
+                }
+              />
+            </label>
+            <label>
+              <span>Type</span>
+              <select
+                disabled={!canEditEntityType}
+                value={entityDraft.entityType}
+                onChange={(event) =>
+                  applyEntityChange("choice", {
+                    ...entityDraft,
+                    entityType: event.target.value as EntityType,
+                  })
+                }
+              >
+                {editableEntityTypes.map((entityType) => (
+                  <option key={entityType} value={entityType}>
+                    {ENTITY_TYPE_LABELS[entityType]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="record-form-action-group left-actions">
+            <button
+              className="compact-row-action"
+              type="button"
+              onClick={() => onSetEntityActive(entity.id, !entity.active)}
+            >
+              {entity.active ? "Bench" : "Reactivate"}
+            </button>
+            <button
+              className="danger-button compact-row-action"
+              type="button"
+              onClick={() => onDeleteEntity(entity)}
+            >
+              Delete
+            </button>
+          </div>
+        </section>
 
         <section className="character-sheet-section">
           <h5>Identity</h5>
@@ -179,7 +462,7 @@ export function CharacterSheetEditForm({
                 type="text"
                 value={formState.className}
                 onChange={(event) =>
-                  setFormState({
+                  applySheetChange("text", {
                     ...formState,
                     className: event.target.value,
                   })
@@ -198,7 +481,7 @@ export function CharacterSheetEditForm({
               label="Level"
               value={formState.level}
               onChange={(value) =>
-                setFormState({ ...formState, level: value })
+                applySheetChange("number", { ...formState, level: value })
               }
             />
             <label>
@@ -206,7 +489,7 @@ export function CharacterSheetEditForm({
               <select
                 value={formState.alignment}
                 onChange={(event) =>
-                  setFormState({
+                  applySheetChange("choice", {
                     ...formState,
                     alignment: event.target.value as CharacterAlignment,
                   })
@@ -225,7 +508,9 @@ export function CharacterSheetEditForm({
             <NumberField
               label="XP"
               value={formState.xp}
-              onChange={(value) => setFormState({ ...formState, xp: value })}
+              onChange={(value) =>
+                applySheetChange("number", { ...formState, xp: value })
+              }
             />
           </div>
         </section>
@@ -237,14 +522,14 @@ export function CharacterSheetEditForm({
               label="Current HP"
               value={formState.hpCurrent}
               onChange={(value) =>
-                setFormState({ ...formState, hpCurrent: value })
+                applySheetChange("number", { ...formState, hpCurrent: value })
               }
             />
             <NumberField
               label="Max HP"
               value={formState.hpMax}
               onChange={(value) =>
-                setFormState({ ...formState, hpMax: value })
+                applySheetChange("number", { ...formState, hpMax: value })
               }
             />
           </div>
@@ -258,14 +543,20 @@ export function CharacterSheetEditForm({
               min="-99"
               value={formState.armorClassModifier}
               onChange={(value) =>
-                setFormState({ ...formState, armorClassModifier: value })
+                applySheetChange("number", {
+                  ...formState,
+                  armorClassModifier: value,
+                })
               }
             />
             <NumberField
               label="Manual AC"
               value={formState.armorClassOverride}
               onChange={(value) =>
-                setFormState({ ...formState, armorClassOverride: value })
+                applySheetChange("number", {
+                  ...formState,
+                  armorClassOverride: value,
+                })
               }
             />
           </div>
@@ -294,10 +585,10 @@ export function CharacterSheetEditForm({
             <button
               type="button"
               onClick={() =>
-                setFormState((currentState) => ({
-                  ...currentState,
-                  spells: [...currentState.spells, createEmptySpellFormState()],
-                }))
+                applySheetChange("structure", {
+                  ...formState,
+                  spells: [...formState.spells, createEmptySpellFormState()],
+                })
               }
             >
               Add spell
@@ -328,11 +619,14 @@ export function CharacterSheetEditForm({
                           : undefined
                       }
                       maxLength={80}
-                      required
                       type="text"
                       value={spell.name}
                       onChange={(event) =>
-                        updateSpell(spell.id, { name: event.target.value })
+                        updateSpell(
+                          spell.id,
+                          { name: event.target.value },
+                          "text",
+                        )
                       }
                     />
                   </label>
@@ -341,7 +635,11 @@ export function CharacterSheetEditForm({
                     <select
                       value={spell.level}
                       onChange={(event) =>
-                        updateSpell(spell.id, { level: event.target.value })
+                        updateSpell(
+                          spell.id,
+                          { level: event.target.value },
+                          "choice",
+                        )
                       }
                     >
                       {[1, 2, 3, 4, 5, 6, 7].map((spellLevel) => (
@@ -355,7 +653,7 @@ export function CharacterSheetEditForm({
                     label="Memorized"
                     value={spell.memorized}
                     onChange={(value) =>
-                      updateSpell(spell.id, { memorized: value })
+                      updateSpell(spell.id, { memorized: value }, "number")
                     }
                   />
                   <label className="wide-field">
@@ -366,7 +664,11 @@ export function CharacterSheetEditForm({
                       type="text"
                       value={spell.notes}
                       onChange={(event) =>
-                        updateSpell(spell.id, { notes: event.target.value })
+                        updateSpell(
+                          spell.id,
+                          { notes: event.target.value },
+                          "text",
+                        )
                       }
                     />
                   </label>
@@ -374,12 +676,12 @@ export function CharacterSheetEditForm({
                     className="danger-button"
                     type="button"
                     onClick={() =>
-                      setFormState((currentState) => ({
-                        ...currentState,
-                        spells: currentState.spells.filter(
+                      applySheetChange("structure", {
+                        ...formState,
+                        spells: formState.spells.filter(
                           (candidateSpell) => candidateSpell.id !== spell.id,
                         ),
-                      }))
+                      })
                     }
                   >
                     Remove
@@ -396,10 +698,10 @@ export function CharacterSheetEditForm({
             <button
               type="button"
               onClick={() =>
-                setFormState((currentState) => ({
-                  ...currentState,
-                  skills: [...currentState.skills, createEmptySkillFormState()],
-                }))
+                applySheetChange("structure", {
+                  ...formState,
+                  skills: [...formState.skills, createEmptySkillFormState()],
+                })
               }
             >
               Add skill
@@ -417,11 +719,14 @@ export function CharacterSheetEditForm({
                     <input
                       autoComplete="off"
                       maxLength={80}
-                      required
                       type="text"
                       value={skill.name}
                       onChange={(event) =>
-                        updateSkill(skill.id, { name: event.target.value })
+                        updateSkill(
+                          skill.id,
+                          { name: event.target.value },
+                          "text",
+                        )
                       }
                     />
                   </label>
@@ -430,9 +735,11 @@ export function CharacterSheetEditForm({
                     <select
                       value={skill.chanceInSix}
                       onChange={(event) =>
-                        updateSkill(skill.id, {
-                          chanceInSix: event.target.value,
-                        })
+                        updateSkill(
+                          skill.id,
+                          { chanceInSix: event.target.value },
+                          "choice",
+                        )
                       }
                     >
                       {[1, 2, 3, 4, 5, 6].map((chance) => (
@@ -450,9 +757,11 @@ export function CharacterSheetEditForm({
                       type="text"
                       value={skill.description}
                       onChange={(event) =>
-                        updateSkill(skill.id, {
-                          description: event.target.value,
-                        })
+                        updateSkill(
+                          skill.id,
+                          { description: event.target.value },
+                          "text",
+                        )
                       }
                     />
                   </label>
@@ -460,12 +769,12 @@ export function CharacterSheetEditForm({
                     className="danger-button"
                     type="button"
                     onClick={() =>
-                      setFormState((currentState) => ({
-                        ...currentState,
-                        skills: currentState.skills.filter(
+                      applySheetChange("structure", {
+                        ...formState,
+                        skills: formState.skills.filter(
                           (candidateSkill) => candidateSkill.id !== skill.id,
                         ),
-                      }))
+                      })
                     }
                   >
                     Remove
@@ -484,7 +793,7 @@ export function CharacterSheetEditForm({
               rows={3}
               value={formState.languagesText}
               onChange={(event) =>
-                setFormState({
+                applySheetChange("text", {
                   ...formState,
                   languagesText: event.target.value,
                 })
@@ -499,13 +808,13 @@ export function CharacterSheetEditForm({
             <button
               type="button"
               onClick={() =>
-                setFormState((currentState) => ({
-                  ...currentState,
+                applySheetChange("structure", {
+                  ...formState,
                   features: [
-                    ...currentState.features,
+                    ...formState.features,
                     createEmptyFeatureFormState(),
                   ],
-                }))
+                })
               }
             >
               Add ability
@@ -526,9 +835,11 @@ export function CharacterSheetEditForm({
                       type="text"
                       value={feature.name}
                       onChange={(event) =>
-                        updateFeature(feature.id, {
-                          name: event.target.value,
-                        })
+                        updateFeature(
+                          feature.id,
+                          { name: event.target.value },
+                          "text",
+                        )
                       }
                     />
                   </label>
@@ -538,9 +849,11 @@ export function CharacterSheetEditForm({
                       rows={2}
                       value={feature.description}
                       onChange={(event) =>
-                        updateFeature(feature.id, {
-                          description: event.target.value,
-                        })
+                        updateFeature(
+                          feature.id,
+                          { description: event.target.value },
+                          "text",
+                        )
                       }
                     />
                   </label>
@@ -548,13 +861,13 @@ export function CharacterSheetEditForm({
                     className="danger-button"
                     type="button"
                     onClick={() =>
-                      setFormState((currentState) => ({
-                        ...currentState,
-                        features: currentState.features.filter(
+                      applySheetChange("structure", {
+                        ...formState,
+                        features: formState.features.filter(
                           (candidateFeature) =>
                             candidateFeature.id !== feature.id,
                         ),
-                      }))
+                      })
                     }
                   >
                     Remove
@@ -573,7 +886,7 @@ export function CharacterSheetEditForm({
               rows={4}
               value={formState.description}
               onChange={(event) =>
-                setFormState({
+                applySheetChange("text", {
                   ...formState,
                   description: event.target.value,
                 })
@@ -583,9 +896,8 @@ export function CharacterSheetEditForm({
         </section>
 
         <div className="record-form-actions">
-          <button type="submit">Save character sheet</button>
-          <button type="button" onClick={onDone}>
-            Cancel
+          <button type="button" onClick={handleDone}>
+            Done
           </button>
         </div>
       </form>

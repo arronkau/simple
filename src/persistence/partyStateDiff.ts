@@ -58,6 +58,9 @@ export function diffPartyStates(
     canonicalNext.userProfiles,
   );
 
+  // Appends merge with other clients via arrayUnion. A trim (the log hit
+  // AUDIT_LOG_MAX_ENTRIES) or a GM clear removes entries, which arrayUnion
+  // cannot express, so the shrunken array is written whole.
   const previousAuditLog = canonicalPrevious.appState.auditLog;
   const nextAuditLog = canonicalNext.appState.auditLog;
   const previousIsPrefix =

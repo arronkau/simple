@@ -33,8 +33,10 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 
 - GM bypasses all checks (`role === "gm"` ⇒ true everywhere).
 - GM-only action sets: `GM_ONLY_PARTY_ACTIONS`, `GM_ONLY_ENTITY_ACTIONS`, `GM_ONLY_INVENTORY_ACTIONS`. Add new privileged actions to the right set, and the action to the corresponding `*Action` union type.
-- `assert*Action` throws `PermissionError` (codes: `not-authenticated | not-party-member | gm-only | protected-field | invalid-membership-update`).
+- `assert*Action` throws `PermissionError`. The class declares five codes (`not-authenticated | not-party-member | gm-only | protected-field | invalid-membership-update`) but only two are thrown today: `gm-only` from the `assert*Action` helpers, and `not-party-member` from the store's `requireActionRole` when the role is unresolved in Firebase mode. The other three are unused — reuse one deliberately or drop it rather than assuming a caller can catch it.
+- Not every declared action is actually restricted: `GM_ONLY_ENTITY_ACTIONS` and `GM_ONLY_INVENTORY_ACTIONS` hold only the view/edit-GM-field and identify actions, so create/edit/delete/move are player-allowed for entities and items alike and their `assert*` guards can never throw for a resolved role. Check the sets before assuming a guard restricts anything.
 - **Secret inventory fields** (`identification.secretName`, `identification.secretDescription`) are GM-only and **cannot be validated in Firestore rules** (they're nested inside individual inventory records). They are enforced ONLY here via `getProtectedInventoryFieldViolations(patch)`. If you add a new secret/GM field, update this function — rules will not catch it.
+- **Deleting a party** (`deleteParty`) is GM-only in both layers. The client path is the store's `deleteCurrentParty` → `deletePartyDocument` in `firebaseSync.ts`: it asserts the action, **stops the snapshot subscription before the delete** (a subscribed client treats a missing party document as one it must create and would write the party straight back), then clears the local party state, the local party index entry, and the last-opened party id. Other clients subscribed to the party do **not** recreate it: the snapshot handler tracks whether it has seen the document exist, and raises `onPartyDeleted`, which forgets the party locally (cached state, index entry, `lastPartyId`) and reports "This party was deleted by the GM.", instead of writing it back — without that, creation's `assignPartyGm` would hand GM to whichever member was still subscribed.
 - **Write gates in the store's `updateInventoryRecord`:** a non-GM may not edit a record that is stored unidentified ("Only the GM can edit an unidentified item."), and a non-GM's save carries the stored `notes` through unchanged so it cannot be wiped by a form that never showed it.
 
 ## Display redaction (third layer, UX only)
@@ -55,6 +57,14 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 - Sessions start anonymous. `linkOrSignInWithGoogle` in `firebaseSync.ts` links Google to the anonymous user (UID unchanged). On `auth/credential-already-in-use` it signs in as the existing Google-bound user instead; the UID changes and the store restarts sync so role is re-resolved. Sign-out restarts sync under a new anonymous UID.
 - Google sign-in requires the Google provider enabled in Firebase Auth and the hosting domain in Auth → Authorized domains.
 
+## Where GM identity comes from (Firebase mode)
+
+- **The party document, never the local cache.** `migratePartyMembership` (assigns the current user as GM when a party has no `gmUid`) is for local-mode parties and the document-creation path only. A Firebase client that has not seen a snapshot yet uses `repairPartyMembership`, which repairs a missing `members[gmUid]` entry but never hands GM to the reader.
+- **Creation assigns GM.** The `exists() === false` branch in `firebaseSync.ts` writes the document through `assignPartyGm(partyState, user.uid)`, matching the create rule (caller must be both `gmUid` and a member). This is the only place a client claims GM.
+- **Unresolved role fails closed.** `resolvePartyRole` returning `null` (not a member, or no snapshot yet) must not be read as `"player"`. Store actions resolve through `resolveActionRole(role, persistenceMode)`: `"player"` in local mode, `null` in Firebase mode, and a `null` result throws `PermissionError("not-party-member")` so the mutation is refused.
+- A denied read keeps the role `null`, sets `syncStatus` to `error`, hides GM controls, and does not record the party as `lastPartyId`.
+
 ## Gotchas
 - A previously-fixed bug: GM identity was lost when the Firebase UID differed from the local user id (commit 16db8d6). Anything new that maps local ids ↔ UIDs must preserve GM resolution — test with `gmUid !== localUserId`.
+- A previously-fixed bug: a non-member who opened a party URL in Firebase mode became a *local* GM, because the GM-assignment migration ran against the empty local cache before the first snapshot. Any new code path that writes `gmUid` outside the document-creation path reintroduces it.
 - Don't trust the client role for security decisions that matter — the rules are the boundary; `permissions.ts` is for UX and the secret-field gap rules can't cover.

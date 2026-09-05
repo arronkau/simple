@@ -26,7 +26,8 @@ const fixed = (slotsPerItem: number) =>
 const stacked = (itemsPerSlot: number) =>
   ({ kind: "stacked", itemsPerSlot }) as const;
 
-// Hand-transcribed from handouts/Equipment.html.
+// Hand-transcribed from the campaign's Armor & Equipment quick-reference
+// handout (the same source cited by arden_vul_campaign.json).
 const HANDOUT_ROSTER: HandoutRosterEntry[] = [
   { section: "armor", slug: "padded", expected: { gpValue: 5, quantity: 1, burden: fixed(1), armor: { baseArmorClass: 11 } } },
   { section: "armor", slug: "furs", expected: { gpValue: 10, quantity: 1, burden: fixed(1), armor: { baseArmorClass: 12 } } },
@@ -71,9 +72,10 @@ const HANDOUT_ROSTER: HandoutRosterEntry[] = [
   { section: "ammunition", slug: "silver-tipped-arrow", expected: { gpValue: 5, quantity: 1, burden: stacked(20) } },
   { section: "ammunition", slug: "sling-stones", expected: { gpValue: 0, quantity: 1, burden: none } },
 
-  // Handout: Backpack "—" slots. By GM ruling (CAMPAIGN_RULES_AUDIT.md §2 #1)
-  // the catalog keeps fixed 1 and the stowed-root movement rule (PR 2) makes a
-  // worn backpack contribute 0; carried in hand it counts its slot.
+  // The handout prints "—" slots for the Backpack. By GM ruling the catalog
+  // keeps fixed 1: the stowed-root rule already makes a worn backpack
+  // contribute 0 movement burden (ENCUMBRANCE_SPEC, Backpack and Coin
+  // Treatment), while carried in hand it counts its slot.
   { section: "gear", slug: "backpack", expected: { gpValue: 5, quantity: 1, burden: fixed(1) } },
   { section: "gear", slug: "bell-miniature", expected: { gpValue: 1, quantity: 1, burden: none } },
   { section: "gear", slug: "block-and-tackle", expected: { gpValue: 5, quantity: 1, burden: fixed(1) } },

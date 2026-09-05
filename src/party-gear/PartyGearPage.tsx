@@ -442,9 +442,14 @@ export function PartyGearPage(actions: GearActions) {
           onDragEnd={handleDragEnd}
           onDragCancel={() => resetDrag()}
         >
-          <div
+          <section
+            aria-labelledby="inventory-title"
             className={`gear-page${dragState.activeRecordId ? " dragging" : ""}`}
           >
+            <div className="section-heading">
+              <h2 id="inventory-title">Inventory</h2>
+            </div>
+
             <div className="gear-subbar">
               <div className="gear-legend">
                 <span className="leg">
@@ -502,7 +507,7 @@ export function PartyGearPage(actions: GearActions) {
                 </div>
               </div>
             ) : null}
-          </div>
+          </section>
 
           <FloorTray
             floorEntity={floorEntity}
@@ -644,10 +649,11 @@ function CharacterGearCard({
 
       <div className="zone ready-zone">
         <div className="zhead">
-          <span className="micro">Ready</span>
+          <span className="micro">Equipped</span>
         </div>
+        <div className="hands-label micro">Hands</div>
         <HandRows entityId={entity.id} sections={sections} records={records} />
-        <div className="worn-label micro">Worn</div>
+        <div className="worn-label micro">Other equipped</div>
         <WornZone
           entityId={entity.id}
           records={records}
@@ -686,7 +692,7 @@ function CharacterGearCard({
           className="add-link"
           onClick={() => actions.onStartAddRecord(entity)}
         >
-          + Add item
+          + Add record
         </button>
       </div>
     </article>
@@ -775,7 +781,7 @@ function ContentsGearCard({
           className="add-link"
           onClick={() => actions.onStartAddRecord(entity)}
         >
-          + Add item
+          + Add record
         </button>
       </div>
     </article>
@@ -839,7 +845,7 @@ function MovementBadge({
 }
 
 // ---------------------------------------------------------------------------
-// Ready zone
+// Equipped zone
 // ---------------------------------------------------------------------------
 
 function HandRows({
@@ -873,14 +879,14 @@ function HandRows({
       <HandSlot
         entityId={entityId}
         placement="leftHand"
-        label="Left"
+        label="Left hand"
         record={getRecordById(sections.handRecordIds.leftHand, records)}
         records={records}
       />
       <HandSlot
         entityId={entityId}
         placement="rightHand"
-        label="Right"
+        label="Right hand"
         record={getRecordById(sections.handRecordIds.rightHand, records)}
         records={records}
       />
@@ -1001,7 +1007,7 @@ function WornZone({
         target={target}
         records={worn}
         allRecords={records}
-        emptyLabel="nothing worn — drop here"
+        emptyLabel="nothing else equipped — drop here"
       />
     </GearDropZone>
   );
@@ -1127,6 +1133,7 @@ function ContainerHeader({
 }) {
   const actions = useGearActions();
   const visibleContainer = useVisibleRecord(container);
+  const containerDisplay = getInventoryRowDisplay(visibleContainer, allRecords);
   const drag = useContext(GearDragContext);
   const dragData: GearDragData = {
     type: "gear-record",
@@ -1157,10 +1164,11 @@ function ContainerHeader({
         className="cname"
         onClick={() => actions.onEditRecord(container)}
       >
-        {getInventoryRowDisplay(visibleContainer, allRecords).primaryText}
+        {containerDisplay.primaryText}
       </button>
       <StateGlyphs
         record={visibleContainer}
+        label={containerDisplay.primaryText}
         activeAc={isArmorClassActiveRecord(container)}
       />
       {children}
@@ -1324,6 +1332,7 @@ function RecordRowBody({
       </button>
       <StateGlyphs
         record={visibleRecord}
+        label={display.primaryText}
         activeAc={isArmorClassActiveRecord(record)}
       />
       {display.secondaryText ? (
@@ -1350,9 +1359,12 @@ function RecordRowBody({
  * for every viewer, so the caller computes it there and passes it in. */
 function StateGlyphs({
   record,
+  label,
   activeAc,
 }: {
   record: InventoryRecord;
+  /** The row's rendered display label, so aria labels read as the row does. */
+  label: string;
   activeAc: boolean;
 }) {
   const actions = useGearActions();
@@ -1370,7 +1382,7 @@ function StateGlyphs({
     <span className="rs-glyphs">
       {lightSource ? (
         <button
-          aria-label={lit ? `Put out ${record.name}` : `Light ${record.name}`}
+          aria-label={lit ? `Put out ${label}` : `Light ${label}`}
           aria-pressed={lit}
           className="light-toggle"
           data-lit={lit}

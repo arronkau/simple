@@ -26,7 +26,7 @@ This skill keeps changes to `simple`'s inventory engine consistent with its spec
 - **Held-container rule:** contents inside any hand-held container are EXCLUDED from movement burden, but the container itself still counts in its equipped hand. Use `getEffectiveCarryState` / the ancestor chain — never infer from a record's own `location.kind` alone.
 - **Containers always count their own slot burden** whether empty or full. Container used-capacity EXCLUDES the container's own burden.
 - **Backpack is a literal record** (`location.kind === "stowedRoot"`). **Coins are ordinary records** — a coin record counts wherever it sits (stowed inside the backpack, equipped at loose), and may never sit in a hand.
-- **Mounts/vehicles/storage** use `getContentsCapacity` only — never equipped/stowed bands. Imported OSE capacity = `floor(coinCapacity / 100)`.
+- **Mounts/vehicles/storage** use `getContentsCapacity` only — never equipped/stowed bands. The spec's imported OSE capacity rule (`floor(coinCapacity / 100)`) is aspirational: no code path applies it, and `entity.capacitySlots` has no editor, so the value can only arrive through imported JSON.
 - Terminology: the rules PDF says **packed**; this app uses **stowed** everywhere (internal + display).
 - Drag-and-drop must reuse the same validated move + encumbrance logic as non-drag paths.
 
@@ -36,7 +36,8 @@ When in doubt, find the matching worked example in the spec (Morgan, held sack, 
 
 There is no Jest/Vitest. Tests are **manual fixtures** compared by deep JSON equality.
 
-- Each module `foo.ts` has a sibling `foo.fixtures.ts` exporting `const FOO_MANUAL_FIXTURES: { name, actual, expected }[]`.
+- Most modules `foo.ts` have a sibling `foo.fixtures.ts` exporting `const FOO_MANUAL_FIXTURES: { name, actual, expected }[]`. Known exceptions: `src/model/handoutRoster.fixtures.ts` is a hand-transcribed catalog table with no sibling module (it also exports `HANDOUT_ROSTER_SLUGS` for `campaign.fixtures.ts`), and `src/App.fixtures.ts` and `src/party-gear/gearHands.fixtures.ts` test UI helpers outside `src/model/`.
+- `src/store/useAppStore.fixtures.ts` is the one stateful file: its blocks mutate a single shared store at module load, so their order in `run-fixtures.test.ts` is part of the test and each block must capture its `actual` values as it runs, before a later block moves the store on.
 - `actual` calls the real function; `expected` is the literal result. The runner asserts `JSON.stringify(actual) === JSON.stringify(expected)`.
 - Register new fixture arrays in [src/run-fixtures.test.ts](../../../src/run-fixtures.test.ts) (import + spread into `manualFixtures`).
 - **Run:** `npm test` (esbuild-bundles `run-fixtures.test.ts` then executes it). Also run `npm run typecheck` (`tsc --noEmit`).

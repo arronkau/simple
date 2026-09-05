@@ -191,8 +191,10 @@ export function snuffRecord({
       };
     }
 
-    // Bound-free on purpose: the maximum burn time of an unidentified light is
-    // a GM secret, and this model stays role-free, so nobody sees the number.
+    // Bounded by the stored maximum when the record has one. The message never
+    // names the number: the maximum burn time of an unidentified light is a GM
+    // secret and this model is role-free, so it says "more than this item has"
+    // rather than reporting the cap. A record without uses.max has no bound.
     if (record.uses?.max !== undefined && turns > record.uses.max) {
       return {
         ok: false,

@@ -1,3 +1,5 @@
+import { createRetryScheduler } from "./retryBackoff";
+
 type RetryHandle = unknown;
 
 /**
@@ -13,12 +15,12 @@ type RetryHandle = unknown;
 export function createLegacyUpgradeLifecycle<T>({
   applyVersion2,
   attemptUpgrade,
-  cancelRetry = (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+  cancelRetry,
   maxRetryDelayMs,
   onRetry,
   reportError,
   retryDelayMs,
-  scheduleRetry = (callback, delayMs) => setTimeout(callback, delayMs),
+  scheduleRetry,
 }: {
   applyVersion2: (value: T) => void;
   attemptUpgrade: () => Promise<void>;
@@ -29,24 +31,27 @@ export function createLegacyUpgradeLifecycle<T>({
   retryDelayMs: number;
   scheduleRetry?: (callback: () => void, delayMs: number) => RetryHandle;
 }) {
-  let failures = 0;
   let resolved = true;
-  let retryHandle: RetryHandle | undefined;
   let stopped = false;
   let upgradePromise: Promise<void> | undefined;
 
-  const clearRetry = () => {
-    if (retryHandle !== undefined) {
-      cancelRetry(retryHandle);
-      retryHandle = undefined;
-    }
-  };
+  const retries = createRetryScheduler({
+    cancelRetry,
+    maxRetryDelayMs,
+    onRetry: () => {
+      if (stopped || resolved) {
+        return;
+      }
 
-  const nextRetryDelay = () =>
-    Math.min(retryDelayMs * 2 ** Math.max(0, failures - 1), maxRetryDelayMs);
+      onRetry();
+      startUpgrade();
+    },
+    retryDelayMs,
+    scheduleRetry,
+  });
 
   const startUpgrade = () => {
-    if (stopped || upgradePromise || retryHandle !== undefined) {
+    if (stopped || upgradePromise || retries.hasPendingRetry()) {
       return;
     }
 
@@ -60,7 +65,7 @@ export function createLegacyUpgradeLifecycle<T>({
         }
 
         resolved = true;
-        failures = 0;
+        retries.reset();
         upgradePromise = undefined;
       })
       .catch((error: unknown) => {
@@ -69,23 +74,13 @@ export function createLegacyUpgradeLifecycle<T>({
         }
 
         upgradePromise = undefined;
-        failures += 1;
         reportError(error);
 
         if (resolved) {
           return;
         }
 
-        retryHandle = scheduleRetry(() => {
-          retryHandle = undefined;
-
-          if (stopped || resolved) {
-            return;
-          }
-
-          onRetry();
-          startUpgrade();
-        }, nextRetryDelay());
+        retries.recordFailure();
       });
   };
 
@@ -97,14 +92,13 @@ export function createLegacyUpgradeLifecycle<T>({
       }
 
       resolved = true;
-      failures = 0;
       upgradePromise = undefined;
-      clearRetry();
+      retries.reset();
       applyVersion2(value);
     },
     stop: () => {
       stopped = true;
-      clearRetry();
+      retries.cancel();
       upgradePromise = undefined;
     },
   };

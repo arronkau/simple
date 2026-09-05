@@ -1,4 +1,8 @@
-import { AUDIT_EVENT_TYPE_LABELS, getNewestAuditLogEntries } from "../model/auditLog";
+import {
+  AUDIT_EVENT_TYPE_LABELS,
+  AUDIT_LOG_MAX_ENTRIES,
+  getNewestAuditLogEntries,
+} from "../model/auditLog";
 import { getSortedEntities } from "../model/entities";
 import type { AppState } from "../model/appState";
 import type { AuditEventType, AuditLogEntry, EntityId } from "../model/types";
@@ -202,5 +206,10 @@ export function getAuditEntityFilterOptions(
 }
 
 function formatAuditEntryCount(count: number) {
-  return count === 1 ? "1 entry" : `${count} entries`;
+  const entries = count === 1 ? "1 entry" : `${count} entries`;
+
+  // The cap only matters once the log is long enough to be trimmed.
+  return count >= AUDIT_LOG_MAX_ENTRIES
+    ? `${entries} · newest ${AUDIT_LOG_MAX_ENTRIES} kept`
+    : entries;
 }

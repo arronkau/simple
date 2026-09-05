@@ -17,12 +17,19 @@ import {
 import {
   createPartyState,
   createEmptyAppState,
+  deleteLocalPartyState,
+  forgetIndexedParty,
   migratePartyMembership,
   normalizePartyDisplayName,
-  readLocalPartyState,
+  readLocalPartyStateResult,
+  repairPartyMembership,
+  readPartyIndex,
+  rememberOpenedParty,
+  renameIndexedParty,
   writeLocalPartyState,
   type AppState,
   type PartyId,
+  type PartyIndexEntry,
   type PartyState,
 } from "../model/appState";
 import {
@@ -32,12 +39,16 @@ import {
   assertPartyAction,
   getProtectedInventoryFieldViolations,
   resolvePartyRole,
+  type EntityAction,
+  type InventoryAction,
+  type PartyAction,
 } from "../model/permissions";
 import {
   createAuditLogEntry,
   formatCoinDelta,
   getCoinDelta,
   getCoinDeltaDetails,
+  trimAuditLog,
   type CreateAuditLogEntryInput,
 } from "../model/auditLog";
 import { getCoinCount, getContainerCapacity } from "../model/calculations";
@@ -91,22 +102,39 @@ import {
 } from "../model/partyInvite";
 import { getRuntimeFirebaseConfig } from "../persistence/firebaseConfig";
 import {
+  deletePartyDocument,
+  formatFirebaseError,
   linkOrSignInWithGoogle,
   signOutFirebase,
   startFirebaseAppStateSync,
   type FirebaseAuthAccount,
   type FirebaseWriter,
+  type RemoteSnapshotMetadata,
 } from "../persistence/firebaseSync";
-import { runFirebaseWriteForGeneration } from "../persistence/firebaseWriteLifecycle";
+import {
+  classifyFirebaseWriteFailure,
+  deriveSnapshotSyncStatus,
+  getPermissionDeniedWriteMessage,
+  runFirebaseWriteForGeneration,
+  shouldBlockUnloadForFirebaseWrites,
+} from "../persistence/firebaseWriteLifecycle";
 import { canonicalizePartyState } from "../persistence/firestoreDocument";
 import {
   diffPartyStates,
   mergeFieldUpdates,
   type FieldUpdate,
 } from "../persistence/partyStateDiff";
+import { createRetryScheduler } from "../persistence/retryBackoff";
+import { createSyncWindowListeners } from "../persistence/syncWindowListeners";
 import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 export type AccountActionResult = { ok: true } | { ok: false; message: string };
+
+export type PartyActionResult = { ok: true } | { ok: false; message: string };
+
+export type DeletePartyResult =
+  | { ok: true; nextPartyId: PartyId }
+  | { ok: false; message: string };
 
 type AppStore = {
   appState: AppState;
@@ -115,20 +143,32 @@ type AppStore = {
   gmUid?: string;
   inviteCode?: string;
   members?: PartyMembers;
+  parties: PartyIndexEntry[];
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
+  storageWarning?: string;
   syncError?: string;
   syncStatus: SyncStatus;
   updateCurrentUserProfile: (input: UserProfileInput) => void;
   renameParty: (displayName: string) => void;
   regenerateInviteCode: () => void;
+  clearAuditLog: () => PartyActionResult;
   signInWithGoogle: () => Promise<AccountActionResult>;
   signOutAccount: () => Promise<AccountActionResult>;
   setCurrentParty: (partyId: PartyId) => void;
+  createParty: () => PartyId;
+  forgetParty: (
+    partyId: PartyId,
+    options?: { deleteStoredData?: boolean },
+  ) => PartyActionResult;
+  deleteCurrentParty: () => Promise<DeletePartyResult>;
   userProfiles: UserProfile[];
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
-  updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
+  updateEntity: (
+    entityId: EntityId,
+    input: UpdateEntityInput,
+  ) => EntityMutationResult;
   updateCharacterData: (
     entityId: EntityId,
     characterData: CharacterData,
@@ -228,9 +268,9 @@ const firebaseConfig = getRuntimeFirebaseConfig();
 const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
 const initialPartyId = getInitialPartyId();
 const initialCurrentUserId = readLocalUserId();
-const initialPartyStateRaw = readLocalPartyState(initialPartyId);
-const initialPartyState = ensurePartyInviteCode(
-  migratePartyMembership(initialPartyStateRaw, initialCurrentUserId),
+const initialPartyRead = readLocalPartyStateResult(initialPartyId);
+const initialPartyState = prepareLoadedPartyState(
+  initialPartyRead.partyState,
   initialCurrentUserId,
 );
 
@@ -242,9 +282,11 @@ export const useAppStore = create<AppStore>((set) => ({
   gmUid: initialPartyState.party.gmUid,
   inviteCode: initialPartyState.party.inviteCode,
   members: initialPartyState.party.members,
+  parties: readPartyIndex(),
   partyDisplayName: initialPartyState.party.displayName,
   partyId: initialPartyState.party.id,
   persistenceMode,
+  storageWarning: initialPartyRead.warning,
   syncError: undefined,
   syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
   userProfiles: initialPartyState.userProfiles,
@@ -276,23 +318,49 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertPartyAction(role ?? "player", "editPartySettings");
+        assertStorePartyAction(role, "editPartySettings");
       } catch {
         return state;
       }
-      return { partyDisplayName: normalizePartyDisplayName(displayName) };
+      const partyDisplayName = normalizePartyDisplayName(displayName);
+
+      return {
+        partyDisplayName,
+        parties: renameIndexedParty(state.partyId, partyDisplayName),
+      };
     });
   },
   regenerateInviteCode: () => {
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertPartyAction(role ?? "player", "manageMembership");
+        assertStorePartyAction(role, "manageMembership");
       } catch {
         return state;
       }
       return { inviteCode: createInviteCode() };
     });
+  },
+  clearAuditLog: () => {
+    const role = getStateUserRole(useAppStore.getState());
+
+    try {
+      assertStorePartyAction(role, "clearAuditLog");
+    } catch (error) {
+      return {
+        ok: false,
+        message: formatPartyActionRefusal(
+          error,
+          "Only the GM can clear the audit log.",
+        ),
+      };
+    }
+
+    // The clear itself is not logged: MODEL_SPEC excludes reset state from the
+    // audit log, and an entry describing the clear would survive it anyway.
+    set((state) => ({ appState: { ...state.appState, auditLog: [] } }));
+
+    return { ok: true };
   },
   signInWithGoogle: async () => {
     if (!firebaseConfig) {
@@ -334,18 +402,26 @@ export const useAppStore = create<AppStore>((set) => ({
     return { ok: true };
   },
   setCurrentParty: (partyId) => {
-    writeLastPartyId(partyId);
+    // In Firebase mode the party is only remembered once it has actually been
+    // read (see applyRemotePartyState), so "/" never redirects to a party the
+    // user was denied.
+    if (persistenceMode !== "firebase") {
+      writeLastPartyId(partyId);
+    }
+
     let partyChanged = false;
     set((state) => {
       if (state.partyId === partyId) {
-        return state;
+        // Re-selecting the open party is still an open: keep it on top of
+        // the recent list.
+        return { parties: rememberOpenedParty(partyId, state.partyDisplayName) };
       }
 
       partyChanged = true;
 
-      const rawPartyState = readLocalPartyState(partyId);
-      const partyState = ensurePartyInviteCode(
-        migratePartyMembership(rawPartyState, state.currentUserId),
+      const partyRead = readLocalPartyStateResult(partyId);
+      const partyState = prepareLoadedPartyState(
+        partyRead.partyState,
         state.currentUserId,
       );
 
@@ -357,9 +433,11 @@ export const useAppStore = create<AppStore>((set) => ({
         gmUid: partyState.party.gmUid,
         inviteCode: partyState.party.inviteCode,
         members: partyState.party.members,
+        parties: rememberOpenedParty(partyId, partyState.party.displayName),
         userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
         partyId: partyState.party.id,
+        storageWarning: partyRead.warning,
         syncError: undefined,
         syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
       };
@@ -371,6 +449,91 @@ export const useAppStore = create<AppStore>((set) => ({
       void startConfiguredFirebaseSync();
     }
   },
+  createParty: () => {
+    const partyId = createPartyId();
+    const partyState = createPartyState({ partyId });
+
+    // Local mode owns party creation outright. In Firebase mode the party
+    // document is created by the existing sync path once the party opens.
+    if (persistenceMode === "local") {
+      writeLocalPartyState(partyState);
+    }
+
+    set({
+      parties: rememberOpenedParty(partyId, partyState.party.displayName),
+    });
+
+    return partyId;
+  },
+  forgetParty: (partyId, options): PartyActionResult => {
+    if (partyId === useAppStore.getState().partyId) {
+      return {
+        ok: false,
+        message: "Open another party before forgetting this one.",
+      };
+    }
+
+    if (options?.deleteStoredData) {
+      deleteLocalPartyState(partyId);
+      clearLastPartyId(partyId);
+    }
+
+    set({ parties: forgetIndexedParty(partyId) });
+
+    return { ok: true };
+  },
+  deleteCurrentParty: async (): Promise<DeletePartyResult> => {
+    const state = useAppStore.getState();
+    const role = getStateUserRole(state);
+
+    try {
+      assertStorePartyAction(role, "deleteParty");
+    } catch (error) {
+      return {
+        ok: false,
+        message: formatPartyActionRefusal(
+          error,
+          "Only the GM can delete this party.",
+        ),
+      };
+    }
+
+    const deletedPartyId = state.partyId;
+
+    // Stop the subscription first: a subscribed client treats a missing party
+    // document as one it must create, and would write this party straight back.
+    stopConfiguredFirebaseSync();
+    resetFirebaseWriteQueue();
+
+    if (firebaseConfig) {
+      const deleteResult = await deletePartyDocument(
+        firebaseConfig,
+        deletedPartyId,
+      );
+
+      if (!deleteResult.ok) {
+        // Nothing was deleted, so put the party back on sync.
+        if (canStartFirebaseSync()) {
+          void startConfiguredFirebaseSync();
+        }
+
+        return deleteResult;
+      }
+    }
+
+    deleteLocalPartyState(deletedPartyId);
+    clearLastPartyId(deletedPartyId);
+
+    const remainingParties = forgetIndexedParty(deletedPartyId);
+
+    set({ parties: remainingParties });
+
+    // The caller navigates to this party, which loads it through the route.
+    const nextPartyId =
+      remainingParties[0]?.id ?? useAppStore.getState().createParty();
+
+    return { ok: true, nextPartyId };
+  },
   createEntity: (input) => {
     const name = input.name.trim();
 
@@ -380,7 +543,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertEntityAction(role ?? "player", "createEntity");
+      assertStoreEntityAction(role, "createEntity");
     } catch {
       return undefined;
     }
@@ -429,14 +592,25 @@ export const useAppStore = create<AppStore>((set) => ({
     return entityId;
   },
   updateEntity: (entityId, input) => {
-    set((state) => {
-      const role = getStateUserRole(state);
-      try {
-        assertEntityAction(role ?? "player", "editEntity");
-      } catch {
-        return state;
-      }
+    // Same permission gate as before; it now reports the refusal instead of
+    // swallowing it, so the character sheet can show why nothing was saved.
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertStoreEntityAction(role, "editEntity");
+    } catch (e) {
+      return {
+        ok: false,
+        message:
+          e instanceof PermissionError ? e.message : "Permission denied.",
+      };
+    }
 
+    let result: EntityMutationResult = {
+      ok: false,
+      message: "Entity was not found.",
+    };
+
+    set((state) => {
       const existingEntity = state.appState.entities.find(
         (entity) => entity.id === entityId,
       );
@@ -453,6 +627,8 @@ export const useAppStore = create<AppStore>((set) => ({
         ),
       };
 
+      result = { ok: true };
+
       return {
         appState: appendAuditLogEntries(
           nextAppState,
@@ -460,6 +636,8 @@ export const useAppStore = create<AppStore>((set) => ({
         ),
       };
     });
+
+    return result;
   },
   updateCharacterData: (entityId, characterData) => {
     let result: EntityMutationResult = {
@@ -469,7 +647,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertEntityAction(role ?? "player", "editEntity");
+      assertStoreEntityAction(role, "editEntity");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -536,7 +714,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertEntityAction(role ?? "player", "editEntity");
+        assertStoreEntityAction(role, "editEntity");
       } catch {
         return state;
       }
@@ -569,7 +747,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertEntityAction(role ?? "player", "deleteEntity");
+        assertStoreEntityAction(role, "deleteEntity");
       } catch {
         return state;
       }
@@ -618,7 +796,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "addItem");
+      assertStoreInventoryAction(role, "addItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -630,7 +808,7 @@ export const useAppStore = create<AppStore>((set) => ({
     if (role !== "gm") {
       const violations = getProtectedInventoryFieldViolations(input);
       if (violations.length > 0) {
-        return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
+        return { ok: false, message: "Players cannot edit hidden unidentified-record fields." };
       }
     }
 
@@ -783,7 +961,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editItem");
+      assertStoreInventoryAction(role, "editItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -792,7 +970,7 @@ export const useAppStore = create<AppStore>((set) => ({
     if (role !== "gm") {
       const violations = getProtectedInventoryFieldViolations(input);
       if (violations.length > 0) {
-        return { ok: false, message: "Players cannot edit hidden unidentified-item fields." };
+        return { ok: false, message: "Players cannot edit hidden unidentified-record fields." };
       }
     }
 
@@ -805,7 +983,7 @@ export const useAppStore = create<AppStore>((set) => ({
     // Unidentified items are read-only for players; the GM edits them. Players
     // can still move, light, and snuff them through their own actions.
     if (role !== "gm" && storedRecord && isUnidentifiedRecord(storedRecord)) {
-      return { ok: false, message: "Only the GM can edit an unidentified item." };
+      return { ok: false, message: "Only the GM can edit an unidentified record." };
     }
 
     // GM notes are GM-only always: a player save carries the stored notes
@@ -911,7 +1089,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "moveItem");
+      assertStoreInventoryAction(role, "moveItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1004,7 +1182,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "moveItem");
+      assertStoreInventoryAction(role, "moveItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1112,7 +1290,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "moveItem");
+      assertStoreInventoryAction(role, "moveItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1289,7 +1467,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "identifyItem");
+      assertStoreInventoryAction(role, "identifyItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1371,7 +1549,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editItem");
+      assertStoreInventoryAction(role, "editItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1456,7 +1634,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editItem");
+      assertStoreInventoryAction(role, "editItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1539,7 +1717,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editCoins");
+      assertStoreInventoryAction(role, "editCoins");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1656,7 +1834,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editCoins");
+      assertStoreInventoryAction(role, "editCoins");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1871,7 +2049,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "deleteItem");
+      assertStoreInventoryAction(role, "deleteItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1948,7 +2126,7 @@ export const useAppStore = create<AppStore>((set) => ({
   replaceAppState: (appState) => {
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertPartyAction(role ?? "player", "importParty");
+      assertStorePartyAction(role, "importParty");
     } catch {
       return;
     }
@@ -1957,7 +2135,7 @@ export const useAppStore = create<AppStore>((set) => ({
   resetLocalState: () => {
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertPartyAction(role ?? "player", "editPartySettings");
+      assertStorePartyAction(role, "editPartySettings");
     } catch {
       return;
     }
@@ -1965,9 +2143,13 @@ export const useAppStore = create<AppStore>((set) => ({
   },
 }));
 
+const FIREBASE_WRITE_RETRY_DELAY_MS = 1000;
+const FIREBASE_WRITE_MAX_RETRY_DELAY_MS = 30_000;
+
 let applyingRemotePartyState = false;
 let firebaseUnsubscribe: (() => void) | undefined;
 let firebaseWriter: FirebaseWriter | undefined;
+let firebaseOfflineWritesDurable = false;
 let pendingFirebaseFieldUpdates: FieldUpdate[] = [];
 let writingFirebaseFieldUpdates = false;
 let firebaseSyncGeneration = 0;
@@ -1976,6 +2158,41 @@ let firebaseSyncGeneration = 0;
 // local party is empty) would clobber the real party document. This stays
 // false until the first remote snapshot has been processed.
 let firebaseFirstSnapshotHandled = false;
+// The last party state received from Firestore. A write the rules reject is
+// rolled back to it, so local state cannot keep an edit the server refused.
+let lastRemotePartyState: PartyState | undefined;
+
+// A failed write must retry on its own: nothing else re-sends it, and waiting
+// for the user's next edit would leave the batch unsent indefinitely.
+const firebaseWriteRetries = createRetryScheduler({
+  maxRetryDelayMs: FIREBASE_WRITE_MAX_RETRY_DELAY_MS,
+  onRetry: () => {
+    void flushFirebasePartyStateWrite();
+  },
+  retryDelayMs: FIREBASE_WRITE_RETRY_DELAY_MS,
+});
+
+const firebaseSyncWindowListeners = createSyncWindowListeners({
+  onOnline: () => {
+    // Connectivity is back: retry now instead of waiting out the backoff.
+    firebaseWriteRetries.reset();
+    void flushFirebasePartyStateWrite();
+  },
+  onPageHide: () => {
+    if (writingFirebaseFieldUpdates) {
+      handOffPendingFirebaseFieldUpdates();
+      return;
+    }
+
+    void flushFirebasePartyStateWrite();
+  },
+  shouldBlockUnload: () =>
+    shouldBlockUnloadForFirebaseWrites({
+      offlineWritesDurable: firebaseOfflineWritesDurable,
+      pendingUpdateCount: pendingFirebaseFieldUpdates.length,
+      writeInFlight: writingFirebaseFieldUpdates,
+    }),
+});
 
 useAppStore.subscribe((state, previousState) => {
   if (
@@ -2034,7 +2251,7 @@ function appendAuditLogEntries(
 
   return {
     ...appState,
-    auditLog: [
+    auditLog: trimAuditLog([
       ...appState.auditLog,
       ...entries.map((entry) =>
         createAuditLogEntry({
@@ -2044,7 +2261,7 @@ function appendAuditLogEntries(
           id: createId("audit"),
         }),
       ),
-    ],
+    ]),
   };
 }
 
@@ -2555,6 +2772,9 @@ async function startConfiguredFirebaseSync(): Promise<void> {
   firebaseSyncGeneration += 1;
   const activeSyncGeneration = firebaseSyncGeneration;
   stopConfiguredFirebaseSync();
+  // Unload/online handling belongs to a running sync session; stop() above
+  // removed the previous session's handlers, so this cannot stack up.
+  firebaseSyncWindowListeners.start();
   // Re-gate writes for the new connection until its first snapshot lands.
   // Any write still in flight belongs to the previous generation: its
   // settlement is ignored, so release the write flag here.
@@ -2594,49 +2814,23 @@ async function startConfiguredFirebaseSync(): Promise<void> {
 
       removeInviteCodeFromLocation();
     },
+    onPartyDeleted: (partyId) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
+      useAppStore.setState({ parties: forgetDeletedParty(partyId) });
+    },
     onAuthUserId: (userId) => {
       if (!isActiveSync()) {
         return;
       }
 
-      const state = useAppStore.getState();
-      const prevUserId = state.currentUserId;
-      const currentPartyState = getPartyStateFromStoreState(state);
-
-      // When Firebase Auth resolves a UID that differs from the locally-generated ID
-      // that was assigned as GM during store initialization, re-key membership so the
-      // Firebase UID becomes the canonical GM identity.
-      let partyStateForMigration = currentPartyState;
-      if (prevUserId !== userId && state.gmUid === prevUserId) {
-        const oldMembers = currentPartyState.party.members ?? {};
-        const { [prevUserId]: oldGmEntry, ...rest } = oldMembers;
-        partyStateForMigration = {
-          ...currentPartyState,
-          party: {
-            ...currentPartyState.party,
-            gmUid: userId,
-            members: {
-              ...rest,
-              [userId]: {
-                role: "gm" as PartyRole,
-                ...(oldGmEntry?.joinedAt ? { joinedAt: oldGmEntry.joinedAt } : {}),
-              },
-            },
-          },
-        };
-      }
-
-      const migratedPartyState = ensurePartyInviteCode(
-        migratePartyMembership(partyStateForMigration, userId),
-        userId,
-      );
-      writeLocalPartyState(migratedPartyState);
-      useAppStore.setState({
-        currentUserId: userId,
-        gmUid: migratedPartyState.party.gmUid,
-        inviteCode: migratedPartyState.party.inviteCode,
-        members: migratedPartyState.party.members,
-      });
+      // Auth only establishes identity. Membership and `gmUid` belong to the
+      // remote document: they arrive with the first snapshot, or are written by
+      // the document-creation path with this UID as GM. Claiming GM here would
+      // make any visitor the GM of a party they may not even be able to read.
+      useAppStore.setState({ currentUserId: userId });
     },
     onReadyToWrite: (writer) => {
       if (!isActiveSync()) {
@@ -2644,14 +2838,15 @@ async function startConfiguredFirebaseSync(): Promise<void> {
       }
 
       firebaseWriter = writer;
+      firebaseOfflineWritesDurable = writer.offlineWritesDurable;
       void flushFirebasePartyStateWrite();
     },
-    onRemotePartyState: (partyState) => {
+    onRemotePartyState: (partyState, metadata) => {
       if (!isActiveSync() || partyState.party.id !== activePartyId) {
         return;
       }
 
-      applyRemotePartyState(partyState);
+      applyRemotePartyState(partyState, metadata);
     },
     onStatusChange: (syncStatus) => {
       if (!isActiveSync()) {
@@ -2671,16 +2866,47 @@ async function startConfiguredFirebaseSync(): Promise<void> {
 }
 
 function stopConfiguredFirebaseSync(): void {
+  firebaseSyncWindowListeners.stop();
+  firebaseWriteRetries.cancel();
   firebaseUnsubscribe?.();
   firebaseUnsubscribe = undefined;
 }
 
 function resetFirebaseWriteQueue(): void {
+  handOffPendingFirebaseFieldUpdates();
   firebaseSyncGeneration += 1;
   firebaseWriter = undefined;
+  firebaseOfflineWritesDurable = false;
+  firebaseWriteRetries.reset();
+  lastRemotePartyState = undefined;
   pendingFirebaseFieldUpdates = [];
   writingFirebaseFieldUpdates = false;
   firebaseFirstSnapshotHandled = false;
+}
+
+/**
+ * Last chance to get queued updates to Firestore before the queue is dropped
+ * (sign-in, sign-out, party switch) or the page goes away. The write belongs to
+ * a generation that is about to be superseded, so its result is ignored; what
+ * matters is that the Firestore SDK has taken it, which makes it durable
+ * whenever the persistent cache is active.
+ *
+ * Updates queued before the writer exists or before the first snapshot cannot
+ * be sent at all — they stay in localStorage and the next snapshot is
+ * authoritative for the party document (see SYNC_SPEC.md).
+ */
+function handOffPendingFirebaseFieldUpdates(): void {
+  if (
+    !firebaseWriter ||
+    !firebaseFirstSnapshotHandled ||
+    pendingFirebaseFieldUpdates.length === 0
+  ) {
+    return;
+  }
+
+  const updates = pendingFirebaseFieldUpdates;
+  pendingFirebaseFieldUpdates = [];
+  void firebaseWriter.applyFieldUpdates(updates).catch(() => undefined);
 }
 
 function queueFirebaseFieldUpdates(updates: FieldUpdate[]): void {
@@ -2720,29 +2946,55 @@ async function flushFirebasePartyStateWrite(): Promise<void> {
     write: () => writer.applyFieldUpdates(updates),
     onSuccess: () => {
       writingFirebaseFieldUpdates = false;
+      firebaseWriteRetries.reset();
 
       if (pendingFirebaseFieldUpdates.length > 0) {
         void flushFirebasePartyStateWrite();
         return;
       }
 
+      // The write promise settles on server acknowledgement, so the document
+      // is now committed, not just echoed locally.
       setSyncMetadata("synced");
     },
     onFailure: (error) => {
       writingFirebaseFieldUpdates = false;
+
+      // Rules rejected the batch; repeating it can only fail again. Drop it and
+      // roll local state back to the last thing the server sent us.
+      if (classifyFirebaseWriteFailure(error) === "permission-denied") {
+        pendingFirebaseFieldUpdates = [];
+        firebaseWriteRetries.reset();
+        restoreLastRemotePartyState();
+        setSyncMetadata(
+          "error",
+          getPermissionDeniedWriteMessage(
+            getStateUserRole(useAppStore.getState()),
+          ),
+        );
+        return;
+      }
+
       pendingFirebaseFieldUpdates = mergeFieldUpdates(
         updates,
         pendingFirebaseFieldUpdates,
       );
+      const retryDelayMs = firebaseWriteRetries.recordFailure();
 
-      setSyncMetadata("error", formatSyncError(error));
+      setSyncMetadata(
+        "error",
+        `${formatSyncError(error)} Retrying in ${Math.round(
+          retryDelayMs / 1000,
+        )}s.`,
+      );
     },
   });
 }
 
-function applyRemotePartyState(partyState: PartyState): void {
-  setSyncMetadata("synced");
-
+function applyRemotePartyState(
+  partyState: PartyState,
+  metadata: RemoteSnapshotMetadata,
+): void {
   // The remote document is authoritative on first contact. Any local write
   // queued before we saw it (e.g. an empty party from a freshly-loaded client)
   // must be discarded so it can't overwrite the real party.
@@ -2751,32 +3003,89 @@ function applyRemotePartyState(partyState: PartyState): void {
     pendingFirebaseFieldUpdates = [];
   }
 
-  const currentState = useAppStore.getState();
-  const migratedPartyState = migratePartyMembership(partyState, currentState.currentUserId);
-  const currentPartyState = getPartyStateFromStoreState(currentState);
+  const snapshotSyncStatus = deriveSnapshotSyncStatus({
+    fromCache: metadata.fromCache,
+    hasPendingWrites: metadata.hasPendingWrites,
+    pendingUpdateCount: pendingFirebaseFieldUpdates.length,
+    retryPending: firebaseWriteRetries.hasPendingRetry(),
+    writeInFlight: writingFirebaseFieldUpdates,
+  });
 
-  if (!arePartyStatesEqual(currentPartyState, migratedPartyState)) {
-    applyingRemotePartyState = true;
+  if (snapshotSyncStatus) {
+    setSyncMetadata(snapshotSyncStatus);
+  }
+
+  // A snapshot carrying unacknowledged local writes is this client's own echo.
+  // It shows what the Firestore SDK holds, which is behind any update still
+  // queued here and ahead of what the server has confirmed, so it moves the
+  // status only. The acknowledgement snapshot carries the same content plus
+  // anything another client changed meanwhile.
+  if (metadata.hasPendingWrites) {
+    return;
+  }
+
+  // The document was readable, so this party is safe to reopen by default.
+  writeLastPartyId(partyState.party.id);
+
+  const currentState = useAppStore.getState();
+  // Repair only: GM identity comes from the document, never from the reader.
+  const resolvedPartyState = repairPartyMembership(partyState);
+  lastRemotePartyState = resolvedPartyState;
+
+  applyPartyStateFromRemote(resolvedPartyState);
+
+  // A rename by the GM (or the party's real name arriving with the first
+  // snapshot) is still a rename: keep this device's party list in step.
+  if (currentState.partyDisplayName !== resolvedPartyState.party.displayName) {
     useAppStore.setState({
-      appState: migratedPartyState.appState,
-      gmUid: migratedPartyState.party.gmUid,
-      inviteCode: migratedPartyState.party.inviteCode,
-      members: migratedPartyState.party.members,
-      partyDisplayName: migratedPartyState.party.displayName,
-      userProfiles: migratedPartyState.userProfiles,
+      parties: renameIndexedParty(
+        resolvedPartyState.party.id,
+        resolvedPartyState.party.displayName,
+      ),
     });
   }
 
   // A GM client gives a pre-invite party its first invite code. This is a
   // real local change (not a remote apply) so it is written back to Firestore.
   const partyStateWithInvite = ensurePartyInviteCode(
-    migratedPartyState,
+    resolvedPartyState,
     currentState.currentUserId,
   );
 
-  if (partyStateWithInvite.party.inviteCode !== migratedPartyState.party.inviteCode) {
+  if (partyStateWithInvite.party.inviteCode !== resolvedPartyState.party.inviteCode) {
     useAppStore.setState({ inviteCode: partyStateWithInvite.party.inviteCode });
   }
+}
+
+function applyPartyStateFromRemote(partyState: PartyState): void {
+  const currentPartyState = getPartyStateFromStoreState(useAppStore.getState());
+
+  if (arePartyStatesEqual(currentPartyState, partyState)) {
+    return;
+  }
+
+  applyingRemotePartyState = true;
+  useAppStore.setState({
+    appState: partyState.appState,
+    gmUid: partyState.party.gmUid,
+    inviteCode: partyState.party.inviteCode,
+    members: partyState.party.members,
+    partyDisplayName: partyState.party.displayName,
+    userProfiles: partyState.userProfiles,
+  });
+}
+
+/**
+ * Rolls local state back to the last snapshot after the server refused a write.
+ * Without this the client would keep showing an edit that does not exist in the
+ * party document and has no way of ever getting there.
+ */
+function restoreLastRemotePartyState(): void {
+  if (!lastRemotePartyState) {
+    return;
+  }
+
+  applyPartyStateFromRemote(lastRemotePartyState);
 }
 
 function setSyncMetadata(syncStatus: SyncStatus, syncError?: string): void {
@@ -2823,6 +3132,100 @@ function getStateUserRole(
   state: Pick<AppStore, "currentUserId" | "gmUid" | "members">,
 ): PartyRole | null {
   return resolvePartyRole(state.currentUserId, state.gmUid, state.members);
+}
+
+/**
+ * Prepares a party loaded from localStorage. A local party belongs to the local
+ * user, so membership is migrated and an invite code ensured. In Firebase mode
+ * `gmUid` and `members` come from the remote document, so the cached copy is
+ * used as-is (only a missing GM member entry is repaired) and a visitor who
+ * cannot read the party never becomes its GM locally.
+ */
+function prepareLoadedPartyState(
+  partyState: PartyState,
+  currentUserId: UserId,
+): PartyState {
+  if (persistenceMode === "firebase") {
+    return repairPartyMembership(partyState);
+  }
+
+  return ensurePartyInviteCode(
+    migratePartyMembership(partyState, currentUserId),
+    currentUserId,
+  );
+}
+
+/**
+ * Role a store action is checked against. A local party has no remote
+ * membership document, so an unresolved role acts as a player. In Firebase mode
+ * an unresolved role means the party document has not been read yet — or the
+ * read was denied — and the action is refused instead of being downgraded to a
+ * player action.
+ */
+export function resolveActionRole(
+  role: PartyRole | null,
+  mode: PersistenceMode,
+): PartyRole | null {
+  if (role) {
+    return role;
+  }
+
+  return mode === "firebase" ? null : "player";
+}
+
+export function formatUnresolvedRoleMessage(syncStatus: SyncStatus): string {
+  return syncStatus === "error"
+    ? "You are not a member of this party. Ask the GM for an invite link."
+    : "This party has not finished loading. Try again in a moment.";
+}
+
+function requireActionRole(role: PartyRole | null): PartyRole {
+  const actionRole = resolveActionRole(role, persistenceMode);
+
+  if (!actionRole) {
+    throw new PermissionError(
+      formatUnresolvedRoleMessage(useAppStore.getState().syncStatus),
+      "not-party-member",
+    );
+  }
+
+  return actionRole;
+}
+
+/**
+ * Message for a party action the store refused. An unresolved role — Firebase
+ * mode before the first snapshot, or a read the rules denied — is not the same
+ * as being a player, so its own explanation is kept rather than being reported
+ * as a GM-only restriction.
+ */
+export function formatPartyActionRefusal(
+  error: unknown,
+  gmOnlyMessage: string,
+): string {
+  return error instanceof PermissionError && error.code === "not-party-member"
+    ? error.message
+    : gmOnlyMessage;
+}
+
+function assertStorePartyAction(
+  role: PartyRole | null,
+  action: PartyAction,
+): void {
+  assertPartyAction(requireActionRole(role), action);
+}
+
+function assertStoreEntityAction(
+  role: PartyRole | null,
+  action: EntityAction,
+): void {
+  assertEntityAction(requireActionRole(role), action);
+}
+
+function assertStoreInventoryAction(
+  role: PartyRole | null,
+  action: InventoryAction,
+): void {
+  assertInventoryAction(requireActionRole(role), action);
 }
 
 /**
@@ -2925,6 +3328,36 @@ function writeLastPartyId(partyId: PartyId): void {
   }
 }
 
+/**
+ * Drops every local trace of a party whose document was deleted remotely: the
+ * cached party state, the party-index entry, and the last-opened id. Without
+ * this the client keeps pointing at the deleted id, and the next visit to "/"
+ * reopens it — a fresh subscription cannot tell a deleted party from a new one
+ * and would create it again, this time with the visitor as GM. The sync error
+ * banner raised alongside this is what tells the user what happened.
+ */
+export function forgetDeletedParty(partyId: PartyId): PartyIndexEntry[] {
+  clearLastPartyId(partyId);
+  deleteLocalPartyState(partyId);
+
+  return forgetIndexedParty(partyId);
+}
+
+/** Forgets the last-opened party when it is the one being deleted. */
+function clearLastPartyId(partyId: PartyId): void {
+  if (typeof window === "undefined" || !("localStorage" in window)) {
+    return;
+  }
+
+  try {
+    if (window.localStorage.getItem(LAST_PARTY_ID_STORAGE_KEY) === partyId) {
+      window.localStorage.removeItem(LAST_PARTY_ID_STORAGE_KEY);
+    }
+  } catch {
+    // Storage can fail in private contexts.
+  }
+}
+
 function readLocalUserId(): UserId {
   if (typeof window === "undefined" || !("localStorage" in window)) {
     return createLocalUserId();
@@ -2984,9 +3417,7 @@ function getCurrentAuditActor(): Pick<
 }
 
 function formatSyncError(error: unknown): string {
-  if (error instanceof Error && error.message.trim().length > 0) {
-    return error.message;
-  }
-
-  return "Firebase sync failed.";
+  // One formatter for every surfaced sync failure, so the store never shows a
+  // raw Firestore message where the sync layer has a readable one.
+  return formatFirebaseError(error);
 }
