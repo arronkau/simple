@@ -571,9 +571,22 @@ export function listStoredLocalParties(): PartyIndexEntry[] {
         continue;
       }
 
+      // Seeding must not write. Reading through `readLocalPartyState` would
+      // copy unreadable data to a backup key, so merely opening some other
+      // party would back up every broken one. An unreadable party is left out
+      // of the index; the backup is made when that party is actually opened.
+      const classification = classifyStoredPartyState(
+        storage.getItem(key),
+        partyId,
+      );
+
+      if (classification.status !== "readable") {
+        continue;
+      }
+
       entries.push({
         id: partyId,
-        displayName: readLocalPartyState(partyId).party.displayName,
+        displayName: classification.partyState.party.displayName,
         lastOpenedAt: NEVER_OPENED_AT,
       });
     }

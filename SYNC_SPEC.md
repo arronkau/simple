@@ -112,7 +112,7 @@ type RemoteSnapshotMetadata = {
 
 - `applyFieldUpdates` converts to one `updateDoc(ref, FieldPath, value, FieldPath, value, ...)` call. Always use `FieldPath` objects (never dotted strings) so ids and uids with unusual characters are safe. `delete` becomes `deleteField()`, `arrayUnion` becomes `arrayUnion(...entries)`. An empty batch is a no-op.
 - `replaceDocument` is `setDoc(ref, toFirestorePartyDocument(partyState))`. Used only for document creation and the legacy upgrade below.
-- Document creation happens on a snapshot with `exists() === false` **that is not `fromCache`**. An offline client reports "missing" for any document it has never cached, and creating the document from local state there would overwrite the real party on reconnect.
+- Document creation happens on a snapshot with `exists() === false` **that is not `fromCache`** and that the subscription has not previously seen exist. An offline client reports "missing" for any document it has never cached, and creating the document from local state there would overwrite the real party on reconnect. A document that disappears under a live subscription was deleted by its GM; recreating it would both resurrect the party and, because creation assigns GM, hand GM to whichever member was still subscribed. Those clients report "This party was deleted by the GM." instead.
 - Document creation writes wire version 2, and it is where GM is assigned: the state is passed through `assignPartyGm(partyState, uid)` with the authenticated UID, so the created document always has `party.gmUid == uid` and a `gm` entry in `party.members` (any GM identity cached from an earlier local session is replaced). Creation is skipped with an error if there is no authenticated user.
 - Every snapshot passes through `fromFirestorePartyDocument` and is delivered to the store with its `RemoteSnapshotMetadata`.
 - The listener is registered with `includeMetadataChanges: true`, because acknowledgement of a write that leaves the document unchanged is otherwise never reported.
@@ -204,6 +204,7 @@ Rules do not reference the app state shape, so field-level writes needed no rule
 - Firestore rules are unaffected: `isAllowedPlayerUpdate()` only compares party-level fields, so a player's trim `set` on `appState.auditLog` is allowed, and the GM's clear passes under `isGm()`. No rules change is needed for either.
 - The 1 MiB document limit is unchanged; the audit-log cap is what keeps a long-running party's document inside it.
 - A `permission-denied` rollback discards every queued update, not only the rejected one. The client is reconciled to the server rather than trying to re-apply the edits that were still legal.
+- A client that opens a party id *after* its document was deleted cannot tell that case from a party that never existed, and creates it as the GM. Only a subscription that saw the document is protected.
 - An acknowledged snapshot that lands while the app still holds unsent updates reverts those edits on screen until the queue flushes and the next snapshot brings them back.
 - The queue reset windows above.
 

@@ -343,8 +343,14 @@ export const useAppStore = create<AppStore>((set) => ({
 
     try {
       assertStorePartyAction(role, "clearAuditLog");
-    } catch {
-      return { ok: false, message: "Only the GM can clear the audit log." };
+    } catch (error) {
+      return {
+        ok: false,
+        message: formatPartyActionRefusal(
+          error,
+          "Only the GM can clear the audit log.",
+        ),
+      };
     }
 
     // The clear itself is not logged: MODEL_SPEC excludes reset state from the
@@ -479,8 +485,14 @@ export const useAppStore = create<AppStore>((set) => ({
 
     try {
       assertStorePartyAction(role, "deleteParty");
-    } catch {
-      return { ok: false, message: "Only the GM can delete this party." };
+    } catch (error) {
+      return {
+        ok: false,
+        message: formatPartyActionRefusal(
+          error,
+          "Only the GM can delete this party.",
+        ),
+      };
     }
 
     const deletedPartyId = state.partyId;
@@ -2997,6 +3009,17 @@ function applyRemotePartyState(
 
   applyPartyStateFromRemote(resolvedPartyState);
 
+  // A rename by the GM (or the party's real name arriving with the first
+  // snapshot) is still a rename: keep this device's party list in step.
+  if (currentState.partyDisplayName !== resolvedPartyState.party.displayName) {
+    useAppStore.setState({
+      parties: renameIndexedParty(
+        resolvedPartyState.party.id,
+        resolvedPartyState.party.displayName,
+      ),
+    });
+  }
+
   // A GM client gives a pre-invite party its first invite code. This is a
   // real local change (not a remote apply) so it is written back to Firestore.
   const partyStateWithInvite = ensurePartyInviteCode(
@@ -3142,6 +3165,21 @@ function requireActionRole(role: PartyRole | null): PartyRole {
   }
 
   return actionRole;
+}
+
+/**
+ * Message for a party action the store refused. An unresolved role — Firebase
+ * mode before the first snapshot, or a read the rules denied — is not the same
+ * as being a player, so its own explanation is kept rather than being reported
+ * as a GM-only restriction.
+ */
+export function formatPartyActionRefusal(
+  error: unknown,
+  gmOnlyMessage: string,
+): string {
+  return error instanceof PermissionError && error.code === "not-party-member"
+    ? error.message
+    : gmOnlyMessage;
 }
 
 function assertStorePartyAction(

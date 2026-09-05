@@ -81,6 +81,7 @@ Firebase mode should:
 - Support real-time sync where practical.
 - Let the GM delete the party, which removes the party document for every member. Deletion is GM-only in both enforcement layers.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
+- Keep working while the connection does not: edits are cached offline, a failed write retries on a backoff instead of waiting for the user's next edit, and a write the server refuses is rolled back rather than left showing locally — see [SYNC_SPEC.md](SYNC_SPEC.md) for the write lifecycle, retry schedule, and sync-status meanings.
 
 Firestore's wire shape, field-level merge behavior, and legacy-document upgrade path are defined in [SYNC_SPEC.md](SYNC_SPEC.md).
 
@@ -108,7 +109,7 @@ entries, one per party this device knows about. The index is local in both
 modes — Firebase stores party documents, not a per-user list of them — and is
 never written to Firestore.
 
-- Seed the index once from any party states already stored under `simple.inventory.partyState.v1.*`, so parties created before the index existed stay reachable.
+- Seed the index once from any party states already stored under `simple.inventory.partyState.v1.*`, so parties created before the index existed stay reachable. Seeding only reads: an unreadable stored party is left out of the index rather than backed up, since the backup belongs to the moment that party is actually opened.
 - Record a party in the index when it is opened, and update its entry when it is renamed.
 - Creating a party mints a new party id and opens it. Local mode writes the new empty party state at once; Firebase mode leaves creation to the sync path that runs when the party opens.
 - Forgetting a party removes its index entry only. The party's data stays where it is — the stored party state in local mode, the party document in Firebase mode — and its URL still opens it. Local mode also offers erasing the stored party state, behind a typed confirmation.

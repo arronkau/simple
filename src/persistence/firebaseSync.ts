@@ -244,6 +244,9 @@ export async function startFirebaseAppStateSync({
 
     let stopped = false;
     let creatingDocument = false;
+    // Set once a snapshot reports the document exists. A document that then
+    // disappears was deleted by its GM, and must not be written back.
+    let documentSeen = false;
 
     const applyVersion2PartyState = ({
       metadata,
@@ -317,6 +320,15 @@ export async function startFirebaseAppStateSync({
             return;
           }
 
+          // The document existed a moment ago, so the GM deleted it. Creating
+          // it again would resurrect the party and, because creation assigns
+          // GM to the creating uid, hand GM to whichever member happened to
+          // still be subscribed.
+          if (documentSeen) {
+            onError("This party was deleted by the GM.");
+            return;
+          }
+
           if (!user) {
             onError("Sign-in is required before a party can be created.");
             return;
@@ -335,6 +347,8 @@ export async function startFirebaseAppStateSync({
             });
           return;
         }
+
+        documentSeen = true;
 
         const data = snapshot.data();
         const partyState = fromFirestorePartyDocument(data, partyId);

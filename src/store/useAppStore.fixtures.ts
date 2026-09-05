@@ -2,7 +2,9 @@ import { createEmptyCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
 import { getUsableContainerRecords } from "../model/inventoryRecords";
 import { findTopLevelStowedContainerRecords } from "../model/validation";
+import { PermissionError } from "../model/permissions";
 import {
+  formatPartyActionRefusal,
   formatUnresolvedRoleMessage,
   resolveActionRole,
   useAppStore,
@@ -2432,6 +2434,26 @@ export const ACTION_ROLE_STORE_MANUAL_FIXTURES = [
     name: "unresolved role before the first snapshot asks the user to wait",
     actual: formatUnresolvedRoleMessage("syncing"),
     expected: "This party has not finished loading. Try again in a moment.",
+  },
+  {
+    name: "a refused party action reports GM-only for a player",
+    actual: formatPartyActionRefusal(
+      new PermissionError("Requires GM role.", "gm-only"),
+      "Only the GM can clear the audit log.",
+    ),
+    expected: "Only the GM can clear the audit log.",
+  },
+  {
+    name: "a refused party action keeps the unresolved-role explanation",
+    actual: formatPartyActionRefusal(
+      new PermissionError(
+        "You are not a member of this party. Ask the GM for an invite link.",
+        "not-party-member",
+      ),
+      "Only the GM can clear the audit log.",
+    ),
+    expected:
+      "You are not a member of this party. Ask the GM for an invite link.",
   },
 ];
 

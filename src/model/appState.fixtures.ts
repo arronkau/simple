@@ -1254,6 +1254,41 @@ export const APP_STATE_MANUAL_FIXTURES = [
     ],
   },
   {
+    name: "party index seeding skips unreadable parties and writes no backup",
+    actual: withMockLocalStorage((localStorage) => {
+      writeLocalPartyState(
+        createPartyState({ partyId: "party-good", displayName: "Good Table" }),
+      );
+      localStorage.setItem(
+        getLocalPartyStateStorageKey("party-broken"),
+        "{not json",
+      );
+
+      const seededIndex = readPartyIndex();
+      const corruptKeys: string[] = [];
+
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+
+        if (key?.startsWith(CORRUPT_PARTY_STATE_STORAGE_KEY_PREFIX)) {
+          corruptKeys.push(key);
+        }
+      }
+
+      return { seededIndex, corruptKeys };
+    }),
+    expected: {
+      seededIndex: [
+        {
+          id: "party-good",
+          displayName: "Good Table",
+          lastOpenedAt: "1970-01-01T00:00:00.000Z",
+        },
+      ],
+      corruptKeys: [],
+    },
+  },
+  {
     name: "party index seeds once from stored party states",
     actual: partyIndexStorageRun.seededIndex,
     expected: [
