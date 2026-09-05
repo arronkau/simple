@@ -13,6 +13,17 @@ import type {
 
 export const DEFAULT_AUDIT_ACTOR_LABEL = "Local user";
 
+/**
+ * Upper bound on entries kept in `AppState.auditLog`.
+ *
+ * The whole log lives inside the single Firestore party document, which is
+ * capped at 1 MiB. Entries are a few hundred bytes each, so 500 entries stay
+ * well inside that budget (roughly 150 KB worst case) while still covering
+ * many sessions of play. Without a cap the log grows forever and every write
+ * for the party eventually fails once the document hits the limit.
+ */
+export const AUDIT_LOG_MAX_ENTRIES = 500;
+
 export const AUDIT_EVENT_TYPE_LABELS: Record<AuditEventType, string> = {
   coinsChanged: "Coins changed",
   entityActivated: "Entity activated",
@@ -88,6 +99,23 @@ export function getNewestAuditLogEntries(
 
     return rightEntry.id.localeCompare(leftEntry.id);
   });
+}
+
+/**
+ * Keeps at most `maxEntries` entries, dropping the oldest first. The log is
+ * stored oldest-first, so the newest entries are its tail; the kept entries
+ * stay in their existing order. Returns the input array untouched when it is
+ * already within the cap.
+ */
+export function trimAuditLog(
+  auditLog: AuditLogEntry[],
+  maxEntries: number = AUDIT_LOG_MAX_ENTRIES,
+): AuditLogEntry[] {
+  if (auditLog.length <= maxEntries) {
+    return auditLog;
+  }
+
+  return auditLog.slice(auditLog.length - maxEntries);
 }
 
 export function getCoinDelta(

@@ -6,11 +6,15 @@ import {
   type PartyId,
 } from "../model/appState";
 import type { AppState } from "../model/appState";
+import { AUDIT_LOG_MAX_ENTRIES } from "../model/auditLog";
 import { buildInviteUrl } from "../model/partyInvite";
 import type { PartyRole } from "../model/types";
 import type { FirebaseAuthAccount } from "../persistence/firebaseSync";
 import type { PersistenceMode } from "../persistence/types";
-import type { AccountActionResult } from "../store/useAppStore";
+import type {
+  AccountActionResult,
+  PartyActionResult,
+} from "../store/useAppStore";
 import type { AppStateExport, ManageMessage } from "../view-types";
 
 export function ManageDataModal({
@@ -21,6 +25,7 @@ export function ManageDataModal({
   partyDisplayName,
   partyId,
   persistenceMode,
+  onClearAuditLog,
   onClose,
   onImportAppState,
   onRegenerateInviteCode,
@@ -36,6 +41,7 @@ export function ManageDataModal({
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
+  onClearAuditLog: () => PartyActionResult;
   onClose: () => void;
   onImportAppState: (appState: AppState) => void;
   onRegenerateInviteCode: () => void;
@@ -50,6 +56,8 @@ export function ManageDataModal({
   >();
   const [importConfirmation, setImportConfirmation] = useState("");
   const [resetConfirmation, setResetConfirmation] = useState("");
+  const [clearAuditConfirmation, setClearAuditConfirmation] = useState("");
+  const [auditMessage, setAuditMessage] = useState<ManageMessage | undefined>();
   const [editingPartyName, setEditingPartyName] = useState(partyDisplayName);
   const [copiedField, setCopiedField] = useState<"url" | "invite" | undefined>();
   const [accountMessage, setAccountMessage] = useState<ManageMessage | undefined>();
@@ -59,6 +67,7 @@ export function ManageDataModal({
   const importEnabled =
     isGm && pendingImportAppState !== undefined && importConfirmation === "import";
   const resetEnabled = isGm && resetConfirmation === "delete";
+  const clearAuditEnabled = isGm && clearAuditConfirmation === "clear";
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const partyUrl = `${origin}/party/${partyId}`;
   const inviteUrl = inviteCode ? buildInviteUrl(origin, partyId, inviteCode) : undefined;
@@ -162,6 +171,21 @@ export function ManageDataModal({
     } finally {
       setAccountBusy(false);
     }
+  }
+
+  function confirmClearAuditLog() {
+    if (!clearAuditEnabled) {
+      return;
+    }
+
+    const result = onClearAuditLog();
+
+    setClearAuditConfirmation("");
+    setAuditMessage(
+      result.ok
+        ? { tone: "success", text: "Audit log cleared." }
+        : { tone: "error", text: result.message },
+    );
   }
 
   function confirmImport() {
@@ -369,6 +393,40 @@ export function ManageDataModal({
                   Reset data
                 </button>
               </div>
+              <div className="manage-row">
+                <label className="manage-grow">
+                  <span>Type “clear” to clear the audit log</span>
+                  <input
+                    autoComplete="off"
+                    value={clearAuditConfirmation}
+                    onChange={(event) =>
+                      setClearAuditConfirmation(event.target.value)
+                    }
+                  />
+                </label>
+                <button
+                  className="danger-button"
+                  disabled={!clearAuditEnabled}
+                  type="button"
+                  onClick={confirmClearAuditLog}
+                >
+                  Clear audit log
+                </button>
+              </div>
+              <p className="field-help">
+                Deletes every audit entry for everyone in the party. Entities,
+                inventory, and coins are untouched. The log already keeps only
+                its newest {AUDIT_LOG_MAX_ENTRIES} entries.
+              </p>
+              {auditMessage ? (
+                <p
+                  className={
+                    auditMessage.tone === "error" ? "form-error" : "form-success"
+                  }
+                >
+                  {auditMessage.text}
+                </p>
+              ) : null}
             </section>
           ) : null}
         </div>

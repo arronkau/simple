@@ -151,6 +151,28 @@ Audit log rules:
 - Use `actorLabel: "Local user"` until app-level actor identity exists.
 - Keep audit entries in `AppState.auditLog`; do not split them into a separate Firestore collection for v1.
 
+Bounding the log:
+
+- `AUDIT_LOG_MAX_ENTRIES` (500, in `src/model/auditLog.ts`) is the hard cap on
+  `AppState.auditLog`. The whole log lives inside the single Firestore party
+  document, which Firestore caps at 1 MiB; an unbounded log eventually makes
+  every write for that party fail permanently.
+- `trimAuditLog(auditLog, maxEntries = AUDIT_LOG_MAX_ENTRIES)` is pure: it keeps
+  the newest entries (the log is stored oldest-first, so it drops from the
+  front) in their existing order, and returns the input unchanged when it is at
+  or under the cap. The store applies it in `appendAuditLogEntries`, so the cap
+  holds after every mutation that logs.
+- The GM may empty the log outright with the store's `clearAuditLog` action
+  (GM-only via `assertPartyAction(role, "clearAuditLog")`; it returns
+  `{ ok: true } | { ok: false; message }` rather than failing silently).
+  Exposed in Manage → Danger behind a typed "clear" confirmation.
+- Neither the trim nor the clear is itself logged, matching the rule above that
+  reset state is not logged: an entry describing a clear would be the only
+  survivor of the clear, and trim entries would consume the cap they enforce.
+- Trim and clear both shrink the array, which the Firestore wire cannot express
+  as an `arrayUnion`; see `SYNC_SPEC.md` for the whole-array write and its
+  last-writer-wins window.
+
 ## Entity
 
 ```ts

@@ -15,6 +15,7 @@ const profileA = makeProfile("user-a", "A");
 const profileB = makeProfile("user-b", "B");
 const auditA = makeAudit("audit-a", "A");
 const auditB = makeAudit("audit-b", "B");
+const auditC = makeAudit("audit-c", "C");
 
 export const PARTY_STATE_DIFF_MANUAL_FIXTURES: {
   name: string;
@@ -144,6 +145,34 @@ export const PARTY_STATE_DIFF_MANUAL_FIXTURES: {
     ],
   },
   {
+    name: "Party-state diff sets the audit array when a trim drops the oldest entries",
+    actual: diffPartyStates(
+      makePartyState({ auditLog: [auditA, auditB] }),
+      makePartyState({ auditLog: [auditB, auditC] }),
+    ),
+    expected: [
+      {
+        path: ["appState", "auditLog"],
+        op: "set",
+        value: [auditB, auditC],
+      },
+    ],
+  },
+  {
+    name: "Party-state diff sets an empty audit array when the log is cleared",
+    actual: diffPartyStates(
+      makePartyState({ auditLog: [auditA, auditB] }),
+      makePartyState({ auditLog: [] }),
+    ),
+    expected: [
+      {
+        path: ["appState", "auditLog"],
+        op: "set",
+        value: [],
+      },
+    ],
+  },
+  {
     name: "Party-state diff ignores model array order after canonicalization",
     actual: diffPartyStates(
       makePartyState({
@@ -234,6 +263,16 @@ export const PARTY_STATE_DIFF_MANUAL_FIXTURES: {
     ),
     expected: [
       { path: ["appState", "auditLog"], op: "set", value: [auditA, auditB] },
+    ],
+  },
+  {
+    name: "Field-update merge keeps a cleared audit log cleared before later appends",
+    actual: mergeFieldUpdates(
+      [{ path: ["appState", "auditLog"], op: "set", value: [] }],
+      [{ path: ["appState", "auditLog"], op: "arrayUnion", value: [auditB] }],
+    ),
+    expected: [
+      { path: ["appState", "auditLog"], op: "set", value: [auditB] },
     ],
   },
 ];

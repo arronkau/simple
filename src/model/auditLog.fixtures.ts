@@ -1,12 +1,14 @@
 import {
+  AUDIT_LOG_MAX_ENTRIES,
   createAuditLogEntry,
   formatCoinDelta,
   getAuditEventTypeLabel,
   getCoinDelta,
   getCoinDeltaDetails,
   getNewestAuditLogEntries,
+  trimAuditLog,
 } from "./auditLog";
-import type { CoinData } from "./types";
+import type { AuditLogEntry, CoinData } from "./types";
 
 const previousCoins: CoinData = {
   cp: 4,
@@ -47,6 +49,10 @@ const attributedEntry = createAuditLogEntry({
   summary: "Created entity.",
 });
 
+const trimEntries = makeAuditLogEntries(5);
+const overflowingAuditLog = makeAuditLogEntries(AUDIT_LOG_MAX_ENTRIES + 2);
+const trimmedAuditLog = trimAuditLog(overflowingAuditLog);
+
 export const AUDIT_LOG_MANUAL_FIXTURES = [
   {
     name: "audit entries fill default actor and omit empty details",
@@ -85,6 +91,34 @@ export const AUDIT_LOG_MANUAL_FIXTURES = [
     expected: ["audit-newer", "audit-older"],
   },
   {
+    name: "audit log trim keeps a log shorter than the cap untouched",
+    actual: trimAuditLog(trimEntries.slice(0, 2), 3).map((entry) => entry.id),
+    expected: ["audit-0", "audit-1"],
+  },
+  {
+    name: "audit log trim keeps a log exactly at the cap untouched",
+    actual: trimAuditLog(trimEntries.slice(0, 3), 3).map((entry) => entry.id),
+    expected: ["audit-0", "audit-1", "audit-2"],
+  },
+  {
+    name: "audit log trim drops the oldest entries and preserves order",
+    actual: trimAuditLog(trimEntries, 3).map((entry) => entry.id),
+    expected: ["audit-2", "audit-3", "audit-4"],
+  },
+  {
+    name: "audit log trim caps at AUDIT_LOG_MAX_ENTRIES by default",
+    actual: {
+      length: trimmedAuditLog.length,
+      firstId: trimmedAuditLog[0]?.id,
+      lastId: trimmedAuditLog[trimmedAuditLog.length - 1]?.id,
+    },
+    expected: {
+      length: AUDIT_LOG_MAX_ENTRIES,
+      firstId: "audit-2",
+      lastId: `audit-${AUDIT_LOG_MAX_ENTRIES + 1}`,
+    },
+  },
+  {
     name: "coin delta helpers produce readable denomination details",
     actual: {
       delta: coinDelta,
@@ -108,3 +142,14 @@ export const AUDIT_LOG_MANUAL_FIXTURES = [
     },
   },
 ];
+
+function makeAuditLogEntries(count: number): AuditLogEntry[] {
+  return Array.from({ length: count }, (_unused, index) =>
+    createAuditLogEntry({
+      id: `audit-${index}`,
+      createdAt: "2026-06-03T10:00:00.000Z",
+      eventType: "entityCreated",
+      summary: `Created entity ${index}.`,
+    }),
+  );
+}

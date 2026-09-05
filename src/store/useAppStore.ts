@@ -38,6 +38,7 @@ import {
   formatCoinDelta,
   getCoinDelta,
   getCoinDeltaDetails,
+  trimAuditLog,
   type CreateAuditLogEntryInput,
 } from "../model/auditLog";
 import { getCoinCount, getContainerCapacity } from "../model/calculations";
@@ -108,6 +109,8 @@ import type { PersistenceMode, SyncStatus } from "../persistence/types";
 
 export type AccountActionResult = { ok: true } | { ok: false; message: string };
 
+export type PartyActionResult = { ok: true } | { ok: false; message: string };
+
 type AppStore = {
   appState: AppState;
   authAccount?: FirebaseAuthAccount;
@@ -123,6 +126,7 @@ type AppStore = {
   updateCurrentUserProfile: (input: UserProfileInput) => void;
   renameParty: (displayName: string) => void;
   regenerateInviteCode: () => void;
+  clearAuditLog: () => PartyActionResult;
   signInWithGoogle: () => Promise<AccountActionResult>;
   signOutAccount: () => Promise<AccountActionResult>;
   setCurrentParty: (partyId: PartyId) => void;
@@ -293,6 +297,21 @@ export const useAppStore = create<AppStore>((set) => ({
       }
       return { inviteCode: createInviteCode() };
     });
+  },
+  clearAuditLog: () => {
+    const role = getStateUserRole(useAppStore.getState());
+
+    try {
+      assertPartyAction(role ?? "player", "clearAuditLog");
+    } catch {
+      return { ok: false, message: "Only the GM can clear the audit log." };
+    }
+
+    // The clear itself is not logged: MODEL_SPEC excludes reset state from the
+    // audit log, and an entry describing the clear would survive it anyway.
+    set((state) => ({ appState: { ...state.appState, auditLog: [] } }));
+
+    return { ok: true };
   },
   signInWithGoogle: async () => {
     if (!firebaseConfig) {
@@ -2034,7 +2053,7 @@ function appendAuditLogEntries(
 
   return {
     ...appState,
-    auditLog: [
+    auditLog: trimAuditLog([
       ...appState.auditLog,
       ...entries.map((entry) =>
         createAuditLogEntry({
@@ -2044,7 +2063,7 @@ function appendAuditLogEntries(
           id: createId("audit"),
         }),
       ),
-    ],
+    ]),
   };
 }
 

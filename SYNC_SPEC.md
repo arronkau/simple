@@ -10,7 +10,7 @@ Target behavior:
 
 - Edits to different entities, inventory records, user profiles, member entries, or party fields merge on the server.
 - Two edits to the *same* record are last-writer-wins for that record only. This is acceptable for table play.
-- Audit log entries appended by different clients are all kept.
+- Audit log entries appended by different clients are all kept, except across a trim or clear (see Known limits).
 - The model (`PartyState`, `AppState`) keeps its array shape. Only the Firestore document shape changes. Local mode keeps storing the model shape in localStorage exactly as today.
 
 ## Wire shape (Firestore `parties/{partyId}`), version 2
@@ -30,7 +30,7 @@ type FirestorePartyDocument = {
     schemaVersion: 1;
     entities: Record<EntityId, Entity>;               // keyed by entity.id
     inventoryRecords: Record<InventoryRecordId, InventoryRecord>; // keyed by record.id
-    auditLog: AuditLogEntry[];                         // array, append-only via arrayUnion
+    auditLog: AuditLogEntry[];                         // array; arrayUnion on append, whole-array set on trim/clear
   };
   userProfiles: Record<UserId, UserProfile>;           // keyed by profile.id
 };
@@ -71,7 +71,7 @@ function mergeFieldUpdates(pending: FieldUpdate[], incoming: FieldUpdate[]): Fie
 - `["appState","entities",id]`: `set` when the entity's JSON differs, `delete` when removed.
 - `["appState","inventoryRecords",id]`: same.
 - `["userProfiles",id]`: same.
-- `["appState","auditLog"]`: if `next.auditLog` equals `previous.auditLog` followed by zero or more new entries, emit `arrayUnion` of the new entries (omit when none). Otherwise (entries removed or reordered) emit `set` with the whole array.
+- `["appState","auditLog"]`: if `next.auditLog` equals `previous.auditLog` followed by zero or more new entries, emit `arrayUnion` of the new entries (omit when none). Otherwise (entries removed or reordered) emit `set` with the whole array. The log shrinks in exactly two ways — the cap trim (`AUDIT_LOG_MAX_ENTRIES`, applied on every append; see `MODEL_SPEC.md`) and the GM's `clearAuditLog` — and both take this `set` branch, a clear writing `[]`.
 
 Comparison is `JSON.stringify` on the individual entry, matching the repo's fixture convention. No update is emitted for unchanged paths. An empty result means nothing to write.
 
@@ -119,7 +119,7 @@ Rules do not reference the app state shape, so `firestore.rules` should need no 
 
 1. Player `updateDoc` on `appState.entities.<id>` succeeds.
 2. Player `updateDoc` on `appState.inventoryRecords.<id>` with `deleteField()` succeeds.
-3. Player `updateDoc` with `arrayUnion` on `appState.auditLog` succeeds.
+3. Player `updateDoc` with `arrayUnion` on `appState.auditLog` succeeds; so does a player's whole-array `set` on the same path (the cap trim runs on any member's mutation).
 4. Player `updateDoc` on `userProfiles.<ownId>` succeeds.
 5. Player `updateDoc` on `party.displayName` fails; on `party.inviteCode` fails; on `party.members.<otherUid>` fails; on `party.gmUid` fails.
 6. GM `updateDoc` on `party.members.<uid>` and `party.inviteCode` succeeds.
@@ -137,7 +137,9 @@ Rules do not reference the app state shape, so `firestore.rules` should need no 
 
 - Same-record concurrent edits are last-writer-wins per record.
 - Multi-record operations (swap, move with reindex) can interleave with another client's move of one of the records and produce a state the client-side validator would have blocked, for example two records at the same slot. The existing soft warnings surface this; no server-side fix.
-- The 1 MiB document limit is unchanged.
+- **Audit-log trim and clear are last-writer-wins for the log.** A whole-array `set` overwrites whatever the server holds, so entries another client appended between this client's last snapshot and the write are lost. The window is one write. It opens only at a trim (once per append after the log reaches the cap) or a GM clear; ordinary appends stay `arrayUnion` and still merge. Losing a few audit entries is acceptable at the table, and the alternative — leaving the log unbounded — makes every write for the party fail once the document reaches 1 MiB.
+- Firestore rules are unaffected: `isAllowedPlayerUpdate()` only compares party-level fields, so a player's trim `set` on `appState.auditLog` is allowed, and the GM's clear passes under `isGm()`. No rules change is needed for either.
+- The 1 MiB document limit is unchanged; the audit-log cap is what keeps a long-running party's document inside it.
 
 ## Testing
 

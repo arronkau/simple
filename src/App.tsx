@@ -112,6 +112,7 @@ function LocalAppShell() {
   const inviteCode = useAppStore((state) => state.inviteCode);
   const authAccount = useAppStore((state) => state.authAccount);
   const regenerateInviteCode = useAppStore((state) => state.regenerateInviteCode);
+  const clearAuditLog = useAppStore((state) => state.clearAuditLog);
   const signInWithGoogle = useAppStore((state) => state.signInWithGoogle);
   const signOutAccount = useAppStore((state) => state.signOutAccount);
   const currentUserPartyRole = gmUid && members
@@ -598,6 +599,7 @@ function LocalAppShell() {
             partyDisplayName={partyDisplayName}
             partyId={activePartyId}
             persistenceMode={persistenceMode}
+            onClearAuditLog={clearAuditLog}
             onClose={() => setManageModalOpen(false)}
             onImportAppState={replaceAppState}
             onRegenerateInviteCode={regenerateInviteCode}
