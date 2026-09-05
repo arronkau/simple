@@ -1,4 +1,5 @@
 import { APP_MANUAL_FIXTURES } from "./App.fixtures";
+import { CHARACTER_SHEET_AUTOSAVE_MANUAL_FIXTURES } from "./character/characterSheetAutosave.fixtures";
 import { ABILITY_MODIFIERS_MANUAL_FIXTURES } from "./model/abilityModifiers.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
 import { CLASS_CONTENT_MANUAL_FIXTURES } from "./model/classContent.fixtures";
@@ -74,6 +75,7 @@ const manualFixtures: ManualFixture[] = [
   ...PARTY_INVITE_MANUAL_FIXTURES,
   ...CALCULATION_MANUAL_FIXTURES,
   ...CHARACTER_MANUAL_FIXTURES,
+  ...CHARACTER_SHEET_AUTOSAVE_MANUAL_FIXTURES,
   ...ENTITY_MODEL_MANUAL_FIXTURES,
   ...ENCUMBRANCE_MANUAL_FIXTURES,
   ...GEAR_HANDS_MANUAL_FIXTURES,

@@ -20,6 +20,7 @@ import {
 import type { DraggableAttributes } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { normalizeCharacterData } from "../model/characters";
+import type { UpdateEntityInput } from "../model/entities";
 import { isCharacterLikeEntity } from "../model/validation";
 import type { AppState } from "../model/appState";
 import type {
@@ -42,8 +43,8 @@ const SELECTOR_BENCH_DROP_ID = "selector-bench-zone";
 export function CharactersPage({
   appState,
   sortedEntities,
-  onEditEntity,
   onSaveCharacterData,
+  onUpdateEntity,
   onAdjustHp,
   onAdjustXp,
   onAdjustSpellMemorized,
@@ -52,14 +53,18 @@ export function CharactersPage({
   onLightRecord,
   onSnuffRecord,
   onSetEntityActive,
+  onDeleteEntity,
   onReorderEntity,
 }: {
   appState: AppState;
   sortedEntities: Entity[];
-  onEditEntity: (entity: Entity) => void;
   onSaveCharacterData: (
     entityId: EntityId,
     characterData: CharacterData,
+  ) => EntityMutationResult;
+  onUpdateEntity: (
+    entityId: EntityId,
+    input: UpdateEntityInput,
   ) => EntityMutationResult;
   onAdjustHp: (entityId: EntityId, delta: number) => EntityMutationResult;
   onAdjustXp: (entityId: EntityId, delta: number) => EntityMutationResult;
@@ -73,6 +78,7 @@ export function CharactersPage({
   onLightRecord: (record: InventoryRecord) => InventoryMutationResult;
   onSnuffRecord: (record: InventoryRecord) => void;
   onSetEntityActive: (entityId: EntityId, active: boolean) => void;
+  onDeleteEntity: (entity: Entity) => void;
   onReorderEntity: (entityId: EntityId, targetIndex: number) => void;
 }) {
   const characterEntities = sortedEntities.filter(isCharacterLikeEntity);
@@ -116,6 +122,7 @@ export function CharactersPage({
       !characterEntities.some((entity) => entity.id === selectedEntityId)
     ) {
       setSelectedEntityId(characterEntities[0]?.id);
+      setSheetMode("read");
     }
   }, [characterEntities, selectedEntityId]);
 
@@ -215,9 +222,6 @@ export function CharactersPage({
             <article className="character-detail">
               <div className="character-entity-settings">
                 <EntitySummary appState={appState} entity={selectedEntity} />
-                <button type="button" onClick={() => onEditEntity(selectedEntity)}>
-                  Edit entity
-                </button>
               </div>
               {sheetMode === "read" ? (
                 <CharacterSheet
@@ -235,8 +239,11 @@ export function CharactersPage({
               ) : (
                 <CharacterSheetEditForm
                   entity={selectedEntity}
+                  onDeleteEntity={onDeleteEntity}
                   onDone={() => setSheetMode("read")}
                   onSaveCharacterData={onSaveCharacterData}
+                  onSetEntityActive={onSetEntityActive}
+                  onUpdateEntity={onUpdateEntity}
                 />
               )}
             </article>

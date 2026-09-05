@@ -581,8 +581,8 @@ function LocalAppShell() {
               <CharactersPage
                 appState={appState}
                 sortedEntities={sortedEntities}
-                onEditEntity={startEditing}
                 onSaveCharacterData={updateCharacterData}
+                onUpdateEntity={updateEntity}
                 onAdjustHp={adjustCharacterHp}
                 onAdjustXp={adjustCharacterXp}
                 onAdjustSpellMemorized={adjustCharacterSpellMemorized}
@@ -591,6 +591,7 @@ function LocalAppShell() {
                 onLightRecord={(record) => lightInventoryRecord(record.id)}
                 onSnuffRecord={startSnuffingLight}
                 onSetEntityActive={setEntityActive}
+                onDeleteEntity={requestDeleteEntity}
                 onReorderEntity={reorderEntity}
               />
             }

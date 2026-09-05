@@ -165,7 +165,10 @@ type AppStore = {
   deleteCurrentParty: () => Promise<DeletePartyResult>;
   userProfiles: UserProfile[];
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
-  updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
+  updateEntity: (
+    entityId: EntityId,
+    input: UpdateEntityInput,
+  ) => EntityMutationResult;
   updateCharacterData: (
     entityId: EntityId,
     characterData: CharacterData,
@@ -589,14 +592,25 @@ export const useAppStore = create<AppStore>((set) => ({
     return entityId;
   },
   updateEntity: (entityId, input) => {
-    set((state) => {
-      const role = getStateUserRole(state);
-      try {
-        assertStoreEntityAction(role, "editEntity");
-      } catch {
-        return state;
-      }
+    // Same permission gate as before; it now reports the refusal instead of
+    // swallowing it, so the character sheet can show why nothing was saved.
+    const role = getStateUserRole(useAppStore.getState());
+    try {
+      assertStoreEntityAction(role, "editEntity");
+    } catch (e) {
+      return {
+        ok: false,
+        message:
+          e instanceof PermissionError ? e.message : "Permission denied.",
+      };
+    }
 
+    let result: EntityMutationResult = {
+      ok: false,
+      message: "Entity was not found.",
+    };
+
+    set((state) => {
       const existingEntity = state.appState.entities.find(
         (entity) => entity.id === entityId,
       );
@@ -613,6 +627,8 @@ export const useAppStore = create<AppStore>((set) => ({
         ),
       };
 
+      result = { ok: true };
+
       return {
         appState: appendAuditLogEntries(
           nextAppState,
@@ -620,6 +636,8 @@ export const useAppStore = create<AppStore>((set) => ({
         ),
       };
     });
+
+    return result;
   },
   updateCharacterData: (entityId, characterData) => {
     let result: EntityMutationResult = {

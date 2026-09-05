@@ -285,6 +285,14 @@ Coin records use a compact coin-only body with PP, GP, SP, and CP fields. Moveme
 
 Optional modal sections expose container data, unidentified data, light source data, uses/charges, modifiers, GM notes, and weapon qualities. The unidentified and GM-notes sections are GM-only: a non-GM never sees an item's notes, and a non-GM opening an unidentified item gets a read-only form (every field disabled, no Save, a one-line "only the GM can edit this item" note) built from the redacted record. Redaction itself is one rule in the model (`MODEL_SPEC.md`, Player Visibility); the app supplies the viewer's role once, at the app shell, and display surfaces read it from there. Light source burn state uses the shared uses object; light data stores only lit state and free-text light description. On the character sheet, each light source row carries a flame toggle: unlit lights one item (splitting it off a stack and moving it to a free hand when it needs one); lit opens a "Put out" dialog offering "burned out" or "turns remaining" (see `MODEL_SPEC.md`, Light and Snuff Actions).
 
+## Character Sheet
+
+The characters page shows one character or retainer at a time, read-first, with an inline editor behind a single "Edit sheet" toggle.
+
+- **Sheet edits save automatically.** The editor has no Save/Cancel pair. Selects, checkboxes, steppers, and adding or removing a repeatable row commit as they change; typed text and number fields commit a short pause after the last keystroke, and immediately on blur. Every commit goes through the store's character-sheet action so validation stays in the model. One small inline status in the editor header reads "Saved", "Saving…", or "Couldn't save: <message>". A rejected save leaves the typed draft on screen — nothing is reverted or silently fixed — and the next change retries. "Done" only closes the editor, flushing anything still waiting. The editor seeds its draft when it opens and does not merge remote updates that arrive while it is open, so a field being typed in is never overwritten; a remote edit to the same sheet shows up on reopen.
+- **One edit entry point on the sheet.** The sheet header has no separate entity-edit button. The inline editor's first section owns the entity itself: name, type, Bench/Reactivate, and Delete (through the shared delete confirmation). The gear board and party page still open the entity modal.
+- **Quick controls are unchanged.** HP −/+, the XP add box, and the spell memorized steppers stay on the read view and keep saving immediately through their own adjust actions.
+
 ## High-Level UI Areas
 
 The app should eventually include:
