@@ -2796,6 +2796,13 @@ async function startConfiguredFirebaseSync(): Promise<void> {
 
       removeInviteCodeFromLocation();
     },
+    onPartyDeleted: (partyId) => {
+      if (!isActiveSync()) {
+        return;
+      }
+
+      useAppStore.setState({ parties: forgetDeletedParty(partyId) });
+    },
     onAuthUserId: (userId) => {
       if (!isActiveSync()) {
         return;
@@ -3301,6 +3308,21 @@ function writeLastPartyId(partyId: PartyId): void {
   } catch {
     // Storage can fail in private contexts or when quota is exceeded.
   }
+}
+
+/**
+ * Drops every local trace of a party whose document was deleted remotely: the
+ * cached party state, the party-index entry, and the last-opened id. Without
+ * this the client keeps pointing at the deleted id, and the next visit to "/"
+ * reopens it — a fresh subscription cannot tell a deleted party from a new one
+ * and would create it again, this time with the visitor as GM. The sync error
+ * banner raised alongside this is what tells the user what happened.
+ */
+export function forgetDeletedParty(partyId: PartyId): PartyIndexEntry[] {
+  clearLastPartyId(partyId);
+  deleteLocalPartyState(partyId);
+
+  return forgetIndexedParty(partyId);
 }
 
 /** Forgets the last-opened party when it is the one being deleted. */

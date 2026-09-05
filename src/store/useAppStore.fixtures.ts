@@ -4,6 +4,12 @@ import { getUsableContainerRecords } from "../model/inventoryRecords";
 import { findTopLevelStowedContainerRecords } from "../model/validation";
 import { PermissionError } from "../model/permissions";
 import {
+  PARTY_INDEX_STORAGE_KEY,
+  createPartyState,
+  getLocalPartyStateStorageKey,
+} from "../model/appState";
+import {
+  forgetDeletedParty,
   formatPartyActionRefusal,
   formatUnresolvedRoleMessage,
   resolveActionRole,
@@ -2534,3 +2540,114 @@ export const PARTY_MANAGEMENT_STORE_MANUAL_FIXTURES = [
     },
   },
 ];
+
+// --- Forgetting a party the GM deleted while this client was subscribed ---
+// The store reads localStorage at call time, so a memory storage stands in for
+// the browser's.
+
+// Pinned here on purpose: the store owns this key, and the cleanup is only
+// correct if it clears exactly it.
+const LAST_PARTY_ID_KEY = "simple.inventory.lastPartyId.v1";
+
+const deletedPartyRun = withMemoryLocalStorage((localStorage) => {
+  localStorage.setItem(LAST_PARTY_ID_KEY, "party-gone");
+  localStorage.setItem(
+    PARTY_INDEX_STORAGE_KEY,
+    JSON.stringify([
+      {
+        id: "party-gone",
+        displayName: "Gone",
+        lastOpenedAt: "2026-09-05T09:00:00.000Z",
+      },
+      {
+        id: "party-kept",
+        displayName: "Kept",
+        lastOpenedAt: "2026-09-04T09:00:00.000Z",
+      },
+    ]),
+  );
+  localStorage.setItem(
+    getLocalPartyStateStorageKey("party-gone"),
+    JSON.stringify(createPartyState({ partyId: "party-gone" })),
+  );
+  localStorage.setItem(
+    getLocalPartyStateStorageKey("party-kept"),
+    JSON.stringify(createPartyState({ partyId: "party-kept" })),
+  );
+
+  const parties = forgetDeletedParty("party-gone");
+
+  return {
+    parties,
+    lastPartyId: localStorage.getItem(LAST_PARTY_ID_KEY),
+    deletedStateRemains:
+      localStorage.getItem(getLocalPartyStateStorageKey("party-gone")) !== null,
+    keptStateRemains:
+      localStorage.getItem(getLocalPartyStateStorageKey("party-kept")) !== null,
+  };
+});
+
+const deletedOtherPartyRun = withMemoryLocalStorage((localStorage) => {
+  localStorage.setItem(LAST_PARTY_ID_KEY, "party-open");
+  localStorage.setItem(PARTY_INDEX_STORAGE_KEY, JSON.stringify([]));
+
+  forgetDeletedParty("party-gone");
+
+  return localStorage.getItem(LAST_PARTY_ID_KEY);
+});
+
+export const DELETED_PARTY_CLEANUP_STORE_MANUAL_FIXTURES = [
+  {
+    name: "a remotely deleted party is dropped from the index, cache, and last-opened id",
+    actual: deletedPartyRun,
+    expected: {
+      parties: [
+        {
+          id: "party-kept",
+          displayName: "Kept",
+          lastOpenedAt: "2026-09-04T09:00:00.000Z",
+        },
+      ],
+      lastPartyId: null,
+      deletedStateRemains: false,
+      keptStateRemains: true,
+    },
+  },
+  {
+    name: "deleting a party that is not the last-opened one leaves that id alone",
+    actual: deletedOtherPartyRun,
+    expected: "party-open",
+  },
+];
+
+function withMemoryLocalStorage<T>(run: (localStorage: Storage) => T): T {
+  const globalValue = globalThis as unknown as { window?: Window };
+  const previousWindow = globalValue.window;
+  const values = new Map<string, string>();
+  const localStorage: Storage = {
+    get length() {
+      return values.size;
+    },
+    clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    key: (index: number) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      values.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      values.set(key, value);
+    },
+  };
+
+  globalValue.window = { localStorage } as Window;
+
+  try {
+    return run(localStorage);
+  } finally {
+    if (previousWindow) {
+      globalValue.window = previousWindow;
+    } else {
+      delete globalValue.window;
+    }
+  }
+}

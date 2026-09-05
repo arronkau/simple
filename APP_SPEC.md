@@ -79,7 +79,7 @@ Firebase mode should:
 - Let the GM share an invite link (`/party/{partyId}?invite={inviteCode}`). Opening it as a non-member adds the user to `party.members` as a player. The GM can regenerate the invite code to invalidate old links.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
-- Let the GM delete the party, which removes the party document for every member. Deletion is GM-only in both enforcement layers.
+- Let the GM delete the party, which removes the party document for every member. Deletion is GM-only in both enforcement layers. A member whose client is subscribed when this happens is told the party was deleted and forgets it on that device, rather than writing it back.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
 - Keep working while the connection does not: edits are cached offline, a failed write retries on a backoff instead of waiting for the user's next edit, and a write the server refuses is rolled back rather than left showing locally — see [SYNC_SPEC.md](SYNC_SPEC.md) for the write lifecycle, retry schedule, and sync-status meanings.
 

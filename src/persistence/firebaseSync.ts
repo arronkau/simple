@@ -50,6 +50,8 @@ type StartFirebaseAppStateSyncInput = {
   onAuthUserId: (userId: string) => void;
   onAuthAccount?: (account: FirebaseAuthAccount) => void;
   onJoined?: () => void;
+  // The party document was deleted while this client was subscribed to it.
+  onPartyDeleted: (partyId: PartyId) => void;
   onReadyToWrite: (writer: FirebaseWriter) => void;
   onRemotePartyState: (
     partyState: PartyState,
@@ -142,6 +144,7 @@ export async function startFirebaseAppStateSync({
   onAuthUserId,
   onError,
   onJoined,
+  onPartyDeleted,
   onReadyToWrite,
   onRemotePartyState,
   onStatusChange,
@@ -325,6 +328,10 @@ export async function startFirebaseAppStateSync({
           // GM to the creating uid, hand GM to whichever member happened to
           // still be subscribed.
           if (documentSeen) {
+            // Reported as its own event, not just an error string: the store
+            // has to forget the party locally, or the next visit to "/" would
+            // reopen the deleted id and create it again.
+            onPartyDeleted(partyId);
             onError("This party was deleted by the GM.");
             return;
           }
