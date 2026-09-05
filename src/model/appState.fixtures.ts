@@ -1,12 +1,21 @@
 import {
   APP_STATE_STORAGE_KEY,
+  CORRUPT_PARTY_STATE_STORAGE_KEY_PREFIX,
+  assignPartyGm,
+  classifyStoredPartyState,
   createEmptyAppState,
   createPartyState,
+  formatUnreadablePartyStateWarning,
+  getCorruptPartyStateStorageKey,
+  getLocalPartyStateStorageKey,
   migratePartyMembership,
   parsePartyState,
   parseAppState,
   readLocalAppState,
+  readLocalPartyStateResult,
+  repairPartyMembership,
   writeLocalAppState,
+  writeLocalPartyState,
   type AppState,
 } from "./appState";
 import { createEmptyCharacterData } from "./characters";
@@ -842,6 +851,244 @@ export const APP_STATE_MANUAL_FIXTURES = [
       return { gmUid: parsed?.party.gmUid, members: parsed?.party.members };
     })(),
     expected: { gmUid: undefined, members: undefined },
+  },
+  // --- GM assignment for a party document being created ---
+  {
+    name: "repairPartyMembership never hands GM to the reader",
+    actual: (() => {
+      const party = createPartyState({ partyId: "party-r1" });
+      const repaired = repairPartyMembership(party);
+      return { gmUid: repaired.party.gmUid, members: repaired.party.members };
+    })(),
+    expected: { gmUid: undefined, members: undefined },
+  },
+  {
+    name: "repairPartyMembership restores a missing GM member entry",
+    actual: (() => {
+      const party = createPartyState({ partyId: "party-r2", gmUid: "uid-gm" });
+      const repaired = repairPartyMembership(party);
+      return {
+        gmUid: repaired.party.gmUid,
+        memberUids: Object.keys(repaired.party.members ?? {}),
+        gmRole: repaired.party.members?.["uid-gm"]?.role,
+      };
+    })(),
+    expected: { gmUid: "uid-gm", memberUids: ["uid-gm"], gmRole: "gm" },
+  },
+  {
+    name: "assignPartyGm makes the creating uid GM and member",
+    actual: (() => {
+      const assigned = assignPartyGm(
+        createPartyState({ partyId: "party-a1" }),
+        "uid-creator",
+        "2026-02-02T00:00:00.000Z",
+      );
+      return {
+        gmUid: assigned.party.gmUid,
+        gmEntry: assigned.party.members?.["uid-creator"],
+      };
+    })(),
+    expected: {
+      gmUid: "uid-creator",
+      gmEntry: { role: "gm", joinedAt: "2026-02-02T00:00:00.000Z" },
+    },
+  },
+  {
+    name: "assignPartyGm replaces a cached GM identity and keeps other members",
+    actual: (() => {
+      const assigned = assignPartyGm(
+        createPartyState({
+          partyId: "party-a2",
+          gmUid: "local-user-1",
+          members: {
+            "local-user-1": { role: "gm", joinedAt: "2026-01-01T00:00:00.000Z" },
+            "uid-player": { role: "player", joinedAt: "2026-01-03T00:00:00.000Z" },
+          },
+        }),
+        "uid-creator",
+        "2026-02-02T00:00:00.000Z",
+      );
+      return {
+        gmUid: assigned.party.gmUid,
+        memberUids: Object.keys(assigned.party.members ?? {}),
+        gmEntry: assigned.party.members?.["uid-creator"],
+        staleEntry: assigned.party.members?.["local-user-1"],
+        playerRole: assigned.party.members?.["uid-player"]?.role,
+      };
+    })(),
+    expected: {
+      gmUid: "uid-creator",
+      memberUids: ["uid-player", "uid-creator"],
+      gmEntry: { role: "gm", joinedAt: "2026-01-01T00:00:00.000Z" },
+      staleEntry: undefined,
+      playerRole: "player",
+    },
+  },
+  {
+    name: "assignPartyGm leaves an established GM untouched",
+    actual: (() => {
+      const party = createPartyState({
+        partyId: "party-a3",
+        gmUid: "uid-gm",
+        members: { "uid-gm": { role: "gm", joinedAt: "2026-01-01T00:00:00.000Z" } },
+      });
+      return assignPartyGm(party, "uid-gm", "2026-02-02T00:00:00.000Z") === party;
+    })(),
+    expected: true,
+  },
+  // --- Unreadable stored party data ---
+  {
+    name: "classifyStoredPartyState reports absent for a missing value",
+    actual: classifyStoredPartyState(null, "party-c1"),
+    expected: { status: "absent" },
+  },
+  {
+    name: "classifyStoredPartyState reports absent for a blank value",
+    actual: classifyStoredPartyState("   ", "party-c1"),
+    expected: { status: "absent" },
+  },
+  {
+    name: "classifyStoredPartyState reports unreadable for invalid JSON",
+    actual: classifyStoredPartyState("{not json", "party-c2"),
+    expected: { status: "unreadable" },
+  },
+  {
+    name: "classifyStoredPartyState reports unreadable for a future schema version",
+    actual: classifyStoredPartyState(
+      JSON.stringify({ schemaVersion: 2, party: { id: "party-c3" } }),
+      "party-c3",
+    ),
+    expected: { status: "unreadable" },
+  },
+  {
+    name: "classifyStoredPartyState reports unreadable for another party's data",
+    actual: classifyStoredPartyState(
+      JSON.stringify(createPartyState({ partyId: "party-other" })),
+      "party-c4",
+    ),
+    expected: { status: "unreadable" },
+  },
+  {
+    name: "classifyStoredPartyState returns readable stored party data",
+    actual: classifyStoredPartyState(
+      JSON.stringify(createPartyState({ partyId: "party-c5", displayName: "Keep" })),
+      "party-c5",
+    ),
+    expected: {
+      status: "readable",
+      partyState: createPartyState({ partyId: "party-c5", displayName: "Keep" }),
+    },
+  },
+  {
+    name: "corrupt backup key namespaces party and timestamp",
+    actual: getCorruptPartyStateStorageKey("party-c6", "2026-09-05T01:02:03.456Z"),
+    expected:
+      "simple.inventory.partyState.corrupt.v1.party-c6.2026-09-05T01:02:03.456Z",
+  },
+  {
+    name: "unreadable party warning names the backup key and the import path",
+    actual: formatUnreadablePartyStateWarning("backup-key-1"),
+    expected:
+      'Saved data for this party could not be read, so it was kept in browser storage as "backup-key-1" and the party opened empty. Restore a JSON export from Manage → Import JSON.',
+  },
+  {
+    name: "unreadable local party data is copied to a backup key",
+    actual: withMockLocalStorage((localStorage) => {
+      const partyKey = getLocalPartyStateStorageKey("party-corrupt");
+      localStorage.setItem(partyKey, "{not json");
+
+      const result = readLocalPartyStateResult("party-corrupt");
+
+      return {
+        partyId: result.partyState.party.id,
+        entityCount: result.partyState.appState.entities.length,
+        backupKeyPrefixed:
+          result.backupKey?.startsWith(
+            `${CORRUPT_PARTY_STATE_STORAGE_KEY_PREFIX}party-corrupt.`,
+          ) ?? false,
+        backupValue: result.backupKey
+          ? localStorage.getItem(result.backupKey)
+          : undefined,
+        originalValue: localStorage.getItem(partyKey),
+        warningNamesBackupKey:
+          result.backupKey !== undefined &&
+          (result.warning?.includes(result.backupKey) ?? false),
+        warningPointsToImport:
+          result.warning?.includes("Manage → Import JSON") ?? false,
+      };
+    }),
+    expected: {
+      partyId: "party-corrupt",
+      entityCount: 0,
+      backupKeyPrefixed: true,
+      backupValue: "{not json",
+      originalValue: "{not json",
+      warningNamesBackupKey: true,
+      warningPointsToImport: true,
+    },
+  },
+  {
+    name: "backed-up party data survives the write that follows an unreadable read",
+    actual: withMockLocalStorage((localStorage) => {
+      const partyKey = getLocalPartyStateStorageKey("party-corrupt-2");
+      localStorage.setItem(partyKey, '{"schemaVersion":99}');
+
+      const result = readLocalPartyStateResult("party-corrupt-2");
+      // What the store does immediately after loading a party.
+      writeLocalPartyState(result.partyState);
+
+      return {
+        backupValue: result.backupKey
+          ? localStorage.getItem(result.backupKey)
+          : undefined,
+        partyKeyOverwritten:
+          localStorage.getItem(partyKey) === JSON.stringify(result.partyState),
+      };
+    }),
+    expected: {
+      backupValue: '{"schemaVersion":99}',
+      partyKeyOverwritten: true,
+    },
+  },
+  {
+    name: "readable local party data is returned without a warning",
+    actual: withMockLocalStorage(() => {
+      writeLocalPartyState(
+        createPartyState({ partyId: "party-readable", displayName: "Blackmarsh" }),
+      );
+
+      const result = readLocalPartyStateResult("party-readable");
+
+      return {
+        displayName: result.partyState.party.displayName,
+        backupKey: result.backupKey,
+        warning: result.warning,
+      };
+    }),
+    expected: {
+      displayName: "Blackmarsh",
+      backupKey: undefined,
+      warning: undefined,
+    },
+  },
+  {
+    name: "absent local party data opens an empty party without a warning",
+    actual: withMockLocalStorage((localStorage) => {
+      const result = readLocalPartyStateResult("party-absent");
+
+      return {
+        partyId: result.partyState.party.id,
+        storedKeyCount: localStorage.length,
+        backupKey: result.backupKey,
+        warning: result.warning,
+      };
+    }),
+    expected: {
+      partyId: "party-absent",
+      storedKeyCount: 0,
+      backupKey: undefined,
+      warning: undefined,
+    },
   },
 ];
 

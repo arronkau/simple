@@ -66,6 +66,7 @@ function LocalAppShell() {
   const partyDisplayName = useAppStore((state) => state.partyDisplayName);
   const activePartyId = useAppStore((state) => state.partyId);
   const persistenceMode = useAppStore((state) => state.persistenceMode);
+  const storageWarning = useAppStore((state) => state.storageWarning);
   const syncError = useAppStore((state) => state.syncError);
   const syncStatus = useAppStore((state) => state.syncStatus);
   const renameParty = useAppStore((state) => state.renameParty);
@@ -485,6 +486,9 @@ function LocalAppShell() {
               {formatPersistenceSummary(persistenceMode, syncStatus)}
             </p>
             <h1 id="app-title">{partyDisplayName}</h1>
+            {storageWarning ? (
+              <p className="sync-message">{storageWarning}</p>
+            ) : null}
             {syncError ? <p className="sync-message">{syncError}</p> : null}
           </div>
           <div className="header-actions">

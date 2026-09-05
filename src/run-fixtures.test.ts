@@ -32,6 +32,7 @@ import {
 } from "./persistence/legacyUpgradeLifecycle.fixtures";
 import { PARTY_STATE_DIFF_MANUAL_FIXTURES } from "./persistence/partyStateDiff.fixtures";
 import {
+  ACTION_ROLE_STORE_MANUAL_FIXTURES,
   COIN_DRAG_TRANSFER_STORE_MANUAL_FIXTURES,
   COIN_DRAIN_STORE_MANUAL_FIXTURES,
   HAND_BATCH_MOVE_STORE_MANUAL_FIXTURES,
@@ -98,6 +99,7 @@ const manualFixtures: ManualFixture[] = [
   ...PHASE_PERMISSIONS_STORE_MANUAL_FIXTURES,
   ...QUICK_ADJUST_STORE_MANUAL_FIXTURES,
   ...FIREBASE_UID_PROMOTION_STORE_FIXTURES,
+  ...ACTION_ROLE_STORE_MANUAL_FIXTURES,
 ];
 
 for (const fixture of manualFixtures) {

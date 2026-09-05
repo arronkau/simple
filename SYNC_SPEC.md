@@ -84,6 +84,9 @@ Replace the single pending `PartyState` with a pending `FieldUpdate[]`:
 - The store subscriber already receives `(state, previousState)`. When not applying a remote snapshot and persistence is Firebase, compute `diffPartyStates(previous, next)` and merge it into the pending batch, then flush.
 - `flushFirebasePartyStateWrite` sends the pending batch through a new sync callback `applyFieldUpdates(updates)`; on failure the batch is merged back in front of anything queued meanwhile (same retry semantics as today).
 - The first-snapshot gate is unchanged: no writes before the first remote snapshot; the pending batch is discarded when the first snapshot is applied.
+- The same gate applies to membership: the store never assigns `party.gmUid` from local state in Firebase mode. A party loaded from localStorage is used as cached — a missing `members[gmUid]` entry may be repaired, but GM is never handed to the reader — and `gmUid`/`members` are replaced by the first snapshot. Auth resolving a UID only sets the current user id.
+- Applying a snapshot is also what records the party as `lastPartyId`, so a party whose read was denied is not reopened by default.
+- An unresolved role (no snapshot yet, or a denied read) refuses store mutations; it is not downgraded to a player role.
 - Keep `lastSyncedPartyState` (the canonical state last applied from a snapshot or successfully written) only if needed for retries; the simpler design is diff-per-mutation plus merge, which is what is specified here.
 - `arePartyStatesEqual` compares canonicalized states.
 - Import (`replaceAppState`) and reset (`resetLocalState`) go through the same diff. They are GM-only and produce large but correct batches.
@@ -101,7 +104,7 @@ type FirebaseWriter = {
 
 - `applyFieldUpdates` converts to one `updateDoc(ref, FieldPath, value, FieldPath, value, ...)` call. Always use `FieldPath` objects (never dotted strings) so ids and uids with unusual characters are safe. `delete` becomes `deleteField()`, `arrayUnion` becomes `arrayUnion(...entries)`. An empty batch is a no-op.
 - `replaceDocument` is `setDoc(ref, toFirestorePartyDocument(partyState))`. Used only for document creation (snapshot with `exists() === false`, as today) and the legacy upgrade below.
-- Document creation writes wire version 2.
+- Document creation writes wire version 2, and it is where GM is assigned: the state is passed through `assignPartyGm(partyState, uid)` with the authenticated UID, so the created document always has `party.gmUid == uid` and a `gm` entry in `party.members` (any GM identity cached from an earlier local session is replaced). Creation is skipped with an error if there is no authenticated user.
 - Every snapshot passes through `fromFirestorePartyDocument`.
 
 ### Legacy upgrade
@@ -130,6 +133,7 @@ Rules do not reference the app state shape, so `firestore.rules` should need no 
 
 - The model shape never changes because of this spec. No `Record`-shaped `entities` or `inventoryRecords` may leak into `AppState`, the store, UI, or localStorage.
 - A client never writes a whole document except on creation or legacy upgrade.
+- GM identity comes from the document. Only the creation path assigns it, and only to the authenticated UID.
 - No write before the first snapshot; the first snapshot discards pending local diffs.
 - Every write is expressible as the union of per-id sets and deletes plus an audit-log union, so two clients' writes commute unless they touch the same id.
 

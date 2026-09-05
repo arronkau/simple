@@ -19,7 +19,8 @@ import {
   createEmptyAppState,
   migratePartyMembership,
   normalizePartyDisplayName,
-  readLocalPartyState,
+  readLocalPartyStateResult,
+  repairPartyMembership,
   writeLocalPartyState,
   type AppState,
   type PartyId,
@@ -32,6 +33,9 @@ import {
   assertPartyAction,
   getProtectedInventoryFieldViolations,
   resolvePartyRole,
+  type EntityAction,
+  type InventoryAction,
+  type PartyAction,
 } from "../model/permissions";
 import {
   createAuditLogEntry,
@@ -121,6 +125,7 @@ type AppStore = {
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
+  storageWarning?: string;
   syncError?: string;
   syncStatus: SyncStatus;
   updateCurrentUserProfile: (input: UserProfileInput) => void;
@@ -232,9 +237,9 @@ const firebaseConfig = getRuntimeFirebaseConfig();
 const persistenceMode: PersistenceMode = firebaseConfig ? "firebase" : "local";
 const initialPartyId = getInitialPartyId();
 const initialCurrentUserId = readLocalUserId();
-const initialPartyStateRaw = readLocalPartyState(initialPartyId);
-const initialPartyState = ensurePartyInviteCode(
-  migratePartyMembership(initialPartyStateRaw, initialCurrentUserId),
+const initialPartyRead = readLocalPartyStateResult(initialPartyId);
+const initialPartyState = prepareLoadedPartyState(
+  initialPartyRead.partyState,
   initialCurrentUserId,
 );
 
@@ -249,6 +254,7 @@ export const useAppStore = create<AppStore>((set) => ({
   partyDisplayName: initialPartyState.party.displayName,
   partyId: initialPartyState.party.id,
   persistenceMode,
+  storageWarning: initialPartyRead.warning,
   syncError: undefined,
   syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
   userProfiles: initialPartyState.userProfiles,
@@ -280,7 +286,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertPartyAction(role ?? "player", "editPartySettings");
+        assertStorePartyAction(role, "editPartySettings");
       } catch {
         return state;
       }
@@ -291,7 +297,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertPartyAction(role ?? "player", "manageMembership");
+        assertStorePartyAction(role, "manageMembership");
       } catch {
         return state;
       }
@@ -302,7 +308,7 @@ export const useAppStore = create<AppStore>((set) => ({
     const role = getStateUserRole(useAppStore.getState());
 
     try {
-      assertPartyAction(role ?? "player", "clearAuditLog");
+      assertStorePartyAction(role, "clearAuditLog");
     } catch {
       return { ok: false, message: "Only the GM can clear the audit log." };
     }
@@ -353,7 +359,13 @@ export const useAppStore = create<AppStore>((set) => ({
     return { ok: true };
   },
   setCurrentParty: (partyId) => {
-    writeLastPartyId(partyId);
+    // In Firebase mode the party is only remembered once it has actually been
+    // read (see applyRemotePartyState), so "/" never redirects to a party the
+    // user was denied.
+    if (persistenceMode !== "firebase") {
+      writeLastPartyId(partyId);
+    }
+
     let partyChanged = false;
     set((state) => {
       if (state.partyId === partyId) {
@@ -362,9 +374,9 @@ export const useAppStore = create<AppStore>((set) => ({
 
       partyChanged = true;
 
-      const rawPartyState = readLocalPartyState(partyId);
-      const partyState = ensurePartyInviteCode(
-        migratePartyMembership(rawPartyState, state.currentUserId),
+      const partyRead = readLocalPartyStateResult(partyId);
+      const partyState = prepareLoadedPartyState(
+        partyRead.partyState,
         state.currentUserId,
       );
 
@@ -379,6 +391,7 @@ export const useAppStore = create<AppStore>((set) => ({
         userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
         partyId: partyState.party.id,
+        storageWarning: partyRead.warning,
         syncError: undefined,
         syncStatus: persistenceMode === "firebase" ? "connecting" : "local",
       };
@@ -399,7 +412,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertEntityAction(role ?? "player", "createEntity");
+      assertStoreEntityAction(role, "createEntity");
     } catch {
       return undefined;
     }
@@ -451,7 +464,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertEntityAction(role ?? "player", "editEntity");
+        assertStoreEntityAction(role, "editEntity");
       } catch {
         return state;
       }
@@ -488,7 +501,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertEntityAction(role ?? "player", "editEntity");
+      assertStoreEntityAction(role, "editEntity");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -555,7 +568,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertEntityAction(role ?? "player", "editEntity");
+        assertStoreEntityAction(role, "editEntity");
       } catch {
         return state;
       }
@@ -588,7 +601,7 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       const role = getStateUserRole(state);
       try {
-        assertEntityAction(role ?? "player", "deleteEntity");
+        assertStoreEntityAction(role, "deleteEntity");
       } catch {
         return state;
       }
@@ -637,7 +650,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "addItem");
+      assertStoreInventoryAction(role, "addItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -802,7 +815,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editItem");
+      assertStoreInventoryAction(role, "editItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -930,7 +943,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "moveItem");
+      assertStoreInventoryAction(role, "moveItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1023,7 +1036,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "moveItem");
+      assertStoreInventoryAction(role, "moveItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1131,7 +1144,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "moveItem");
+      assertStoreInventoryAction(role, "moveItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1308,7 +1321,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "identifyItem");
+      assertStoreInventoryAction(role, "identifyItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1390,7 +1403,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editItem");
+      assertStoreInventoryAction(role, "editItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1475,7 +1488,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editItem");
+      assertStoreInventoryAction(role, "editItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1558,7 +1571,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editCoins");
+      assertStoreInventoryAction(role, "editCoins");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1675,7 +1688,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "editCoins");
+      assertStoreInventoryAction(role, "editCoins");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1890,7 +1903,7 @@ export const useAppStore = create<AppStore>((set) => ({
 
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertInventoryAction(role ?? "player", "deleteItem");
+      assertStoreInventoryAction(role, "deleteItem");
     } catch (e) {
       return { ok: false, message: e instanceof PermissionError ? e.message : "Permission denied." };
     }
@@ -1967,7 +1980,7 @@ export const useAppStore = create<AppStore>((set) => ({
   replaceAppState: (appState) => {
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertPartyAction(role ?? "player", "importParty");
+      assertStorePartyAction(role, "importParty");
     } catch {
       return;
     }
@@ -1976,7 +1989,7 @@ export const useAppStore = create<AppStore>((set) => ({
   resetLocalState: () => {
     const role = getStateUserRole(useAppStore.getState());
     try {
-      assertPartyAction(role ?? "player", "editPartySettings");
+      assertStorePartyAction(role, "editPartySettings");
     } catch {
       return;
     }
@@ -2618,44 +2631,11 @@ async function startConfiguredFirebaseSync(): Promise<void> {
         return;
       }
 
-      const state = useAppStore.getState();
-      const prevUserId = state.currentUserId;
-      const currentPartyState = getPartyStateFromStoreState(state);
-
-      // When Firebase Auth resolves a UID that differs from the locally-generated ID
-      // that was assigned as GM during store initialization, re-key membership so the
-      // Firebase UID becomes the canonical GM identity.
-      let partyStateForMigration = currentPartyState;
-      if (prevUserId !== userId && state.gmUid === prevUserId) {
-        const oldMembers = currentPartyState.party.members ?? {};
-        const { [prevUserId]: oldGmEntry, ...rest } = oldMembers;
-        partyStateForMigration = {
-          ...currentPartyState,
-          party: {
-            ...currentPartyState.party,
-            gmUid: userId,
-            members: {
-              ...rest,
-              [userId]: {
-                role: "gm" as PartyRole,
-                ...(oldGmEntry?.joinedAt ? { joinedAt: oldGmEntry.joinedAt } : {}),
-              },
-            },
-          },
-        };
-      }
-
-      const migratedPartyState = ensurePartyInviteCode(
-        migratePartyMembership(partyStateForMigration, userId),
-        userId,
-      );
-      writeLocalPartyState(migratedPartyState);
-      useAppStore.setState({
-        currentUserId: userId,
-        gmUid: migratedPartyState.party.gmUid,
-        inviteCode: migratedPartyState.party.inviteCode,
-        members: migratedPartyState.party.members,
-      });
+      // Auth only establishes identity. Membership and `gmUid` belong to the
+      // remote document: they arrive with the first snapshot, or are written by
+      // the document-creation path with this UID as GM. Claiming GM here would
+      // make any visitor the GM of a party they may not even be able to read.
+      useAppStore.setState({ currentUserId: userId });
     },
     onReadyToWrite: (writer) => {
       if (!isActiveSync()) {
@@ -2770,30 +2750,34 @@ function applyRemotePartyState(partyState: PartyState): void {
     pendingFirebaseFieldUpdates = [];
   }
 
+  // The document was readable, so this party is safe to reopen by default.
+  writeLastPartyId(partyState.party.id);
+
   const currentState = useAppStore.getState();
-  const migratedPartyState = migratePartyMembership(partyState, currentState.currentUserId);
+  // Repair only: GM identity comes from the document, never from the reader.
+  const resolvedPartyState = repairPartyMembership(partyState);
   const currentPartyState = getPartyStateFromStoreState(currentState);
 
-  if (!arePartyStatesEqual(currentPartyState, migratedPartyState)) {
+  if (!arePartyStatesEqual(currentPartyState, resolvedPartyState)) {
     applyingRemotePartyState = true;
     useAppStore.setState({
-      appState: migratedPartyState.appState,
-      gmUid: migratedPartyState.party.gmUid,
-      inviteCode: migratedPartyState.party.inviteCode,
-      members: migratedPartyState.party.members,
-      partyDisplayName: migratedPartyState.party.displayName,
-      userProfiles: migratedPartyState.userProfiles,
+      appState: resolvedPartyState.appState,
+      gmUid: resolvedPartyState.party.gmUid,
+      inviteCode: resolvedPartyState.party.inviteCode,
+      members: resolvedPartyState.party.members,
+      partyDisplayName: resolvedPartyState.party.displayName,
+      userProfiles: resolvedPartyState.userProfiles,
     });
   }
 
   // A GM client gives a pre-invite party its first invite code. This is a
   // real local change (not a remote apply) so it is written back to Firestore.
   const partyStateWithInvite = ensurePartyInviteCode(
-    migratedPartyState,
+    resolvedPartyState,
     currentState.currentUserId,
   );
 
-  if (partyStateWithInvite.party.inviteCode !== migratedPartyState.party.inviteCode) {
+  if (partyStateWithInvite.party.inviteCode !== resolvedPartyState.party.inviteCode) {
     useAppStore.setState({ inviteCode: partyStateWithInvite.party.inviteCode });
   }
 }
@@ -2842,6 +2826,85 @@ function getStateUserRole(
   state: Pick<AppStore, "currentUserId" | "gmUid" | "members">,
 ): PartyRole | null {
   return resolvePartyRole(state.currentUserId, state.gmUid, state.members);
+}
+
+/**
+ * Prepares a party loaded from localStorage. A local party belongs to the local
+ * user, so membership is migrated and an invite code ensured. In Firebase mode
+ * `gmUid` and `members` come from the remote document, so the cached copy is
+ * used as-is (only a missing GM member entry is repaired) and a visitor who
+ * cannot read the party never becomes its GM locally.
+ */
+function prepareLoadedPartyState(
+  partyState: PartyState,
+  currentUserId: UserId,
+): PartyState {
+  if (persistenceMode === "firebase") {
+    return repairPartyMembership(partyState);
+  }
+
+  return ensurePartyInviteCode(
+    migratePartyMembership(partyState, currentUserId),
+    currentUserId,
+  );
+}
+
+/**
+ * Role a store action is checked against. A local party has no remote
+ * membership document, so an unresolved role acts as a player. In Firebase mode
+ * an unresolved role means the party document has not been read yet — or the
+ * read was denied — and the action is refused instead of being downgraded to a
+ * player action.
+ */
+export function resolveActionRole(
+  role: PartyRole | null,
+  mode: PersistenceMode,
+): PartyRole | null {
+  if (role) {
+    return role;
+  }
+
+  return mode === "firebase" ? null : "player";
+}
+
+export function formatUnresolvedRoleMessage(syncStatus: SyncStatus): string {
+  return syncStatus === "error"
+    ? "You are not a member of this party. Ask the GM for an invite link."
+    : "This party has not finished loading. Try again in a moment.";
+}
+
+function requireActionRole(role: PartyRole | null): PartyRole {
+  const actionRole = resolveActionRole(role, persistenceMode);
+
+  if (!actionRole) {
+    throw new PermissionError(
+      formatUnresolvedRoleMessage(useAppStore.getState().syncStatus),
+      "not-party-member",
+    );
+  }
+
+  return actionRole;
+}
+
+function assertStorePartyAction(
+  role: PartyRole | null,
+  action: PartyAction,
+): void {
+  assertPartyAction(requireActionRole(role), action);
+}
+
+function assertStoreEntityAction(
+  role: PartyRole | null,
+  action: EntityAction,
+): void {
+  assertEntityAction(requireActionRole(role), action);
+}
+
+function assertStoreInventoryAction(
+  role: PartyRole | null,
+  action: InventoryAction,
+): void {
+  assertInventoryAction(requireActionRole(role), action);
 }
 
 /**

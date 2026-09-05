@@ -55,6 +55,14 @@ A change to who-can-do-what almost always needs edits in BOTH. If you relax one,
 - Sessions start anonymous. `linkOrSignInWithGoogle` in `firebaseSync.ts` links Google to the anonymous user (UID unchanged). On `auth/credential-already-in-use` it signs in as the existing Google-bound user instead; the UID changes and the store restarts sync so role is re-resolved. Sign-out restarts sync under a new anonymous UID.
 - Google sign-in requires the Google provider enabled in Firebase Auth and the hosting domain in Auth → Authorized domains.
 
+## Where GM identity comes from (Firebase mode)
+
+- **The party document, never the local cache.** `migratePartyMembership` (assigns the current user as GM when a party has no `gmUid`) is for local-mode parties and the document-creation path only. A Firebase client that has not seen a snapshot yet uses `repairPartyMembership`, which repairs a missing `members[gmUid]` entry but never hands GM to the reader.
+- **Creation assigns GM.** The `exists() === false` branch in `firebaseSync.ts` writes the document through `assignPartyGm(partyState, user.uid)`, matching the create rule (caller must be both `gmUid` and a member). This is the only place a client claims GM.
+- **Unresolved role fails closed.** `resolvePartyRole` returning `null` (not a member, or no snapshot yet) must not be read as `"player"`. Store actions resolve through `resolveActionRole(role, persistenceMode)`: `"player"` in local mode, `null` in Firebase mode, and a `null` result throws `PermissionError("not-party-member")` so the mutation is refused.
+- A denied read keeps the role `null`, sets `syncStatus` to `error`, hides GM controls, and does not record the party as `lastPartyId`.
+
 ## Gotchas
 - A previously-fixed bug: GM identity was lost when the Firebase UID differed from the local user id (commit 16db8d6). Anything new that maps local ids ↔ UIDs must preserve GM resolution — test with `gmUid !== localUserId`.
+- A previously-fixed bug: a non-member who opened a party URL in Firebase mode became a *local* GM, because the GM-assignment migration ran against the empty local cache before the first snapshot. Any new code path that writes `gmUid` outside the document-creation path reintroduces it.
 - Don't trust the client role for security decisions that matter — the rules are the boundary; `permissions.ts` is for UX and the secret-field gap rules can't cover.

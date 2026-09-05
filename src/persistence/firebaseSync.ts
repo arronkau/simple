@@ -1,4 +1,5 @@
 import {
+  assignPartyGm,
   type PartyId,
   type PartyState,
 } from "../model/appState";
@@ -235,14 +236,22 @@ export async function startFirebaseAppStateSync({
             return;
           }
 
+          if (!user) {
+            onError("Sign-in is required before a party can be created.");
+            return;
+          }
+
           creatingDocument = true;
           onStatusChange("saving");
-          void writer.replaceDocument(getCurrentPartyState()).catch(
-            (error: unknown) => {
+          // Creating the document is what makes someone the GM of a new party:
+          // the Firestore create rule requires the caller to be both
+          // `party.gmUid` and a member, and no earlier step may assume it.
+          void writer
+            .replaceDocument(assignPartyGm(getCurrentPartyState(), user.uid))
+            .catch((error: unknown) => {
               creatingDocument = false;
               onError(formatFirebaseError(error));
-            },
-          );
+            });
           return;
         }
 

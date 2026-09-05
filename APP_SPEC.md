@@ -73,6 +73,9 @@ Firebase mode should:
 - Use Firebase anonymous auth so a first visit needs no account.
 - Let any user upgrade the anonymous session to a Google account (account linking keeps the same UID, so GM and member status survive). If the Google account is already bound to another Firebase user, sign in as that user instead and re-resolve membership.
 - Grant party access by membership, not by URL. The party URL alone does not let a new user read the party.
+- Take membership and `gmUid` from the party document only. A client must not assign itself GM from local state before the first remote snapshot, or opening a party URL would make a visitor its GM locally.
+- Make document creation the moment GM is assigned: the first visitor of a party whose document does not exist writes it with their authenticated UID as `party.gmUid` and as a `gm` member (which is also what the Firestore create rule requires).
+- Treat a denied read as no access: the role stays unresolved, sync status is `error` with "You are not a member of this party. Ask the GM for an invite link.", GM controls stay hidden, store mutations are refused instead of being treated as player actions, and the party is not remembered as the last party.
 - Let the GM share an invite link (`/party/{partyId}?invite={inviteCode}`). Opening it as a non-member adds the user to `party.members` as a player. The GM can regenerate the invite code to invalidate old links.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
@@ -87,6 +90,8 @@ Use local mode automatically when Firebase config is missing.
 Local mode should:
 
 - Store state in localStorage.
+- Treat the local user as the GM of every local party (there is no remote membership document to resolve a role against).
+- Distinguish "nothing stored" from "stored data could not be read". Unreadable stored party data (invalid JSON, another party's id, or a shape validation rejects, such as a future `schemaVersion`) is never silently overwritten: the raw string is copied to `simple.inventory.partyState.corrupt.v1.{partyId}.{ISO timestamp}` before anything writes to the party key, the party then opens empty, and the app header shows a warning naming the backup key and pointing to Manage → Import JSON.
 - Require no cloud setup.
 - Support local development, demos, and single-table play.
 - Preserve the same visible app behavior except for unavailable sync.

@@ -2,7 +2,11 @@ import { createEmptyCharacterData } from "../model/characters";
 import { getSortedEntities } from "../model/entities";
 import { getUsableContainerRecords } from "../model/inventoryRecords";
 import { findTopLevelStowedContainerRecords } from "../model/validation";
-import { useAppStore } from "./useAppStore";
+import {
+  formatUnresolvedRoleMessage,
+  resolveActionRole,
+  useAppStore,
+} from "./useAppStore";
 
 useAppStore.getState().resetLocalState();
 
@@ -1995,7 +1999,8 @@ const promoEntityId = useAppStore.getState().createEntity({
   entityType: "character",
 });
 
-// Simulate what the fixed onAuthUserId does when Firebase UID arrives.
+// Simulate GM identity arriving under the Firebase UID, as the party
+// document-creation path and the first remote snapshot do.
 {
   const s = useAppStore.getState();
   const prev = s.currentUserId;
@@ -2393,5 +2398,39 @@ export const COIN_DRAIN_STORE_MANUAL_FIXTURES = [
       topUpOk: true,
       floorPiles: [{ pp: 0, gp: 0, sp: 10, cp: 0 }],
     },
+  },
+];
+
+// --- Role resolution for store actions ---
+
+export const ACTION_ROLE_STORE_MANUAL_FIXTURES = [
+  {
+    name: "local mode treats an unresolved role as a player",
+    actual: resolveActionRole(null, "local"),
+    expected: "player",
+  },
+  {
+    name: "Firebase mode refuses an unresolved role instead of downgrading it",
+    actual: resolveActionRole(null, "firebase"),
+    expected: null,
+  },
+  {
+    name: "a resolved role is used in both persistence modes",
+    actual: {
+      local: resolveActionRole("gm", "local"),
+      firebase: resolveActionRole("player", "firebase"),
+    },
+    expected: { local: "gm", firebase: "player" },
+  },
+  {
+    name: "denied party read explains that membership is missing",
+    actual: formatUnresolvedRoleMessage("error"),
+    expected:
+      "You are not a member of this party. Ask the GM for an invite link.",
+  },
+  {
+    name: "unresolved role before the first snapshot asks the user to wait",
+    actual: formatUnresolvedRoleMessage("syncing"),
+    expected: "This party has not finished loading. Try again in a moment.",
   },
 ];
