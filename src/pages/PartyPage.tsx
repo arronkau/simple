@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   closestCenter,
@@ -54,7 +55,11 @@ import {
   getPartyLitSources,
   isPartyMemberHurt,
 } from "../formatters";
-import type { PartyHandDisplay, PartyOverviewCard } from "../view-types";
+import type {
+  PartyHandDisplay,
+  PartyOverviewCard,
+  PartySpellDisplay,
+} from "../view-types";
 import { ItemStatusIcon } from "../components/InventoryIcons";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
 import { getDisplayValidationIssues } from "../entity/EntityStatus";
@@ -386,7 +391,14 @@ function PartyRowCells({
         {card.spellLines.map((line) => (
           <div className="pt-spell-line" key={line.label}>
             <span className="pt-hlabel">{line.label}</span>
-            <span className="pt-spell-names">{line.text}</span>
+            <span className="pt-spell-names">
+              {line.spells.map((spell, index) => (
+                <Fragment key={`${spell.text}-${index}`}>
+                  {index > 0 ? ", " : null}
+                  <PartySpellPopover spell={spell} />
+                </Fragment>
+              ))}
+            </span>
           </div>
         ))}
       </td>
@@ -525,6 +537,31 @@ function PartyHandRow({ hand }: { hand: PartyHandDisplay }) {
       </details>
       {glyphs}
     </div>
+  );
+}
+
+/** A memorized spell stays compact until its library or character-written
+ * description is requested. */
+function PartySpellPopover({ spell }: { spell: PartySpellDisplay }) {
+  if (!spell.detail) {
+    return <span>{spell.text}</span>;
+  }
+
+  return (
+    <details className="pt-hand-pop pt-spell-pop">
+      <summary className="pt-hand-item">{spell.text}</summary>
+      <div className="pt-hand-pop-panel">
+        {spell.detail.meta ? (
+          <p className="pt-pop-line mono">{spell.detail.meta}</p>
+        ) : null}
+        {spell.detail.libraryDescription ? (
+          <p className="pt-pop-line">{spell.detail.libraryDescription}</p>
+        ) : null}
+        {spell.detail.description ? (
+          <p className="pt-pop-line pt-pop-own">{spell.detail.description}</p>
+        ) : null}
+      </div>
+    </details>
   );
 }
 

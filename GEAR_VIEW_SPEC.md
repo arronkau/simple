@@ -117,7 +117,10 @@ Floor" is only offered when no such entity exists.
 It renders as a fixed bottom bar on the Party Gear page (page content is given
 bottom padding so nothing hides behind it):
 
-- Header: "The Floor" label, a `N lots · M slots` summary, collapse/expand.
+- Header: "The Floor" label, a `N lots · M slots` summary, a "+ Add item"
+  link that opens the record form for the Floor entity (GM only — placing loot
+  is the referee's job; the role is fail-closed, so it is hidden until a GM
+  role is confirmed), collapse/expand.
 - Body: the Floor entity's top-level Contents as draggable chips/rows.
 - The whole bar is a drop target → moves the dropped record into the Floor
   entity's Contents (a cross-entity validated move).

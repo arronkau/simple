@@ -43,6 +43,7 @@ import {
   formatPartyClassLevel,
   formatPartyLanguages,
   formatSignedNumber,
+  formatSpellLibraryMeta,
 } from "../formatters";
 import type { AbilityModifierResult } from "../model/abilityModifiers";
 import { QuickStepper } from "./QuickStat";
@@ -520,33 +521,23 @@ function SpellRow({
   onAdjustMemorized: (delta: number) => void;
 }) {
   const lookup = getSpellLookup(spell.name, preferredListId);
+  const libraryMeta = lookup.ok ? formatSpellLibraryMeta(lookup.spell) : "";
+  const hasDetails = lookup.ok || Boolean(spell.description);
 
   return (
     <div className="sheet-spell-row" data-memorized={spell.memorized > 0}>
       <div className="sheet-spell-main">
         <span className="sheet-inventory-tag">L{spell.level}</span>
-        {lookup.ok ? (
+        {hasDetails ? (
           <details className="sheet-spell-details">
             <summary>{spell.name}</summary>
-            <p>
-              {[
-                lookup.spell.reversible ? "Reversible" : "",
-                lookup.spell.duration ? `Duration ${lookup.spell.duration}` : "",
-                lookup.spell.range ? `Range ${lookup.spell.range}` : "",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            <p>{lookup.spell.description}</p>
+            {libraryMeta ? <p>{libraryMeta}</p> : null}
+            {lookup.ok ? <p>{lookup.spell.description}</p> : null}
+            {spell.description ? <p>{spell.description}</p> : null}
           </details>
         ) : (
-          <span className="sheet-spell-name" title={spell.notes}>
-            {spell.name}
-          </span>
+          <span className="sheet-spell-name">{spell.name}</span>
         )}
-        {spell.notes ? (
-          <span className="record-secondary">· {spell.notes}</span>
-        ) : null}
       </div>
       <div className="sheet-spell-memorized">
         <strong>{spell.memorized}</strong>

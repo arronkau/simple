@@ -657,16 +657,16 @@ export function CharacterSheetEditForm({
                     }
                   />
                   <label className="wide-field">
-                    <span>Notes</span>
+                    <span>Description</span>
                     <input
                       autoComplete="off"
                       maxLength={160}
                       type="text"
-                      value={spell.notes}
+                      value={spell.description}
                       onChange={(event) =>
                         updateSpell(
                           spell.id,
-                          { notes: event.target.value },
+                          { description: event.target.value },
                           "text",
                         )
                       }

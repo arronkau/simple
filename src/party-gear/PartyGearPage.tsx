@@ -1461,6 +1461,10 @@ function FloorTray({
   onCreateFloor: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const actions = useGearActions();
+  // Placing loot on the Floor is the GM's job; players move it off with a
+  // drag. Fail closed while the role is unresolved.
+  const canAddToFloor = actions.currentUserPartyRole === "gm";
 
   if (!floorEntity) {
     return (
@@ -1495,6 +1499,15 @@ function FloorTray({
             <b>{capacity.usedSlots}</b>{" "}
             {capacity.usedSlots === 1 ? "slot" : "slots"} to place
           </span>
+          {canAddToFloor ? (
+            <button
+              type="button"
+              className="add-link"
+              onClick={() => actions.onStartAddRecord(floorEntity)}
+            >
+              + Add item
+            </button>
+          ) : null}
           <button
             type="button"
             className="collapse"

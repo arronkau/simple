@@ -815,6 +815,18 @@ tr.pt-dragging {
   line-height: 1.25;
 }
 
+/* Spell names sit inline in a comma list; details open on demand. */
+.pt-spell-pop {
+  display: inline-block;
+  vertical-align: baseline;
+}
+
+.pt-pop-own {
+  border-top: 1px dashed var(--gear-line-2);
+  padding-top: 5px;
+  color: var(--gear-ink);
+}
+
 .pt-name-cell {
   display: flex;
   gap: 7px;
@@ -3547,6 +3559,13 @@ a.file-button {
 }
 .tray .tmeta b {
   color: #fff;
+}
+.tray .add-link {
+  margin-left: auto;
+  color: #cfd3d9;
+}
+.tray .add-link + .collapse {
+  margin-left: 0;
 }
 .tray .collapse {
   margin-left: auto;

@@ -8,6 +8,7 @@ import {
   parseImportedAppStateResult,
 } from "./modals/ManageDataModal";
 import {
+  formatPartySpellLines,
   getAuditEntryDisplay,
   getDeleteConfirmationMessage,
   getRecordDisplayName,
@@ -544,6 +545,44 @@ export const APP_MANUAL_FIXTURES = [
         { label: "R", title: "Right hand", text: null, statuses: [] },
       ],
     },
+  },
+  {
+    name: "party spell lines carry library and character descriptions",
+    actual: formatPartySpellLines({
+      ...createEmptyCharacterData(),
+      className: "Sample Class",
+      spells: [
+        {
+          id: "s1",
+          name: "Sample Spell",
+          level: 1,
+          memorized: 2,
+          description: "Cast from the tower scroll.",
+        },
+        { id: "s2", name: "Zorbo's Fizz", level: 1, memorized: 1 },
+        { id: "s3", name: "Web", level: 2, memorized: 0 },
+      ],
+    }).map((line) => ({
+      label: line.label,
+      spells: line.spells.map((spell) => ({
+        text: spell.text,
+        hasLibrary: Boolean(spell.detail?.libraryDescription),
+        description: spell.detail?.description,
+      })),
+    })),
+    expected: [
+      {
+        label: "L1",
+        spells: [
+          {
+            text: "Sample Spell ×2",
+            hasLibrary: true,
+            description: "Cast from the tower scroll.",
+          },
+          { text: "Zorbo's Fizz", hasLibrary: false, description: undefined },
+        ],
+      },
+    ],
   },
   {
     name: "import parser accepts current export wrapper",

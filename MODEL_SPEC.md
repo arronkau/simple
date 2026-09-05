@@ -312,7 +312,7 @@ export type CharacterSpell = {
   name: string;
   level: number;
   memorized: number;
-  notes?: string;
+  description?: string;
 };
 
 export type CharacterData = {
@@ -351,7 +351,7 @@ Armor class is computed from full records for every viewer; redaction never chan
 
 `CharacterFeature.name` is the feature's display name. Legacy stored data may use `title` as an alias; parsers should accept both and normalize to `name`.
 
-`CharacterSpell` rows are the character's spell state. `name` is fuzzy-matched against the spell library for display details; an unmatched name is allowed and simply renders without library details. `level` is the spell's level (integer, at least 1) and is stored, not looked up — the model never silently corrects a stored level that disagrees with the library. `memorized` is the number of copies currently memorized/prepared (integer, at least 0). A magic-user's spellbook is the full row set including `memorized: 0` entries (known but not prepared); divine casters typically only carry rows for what is memorized today. Older stored data without `spells` normalizes to an empty array.
+`CharacterSpell` rows are the character's spell state. `name` is fuzzy-matched against the spell library for display details; an unmatched name is allowed and simply renders without library details. `level` is the spell's level (integer, at least 1) and is stored, not looked up — the model never silently corrects a stored level that disagrees with the library. `memorized` is the number of copies currently memorized/prepared (integer, at least 0). `description` is optional free text (a house-ruled effect, a spellbook annotation); it is never shown inline — the character sheet and the party overview reveal it on demand, behind the spell's name, alongside any library details. Older stored data may use `notes` for this field; parsers accept it and normalize to `description`. A magic-user's spellbook is the full row set including `memorized: 0` entries (known but not prepared); divine casters typically only carry rows for what is memorized today. Older stored data without `spells` normalizes to an empty array.
 
 Memorized totals exceeding the class's derived spell slots are a soft warning, never a block (scrolls, bonuses, and house rules are table-adjudicated).
 

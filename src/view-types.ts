@@ -158,7 +158,7 @@ export type CharacterSpellFormState = {
   name: string;
   level: string;
   memorized: string;
-  notes: string;
+  description: string;
 };
 
 export type CharacterSheetFormState = {
@@ -219,10 +219,24 @@ export type AppStateExport = {
   data: AppState;
 };
 
-/** One level's worth of memorized spells, e.g. label "L1", text "Sleep ×2". */
+/** Spell facts surfaced by the party table popover: library metadata and
+ * description when the name matches the library, plus the character's own
+ * description. */
+export type PartySpellDetail = {
+  meta?: string;
+  libraryDescription?: string;
+  description?: string;
+};
+
+export type PartySpellDisplay = {
+  text: string;
+  detail?: PartySpellDetail;
+};
+
+/** One level's worth of memorized spells, e.g. label "L1", spells "Sleep ×2". */
 export type PartySpellLine = {
   label: string;
-  text: string;
+  spells: PartySpellDisplay[];
 };
 
 /** Extra hand-item facts surfaced by the party table popover. Secret fields

@@ -56,7 +56,7 @@ export function createCharacterSheetFormState(
       name: spell.name,
       level: spell.level.toString(),
       memorized: spell.memorized.toString(),
-      notes: spell.notes ?? "",
+      description: spell.description ?? "",
     })),
     languagesText: normalizedCharacterData.languages.join("\n"),
     description: normalizedCharacterData.description,
@@ -117,7 +117,9 @@ export function toCharacterDataFormInput(
         memorized: spell.memorized.trim()
           ? parseIntegerInput(spell.memorized)
           : 0,
-        ...(spell.notes.trim() ? { notes: spell.notes.trim() } : {}),
+        ...(spell.description.trim()
+          ? { description: spell.description.trim() }
+          : {}),
       })),
     languages: parseLanguagesInput(formState.languagesText),
     description: formState.description.trim(),
@@ -154,7 +156,7 @@ export function createEmptySpellFormState(): CharacterSpellFormState {
     name: "",
     level: "1",
     memorized: "0",
-    notes: "",
+    description: "",
   };
 }
 

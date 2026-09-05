@@ -23,10 +23,13 @@ import {
   getVisibleInventoryRecord,
   hasSecretIdentification,
 } from "./model/recordVisibility";
+import { getClassContentLookup } from "./model/classContent";
+import { getSpellLookup, type SpellEntry } from "./model/spellLibrary";
 import type {
   AuditLogEntry,
   CharacterAlignment,
   CharacterData,
+  CharacterSpell,
   InventoryRecord,
   InventoryRecordId,
   PartyRole,
@@ -35,6 +38,8 @@ import type {
   PartyHandDetail,
   PartyHandDisplay,
   PartyLitSource,
+  PartySpellDetail,
+  PartySpellDisplay,
   PartySpellLine,
 } from "./view-types";
 
@@ -88,6 +93,8 @@ export function formatPartyLanguages(character: CharacterData): string {
 export function formatPartySpellLines(
   character: CharacterData,
 ): PartySpellLine[] {
+  const classContent = getClassContentLookup(character.className);
+  const preferredListId = classContent.ok ? classContent.spellListId : undefined;
   const memorizedSpells = character.spells.filter(
     (spell) => spell.memorized > 0,
   );
@@ -97,14 +104,51 @@ export function formatPartySpellLines(
 
   return levels.map((level) => ({
     label: `L${level}`,
-    text: memorizedSpells
+    spells: memorizedSpells
       .filter((spell) => spell.level === level)
       .sort((left, right) => left.name.localeCompare(right.name))
-      .map((spell) =>
-        spell.memorized > 1 ? `${spell.name} ×${spell.memorized}` : spell.name,
-      )
-      .join(", "),
+      .map((spell) => getPartySpellDisplay(spell, preferredListId)),
   }));
+}
+
+function getPartySpellDisplay(
+  spell: CharacterSpell,
+  preferredListId: string | undefined,
+): PartySpellDisplay {
+  const lookup = getSpellLookup(spell.name, preferredListId);
+  const detail: PartySpellDetail = {};
+
+  if (lookup.ok) {
+    const meta = formatSpellLibraryMeta(lookup.spell);
+
+    if (meta) {
+      detail.meta = meta;
+    }
+
+    detail.libraryDescription = lookup.spell.description;
+  }
+
+  if (spell.description?.trim()) {
+    detail.description = spell.description;
+  }
+
+  return {
+    text:
+      spell.memorized > 1 ? `${spell.name} ×${spell.memorized}` : spell.name,
+    ...(Object.keys(detail).length > 0 ? { detail } : {}),
+  };
+}
+
+/** "Reversible · Duration 1 turn · Range 60′" — empty when the library
+ * entry carries none of those facts. */
+export function formatSpellLibraryMeta(spell: SpellEntry): string {
+  return [
+    spell.reversible ? "Reversible" : "",
+    spell.duration ? `Duration ${spell.duration}` : "",
+    spell.range ? `Range ${spell.range}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function formatPartyHands(
