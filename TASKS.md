@@ -24,6 +24,8 @@ Post-1.0 items are out of scope until they are re-scoped here.
 - Spell suggestions on the character sheet: the class's spell list is offered while typing a spell name, picking one fills name and level, through the same combobox the inventory record form uses — `src/ui/AutocompleteField.tsx`, `src/character/CharacterSheetEditForm.tsx`, `src/model/spellLibrary.ts`.
 - Rule text kept out of the repo: `systems/<system>/` (git-ignored) holds the source PDF plus transcribed `spell_library.json` and `class_content.json`, loaded at build time over the in-repo skeletons — `src/model/systemContent.ts`, `scripts/extract-oseaf-spells.mjs`, `systems/README.md`.
 - Class hit die shown read-only in the sheet header from the class reference — `src/character/CharacterSheet.tsx`.
+- Party switcher in the header: the party title opens the device's party list with last-opened dates and a New party action; Manage shows the same dates — `src/App.tsx`, `src/modals/ManageDataModal.tsx`, `src/formatters.ts`.
+- Spell rows carry editable duration and range beside description, seeded from the library on pick and shown in place of the library's values; divine and nature casters can add every spell of a level at once — `src/model/spellLibrary.ts`, `src/character/CharacterSheetEditForm.tsx`, `src/formatters.ts`.
 
 ## In progress
 

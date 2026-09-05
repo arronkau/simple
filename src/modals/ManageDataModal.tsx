@@ -10,6 +10,7 @@ import {
 import type { AppState } from "../model/appState";
 import { AUDIT_LOG_MAX_ENTRIES } from "../model/auditLog";
 import { buildInviteUrl } from "../model/partyInvite";
+import { formatLastOpened } from "../formatters";
 import type { PartyRole } from "../model/types";
 import type { FirebaseAuthAccount } from "../persistence/firebaseSync";
 import type { PersistenceMode } from "../persistence/types";
@@ -354,7 +355,13 @@ export function ManageDataModal({
           {otherParties.length > 0 ? (
             otherParties.map((party) => (
               <div className="manage-row" key={party.id}>
-                <span className="manage-grow">{party.displayName}</span>
+                <span className="manage-grow">
+                  {party.displayName}
+                  <em className="manage-meta">
+                    {" "}
+                    opened {formatLastOpened(party.lastOpenedAt)}
+                  </em>
+                </span>
                 <Link
                   className="file-button"
                   to={`/party/${party.id}`}

@@ -2,6 +2,7 @@ import {
   ABILITY_SCORE_KEYS,
   normalizeCharacterData,
 } from "../model/characters";
+import type { SpellSuggestion } from "../model/spellLibrary";
 import type { CharacterData } from "../model/types";
 import { formatNullableNumberInput } from "../formatters";
 import {
@@ -57,6 +58,8 @@ export function createCharacterSheetFormState(
       level: spell.level.toString(),
       memorized: spell.memorized.toString(),
       description: spell.description ?? "",
+      duration: spell.duration ?? "",
+      range: spell.range ?? "",
     })),
     languagesText: normalizedCharacterData.languages.join("\n"),
     description: normalizedCharacterData.description,
@@ -120,6 +123,8 @@ export function toCharacterDataFormInput(
         ...(spell.description.trim()
           ? { description: spell.description.trim() }
           : {}),
+        ...(spell.duration.trim() ? { duration: spell.duration.trim() } : {}),
+        ...(spell.range.trim() ? { range: spell.range.trim() } : {}),
       })),
     languages: parseLanguagesInput(formState.languagesText),
     description: formState.description.trim(),
@@ -157,6 +162,33 @@ export function createEmptySpellFormState(): CharacterSpellFormState {
     level: "1",
     memorized: "0",
     description: "",
+    duration: "",
+    range: "",
+  };
+}
+
+/** A row seeded from the library: every field editable afterwards. */
+export function createSpellFormStateFromLibrary(
+  suggestion: SpellSuggestion,
+): CharacterSpellFormState {
+  return {
+    ...createEmptySpellFormState(),
+    ...spellFormFieldsFromLibrary(suggestion),
+  };
+}
+
+export function spellFormFieldsFromLibrary(
+  suggestion: SpellSuggestion,
+): Pick<
+  CharacterSpellFormState,
+  "name" | "level" | "description" | "duration" | "range"
+> {
+  return {
+    name: suggestion.spell.displayName,
+    level: suggestion.spellLevel.toString(),
+    description: suggestion.spell.description,
+    duration: suggestion.spell.duration ?? "",
+    range: suggestion.spell.range ?? "",
   };
 }
 

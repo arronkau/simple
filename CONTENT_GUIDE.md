@@ -35,6 +35,7 @@ Spells are organized by **list, then spell level** (the way OSE prints them; div
     "magicUser": {
       "id": "magicUser",
       "displayName": "Magic-User",
+      "access": "spellbook",
       "levels": {
         "1": [
           {
@@ -53,6 +54,7 @@ Spells are organized by **list, then spell level** (the way OSE prints them; div
 ```
 
 - `levels` keys are spell levels as strings (`"1"`–`"7"`); each value is an array of spells.
+- `access` (optional, per list) is `"wholeList"` when every caster of the list may pick any spell of a castable level each day (cleric, druid), or `"spellbook"` when spells must be known individually (magic-user, illusionist). Absent means `"spellbook"`. The editor only offers "add every spell of this level" for `"wholeList"` lists.
 - `reversible`, `reversedName`, `duration`, and `range` are optional; `description` is required. `description` may contain newlines: paragraphs, `• ` bullets, and numbered usages are separated by `\n` and rendered with `white-space: pre-line`. In-spell tables (e.g. chromatic orb, confusion) are flattened to text; the reincarnation tables are omitted.
 - A character links to a list through `spellListId` in `ose_class_content.json` (below). List ids don't have to be class ids (e.g. a shared `cleric` list can serve paladins too).
 - If the same spell appears in two lists at different levels, lookups prefer the character's class list.

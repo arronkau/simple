@@ -9,6 +9,7 @@
     "sampleList": {
       "id": "sampleList",
       "displayName": "Sample List",
+      "access": "wholeList",
       "levels": {
         "1": [
           {

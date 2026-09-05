@@ -159,6 +159,8 @@ export type CharacterSpellFormState = {
   level: string;
   memorized: string;
   description: string;
+  duration: string;
+  range: string;
 };
 
 export type CharacterSheetFormState = {

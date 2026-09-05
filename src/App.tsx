@@ -1,5 +1,6 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Link,
   Navigate,
   NavLink,
   Route,
@@ -7,9 +8,11 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
+import { formatLastOpened } from "./formatters";
 import {
   getLocalPartyStateStorageKey,
   type PartyId,
+  type PartyIndexEntry,
 } from "./model/appState";
 import { getSortedEntities } from "./model/entities";
 import { getRecordById } from "./model/inventoryDisplay";
@@ -188,7 +191,7 @@ function LocalAppShell() {
     function closeOpenPopovers(event: PointerEvent) {
       document
         .querySelectorAll<HTMLDetailsElement>(
-          "details.pt-hand-pop[open], details.warning-details[open]",
+          "details.pt-hand-pop[open], details.warning-details[open], details.party-switcher[open]",
         )
         .forEach((details) => {
           if (event.target instanceof Node && !details.contains(event.target)) {
@@ -515,7 +518,12 @@ function LocalAppShell() {
             <p className="eyebrow">
               {formatPersistenceSummary(persistenceMode, syncStatus)}
             </p>
-            <h1 id="app-title">{partyDisplayName}</h1>
+            <PartySwitcher
+              parties={parties}
+              partyDisplayName={partyDisplayName}
+              partyId={partyId}
+              onCreateParty={createAndOpenParty}
+            />
             {storageWarning ? (
               <p className="sync-message">{storageWarning}</p>
             ) : null}
@@ -820,4 +828,70 @@ function NewPartyRedirect() {
   const partyId = useAppStore((state) => state.partyId);
 
   return <Navigate to={`/party/${partyId}`} replace />;
+}
+
+/**
+ * The party title doubles as the switcher: open it to see every party this
+ * device remembers, most recent first, and jump to one or start a new one.
+ * Forget and delete stay in Manage.
+ */
+function PartySwitcher({
+  parties,
+  partyDisplayName,
+  partyId,
+  onCreateParty,
+}: {
+  parties: PartyIndexEntry[];
+  partyDisplayName: string;
+  partyId: PartyId;
+  onCreateParty: () => void;
+}) {
+  const detailsRef = useRef<HTMLDetailsElement | null>(null);
+  const otherParties = parties.filter((party) => party.id !== partyId);
+
+  function close() {
+    if (detailsRef.current) {
+      detailsRef.current.open = false;
+    }
+  }
+
+  return (
+    <details className="party-switcher" ref={detailsRef}>
+      <summary aria-label="Switch party">
+        <h1 id="app-title">{partyDisplayName}</h1>
+        <span className="party-switcher-caret" aria-hidden="true">
+          ▾
+        </span>
+      </summary>
+      <div className="party-switcher-panel">
+        {otherParties.length > 0 ? (
+          <ul className="party-switcher-list">
+            {otherParties.map((party) => (
+              <li key={party.id}>
+                <Link to={`/party/${party.id}`} onClick={close}>
+                  <span>{party.displayName}</span>
+                  <em>{formatLastOpened(party.lastOpenedAt)}</em>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="party-switcher-empty">
+            No other parties on this device.
+          </p>
+        )}
+        <div className="party-switcher-actions">
+          <button
+            type="button"
+            onClick={() => {
+              close();
+              onCreateParty();
+            }}
+          >
+            New party
+          </button>
+        </div>
+      </div>
+    </details>
+  );
 }

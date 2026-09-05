@@ -381,6 +381,8 @@ function normalizeSpells(value: unknown): CharacterSpell[] {
 
     // Older stored data called this field `notes`.
     const description = getString(spell.description) || getString(spell.notes);
+    const duration = getString(spell.duration);
+    const range = getString(spell.range);
 
     return [
       {
@@ -389,6 +391,8 @@ function normalizeSpells(value: unknown): CharacterSpell[] {
         level: getNullableInteger(spell.level, 1) ?? 1,
         memorized: getNullableInteger(spell.memorized, 0) ?? 0,
         ...(description ? { description } : {}),
+        ...(duration ? { duration } : {}),
+        ...(range ? { range } : {}),
       },
     ];
   });

@@ -486,4 +486,28 @@ export const CHARACTER_MANUAL_FIXTURES = [
       ],
     },
   },
+  {
+    name: "spell duration and range are kept when stored and omitted when blank",
+    actual: normalizeCharacterData({
+      spells: [
+        {
+          id: "spell-1",
+          name: "Light",
+          level: 1,
+          memorized: 1,
+          duration: "12 turns",
+          range: "",
+        },
+      ],
+    }).spells,
+    expected: [
+      {
+        id: "spell-1",
+        name: "Light",
+        level: 1,
+        memorized: 1,
+        duration: "12 turns",
+      },
+    ],
+  },
 ];

@@ -93,6 +93,9 @@ export type CharacterSpell = {
   memorized: number;
   /** Free text shown on demand (character sheet and party overview). */
   description?: string;
+  /** Stored text wins over the library's value when set. */
+  duration?: string;
+  range?: string;
 };
 
 export type CharacterData = {

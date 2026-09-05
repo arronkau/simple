@@ -23,10 +23,15 @@ const PRINTED_PAGE_OFFSET = 2;
 const PAGE_WIDTH_PT = 420;
 const PAGE_HEIGHT_PT = 596;
 const COLUMN_SPLIT_PT = 210;
+// Word-initial "!" reads as "fi" only for these stems (fire, first, field,
+// find, five, fight, fish, fix, fill, final, figure, fine, fiery, fifth, fit);
+// everything else word-initial is "Th" (The, This, Three, Thief).
+const FI_WORD_STARTS = /^(re(?!e)|rst|eld|nd|ve|ght|sh|x|ll|nal|gure|ne|ery|fth|fte|fty|t)/;
 
 const LISTS = [
   {
     id: "cleric",
+    access: "wholeList",
     displayName: "Cleric",
     indexPrintedPage: 128,
     printedPages: [134, 145],
@@ -35,6 +40,7 @@ const LISTS = [
   },
   {
     id: "druid",
+    access: "wholeList",
     displayName: "Druid",
     indexPrintedPage: 129,
     printedPages: [146, 157],
@@ -43,6 +49,7 @@ const LISTS = [
   },
   {
     id: "illusionist",
+    access: "spellbook",
     displayName: "Illusionist",
     indexPrintedPage: 130,
     printedPages: [158, 189],
@@ -51,6 +58,7 @@ const LISTS = [
   },
   {
     id: "magicUser",
+    access: "spellbook",
     displayName: "Magic-User",
     indexPrintedPage: 131,
     printedPages: [190, 211],
@@ -110,6 +118,9 @@ for (const list of LISTS) {
   spellLists[list.id] = {
     id: list.id,
     displayName: list.displayName,
+    // Divine and nature casters pray for any spell of a castable level;
+    // arcane casters learn spells one at a time.
+    access: list.access,
     levels,
   };
   stats.push(
@@ -350,10 +361,19 @@ function buildParagraphs(lines) {
   return paragraphs.join("\n");
 }
 
-/** The PDF's Th and ffi ligatures come out as "!" and "'"; bullets as "%". */
+/**
+ * The PDF maps its ligatures to stray ASCII: "!" is "Th" at a word start
+ * (The, This, Three) but "fi" inside a word (specific, sacrifice) and in a
+ * handful of word-initial cases (fire, first, field); "'" between letters is
+ * "ffi"; a leading "%" is the bullet glyph. A genuine "!" only ever follows a
+ * letter at the end of a sentence, which the lookaheads leave alone.
+ */
 function fixGlyphs(text) {
   return text
-    .replace(/!(?=[a-z])/g, "Th")
+    .replace(/(?<=[A-Za-z])!(?=[a-z])/g, "fi")
+    .replace(/(?<![A-Za-z])!(?=([a-z]+))/g, (_match, rest) =>
+      FI_WORD_STARTS.test(rest) ? "fi" : "Th",
+    )
     .replace(/(?<=[a-z])'(?=[a-z])/g, "ffi")
     .replace(/^%\s*/, "• ");
 }

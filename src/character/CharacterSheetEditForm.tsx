@@ -22,6 +22,9 @@ import {
 } from "../model/campaign";
 import {
   filterSpellSuggestions,
+  getSpellListAccess,
+  getSpellListLookup,
+  getSpellsMissingAtLevel,
   type SpellSuggestion,
 } from "../model/spellLibrary";
 import type {
@@ -47,6 +50,8 @@ import {
   createEmptyFeatureFormState,
   createEmptySkillFormState,
   createEmptySpellFormState,
+  createSpellFormStateFromLibrary,
+  spellFormFieldsFromLibrary,
   toCharacterDataFormInput,
 } from "./characterSheetForm";
 import {
@@ -109,6 +114,7 @@ export function CharacterSheetEditForm({
     entityType: entity.entityType,
   }));
   const [saveState, setSaveState] = useState<SheetSaveState>({ phase: "idle" });
+  const [bulkSpellLevel, setBulkSpellLevel] = useState("1");
 
   // The draft is seeded when the editor opens and re-seeded only if it is
   // pointed at a different entity. A remote update that lands while the editor
@@ -342,6 +348,35 @@ export function CharacterSheetEditForm({
   }
 
   const spellListId = getClassSpellListId(formState.className);
+  const spellListLookup =
+    spellListId === undefined ? undefined : getSpellListLookup(spellListId);
+  const wholeListLevels =
+    spellListLookup?.ok && getSpellListAccess(spellListId) === "wholeList"
+      ? spellListLookup.levels.map((level) => level.spellLevel)
+      : [];
+  const bulkSpellLevelNumber = Number(bulkSpellLevel);
+  const missingSpellsAtBulkLevel =
+    wholeListLevels.length > 0
+      ? getSpellsMissingAtLevel(
+          spellListId,
+          bulkSpellLevelNumber,
+          formState.spells.map((spell) => spell.name),
+        )
+      : [];
+
+  function addAllSpellsAtLevel() {
+    if (missingSpellsAtBulkLevel.length === 0) {
+      return;
+    }
+
+    applySheetChange("structure", {
+      ...formState,
+      spells: [
+        ...formState.spells,
+        ...missingSpellsAtBulkLevel.map(createSpellFormStateFromLibrary),
+      ],
+    });
+  }
   const classNameOptions = getAllowedClassDisplayNames();
   const showClassWarning =
     formState.className.trim().length > 0 &&
@@ -567,17 +602,49 @@ export function CharacterSheetEditForm({
         <section className="character-sheet-section">
           <div className="repeatable-heading">
             <h5>Spells</h5>
-            <button
-              type="button"
-              onClick={() =>
-                applySheetChange("structure", {
-                  ...formState,
-                  spells: [...formState.spells, createEmptySpellFormState()],
-                })
-              }
-            >
-              Add spell
-            </button>
+            <div className="repeatable-heading-actions">
+              {wholeListLevels.length > 0 ? (
+                <>
+                  <select
+                    aria-label="Spell level to add"
+                    value={bulkSpellLevel}
+                    onChange={(event) => setBulkSpellLevel(event.target.value)}
+                  >
+                    {wholeListLevels.map((spellLevel) => (
+                      <option key={spellLevel} value={spellLevel.toString()}>
+                        Level {spellLevel}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    disabled={missingSpellsAtBulkLevel.length === 0}
+                    title={
+                      missingSpellsAtBulkLevel.length === 0
+                        ? "Every spell of this level is already on the sheet"
+                        : undefined
+                    }
+                    onClick={addAllSpellsAtLevel}
+                  >
+                    Add all level {bulkSpellLevel}
+                    {missingSpellsAtBulkLevel.length > 0
+                      ? ` (${missingSpellsAtBulkLevel.length})`
+                      : ""}
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                onClick={() =>
+                  applySheetChange("structure", {
+                    ...formState,
+                    spells: [...formState.spells, createEmptySpellFormState()],
+                  })
+                }
+              >
+                Add spell
+              </button>
+            </div>
           </div>
 
           {formState.spells.length === 0 ? (
@@ -598,11 +665,7 @@ export function CharacterSheetEditForm({
                     onSelect={(suggestion) =>
                       updateSpell(
                         spell.id,
-                        {
-                          name: suggestion.spell.displayName,
-                          level: suggestion.spellLevel.toString(),
-                          description: suggestion.spell.description,
-                        },
+                        spellFormFieldsFromLibrary(suggestion),
                         "choice",
                       )
                     }
@@ -635,15 +698,33 @@ export function CharacterSheetEditForm({
                       updateSpell(spell.id, { memorized: value }, "number")
                     }
                   />
-                  <label className="wide-field">
-                    <span>Description</span>
-                    <textarea
-                      rows={2}
-                      value={spell.description}
+                  <label>
+                    <span>Duration</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={80}
+                      type="text"
+                      value={spell.duration}
                       onChange={(event) =>
                         updateSpell(
                           spell.id,
-                          { description: event.target.value },
+                          { duration: event.target.value },
+                          "text",
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Range</span>
+                    <input
+                      autoComplete="off"
+                      maxLength={80}
+                      type="text"
+                      value={spell.range}
+                      onChange={(event) =>
+                        updateSpell(
+                          spell.id,
+                          { range: event.target.value },
                           "text",
                         )
                       }
@@ -663,6 +744,20 @@ export function CharacterSheetEditForm({
                   >
                     Remove
                   </button>
+                  <label className="wide-field">
+                    <span>Description</span>
+                    <textarea
+                      rows={2}
+                      value={spell.description}
+                      onChange={(event) =>
+                        updateSpell(
+                          spell.id,
+                          { description: event.target.value },
+                          "text",
+                        )
+                      }
+                    />
+                  </label>
                 </div>
               ))}
             </div>

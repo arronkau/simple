@@ -12,12 +12,20 @@ export type SpellEntry = {
   description: string;
 };
 
+/**
+ * How casters of a list come by their spells: a prayed ("wholeList") list is
+ * open at every castable level each day, a "spellbook" list must be learned
+ * spell by spell. Absent means "spellbook".
+ */
+export type SpellListAccess = "wholeList" | "spellbook";
+
 export type SpellLibrary = {
   spellLists: Record<
     string,
     {
       id: string;
       displayName: string;
+      access?: SpellListAccess;
       levels: Record<string, SpellEntry[]>;
     }
   >;
@@ -46,6 +54,7 @@ export type SpellListLookupResult =
       ok: true;
       listId: string;
       listName: string;
+      access: SpellListAccess;
       levels: SpellListLevel[];
     }
   | {
@@ -145,6 +154,7 @@ export function getSpellListLookup(
     ok: true,
     listId: list.id,
     listName: list.displayName,
+    access: list.access ?? "spellbook",
     levels: Object.entries(list.levels)
       .map(([levelKey, spells]) => ({
         spellLevel: Number(levelKey),
@@ -190,6 +200,40 @@ export function filterSpellSuggestions(
         spellLevel: level.spellLevel,
         listId: listLookup.listId,
       })),
+  );
+}
+
+export function getSpellListAccess(
+  listId: string | undefined,
+  library: SpellLibrary = DEFAULT_LIBRARY,
+): SpellListAccess | undefined {
+  if (listId === undefined) {
+    return undefined;
+  }
+
+  const listLookup = getSpellListLookup(listId, library);
+
+  return listLookup.ok ? listLookup.access : undefined;
+}
+
+/**
+ * Every spell of one level in a list that the character does not already
+ * have, matched by fuzzy name, for the editor's add-a-whole-level action.
+ * Sorted by name like the suggestions.
+ */
+export function getSpellsMissingAtLevel(
+  listId: string | undefined,
+  spellLevel: number,
+  existingSpellNames: string[],
+  library: SpellLibrary = DEFAULT_LIBRARY,
+): SpellSuggestion[] {
+  const existing = new Set(existingSpellNames.map(normalizeContentName));
+
+  return filterSpellSuggestions("", listId, library).filter(
+    (suggestion) =>
+      suggestion.spellLevel === spellLevel &&
+      !existing.has(normalizeContentName(suggestion.spell.displayName)) &&
+      !existing.has(normalizeContentName(suggestion.spell.id)),
   );
 }
 

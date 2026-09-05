@@ -44,7 +44,7 @@ import {
   formatPartyClassLevel,
   formatPartyLanguages,
   formatSignedNumber,
-  formatSpellLibraryMeta,
+  formatSpellMeta,
 } from "../formatters";
 import type { AbilityModifierResult } from "../model/abilityModifiers";
 import { QuickStepper } from "./QuickStat";
@@ -525,8 +525,9 @@ function SpellRow({
   onAdjustMemorized: (delta: number) => void;
 }) {
   const lookup = getSpellLookup(spell.name, preferredListId);
-  const libraryMeta = lookup.ok ? formatSpellLibraryMeta(lookup.spell) : "";
-  const hasDetails = lookup.ok || Boolean(spell.description);
+  const libraryMeta = formatSpellMeta(spell, lookup.ok ? lookup.spell : undefined);
+  const hasDetails =
+    lookup.ok || Boolean(spell.description) || Boolean(libraryMeta);
 
   return (
     <div className="sheet-spell-row" data-memorized={spell.memorized > 0}>

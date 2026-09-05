@@ -117,13 +117,10 @@ function getPartySpellDisplay(
 ): PartySpellDisplay {
   const lookup = getSpellLookup(spell.name, preferredListId);
   const detail: PartySpellDetail = {};
+  const meta = formatSpellMeta(spell, lookup.ok ? lookup.spell : undefined);
 
-  if (lookup.ok) {
-    const meta = formatSpellLibraryMeta(lookup.spell);
-
-    if (meta) {
-      detail.meta = meta;
-    }
+  if (meta) {
+    detail.meta = meta;
   }
 
   // The stored description is the one the table reads; the library's text
@@ -141,17 +138,24 @@ function getPartySpellDisplay(
   };
 }
 
-/** "Reversible · Duration 1 turn · Range 60′" — empty when the library
- * entry carries none of those facts. */
-export function formatSpellLibraryMeta(spell: SpellEntry): string {
+/** "Reversible (Darkness) · Duration 1 turn · Range 60′". Stored duration
+ * and range win over the library's; reversibility is library-only. Empty when
+ * nothing is known. */
+export function formatSpellMeta(
+  spell: Pick<CharacterSpell, "duration" | "range">,
+  librarySpell?: SpellEntry,
+): string {
+  const duration = spell.duration?.trim() || librarySpell?.duration;
+  const range = spell.range?.trim() || librarySpell?.range;
+
   return [
-    spell.reversible
-      ? spell.reversedName
-        ? `Reversible (${spell.reversedName})`
+    librarySpell?.reversible
+      ? librarySpell.reversedName
+        ? `Reversible (${librarySpell.reversedName})`
         : "Reversible"
       : "",
-    spell.duration ? `Duration ${spell.duration}` : "",
-    spell.range ? `Range ${spell.range}` : "",
+    duration ? `Duration ${duration}` : "",
+    range ? `Range ${range}` : "",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -592,4 +596,45 @@ function formatAuditTimestamp(createdAt: string): string {
 
 export function formatNullableNumberInput(value: number | null): string {
   return value === null ? "" : value.toString();
+}
+
+/** "today", "yesterday", "3 days ago", or a short date for older entries. */
+export function formatLastOpened(
+  isoDateTime: string,
+  now: Date = new Date(),
+): string {
+  const opened = new Date(isoDateTime);
+
+  if (Number.isNaN(opened.getTime())) {
+    return "";
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfOpened = new Date(
+    opened.getFullYear(),
+    opened.getMonth(),
+    opened.getDate(),
+  );
+  const dayDelta = Math.round(
+    (startOfToday.getTime() - startOfOpened.getTime()) / dayMs,
+  );
+
+  if (dayDelta <= 0) {
+    return "today";
+  }
+
+  if (dayDelta === 1) {
+    return "yesterday";
+  }
+
+  if (dayDelta < 14) {
+    return `${dayDelta} days ago`;
+  }
+
+  return opened.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(opened.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }),
+  });
 }

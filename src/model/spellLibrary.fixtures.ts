@@ -1,7 +1,9 @@
 import {
   filterSpellSuggestions,
+  getSpellListAccess,
   getSpellLookup,
   getSpellListLookup,
+  getSpellsMissingAtLevel,
   type SpellLibrary,
 } from "./spellLibrary";
 
@@ -10,6 +12,7 @@ const testLibrary: SpellLibrary = {
     listA: {
       id: "listA",
       displayName: "List A",
+      access: "wholeList",
       levels: {
         "1": [
           {
@@ -118,6 +121,7 @@ export const SPELL_LIBRARY_MANUAL_FIXTURES = [
       ok: true,
       listId: "listA",
       listName: "List A",
+      access: "wholeList",
       levels: [
         {
           spellLevel: 1,
@@ -205,6 +209,33 @@ export const SPELL_LIBRARY_MANUAL_FIXTURES = [
   {
     name: "spell suggestions are empty for an unknown list",
     actual: filterSpellSuggestions("", "listC", testLibrary),
+    expected: [],
+  },
+  {
+    name: "spell list access reads the list flag and defaults to spellbook",
+    actual: [
+      getSpellListAccess("listA", testLibrary),
+      getSpellListAccess("listB", testLibrary),
+      getSpellListAccess("listC", testLibrary),
+      getSpellListAccess(undefined, testLibrary),
+    ],
+    expected: ["wholeList", "spellbook", undefined, undefined],
+  },
+  {
+    name: "spells missing at a level skip names already on the sheet, matched fuzzily",
+    actual: getSpellsMissingAtLevel("listA", 1, ["  glow! "], testLibrary),
+    expected: [],
+  },
+  {
+    name: "spells missing at a level list the rest of that level only",
+    actual: getSpellsMissingAtLevel("listA", 2, ["Glow"], testLibrary).map(
+      (suggestion) => `${suggestion.spell.id}@${suggestion.spellLevel}`,
+    ),
+    expected: ["shared@2"],
+  },
+  {
+    name: "spells missing at a level are empty without a list",
+    actual: getSpellsMissingAtLevel(undefined, 1, [], testLibrary),
     expected: [],
   },
 ];

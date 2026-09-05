@@ -8,6 +8,7 @@ import {
   parseImportedAppStateResult,
 } from "./modals/ManageDataModal";
 import {
+  formatLastOpened,
   formatPartySpellLines,
   getAuditEntryDisplay,
   getDeleteConfirmationMessage,
@@ -671,5 +672,17 @@ export const APP_MANUAL_FIXTURES = [
       ok: true,
       value: validEmptyExport.data,
     },
+  },
+  {
+    name: "last opened label counts whole days and falls back to a short date",
+    actual: [
+      formatLastOpened("2026-09-05T03:00:00", new Date("2026-09-05T23:00:00")),
+      formatLastOpened("2026-09-04T23:59:00", new Date("2026-09-05T00:01:00")),
+      formatLastOpened("2026-09-01T12:00:00", new Date("2026-09-05T12:00:00")),
+      formatLastOpened("2026-06-01T12:00:00", new Date("2026-09-05T12:00:00")),
+      formatLastOpened("2025-06-01T12:00:00", new Date("2026-09-05T12:00:00")),
+      formatLastOpened("not a date", new Date("2026-09-05T12:00:00")),
+    ],
+    expected: ["today", "yesterday", "4 days ago", "Jun 1", "Jun 1, 2025", ""],
   },
 ];

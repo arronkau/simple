@@ -200,6 +200,97 @@ code {
   justify-content: flex-end;
 }
 
+.party-switcher {
+  position: relative;
+}
+
+.party-switcher > summary {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  list-style: none;
+  cursor: pointer;
+}
+
+.party-switcher > summary::-webkit-details-marker {
+  display: none;
+}
+
+.party-switcher > summary:hover h1 {
+  text-decoration: underline;
+  text-decoration-color: var(--gear-line-3);
+  text-underline-offset: 4px;
+}
+
+.party-switcher-caret {
+  color: var(--gear-muted);
+  font-size: 13px;
+}
+
+.party-switcher-panel {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  gap: 6px;
+  min-width: 16rem;
+  max-width: min(24rem, calc(100vw - 2rem));
+  border: 1px solid var(--gear-line-2);
+  border-radius: var(--gear-r);
+  padding: 6px;
+  background: var(--gear-surface);
+  box-shadow: 0 10px 24px rgb(17 24 30 / 0.16);
+}
+
+.party-switcher-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.party-switcher-list a {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: space-between;
+  border-radius: 5px;
+  padding: 5px 8px;
+  color: var(--gear-ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.party-switcher-list a:hover {
+  background: var(--gear-accent-tint);
+}
+
+.party-switcher-list em,
+.manage-meta {
+  color: var(--gear-muted);
+  font-family: var(--gear-mono);
+  font-size: 10.5px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.party-switcher-empty {
+  margin: 0;
+  padding: 4px 8px;
+  color: var(--gear-muted);
+  font-size: 12px;
+}
+
+.party-switcher-actions {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--gear-line);
+  padding-top: 6px;
+}
+
 .eyebrow {
   margin: 2px 0 3px;
   color: var(--gear-muted);
@@ -2023,12 +2114,19 @@ tr.pt-dragging {
 
 .spell-row {
   grid-template-columns:
-    minmax(9rem, 1.2fr) minmax(6rem, 7.5rem) minmax(5.5rem, 7rem)
-    minmax(9rem, 2fr) auto;
+    minmax(9rem, 1.4fr) minmax(5.5rem, 6.5rem) minmax(5.5rem, 6.5rem)
+    minmax(7rem, 1fr) minmax(7rem, 1fr) auto;
 }
 
 .spell-row .wide-field {
-  grid-column: auto;
+  grid-column: 1 / -1;
+}
+
+.repeatable-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .record-form-actions {
