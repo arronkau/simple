@@ -1561,7 +1561,6 @@ tr.pt-dragging {
   font-size: 12.5px;
   line-height: 1.45;
   white-space: pre-line;
-  white-space: pre-line;
 }
 
 .sheet-skill-row {
@@ -1663,6 +1662,34 @@ tr.pt-dragging {
 
 .sheet-spell-row:last-child {
   border-bottom: none;
+}
+
+.sheet-spell-group {
+  margin-top: 4px;
+}
+
+.sheet-spell-group > summary {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 4px 0;
+  color: var(--gear-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sheet-spell-group > summary strong {
+  color: var(--gear-ink-2);
+  font-family: var(--gear-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-spell-group[open] > summary {
+  border-bottom: 1px solid var(--gear-line);
 }
 
 .sheet-spell-row[data-memorized="false"] .sheet-spell-main {

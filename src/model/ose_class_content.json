@@ -9,7 +9,9 @@
     "sampleClass": {
       "id": "sampleClass",
       "displayName": "Sample Class",
-      "primeRequisites": ["dexterity"],
+      "primeRequisites": [
+        "dexterity"
+      ],
       "spellListId": "sampleList",
       "abilities": [
         {
@@ -18,13 +20,26 @@
           "description": "Format reference only — not a real ability. Replace with authored content per CONTENT_GUIDE.md."
         }
       ],
+      "skills": [
+        {
+          "id": "sampleSkill",
+          "name": "Sample Skill",
+          "description": "Format reference only — a d6 skill seeded when this class is set."
+        }
+      ],
       "levelTables": [
         {
           "id": "sampleTable",
           "name": "Sample Table",
-          "columns": ["First Column", "Second Column"],
+          "columns": [
+            "First Column",
+            "Second Column"
+          ],
           "rowsByLevel": {
-            "1": ["sample", 0]
+            "1": [
+              "sample",
+              0
+            ]
           }
         }
       ]

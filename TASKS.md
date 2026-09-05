@@ -24,6 +24,7 @@ Post-1.0 items are out of scope until they are re-scoped here.
 - Spell suggestions on the character sheet: the class's spell list is offered while typing a spell name, picking one fills name and level, through the same combobox the inventory record form uses — `src/ui/AutocompleteField.tsx`, `src/character/CharacterSheetEditForm.tsx`, `src/model/spellLibrary.ts`.
 - Rule text kept out of the repo: `systems/<system>/` (git-ignored) holds the source PDF plus transcribed `spell_library.json` and `class_content.json`, loaded at build time over the in-repo skeletons — `src/model/systemContent.ts`, `scripts/extract-oseaf-spells.mjs`, `systems/README.md`.
 - Class hit die shown read-only in the sheet header from the class reference — `src/character/CharacterSheet.tsx`.
+- Class skill rosters seeded onto the sheet when a class is set (and on demand), from a `skills` roster in class content — `src/model/classContent.ts`, `src/character/CharacterSheetEditForm.tsx`.
 - Party switcher in the header: the party title opens the device's party list with last-opened dates and a New party action; Manage shows the same dates — `src/App.tsx`, `src/modals/ManageDataModal.tsx`, `src/formatters.ts`.
 - Spell rows carry editable duration and range beside description, seeded from the library on pick and shown in place of the library's values; divine and nature casters can add every spell of a level at once — `src/model/spellLibrary.ts`, `src/character/CharacterSheetEditForm.tsx`, `src/formatters.ts`.
 
@@ -34,7 +35,8 @@ Post-1.0 items are out of scope until they are re-scoped here.
 ## Open
 
 - Move the remaining in-repo OSE content (`ose_class_reference.json`, `ose_ability_modifiers.json`, `standardItemCatalog.json`, `arden_vul_campaign.json`) under `systems/` with the same build-time loading, so one rule system is one folder — `src/model/systemContent.ts`.
-- Deferred until spell suggestions have been used at the table: seed class abilities into `features` on class change (only untouched seeded rows may be replaced), and seed a class's d6 skill roster into `skills` (roster still to be decided; the handout names no skills) — `src/character/CharacterSheetEditForm.tsx`, `src/model/classContent.ts`.
+- Deferred until spell suggestions have been used at the table: seed class abilities into `features` on class change (only untouched seeded rows may be replaced) — `src/character/CharacterSheetEditForm.tsx`, `src/model/classContent.ts`.
+- Decide whether Open Doors belongs on the thief and acrobat rosters: the expertise derivation special-cases it, but the book's rosters do not list it and the handout names no skills — `systems/ose-advanced-fantasy/class_content.json`.
 - The drow's extra magic-user spell (web, from 3rd level) is not modeled; `spellListId` links one list per class — `src/model/classContent.ts`.
 - Dead permission guards: every entity and inventory action except the GM-field and identify ones is player-allowed, so those `assert*Action` calls and their `try`/`catch` can never throw — `src/model/permissions.ts`, `src/store/useAppStore.ts`.
 - Decide whether players may delete entities (and items), then either restrict the action or delete the guards that pretend it is restricted — `src/model/permissions.ts`.

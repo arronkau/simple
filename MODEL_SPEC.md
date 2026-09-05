@@ -31,7 +31,7 @@ Transcribed rule text is kept out of version control in `systems/<system>/` (git
 - `ose_class_reference.json` — per-class metadata (`hitDie` and optional `expertise`) plus per-level progression (xp, attack, saves, spell slots). See Class Progression Derivations.
 - `arden_vul_campaign.json` — campaign class and standard-item allowlists; hidden library entries remain resolvable for existing records.
 - `ose_spell_library.json` — spell lists by list id and spell level (`src/model/spellLibrary.ts`). A list may declare `access` (`"wholeList"` for prayed lists such as cleric and druid, `"spellbook"` for arcane ones; absent means `"spellbook"`); `getSpellListAccess` and `getSpellsMissingAtLevel` back the editor's add-a-whole-level action. A `SpellEntry` may carry `reversedName` beside `reversible`. `filterSpellSuggestions` lists one list's spells matching a query, ordered by spell level then name, for the sheet's spell picker; it returns nothing without a list.
-- `ose_class_content.json` — per-class prime requisites, class abilities, spell-list link (`spellListId`, read through `getClassSpellListId`), and generic level-indexed tables such as class skills and turn undead (`src/model/classContent.ts`).
+- `ose_class_content.json` — per-class prime requisites, class abilities, spell-list link (`spellListId`, read through `getClassSpellListId`), an optional `skills` roster (`getMissingClassSkills` returns the roster entries a sheet lacks), and generic level-indexed tables such as turn undead (`src/model/classContent.ts`).
 - `ose_ability_modifiers.json` — shared ability-score modifier bands (`src/model/abilityModifiers.ts`).
 
 Rules:
@@ -351,7 +351,7 @@ Armor class is derived, ascending, from a base of `10`: the single best equipped
 
 Armor class is computed from full records for every viewer; redaction never changes it (see Player Visibility).
 
-`CharacterSkill.chanceInSix` is an integer from 1 through 6 representing a 1-in-6 chance skill system. It is not nullable.
+`CharacterSkill.chanceInSix` is an integer from 1 through 6 representing a 1-in-6 chance skill system. It is not nullable. When the sheet editor resolves `className` to a different class, it seeds that class's skill roster from class content as new rows at their base chance (1, or the STR modifier floor for Open Doors, matching the expertise derivation), skipping names already present by fuzzy match and never removing or rewriting rows; the same seeding is available as an explicit action. Seeded rows are ordinary skills afterwards.
 
 `CharacterFeature.name` is the feature's display name. Legacy stored data may use `title` as an alias; parsers should accept both and normalize to `name`.
 

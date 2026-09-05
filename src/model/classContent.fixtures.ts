@@ -2,6 +2,7 @@ import {
   getClassContentLookup,
   getClassLevelTables,
   getClassSpellListId,
+  getMissingClassSkills,
   type ClassContentLibrary,
 } from "./classContent";
 
@@ -12,6 +13,10 @@ const testLibrary: ClassContentLibrary = {
       displayName: "Test Class",
       primeRequisites: ["dexterity", "strength"],
       spellListId: "listA",
+      skills: [
+        { id: "climb", name: "Climb Sheer Surfaces" },
+        { id: "sneak", name: "Move Silently", description: "Quietly." },
+      ],
       abilities: [
         {
           id: "testAbility",
@@ -58,6 +63,10 @@ export const CLASS_CONTENT_MANUAL_FIXTURES = [
           description: "A test ability.",
         },
       ],
+      skills: [
+        { id: "climb", name: "Climb Sheer Surfaces" },
+        { id: "sneak", name: "Move Silently", description: "Quietly." },
+      ],
       levelTables: [
         {
           id: "testSkills",
@@ -80,6 +89,7 @@ export const CLASS_CONTENT_MANUAL_FIXTURES = [
       className: "Plain Class",
       primeRequisites: ["strength"],
       abilities: [],
+      skills: [],
       levelTables: [],
     },
   },
@@ -154,5 +164,22 @@ export const CLASS_CONTENT_MANUAL_FIXTURES = [
     name: "class spell list id is undefined for an unknown class",
     actual: getClassSpellListId("Fighter", testLibrary),
     expected: undefined,
+  },
+  {
+    name: "missing class skills skip rows already on the sheet, matched fuzzily",
+    actual: getMissingClassSkills(
+      "Test Class",
+      ["climb sheer surfaces!", "Other"],
+      testLibrary,
+    ),
+    expected: [{ id: "sneak", name: "Move Silently", description: "Quietly." }],
+  },
+  {
+    name: "missing class skills are empty for a class without a roster or unknown",
+    actual: [
+      getMissingClassSkills("Plain Class", [], testLibrary),
+      getMissingClassSkills("Fighter", [], testLibrary),
+    ],
+    expected: [[], []],
   },
 ];

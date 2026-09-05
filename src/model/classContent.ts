@@ -9,6 +9,13 @@ export type ClassAbility = {
   description: string;
 };
 
+/** One entry of a class's skill roster, seeded onto a sheet as a d6 skill. */
+export type ClassSkill = {
+  id: string;
+  name: string;
+  description?: string;
+};
+
 export type ClassLevelTable = {
   id: string;
   name: string;
@@ -25,6 +32,7 @@ export type ClassContentLibrary = {
       primeRequisites: Array<keyof AbilityScores>;
       spellListId?: string;
       abilities: ClassAbility[];
+      skills?: ClassSkill[];
       levelTables: ClassLevelTable[];
     }
   >;
@@ -38,6 +46,7 @@ export type ClassContentLookupResult =
       primeRequisites: Array<keyof AbilityScores>;
       spellListId?: string;
       abilities: ClassAbility[];
+      skills: ClassSkill[];
       levelTables: ClassLevelTable[];
     }
   | {
@@ -93,8 +102,33 @@ export function getClassContentLookup(
       ? { spellListId: classEntry.spellListId }
       : {}),
     abilities: classEntry.abilities,
+    skills: classEntry.skills ?? [],
     levelTables: classEntry.levelTables,
   };
+}
+
+/**
+ * Roster skills the sheet does not have yet, matched by fuzzy name, for
+ * seeding when a class is set. Never removes or rewrites existing rows.
+ */
+export function getMissingClassSkills(
+  className: string,
+  existingSkillNames: string[],
+  library: ClassContentLibrary = DEFAULT_LIBRARY,
+): ClassSkill[] {
+  const lookup = getClassContentLookup(className, library);
+
+  if (!lookup.ok) {
+    return [];
+  }
+
+  const existing = new Set(existingSkillNames.map(normalizeContentName));
+
+  return lookup.skills.filter(
+    (skill) =>
+      !existing.has(normalizeContentName(skill.name)) &&
+      !existing.has(normalizeContentName(skill.id)),
+  );
 }
 
 /** The spell list a class casts from, or undefined for a non-caster or an unknown class. */

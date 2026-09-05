@@ -97,6 +97,7 @@ Per-**class** (not per-level) content: prime requisites, class abilities, and le
 
 - `primeRequisites` values are the model's ability keys: `strength`, `intelligence`, `wisdom`, `dexterity`, `constitution`, `charisma`.
 - `spellListId` (optional) names the class's list in the spell library.
+- `skills` (optional) is the class's skill roster: `{ id, name, description? }` entries seeded onto a sheet as d6 skill rows when the class is set (names only — chances come from the sheet). The Advanced Fantasy rosters for acrobat, assassin, barbarian, and thief are transcribed in `systems/ose-advanced-fantasy/class_content.json`.
 - `levelTables` is one generic format for any level-indexed table: thief/acrobat skills, **turn undead**, etc. `columns` are header labels; `rowsByLevel` maps character level (string key) to a row of cells in column order. Cells may be numbers or strings — for turn undead use the book's notation as strings: `"7"`, `"9"`, `"11"`, `"T"`, `"D"`, `"-"`. Tables are display-only; the app never interprets cell values.
 - Levels you haven't authored render as em-dashes; you can fill `rowsByLevel` for only the levels in play.
 

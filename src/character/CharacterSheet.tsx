@@ -101,6 +101,14 @@ export function CharacterSheet({
   const classContent = getClassContentLookup(character.className);
   const levelTables = getClassLevelTables(character.className, character.level);
   const memorizationWarnings = getSpellMemorizationWarnings(character);
+  // Memorized spells are what matters mid-session, so they lead; the rest of
+  // the spellbook folds away and opens itself only when nothing is memorized.
+  const sortedSpells = [...character.spells].sort(
+    (left, right) =>
+      left.level - right.level || left.name.localeCompare(right.name),
+  );
+  const memorizedSpells = sortedSpells.filter((spell) => spell.memorized > 0);
+  const unmemorizedSpells = sortedSpells.filter((spell) => spell.memorized === 0);
   const expertise = getExpertiseSummary(character);
   const skillWarnings = [
     ...(expertise.ok ? expertise.warnings : []),
@@ -352,24 +360,38 @@ export function CharacterSheet({
                   {warning}
                 </p>
               ))}
-              {[...character.spells]
-                .sort(
-                  (left, right) =>
-                    left.level - right.level ||
-                    left.name.localeCompare(right.name),
-                )
-                .map((spell) => (
-                  <SpellRow
-                    key={spell.id}
-                    preferredListId={
-                      classContent.ok ? classContent.spellListId : undefined
-                    }
-                    spell={spell}
-                    onAdjustMemorized={(delta) =>
-                      adjustMemorized(spell.id, delta)
-                    }
-                  />
-                ))}
+              {memorizedSpells.map((spell) => (
+                <SpellRow
+                  key={spell.id}
+                  preferredListId={
+                    classContent.ok ? classContent.spellListId : undefined
+                  }
+                  spell={spell}
+                  onAdjustMemorized={(delta) => adjustMemorized(spell.id, delta)}
+                />
+              ))}
+              {unmemorizedSpells.length > 0 ? (
+                <details
+                  className="sheet-spell-group"
+                  open={memorizedSpells.length === 0}
+                >
+                  <summary>
+                    Not memorized <strong>{unmemorizedSpells.length}</strong>
+                  </summary>
+                  {unmemorizedSpells.map((spell) => (
+                    <SpellRow
+                      key={spell.id}
+                      preferredListId={
+                        classContent.ok ? classContent.spellListId : undefined
+                      }
+                      spell={spell}
+                      onAdjustMemorized={(delta) =>
+                        adjustMemorized(spell.id, delta)
+                      }
+                    />
+                  ))}
+                </details>
+              ) : null}
             </section>
           ) : null}
         </div>
