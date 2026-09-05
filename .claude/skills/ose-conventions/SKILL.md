@@ -40,7 +40,7 @@ Weapon Mastery damage is derived in `src/model/classDerivations.ts` from the cla
 
 ## Armor Class
 
-**Ascending AC**, base **10** (`DEFAULT_ASCENDING_ARMOR_CLASS`). AC is derived in `getCharacterArmorClass` from the single best equipped armor plus a shield held in hand; multiple equipped armors warn and the best is used. A manual override, when present, wins over the calculated value.
+**Ascending AC**, base **10** (`DEFAULT_ASCENDING_ARMOR_CLASS`). AC is derived in `getCharacterArmorClass` from the single best equipped armor plus a shield held in hand; multiple equipped armors warn and the best is used. On top of that it adds the sum of every `armorClass` item modifier on the entity's equipped records — any equipped placement, and penalties count, so a cursed item lowers AC (other modifier targets stay display-only; see `MODEL_SPEC.md`) — plus the character's manual `armorClass.modifier`. A manual `armorClass.override`, when present, wins over the calculated value. AC always runs on full records, never viewer-redacted ones.
 
 ## Items & coins
 

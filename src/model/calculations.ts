@@ -85,10 +85,13 @@ export function getCharacterArmorClass(
     (bonus, record) => bonus + (record.armor.armorBonus ?? 0),
     0,
   );
+  // Every `armorClass` modifier on an equipped record counts, in any equipped
+  // placement, penalties included: a cursed item must lower AC. Other modifier
+  // targets stay edit/display-only for v1.
   const itemModifier = ownedRecords
     .filter((record) => record.location.kind === "equipped")
     .flatMap((record) => record.modifiers ?? [])
-    .filter((modifier) => modifier.target === "armorClass" && modifier.value > 0)
+    .filter((modifier) => modifier.target === "armorClass")
     .reduce((modifierTotal, modifier) => modifierTotal + modifier.value, 0);
   const manualModifier = characterData?.armorClass?.modifier ?? 0;
   const calculatedArmorClass =

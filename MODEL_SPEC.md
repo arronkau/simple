@@ -295,7 +295,11 @@ Character data supports a lightweight character-sheet layer in addition to inven
 
 `alignment` is intentionally limited to the OSE-style options used by the app: `"Law"`, `"Neutrality"`, `"Chaos"`, or an empty string when unset.
 
-`armorClass.modifier` is a flat integer bonus or penalty applied to the derived AC. `armorClass.override` replaces the entire derived AC when non-null.
+Armor class is derived, ascending, from a base of `10`: the single best equipped armor record (by `baseArmorClass + armorBonus`) replaces the base, a shield held in a hand adds its `armorBonus`, and the sum of every `armorClass` modifier on the entity's equipped records — any equipped placement, penalties included — is added. Multiple equipped armors produce a warning and the best one is used.
+
+`armorClass.modifier` is a flat integer bonus or penalty added on top of that derived value. `armorClass.override` replaces the entire derived AC when non-null.
+
+Armor class is computed from full records for every viewer; redaction never changes it (see Player Visibility).
 
 `CharacterSkill.chanceInSix` is an integer from 1 through 6 representing a 1-in-6 chance skill system. It is not nullable.
 
@@ -367,8 +371,8 @@ export type InventoryRecord = {
 - `container` may appear on weapon, armor, or equipment records if that record can contain other records; treasure records do not use container data.
 - `identification` may appear on `treasure`, `weapon`, `armor`, or `equipment` records. It may also be tolerated on imported or legacy records.
 - Coins are always identified in normal inventory display.
-- `modifiers` are optional and descriptive for v1.
-- For v1, modifiers are edit/display-only. Do not apply them automatically to AC, attack, saves, movement, or character sheet fields.
+- `modifiers` are optional.
+- `armorClass` modifiers on an equipped record are applied to the derived armor class: every such modifier counts, positive or negative. All other modifier targets are edit/display-only for v1 — do not apply them automatically to attack, saves, movement, or character sheet fields.
 - When creating a record, assign `sortOrder` as max existing sibling sort order + 1000.
 
 ## Inventory Location
@@ -729,9 +733,9 @@ export type Modifier = {
 };
 ```
 
-Modifiers are descriptive and optional for v1. They allow records such as magic rings, cloaks, or weapons to capture relevant bonuses without requiring full automation.
+Modifiers are optional. They allow records such as magic rings, cloaks, or weapons to capture relevant bonuses and penalties without requiring full automation.
 
-For v1, modifiers are edit/display-only.
+`armorClass` modifiers are the one target the app applies automatically: see the armor class calculation under Character Data. Every other target is edit/display-only for v1.
 
 ## Derived Calculations
 

@@ -332,6 +332,31 @@ const ringRecord: InventoryRecord = {
   burden: { kind: "none" },
   modifiers: [{ target: "armorClass", value: 1 }],
 };
+const cursedCloakRecord: InventoryRecord = {
+  id: "cloak-1",
+  recordType: "equipment",
+  name: "Cursed cloak",
+  entityId: "character-1",
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 8000,
+  quantity: 1,
+  burden: { kind: "none" },
+  modifiers: [
+    { target: "armorClass", value: -2 },
+    { target: "movement", value: -10 },
+  ],
+};
+const stowedRingRecord: InventoryRecord = {
+  ...ringRecord,
+  id: "stowed-ring-1",
+  location: {
+    kind: "stowedRoot",
+  },
+  sortOrder: 9000,
+};
 
 export const CALCULATION_MANUAL_FIXTURES = [
   {
@@ -516,6 +541,55 @@ export const CALCULATION_MANUAL_FIXTURES = [
           recordIds: ["leather-armor-1", "chainmail-1"],
         },
       ],
+    },
+  },
+  {
+    name: "character AC applies a negative item modifier",
+    actual: getCharacterArmorClass(characterEntity, [
+      leatherArmorRecord,
+      cursedCloakRecord,
+    ]),
+    expected: {
+      armorClass: 10,
+      baseArmorClass: 12,
+      equippedArmorRecordIds: ["leather-armor-1"],
+      itemModifier: -2,
+      manualModifier: 0,
+      shieldRecordIds: [],
+      warnings: [],
+    },
+  },
+  {
+    name: "character AC sums positive and negative item modifiers",
+    actual: getCharacterArmorClass(characterEntity, [
+      leatherArmorRecord,
+      ringRecord,
+      cursedCloakRecord,
+    ]),
+    expected: {
+      armorClass: 11,
+      baseArmorClass: 12,
+      equippedArmorRecordIds: ["leather-armor-1"],
+      itemModifier: -1,
+      manualModifier: 0,
+      shieldRecordIds: [],
+      warnings: [],
+    },
+  },
+  {
+    name: "character AC ignores modifiers on a stowed record",
+    actual: getCharacterArmorClass(characterEntity, [
+      leatherArmorRecord,
+      stowedRingRecord,
+    ]),
+    expected: {
+      armorClass: 12,
+      baseArmorClass: 12,
+      equippedArmorRecordIds: ["leather-armor-1"],
+      itemModifier: 0,
+      manualModifier: 0,
+      shieldRecordIds: [],
+      warnings: [],
     },
   },
   {
