@@ -7,13 +7,22 @@ import {
   createPartyState,
   formatUnreadablePartyStateWarning,
   getCorruptPartyStateStorageKey,
+  deleteLocalPartyState,
+  forgetIndexedParty,
   getLocalPartyStateStorageKey,
   migratePartyMembership,
+  parsePartyIndex,
   parsePartyState,
   parseAppState,
   readLocalAppState,
   readLocalPartyStateResult,
   repairPartyMembership,
+  readPartyIndex,
+  rememberOpenedParty,
+  removePartyIndexEntry,
+  renameIndexedParty,
+  seedPartyIndexEntries,
+  upsertPartyIndexEntry,
   writeLocalAppState,
   writeLocalPartyState,
   type AppState,
@@ -433,6 +442,61 @@ const localRoundTripAppState = withMockLocalStorage(() => {
 const invalidLocalAppState = withMockLocalStorage((localStorage) => {
   localStorage.setItem(APP_STATE_STORAGE_KEY, "{");
   return readLocalAppState();
+});
+
+const parsedPartyIndex = parsePartyIndex([
+  {
+    id: "party-a",
+    displayName: "Alpha",
+    lastOpenedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "party-b",
+    displayName: "   ",
+    lastOpenedAt: "2026-03-01T00:00:00.000Z",
+  },
+  {
+    id: "party-a",
+    displayName: "Duplicate",
+    lastOpenedAt: "2026-09-01T00:00:00.000Z",
+  },
+  { id: "", displayName: "No id", lastOpenedAt: "2026-09-01T00:00:00.000Z" },
+  "not an entry",
+  { id: "party-c", displayName: "Gamma" },
+]);
+
+const partyIndexStorageRun = withMockLocalStorage((localStorage) => {
+  writeLocalPartyState(
+    createPartyState({ partyId: "party-old", displayName: "Old Table" }),
+  );
+  writeLocalPartyState(
+    createPartyState({ partyId: "party-older", displayName: "Older Table" }),
+  );
+
+  const seededIndex = readPartyIndex();
+  const openedIndex = rememberOpenedParty(
+    "party-old",
+    "Old Table",
+    "2026-09-05T09:00:00.000Z",
+  );
+  const renamedIndex = renameIndexedParty("party-old", "Renamed Table");
+  const forgottenIndex = forgetIndexedParty("party-older");
+  const rereadIndex = readPartyIndex();
+  const forgottenPartyStateRemains =
+    localStorage.getItem(getLocalPartyStateStorageKey("party-older")) !== null;
+
+  deleteLocalPartyState("party-older");
+
+  return {
+    seededIndex,
+    openedIndex,
+    renamedIndex,
+    forgottenIndex,
+    rereadIndex,
+    forgottenPartyStateRemains,
+    deletedPartyStateRemains:
+      localStorage.getItem(getLocalPartyStateStorageKey("party-older")) !== null,
+  };
 });
 
 const partyStateWithUserProfiles = createPartyState({
@@ -1088,6 +1152,182 @@ export const APP_STATE_MANUAL_FIXTURES = [
       storedKeyCount: 0,
       backupKey: undefined,
       warning: undefined,
+    },
+  },
+  {
+    name: "party index parse drops unusable entries and sorts by last opened",
+    actual: parsedPartyIndex,
+    expected: [
+      {
+        id: "party-b",
+        displayName: "New Party",
+        lastOpenedAt: "2026-03-01T00:00:00.000Z",
+      },
+      {
+        id: "party-a",
+        displayName: "Alpha",
+        lastOpenedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "party-c",
+        displayName: "Gamma",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+    ],
+  },
+  {
+    name: "party index upsert replaces an entry and moves it to the top",
+    actual: upsertPartyIndexEntry(parsedPartyIndex, {
+      id: "party-a",
+      displayName: "Alpha Table",
+      lastOpenedAt: "2026-09-05T09:00:00.000Z",
+    }),
+    expected: [
+      {
+        id: "party-a",
+        displayName: "Alpha Table",
+        lastOpenedAt: "2026-09-05T09:00:00.000Z",
+      },
+      {
+        id: "party-b",
+        displayName: "New Party",
+        lastOpenedAt: "2026-03-01T00:00:00.000Z",
+      },
+      {
+        id: "party-c",
+        displayName: "Gamma",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+    ],
+  },
+  {
+    name: "party index remove drops only the named party",
+    actual: removePartyIndexEntry(parsedPartyIndex, "party-b"),
+    expected: [
+      {
+        id: "party-a",
+        displayName: "Alpha",
+        lastOpenedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "party-c",
+        displayName: "Gamma",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+    ],
+  },
+  {
+    name: "party index seed adds unknown parties and leaves known ones alone",
+    actual: seedPartyIndexEntries(parsedPartyIndex, [
+      {
+        id: "party-c",
+        displayName: "Ignored rename",
+        lastOpenedAt: "2026-09-01T00:00:00.000Z",
+      },
+      {
+        id: "party-d",
+        displayName: "Delta",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+    ]),
+    expected: [
+      {
+        id: "party-b",
+        displayName: "New Party",
+        lastOpenedAt: "2026-03-01T00:00:00.000Z",
+      },
+      {
+        id: "party-a",
+        displayName: "Alpha",
+        lastOpenedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "party-d",
+        displayName: "Delta",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+      {
+        id: "party-c",
+        displayName: "Gamma",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+    ],
+  },
+  {
+    name: "party index seeds once from stored party states",
+    actual: partyIndexStorageRun.seededIndex,
+    expected: [
+      {
+        id: "party-old",
+        displayName: "Old Table",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+      {
+        id: "party-older",
+        displayName: "Older Table",
+        lastOpenedAt: "1970-01-01T00:00:00.000Z",
+      },
+    ],
+  },
+  {
+    name: "party index records opens and renames without losing the open time",
+    actual: {
+      opened: partyIndexStorageRun.openedIndex,
+      renamed: partyIndexStorageRun.renamedIndex,
+    },
+    expected: {
+      opened: [
+        {
+          id: "party-old",
+          displayName: "Old Table",
+          lastOpenedAt: "2026-09-05T09:00:00.000Z",
+        },
+        {
+          id: "party-older",
+          displayName: "Older Table",
+          lastOpenedAt: "1970-01-01T00:00:00.000Z",
+        },
+      ],
+      renamed: [
+        {
+          id: "party-old",
+          displayName: "Renamed Table",
+          lastOpenedAt: "2026-09-05T09:00:00.000Z",
+        },
+        {
+          id: "party-older",
+          displayName: "Older Table",
+          lastOpenedAt: "1970-01-01T00:00:00.000Z",
+        },
+      ],
+    },
+  },
+  {
+    name: "forgetting a party keeps its stored state and is not re-seeded",
+    actual: {
+      forgotten: partyIndexStorageRun.forgottenIndex,
+      reread: partyIndexStorageRun.rereadIndex,
+      forgottenPartyStateRemains:
+        partyIndexStorageRun.forgottenPartyStateRemains,
+      deletedPartyStateRemains: partyIndexStorageRun.deletedPartyStateRemains,
+    },
+    expected: {
+      forgotten: [
+        {
+          id: "party-old",
+          displayName: "Renamed Table",
+          lastOpenedAt: "2026-09-05T09:00:00.000Z",
+        },
+      ],
+      reread: [
+        {
+          id: "party-old",
+          displayName: "Renamed Table",
+          lastOpenedAt: "2026-09-05T09:00:00.000Z",
+        },
+      ],
+      forgottenPartyStateRemains: true,
+      deletedPartyStateRemains: false,
     },
   },
 ];

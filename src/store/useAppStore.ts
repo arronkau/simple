@@ -17,13 +17,19 @@ import {
 import {
   createPartyState,
   createEmptyAppState,
+  deleteLocalPartyState,
+  forgetIndexedParty,
   migratePartyMembership,
   normalizePartyDisplayName,
   readLocalPartyStateResult,
   repairPartyMembership,
+  readPartyIndex,
+  rememberOpenedParty,
+  renameIndexedParty,
   writeLocalPartyState,
   type AppState,
   type PartyId,
+  type PartyIndexEntry,
   type PartyState,
 } from "../model/appState";
 import {
@@ -96,6 +102,7 @@ import {
 } from "../model/partyInvite";
 import { getRuntimeFirebaseConfig } from "../persistence/firebaseConfig";
 import {
+  deletePartyDocument,
   linkOrSignInWithGoogle,
   signOutFirebase,
   startFirebaseAppStateSync,
@@ -115,6 +122,10 @@ export type AccountActionResult = { ok: true } | { ok: false; message: string };
 
 export type PartyActionResult = { ok: true } | { ok: false; message: string };
 
+export type DeletePartyResult =
+  | { ok: true; nextPartyId: PartyId }
+  | { ok: false; message: string };
+
 type AppStore = {
   appState: AppState;
   authAccount?: FirebaseAuthAccount;
@@ -122,6 +133,7 @@ type AppStore = {
   gmUid?: string;
   inviteCode?: string;
   members?: PartyMembers;
+  parties: PartyIndexEntry[];
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
@@ -135,6 +147,12 @@ type AppStore = {
   signInWithGoogle: () => Promise<AccountActionResult>;
   signOutAccount: () => Promise<AccountActionResult>;
   setCurrentParty: (partyId: PartyId) => void;
+  createParty: () => PartyId;
+  forgetParty: (
+    partyId: PartyId,
+    options?: { deleteStoredData?: boolean },
+  ) => PartyActionResult;
+  deleteCurrentParty: () => Promise<DeletePartyResult>;
   userProfiles: UserProfile[];
   createEntity: (input: CreateEntityStoreInput) => EntityId | undefined;
   updateEntity: (entityId: EntityId, input: UpdateEntityInput) => void;
@@ -251,6 +269,7 @@ export const useAppStore = create<AppStore>((set) => ({
   gmUid: initialPartyState.party.gmUid,
   inviteCode: initialPartyState.party.inviteCode,
   members: initialPartyState.party.members,
+  parties: readPartyIndex(),
   partyDisplayName: initialPartyState.party.displayName,
   partyId: initialPartyState.party.id,
   persistenceMode,
@@ -290,7 +309,12 @@ export const useAppStore = create<AppStore>((set) => ({
       } catch {
         return state;
       }
-      return { partyDisplayName: normalizePartyDisplayName(displayName) };
+      const partyDisplayName = normalizePartyDisplayName(displayName);
+
+      return {
+        partyDisplayName,
+        parties: renameIndexedParty(state.partyId, partyDisplayName),
+      };
     });
   },
   regenerateInviteCode: () => {
@@ -369,7 +393,9 @@ export const useAppStore = create<AppStore>((set) => ({
     let partyChanged = false;
     set((state) => {
       if (state.partyId === partyId) {
-        return state;
+        // Re-selecting the open party is still an open: keep it on top of
+        // the recent list.
+        return { parties: rememberOpenedParty(partyId, state.partyDisplayName) };
       }
 
       partyChanged = true;
@@ -388,6 +414,7 @@ export const useAppStore = create<AppStore>((set) => ({
         gmUid: partyState.party.gmUid,
         inviteCode: partyState.party.inviteCode,
         members: partyState.party.members,
+        parties: rememberOpenedParty(partyId, partyState.party.displayName),
         userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
         partyId: partyState.party.id,
@@ -402,6 +429,85 @@ export const useAppStore = create<AppStore>((set) => ({
     if (partyChanged && firebaseConfig && canStartFirebaseSync()) {
       void startConfiguredFirebaseSync();
     }
+  },
+  createParty: () => {
+    const partyId = createPartyId();
+    const partyState = createPartyState({ partyId });
+
+    // Local mode owns party creation outright. In Firebase mode the party
+    // document is created by the existing sync path once the party opens.
+    if (persistenceMode === "local") {
+      writeLocalPartyState(partyState);
+    }
+
+    set({
+      parties: rememberOpenedParty(partyId, partyState.party.displayName),
+    });
+
+    return partyId;
+  },
+  forgetParty: (partyId, options): PartyActionResult => {
+    if (partyId === useAppStore.getState().partyId) {
+      return {
+        ok: false,
+        message: "Open another party before forgetting this one.",
+      };
+    }
+
+    if (options?.deleteStoredData) {
+      deleteLocalPartyState(partyId);
+      clearLastPartyId(partyId);
+    }
+
+    set({ parties: forgetIndexedParty(partyId) });
+
+    return { ok: true };
+  },
+  deleteCurrentParty: async (): Promise<DeletePartyResult> => {
+    const state = useAppStore.getState();
+    const role = getStateUserRole(state);
+
+    try {
+      assertStorePartyAction(role, "deleteParty");
+    } catch {
+      return { ok: false, message: "Only the GM can delete this party." };
+    }
+
+    const deletedPartyId = state.partyId;
+
+    // Stop the subscription first: a subscribed client treats a missing party
+    // document as one it must create, and would write this party straight back.
+    stopConfiguredFirebaseSync();
+    resetFirebaseWriteQueue();
+
+    if (firebaseConfig) {
+      const deleteResult = await deletePartyDocument(
+        firebaseConfig,
+        deletedPartyId,
+      );
+
+      if (!deleteResult.ok) {
+        // Nothing was deleted, so put the party back on sync.
+        if (canStartFirebaseSync()) {
+          void startConfiguredFirebaseSync();
+        }
+
+        return deleteResult;
+      }
+    }
+
+    deleteLocalPartyState(deletedPartyId);
+    clearLastPartyId(deletedPartyId);
+
+    const remainingParties = forgetIndexedParty(deletedPartyId);
+
+    set({ parties: remainingParties });
+
+    // The caller navigates to this party, which loads it through the route.
+    const nextPartyId =
+      remainingParties[0]?.id ?? useAppStore.getState().createParty();
+
+    return { ok: true, nextPartyId };
   },
   createEntity: (input) => {
     const name = input.name.trim();
@@ -3004,6 +3110,21 @@ function writeLastPartyId(partyId: PartyId): void {
     window.localStorage.setItem(LAST_PARTY_ID_STORAGE_KEY, partyId);
   } catch {
     // Storage can fail in private contexts or when quota is exceeded.
+  }
+}
+
+/** Forgets the last-opened party when it is the one being deleted. */
+function clearLastPartyId(partyId: PartyId): void {
+  if (typeof window === "undefined" || !("localStorage" in window)) {
+    return;
+  }
+
+  try {
+    if (window.localStorage.getItem(LAST_PARTY_ID_STORAGE_KEY) === partyId) {
+      window.localStorage.removeItem(LAST_PARTY_ID_STORAGE_KEY);
+    }
+  } catch {
+    // Storage can fail in private contexts.
   }
 }
 

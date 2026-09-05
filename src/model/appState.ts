@@ -48,6 +48,13 @@ export type PartyState = {
   userProfiles: UserProfile[];
 };
 
+/** One party this device knows about. Local-only; never written to Firestore. */
+export type PartyIndexEntry = {
+  id: PartyId;
+  displayName: string;
+  lastOpenedAt: ISODateTimeString;
+};
+
 export type ParseResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string; path?: string };
@@ -69,6 +76,10 @@ export const APP_STATE_STORAGE_KEY = "simple.inventory.appState.v1";
 export const PARTY_STATE_STORAGE_KEY_PREFIX = "simple.inventory.partyState.v1.";
 export const CORRUPT_PARTY_STATE_STORAGE_KEY_PREFIX =
   "simple.inventory.partyState.corrupt.v1.";
+export const PARTY_INDEX_STORAGE_KEY = "simple.inventory.parties.v1";
+
+// Seeded entries sort below anything actually opened on this device.
+const NEVER_OPENED_AT = "1970-01-01T00:00:00.000Z";
 
 export const EMPTY_APP_STATE: AppState = {
   schemaVersion: 1,
@@ -398,6 +409,234 @@ export function writeLocalPartyState(partyState: PartyState): void {
   } catch {
     // Storage can fail in private contexts or when quota is exceeded.
   }
+}
+
+export function deleteLocalPartyState(partyId: PartyId): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(getLocalPartyStateStorageKey(partyId));
+  } catch {
+    // Storage can fail in private contexts.
+  }
+}
+
+// ---- Party index ----
+// A per-device list of the parties this browser knows about, so a party can be
+// reopened without its URL. It is local in both persistence modes: Firebase
+// holds party documents, not a per-user list of them.
+
+export function parsePartyIndex(value: unknown): PartyIndexEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const entries: PartyIndexEntry[] = [];
+
+  for (const candidateEntry of value) {
+    if (!isRecordLike(candidateEntry)) {
+      continue;
+    }
+
+    const { displayName, id, lastOpenedAt } = candidateEntry;
+
+    if (typeof id !== "string" || id.length === 0) {
+      continue;
+    }
+
+    if (entries.some((entry) => entry.id === id)) {
+      continue;
+    }
+
+    entries.push({
+      id,
+      displayName: normalizePartyDisplayName(
+        typeof displayName === "string" ? displayName : "",
+      ),
+      lastOpenedAt:
+        typeof lastOpenedAt === "string" && lastOpenedAt.length > 0
+          ? lastOpenedAt
+          : NEVER_OPENED_AT,
+    });
+  }
+
+  return sortPartyIndexEntries(entries);
+}
+
+export function upsertPartyIndexEntry(
+  entries: PartyIndexEntry[],
+  entry: PartyIndexEntry,
+): PartyIndexEntry[] {
+  return sortPartyIndexEntries([
+    ...entries.filter((candidateEntry) => candidateEntry.id !== entry.id),
+    {
+      id: entry.id,
+      displayName: normalizePartyDisplayName(entry.displayName),
+      lastOpenedAt: entry.lastOpenedAt,
+    },
+  ]);
+}
+
+export function removePartyIndexEntry(
+  entries: PartyIndexEntry[],
+  partyId: PartyId,
+): PartyIndexEntry[] {
+  return entries.filter((entry) => entry.id !== partyId);
+}
+
+/** Adds discovered parties the index does not list yet; known ids stay as they are. */
+export function seedPartyIndexEntries(
+  entries: PartyIndexEntry[],
+  discoveredEntries: PartyIndexEntry[],
+): PartyIndexEntry[] {
+  return discoveredEntries.reduce(
+    (seededEntries, discoveredEntry) =>
+      seededEntries.some((entry) => entry.id === discoveredEntry.id)
+        ? seededEntries
+        : upsertPartyIndexEntry(seededEntries, discoveredEntry),
+    entries,
+  );
+}
+
+/**
+ * Reads the party index, seeding it once from party states already stored on
+ * this device so parties created before the index existed stay reachable.
+ */
+export function readPartyIndex(): PartyIndexEntry[] {
+  if (!canUseLocalStorage()) {
+    return [];
+  }
+
+  let storedValue: string | null = null;
+
+  try {
+    storedValue = window.localStorage.getItem(PARTY_INDEX_STORAGE_KEY);
+  } catch {
+    return [];
+  }
+
+  if (storedValue !== null) {
+    try {
+      return parsePartyIndex(JSON.parse(storedValue));
+    } catch {
+      return [];
+    }
+  }
+
+  const seededEntries = seedPartyIndexEntries([], listStoredLocalParties());
+
+  writePartyIndex(seededEntries);
+
+  return seededEntries;
+}
+
+export function writePartyIndex(entries: PartyIndexEntry[]): void {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      PARTY_INDEX_STORAGE_KEY,
+      JSON.stringify(entries),
+    );
+  } catch {
+    // Storage can fail in private contexts or when quota is exceeded.
+  }
+}
+
+/** Every party with stored local state, used to seed the index once. */
+export function listStoredLocalParties(): PartyIndexEntry[] {
+  const entries: PartyIndexEntry[] = [];
+
+  if (!canUseLocalStorage()) {
+    return entries;
+  }
+
+  try {
+    const storage = window.localStorage;
+
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+
+      if (!key || !key.startsWith(PARTY_STATE_STORAGE_KEY_PREFIX)) {
+        continue;
+      }
+
+      const partyId = key.slice(PARTY_STATE_STORAGE_KEY_PREFIX.length);
+
+      if (partyId.length === 0) {
+        continue;
+      }
+
+      entries.push({
+        id: partyId,
+        displayName: readLocalPartyState(partyId).party.displayName,
+        lastOpenedAt: NEVER_OPENED_AT,
+      });
+    }
+  } catch {
+    return entries;
+  }
+
+  return entries;
+}
+
+export function rememberOpenedParty(
+  partyId: PartyId,
+  displayName: string,
+  openedAt: ISODateTimeString = new Date().toISOString(),
+): PartyIndexEntry[] {
+  const entries = upsertPartyIndexEntry(readPartyIndex(), {
+    id: partyId,
+    displayName,
+    lastOpenedAt: openedAt,
+  });
+
+  writePartyIndex(entries);
+
+  return entries;
+}
+
+export function renameIndexedParty(
+  partyId: PartyId,
+  displayName: string,
+): PartyIndexEntry[] {
+  const entries = readPartyIndex();
+  const existingEntry = entries.find((entry) => entry.id === partyId);
+  const renamedEntries = upsertPartyIndexEntry(entries, {
+    id: partyId,
+    displayName,
+    lastOpenedAt: existingEntry?.lastOpenedAt ?? new Date().toISOString(),
+  });
+
+  writePartyIndex(renamedEntries);
+
+  return renamedEntries;
+}
+
+export function forgetIndexedParty(partyId: PartyId): PartyIndexEntry[] {
+  const entries = removePartyIndexEntry(readPartyIndex(), partyId);
+
+  writePartyIndex(entries);
+
+  return entries;
+}
+
+function sortPartyIndexEntries(entries: PartyIndexEntry[]): PartyIndexEntry[] {
+  return [...entries].sort((leftEntry, rightEntry) => {
+    if (leftEntry.lastOpenedAt !== rightEntry.lastOpenedAt) {
+      return leftEntry.lastOpenedAt < rightEntry.lastOpenedAt ? 1 : -1;
+    }
+
+    if (leftEntry.displayName !== rightEntry.displayName) {
+      return leftEntry.displayName < rightEntry.displayName ? -1 : 1;
+    }
+
+    return leftEntry.id < rightEntry.id ? -1 : 1;
+  });
 }
 
 export function readLocalAppState(): AppState {

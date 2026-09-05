@@ -2434,3 +2434,81 @@ export const ACTION_ROLE_STORE_MANUAL_FIXTURES = [
     expected: "This party has not finished loading. Try again in a moment.",
   },
 ];
+
+// --- Party management phase (create / forget / delete) ---
+// Storage is unavailable in this environment, so the party index stays empty;
+// what is asserted here is the store's own create/forget/delete contract.
+
+useAppStore.setState({
+  currentUserId: "uid-gm",
+  gmUid: "uid-gm",
+  members: {
+    "uid-gm": { role: "gm" as const },
+    "uid-player": { role: "player" as const },
+  },
+});
+
+const partyManagementCurrentId = useAppStore.getState().partyId;
+const partyManagementCreatedId = useAppStore.getState().createParty();
+const partyManagementForgetCurrentResult = useAppStore
+  .getState()
+  .forgetParty(partyManagementCurrentId);
+const partyManagementForgetOtherResult = useAppStore
+  .getState()
+  .forgetParty(partyManagementCreatedId);
+
+useAppStore.setState({ currentUserId: "uid-player" });
+const partyManagementPlayerDeleteResult = await useAppStore
+  .getState()
+  .deleteCurrentParty();
+
+useAppStore.setState({ currentUserId: "uid-gm" });
+const partyManagementGmDeleteResult = await useAppStore
+  .getState()
+  .deleteCurrentParty();
+
+export const PARTY_MANAGEMENT_STORE_MANUAL_FIXTURES = [
+  {
+    name: "createParty returns a new party id and leaves the open party alone",
+    actual: {
+      createdIsNew: partyManagementCreatedId !== partyManagementCurrentId,
+      createdIsPartyId: partyManagementCreatedId.startsWith("party-"),
+      openPartyUnchanged:
+        useAppStore.getState().partyId === partyManagementCurrentId,
+    },
+    expected: {
+      createdIsNew: true,
+      createdIsPartyId: true,
+      openPartyUnchanged: true,
+    },
+  },
+  {
+    name: "forgetting the open party is refused, forgetting another is not",
+    actual: {
+      current: partyManagementForgetCurrentResult,
+      other: partyManagementForgetOtherResult,
+    },
+    expected: {
+      current: {
+        ok: false,
+        message: "Open another party before forgetting this one.",
+      },
+      other: { ok: true },
+    },
+  },
+  {
+    name: "only the GM can delete the open party",
+    actual: {
+      player: partyManagementPlayerDeleteResult,
+      gmOk: partyManagementGmDeleteResult.ok,
+      gmOpensAnotherParty: partyManagementGmDeleteResult.ok
+        ? partyManagementGmDeleteResult.nextPartyId !== partyManagementCurrentId
+        : false,
+    },
+    expected: {
+      player: { ok: false, message: "Only the GM can delete this party." },
+      gmOk: true,
+      gmOpensAnotherParty: true,
+    },
+  },
+];

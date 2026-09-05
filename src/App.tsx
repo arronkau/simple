@@ -4,6 +4,7 @@ import {
   NavLink,
   Route,
   Routes,
+  useNavigate,
   useParams,
 } from "react-router-dom";
 import {
@@ -29,7 +30,11 @@ import { ManageDataModal } from "./modals/ManageDataModal";
 import { UserIdentityModal } from "./modals/UserIdentityModal";
 import { DeleteConfirmationModal } from "./modals/DeleteConfirmationModal";
 import { AuditPage } from "./audit/AuditPage";
-import { useAppStore, createPartyId } from "./store/useAppStore";
+import {
+  useAppStore,
+  createPartyId,
+  type PartyActionResult,
+} from "./store/useAppStore";
 import {
   EMPTY_ENTITY_FORM,
   type CoinSpendFormState,
@@ -71,6 +76,10 @@ function LocalAppShell() {
   const syncStatus = useAppStore((state) => state.syncStatus);
   const renameParty = useAppStore((state) => state.renameParty);
   const setCurrentParty = useAppStore((state) => state.setCurrentParty);
+  const parties = useAppStore((state) => state.parties);
+  const createParty = useAppStore((state) => state.createParty);
+  const forgetParty = useAppStore((state) => state.forgetParty);
+  const deleteCurrentParty = useAppStore((state) => state.deleteCurrentParty);
   const updateCurrentUserProfile = useAppStore(
     (state) => state.updateCurrentUserProfile,
   );
@@ -160,6 +169,7 @@ function LocalAppShell() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<
     DeleteConfirmationState | undefined
   >();
+  const navigate = useNavigate();
   const currentUserProfile = userProfiles.find(
     (profile) => profile.id === currentUserId,
   );
@@ -193,6 +203,26 @@ function LocalAppShell() {
 
   if (!partyId) {
     return <Navigate to={`/party/${createPartyId()}`} replace />;
+  }
+
+  function createAndOpenParty() {
+    const newPartyId = createParty();
+
+    setManageModalOpen(false);
+    navigate(`/party/${newPartyId}`);
+  }
+
+  async function deleteCurrentPartyAndLeave(): Promise<PartyActionResult> {
+    const result = await deleteCurrentParty();
+
+    if (!result.ok) {
+      return result;
+    }
+
+    setManageModalOpen(false);
+    navigate(`/party/${result.nextPartyId}`);
+
+    return { ok: true };
   }
 
   function openIdentityModal() {
@@ -600,11 +630,15 @@ function LocalAppShell() {
             authAccount={authAccount}
             currentUserPartyRole={currentUserPartyRole}
             inviteCode={inviteCode}
+            parties={parties}
             partyDisplayName={partyDisplayName}
             partyId={activePartyId}
             persistenceMode={persistenceMode}
             onClearAuditLog={clearAuditLog}
             onClose={() => setManageModalOpen(false)}
+            onCreateParty={createAndOpenParty}
+            onDeleteParty={deleteCurrentPartyAndLeave}
+            onForgetParty={forgetParty}
             onImportAppState={replaceAppState}
             onRegenerateInviteCode={regenerateInviteCode}
             onRenameParty={renameParty}

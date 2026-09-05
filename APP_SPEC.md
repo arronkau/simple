@@ -79,6 +79,7 @@ Firebase mode should:
 - Let the GM share an invite link (`/party/{partyId}?invite={inviteCode}`). Opening it as a non-member adds the user to `party.members` as a player. The GM can regenerate the invite code to invalidate old links.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
+- Let the GM delete the party, which removes the party document for every member. Deletion is GM-only in both enforcement layers.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
 
 Firestore's wire shape, field-level merge behavior, and legacy-document upgrade path are defined in [SYNC_SPEC.md](SYNC_SPEC.md).
@@ -95,7 +96,24 @@ Local mode should:
 - Require no cloud setup.
 - Support local development, demos, and single-table play.
 - Preserve the same visible app behavior except for unavailable sync.
+- Hide affordances that grant nothing without Firebase, such as the account section and the invite link. The party URL still works, since it selects the party on this device.
+- Let the GM delete the party, which removes its stored party state.
 - Persist audit entries in the same app-state document shape used by Firebase mode.
+
+### Parties On A Device
+
+The app is multi-party, and a browser keeps a local party index at
+`simple.inventory.parties.v1`: an array of `{ id, displayName, lastOpenedAt }`
+entries, one per party this device knows about. The index is local in both
+modes — Firebase stores party documents, not a per-user list of them — and is
+never written to Firestore.
+
+- Seed the index once from any party states already stored under `simple.inventory.partyState.v1.*`, so parties created before the index existed stay reachable.
+- Record a party in the index when it is opened, and update its entry when it is renamed.
+- Creating a party mints a new party id and opens it. Local mode writes the new empty party state at once; Firebase mode leaves creation to the sync path that runs when the party opens.
+- Forgetting a party removes its index entry only. The party's data stays where it is — the stored party state in local mode, the party document in Firebase mode — and its URL still opens it. Local mode also offers erasing the stored party state, behind a typed confirmation.
+- Deleting a party is GM-only. Firebase mode deletes the party document first (stopping sync before the delete, because a subscribed client treats a missing document as one it must create). Both modes then drop the stored party state, the index entry, and the last-opened party id, and open the most recently used remaining party, creating a new one if none is left.
+- Resetting data is a different action: it empties the party's entities, inventory, and audit log and keeps the party, its name, and its members.
 
 ## Design Constraints
 
@@ -271,6 +289,7 @@ Optional modal sections expose container data, unidentified data, light source d
 The app should eventually include:
 
 - Party overview
+- Party management: create a party, open a recent one, forget one, and delete the open party
 - Character/entity detail view
 - Inventory view
 - Record add/edit modal

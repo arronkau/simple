@@ -390,6 +390,39 @@ export async function linkOrSignInWithGoogle(
   }
 }
 
+export type DeletePartyDocumentResult =
+  | { ok: true }
+  | { ok: false; message: string };
+
+/**
+ * Removes the party document. Only the GM may do this (see the delete rule in
+ * firestore.rules); callers must stop the snapshot subscription first, because
+ * a subscribed client recreates a party document that disappears under it.
+ */
+export async function deletePartyDocument(
+  config: FirebaseConfig,
+  partyId: PartyId,
+): Promise<DeletePartyDocumentResult> {
+  try {
+    const { app, firestore } = await loadFirebase(config);
+    const database = firestore.getFirestore(app);
+
+    await firestore.deleteDoc(
+      firestore.doc(database, FIREBASE_PARTY_STATE_COLLECTION, partyId),
+    );
+
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      message:
+        getFirebaseErrorCode(error) === "permission-denied"
+          ? "Only the GM can delete this party."
+          : formatFirebaseError(error),
+    };
+  }
+}
+
 export async function signOutFirebase(config: FirebaseConfig): Promise<void> {
   const { authModule, auth } = await loadFirebase(config);
   await authModule.signOut(auth);

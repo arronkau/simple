@@ -2511,6 +2511,13 @@ fieldset.record-form-body {
   align-items: center;
 }
 
+/* Party links in the manage modal sit in a row of buttons. */
+a.file-button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 .file-button input {
   position: absolute;
   width: 1px;

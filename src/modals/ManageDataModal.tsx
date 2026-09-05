@@ -1,9 +1,11 @@
 import { type ChangeEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   parseAppState,
   parseAppStateResult,
   type ParseResult,
   type PartyId,
+  type PartyIndexEntry,
 } from "../model/appState";
 import type { AppState } from "../model/appState";
 import { AUDIT_LOG_MAX_ENTRIES } from "../model/auditLog";
@@ -22,11 +24,15 @@ export function ManageDataModal({
   authAccount,
   currentUserPartyRole,
   inviteCode,
+  parties,
   partyDisplayName,
   partyId,
   persistenceMode,
   onClearAuditLog,
   onClose,
+  onCreateParty,
+  onDeleteParty,
+  onForgetParty,
   onImportAppState,
   onRegenerateInviteCode,
   onRenameParty,
@@ -38,11 +44,18 @@ export function ManageDataModal({
   authAccount?: FirebaseAuthAccount;
   currentUserPartyRole: PartyRole | null;
   inviteCode?: string;
+  parties: PartyIndexEntry[];
   partyDisplayName: string;
   partyId: PartyId;
   persistenceMode: PersistenceMode;
   onClearAuditLog: () => PartyActionResult;
   onClose: () => void;
+  onCreateParty: () => void;
+  onDeleteParty: () => Promise<PartyActionResult>;
+  onForgetParty: (
+    partyId: PartyId,
+    options?: { deleteStoredData?: boolean },
+  ) => PartyActionResult;
   onImportAppState: (appState: AppState) => void;
   onRegenerateInviteCode: () => void;
   onRenameParty: (displayName: string) => void;
@@ -62,12 +75,26 @@ export function ManageDataModal({
   const [copiedField, setCopiedField] = useState<"url" | "invite" | undefined>();
   const [accountMessage, setAccountMessage] = useState<ManageMessage | undefined>();
   const [accountBusy, setAccountBusy] = useState(false);
+  const [forgetPartyId, setForgetPartyId] = useState<PartyId | undefined>();
+  const [forgetConfirmation, setForgetConfirmation] = useState("");
+  const [partiesMessage, setPartiesMessage] = useState<
+    ManageMessage | undefined
+  >();
+  const [deletePartyConfirmation, setDeletePartyConfirmation] = useState("");
+  const [deletePartyBusy, setDeletePartyBusy] = useState(false);
+  const [deletePartyMessage, setDeletePartyMessage] = useState<
+    ManageMessage | undefined
+  >();
   const isGm = currentUserPartyRole === "gm";
   const isFirebase = persistenceMode === "firebase";
   const importEnabled =
     isGm && pendingImportAppState !== undefined && importConfirmation === "import";
   const resetEnabled = isGm && resetConfirmation === "delete";
   const clearAuditEnabled = isGm && clearAuditConfirmation === "clear";
+  const deletePartyEnabled =
+    isGm && !deletePartyBusy && deletePartyConfirmation === "delete";
+  const otherParties = parties.filter((party) => party.id !== partyId);
+  const forgetParty = otherParties.find((party) => party.id === forgetPartyId);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const partyUrl = `${origin}/party/${partyId}`;
   const inviteUrl = inviteCode ? buildInviteUrl(origin, partyId, inviteCode) : undefined;
@@ -188,6 +215,56 @@ export function ManageDataModal({
     );
   }
 
+  function startForgettingParty(party: PartyIndexEntry) {
+    setForgetPartyId(party.id);
+    setForgetConfirmation("");
+    setPartiesMessage(undefined);
+  }
+
+  function cancelForgettingParty() {
+    setForgetPartyId(undefined);
+    setForgetConfirmation("");
+  }
+
+  function confirmForgetParty(deleteStoredData: boolean) {
+    if (!forgetParty) {
+      return;
+    }
+
+    const result = onForgetParty(forgetParty.id, { deleteStoredData });
+
+    if (!result.ok) {
+      setPartiesMessage({ tone: "error", text: result.message });
+      return;
+    }
+
+    setPartiesMessage({
+      tone: "success",
+      text: deleteStoredData
+        ? `Deleted “${forgetParty.displayName}” from this browser.`
+        : `Removed “${forgetParty.displayName}” from this list.`,
+    });
+    cancelForgettingParty();
+  }
+
+  async function deleteThisParty() {
+    setDeletePartyBusy(true);
+    setDeletePartyMessage(undefined);
+
+    try {
+      const result = await onDeleteParty();
+
+      if (!result.ok) {
+        setDeletePartyMessage({ tone: "error", text: result.message });
+        return;
+      }
+
+      setDeletePartyConfirmation("");
+    } finally {
+      setDeletePartyBusy(false);
+    }
+  }
+
   function confirmImport() {
     if (!pendingImportAppState || !importEnabled) {
       return;
@@ -243,7 +320,7 @@ export function ManageDataModal({
                 {copiedField === "url" ? "Copied" : "Copy"}
               </button>
             </div>
-            {isGm && inviteUrl ? (
+            {isGm && isFirebase && inviteUrl ? (
               <>
                 <div className="manage-row">
                   <label className="manage-grow">
@@ -271,6 +348,92 @@ export function ManageDataModal({
               <p className="field-help">
                 New players need an invite link from the GM. The party URL alone
                 does not grant access.
+              </p>
+            ) : null}
+          </section>
+
+          <section className="manage-section">
+            <h5>Parties</h5>
+            <div className="manage-row">
+              <button type="button" onClick={onCreateParty}>
+                New party
+              </button>
+              <p className="manage-grow">
+                Creates an empty party and opens it. This party is left
+                untouched.
+              </p>
+            </div>
+            {otherParties.length > 0 ? (
+              otherParties.map((party) => (
+                <div className="manage-row" key={party.id}>
+                  <span className="manage-grow">{party.displayName}</span>
+                  <Link
+                    className="file-button"
+                    to={`/party/${party.id}`}
+                    onClick={onClose}
+                  >
+                    Open
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => startForgettingParty(party)}
+                  >
+                    Forget
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p className="field-help">
+                No other parties on this device. Opening a party URL adds it here.
+              </p>
+            )}
+            {forgetParty ? (
+              <>
+                <div className="manage-row">
+                  <span className="manage-grow">
+                    Forget “{forgetParty.displayName}”?{" "}
+                    {isFirebase
+                      ? "It stays in Firebase and can be opened again by URL."
+                      : "Its data stays in this browser and can be opened again by URL."}
+                  </span>
+                  <button type="button" onClick={() => confirmForgetParty(false)}>
+                    Remove from list
+                  </button>
+                  <button type="button" onClick={cancelForgettingParty}>
+                    Cancel
+                  </button>
+                </div>
+                {!isFirebase ? (
+                  <div className="manage-row">
+                    <label className="manage-grow">
+                      <span>Type “delete” to also erase its stored data</span>
+                      <input
+                        autoComplete="off"
+                        value={forgetConfirmation}
+                        onChange={(event) =>
+                          setForgetConfirmation(event.target.value)
+                        }
+                      />
+                    </label>
+                    <button
+                      className="danger-button"
+                      disabled={forgetConfirmation !== "delete"}
+                      type="button"
+                      onClick={() => confirmForgetParty(true)}
+                    >
+                      Forget and delete
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
+            {partiesMessage ? (
+              <p
+                className={
+                  partiesMessage.tone === "error" ? "form-error" : "form-success"
+                }
+              >
+                {partiesMessage.text}
               </p>
             ) : null}
           </section>
@@ -393,6 +556,10 @@ export function ManageDataModal({
                   Reset data
                 </button>
               </div>
+              <p className="field-help">
+                Reset empties this party — entities, inventory, and audit log —
+                and keeps the party itself, its name, and its members.
+              </p>
               <div className="manage-row">
                 <label className="manage-grow">
                   <span>Type “clear” to clear the audit log</span>
@@ -425,6 +592,42 @@ export function ManageDataModal({
                   }
                 >
                   {auditMessage.text}
+                </p>
+              ) : null}
+              <div className="manage-row">
+                <label className="manage-grow">
+                  <span>Type “delete” to delete this party</span>
+                  <input
+                    autoComplete="off"
+                    value={deletePartyConfirmation}
+                    onChange={(event) =>
+                      setDeletePartyConfirmation(event.target.value)
+                    }
+                  />
+                </label>
+                <button
+                  className="danger-button"
+                  disabled={!deletePartyEnabled}
+                  type="button"
+                  onClick={deleteThisParty}
+                >
+                  Delete party
+                </button>
+              </div>
+              <p className="field-help">
+                {isFirebase
+                  ? "Delete removes the whole party from Firebase for every member, then opens another party."
+                  : "Delete removes the whole party from this browser, then opens another party."}
+              </p>
+              {deletePartyMessage ? (
+                <p
+                  className={
+                    deletePartyMessage.tone === "error"
+                      ? "form-error"
+                      : "form-success"
+                  }
+                >
+                  {deletePartyMessage.text}
                 </p>
               ) : null}
             </section>
