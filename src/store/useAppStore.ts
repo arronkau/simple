@@ -14,6 +14,7 @@ import {
   normalizeCharacterData,
   validateCharacterData,
 } from "../model/characters";
+import { createMissingRosterSkills } from "../model/classContent";
 import {
   createPartyState,
   createEmptyAppState,
@@ -552,12 +553,28 @@ export const useAppStore = create<AppStore>((set) => ({
     const backpackId = createId("record");
 
     set((state) => {
-      const entity = createEntity({
+      const createdEntity = createEntity({
         id: entityId,
         name,
         entityType: input.entityType,
         sortOrder: getNextEntitySortOrder(state.appState.entities),
       });
+      // Every character starts with the rule system's common d6 skills (open
+      // doors and the like), the way it starts with a backpack.
+      const entity = createdEntity.character
+        ? {
+            ...createdEntity,
+            character: {
+              ...createdEntity.character,
+              skills: createMissingRosterSkills(
+                createdEntity.character.className,
+                createdEntity.character.skills,
+                createdEntity.character.abilityScores.strength,
+                () => createId("skill"),
+              ),
+            },
+          }
+        : createdEntity;
 
       const inventoryRecords = createInitialInventoryRecordsForEntity({
         entity,
@@ -2231,9 +2248,10 @@ if (firebaseConfig && canStartFirebaseSync()) {
 function createId(prefix: "entity"): EntityId;
 function createId(prefix: "record"): InventoryRecordId;
 function createId(prefix: "audit"): AuditLogEntryId;
+function createId(prefix: "skill"): string;
 function createId(
-  prefix: "audit" | "entity" | "record",
-): AuditLogEntryId | EntityId | InventoryRecordId {
+  prefix: "audit" | "entity" | "record" | "skill",
+): AuditLogEntryId | EntityId | InventoryRecordId | string {
   const randomId =
     globalThis.crypto?.randomUUID?.() ??
     `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;

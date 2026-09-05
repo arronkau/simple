@@ -16,9 +16,13 @@ export type SystemContentFile = {
 
 /**
  * Picks the library to use: the merged system files when at least one system
- * provides this kind of file, otherwise the bundled skeleton. System files are
- * merged by entry id in path order, later paths winning, so two systems can be
- * in play at once. A file without the expected collection is skipped.
+ * provides this kind of file, otherwise the bundled skeleton. The keyed
+ * collection (`spellLists`, `classes`) is merged by entry id in path order,
+ * later paths winning, so two systems can be in play at once; every other
+ * top-level field (metadata, library-wide lists such as `commonSkills`) is
+ * taken from the system files in the same order, later files winning, and
+ * falls back to the skeleton's value. A file without the expected collection
+ * is skipped.
  */
 export function resolveContentLibrary<
   Key extends string,
@@ -33,7 +37,9 @@ export function resolveContentLibrary<
     .flatMap((file) => {
       const collection = getCollection(file.content, collectionKey);
 
-      return collection ? [collection] : [];
+      return collection
+        ? [{ fields: file.content as Record<string, unknown>, collection }]
+        : [];
     });
 
   if (usable.length === 0) {
@@ -42,7 +48,8 @@ export function resolveContentLibrary<
 
   return {
     ...skeleton,
-    [collectionKey]: Object.assign({}, ...usable),
+    ...Object.assign({}, ...usable.map((file) => file.fields)),
+    [collectionKey]: Object.assign({}, ...usable.map((file) => file.collection)),
   };
 }
 

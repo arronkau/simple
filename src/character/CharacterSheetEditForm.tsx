@@ -11,12 +11,12 @@ import {
   normalizeCharacterData,
 } from "../model/characters";
 import {
+  applyClassSkillBases,
+  applyStrengthToOpenDoors,
+  createMissingRosterSkills,
   getClassContentLookup,
   getClassSpellListId,
-  getMissingClassSkills,
 } from "../model/classContent";
-import { getAbilityModifier } from "../model/abilityModifiers";
-import { normalizeContentName } from "../model/spellLibrary";
 import {
   ENTITY_TYPE_LABELS,
   getEditableEntityTypes,
@@ -42,12 +42,13 @@ import type {
 } from "../model/types";
 import type { EntityMutationResult } from "../store/useAppStore";
 import { formatPartyAlignment } from "../formatters";
-import type {
-  AbilityScoreKey,
-  CharacterFeatureFormState,
-  CharacterSheetFormState,
-  CharacterSkillFormState,
-  CharacterSpellFormState,
+import {
+  createFormRowId,
+  type AbilityScoreKey,
+  type CharacterFeatureFormState,
+  type CharacterSheetFormState,
+  type CharacterSkillFormState,
+  type CharacterSpellFormState,
 } from "../view-types";
 import { AutocompleteField } from "../ui/AutocompleteField";
 import { NumberField } from "../ui/NumberField";
@@ -55,8 +56,8 @@ import {
   createCharacterSheetFormState,
   createEmptyFeatureFormState,
   createEmptySkillFormState,
-  createSkillFormStateFromRoster,
   parseNullableIntegerInput,
+  toSkillFormState,
   createEmptySpellFormState,
   createSpellFormStateFromLibrary,
   spellFormFieldsFromLibrary,
@@ -285,13 +286,25 @@ export function CharacterSheetEditForm({
   }
 
   function updateAbilityScore(key: AbilityScoreKey, value: string) {
-    applySheetChange("number", {
+    const nextState = {
       ...formState,
       abilityScores: {
         ...formState.abilityScores,
         [key]: value,
       },
-    });
+    };
+
+    // Open Doors starts at the STR modifier, so an untouched row keeps up.
+    const skills =
+      key === "strength"
+        ? applyStrengthToOpenDoors(
+            toCharacterDataFormInput(formState).skills,
+            parseNullableIntegerInput(formState.abilityScores.strength),
+            parseNullableIntegerInput(value),
+          ).map(toSkillFormState)
+        : formState.skills;
+
+    applySheetChange("number", { ...nextState, skills });
   }
 
   function updateSkill(
@@ -372,39 +385,21 @@ export function CharacterSheetEditForm({
         )
       : [];
 
-  const missingClassSkills = getMissingClassSkills(
-    formState.className,
-    formState.skills.map((skill) => skill.name),
-  );
-  const classHasSkillRoster = (() => {
-    const lookup = getClassContentLookup(formState.className);
-
-    return lookup.ok && lookup.skills.length > 0;
-  })();
-
-  /** Every d6 skill starts at 1-in-6 except Open Doors, which starts at the
-   * STR modifier (at least 1), matching the expertise derivation. */
+  /** Roster rows the sheet lacks, at base chance (Open Doors on STR). */
   function rosterSkillRows(state: CharacterSheetFormState, className: string) {
-    const strengthModifier = getAbilityModifier(
-      parseNullableIntegerInput(state.abilityScores.strength),
-    );
-    const openDoorsBase = strengthModifier.ok
-      ? Math.max(1, strengthModifier.modifier)
-      : 1;
-
-    return getMissingClassSkills(
+    return createMissingRosterSkills(
       className,
-      state.skills.map((skill) => skill.name),
-    ).map((skill) =>
-      createSkillFormStateFromRoster(
-        skill,
-        normalizeContentName(skill.name) === "opendoors" ? openDoorsBase : 1,
-      ),
-    );
+      toCharacterDataFormInput(state).skills,
+      parseNullableIntegerInput(state.abilityScores.strength),
+      () => createFormRowId("skill"),
+    ).map(toSkillFormState);
   }
 
-  /** Typing a class name seeds that class's skill roster the moment the name
-   * resolves to a different class; rows already present are left alone. */
+  const missingRosterSkills = rosterSkillRows(formState, formState.className);
+
+  /** Typing a class name seeds that class's roster the moment the name
+   * resolves to a different class, and moves untouched common skills to the
+   * class's base; rows the player has set are left alone. */
   function updateClassName(className: string) {
     const previousLookup = getClassContentLookup(formState.className);
     const nextLookup = getClassContentLookup(className);
@@ -413,27 +408,32 @@ export function CharacterSheetEditForm({
       (!previousLookup.ok || previousLookup.classId !== nextLookup.classId);
     const nextState = { ...formState, className };
 
-    applySheetChange(
-      "text",
-      classChanged
-        ? {
-            ...nextState,
-            skills: [...formState.skills, ...rosterSkillRows(nextState, className)],
-          }
-        : nextState,
-    );
+    if (!classChanged) {
+      applySheetChange("text", nextState);
+      return;
+    }
+
+    const strength = parseNullableIntegerInput(nextState.abilityScores.strength);
+    const rebasedSkills = applyClassSkillBases(
+      toCharacterDataFormInput(nextState).skills,
+      className,
+      strength,
+    ).map(toSkillFormState);
+
+    applySheetChange("text", {
+      ...nextState,
+      skills: [...rebasedSkills, ...rosterSkillRows(nextState, className)],
+    });
   }
 
   function addClassSkills() {
-    const rows = rosterSkillRows(formState, formState.className);
-
-    if (rows.length === 0) {
+    if (missingRosterSkills.length === 0) {
       return;
     }
 
     applySheetChange("structure", {
       ...formState,
-      skills: [...formState.skills, ...rows],
+      skills: [...formState.skills, ...missingRosterSkills],
     });
   }
 
@@ -836,23 +836,21 @@ export function CharacterSheetEditForm({
           <div className="repeatable-heading">
             <h5>Skills</h5>
             <div className="repeatable-heading-actions">
-              {classHasSkillRoster ? (
-                <button
-                  type="button"
-                  disabled={missingClassSkills.length === 0}
-                  title={
-                    missingClassSkills.length === 0
-                      ? "Every class skill is already on the sheet"
-                      : undefined
-                  }
-                  onClick={addClassSkills}
-                >
-                  Add class skills
-                  {missingClassSkills.length > 0
-                    ? ` (${missingClassSkills.length})`
-                    : ""}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                disabled={missingRosterSkills.length === 0}
+                title={
+                  missingRosterSkills.length === 0
+                    ? "Every standard skill is already on the sheet"
+                    : undefined
+                }
+                onClick={addClassSkills}
+              >
+                Add standard skills
+                {missingRosterSkills.length > 0
+                  ? ` (${missingRosterSkills.length})`
+                  : ""}
+              </button>
               <button
                 type="button"
                 onClick={() =>

@@ -17,7 +17,7 @@ export const SYSTEM_CONTENT_MANUAL_FIXTURES = [
     expected: skeleton,
   },
   {
-    name: "system content replaces the skeleton collection and keeps its metadata",
+    name: "system content replaces the skeleton collection and keeps skeleton metadata the file lacks",
     actual: resolveContentLibrary(skeleton, "things", [
       {
         path: "/systems/alpha/things.json",
@@ -27,6 +27,24 @@ export const SYSTEM_CONTENT_MANUAL_FIXTURES = [
     expected: {
       schemaVersion: "0.1.0-skeleton",
       things: { one: { id: "one", label: "One" } },
+    },
+  },
+  {
+    name: "system content carries the file's other top-level fields over the skeleton",
+    actual: resolveContentLibrary(skeleton, "things", [
+      {
+        path: "/systems/alpha/things.json",
+        content: {
+          schemaVersion: "1.0.0-transcribed",
+          commonThings: ["a"],
+          things: { one: { id: "one", label: "One" } },
+        },
+      },
+    ]),
+    expected: {
+      schemaVersion: "1.0.0-transcribed",
+      things: { one: { id: "one", label: "One" } },
+      commonThings: ["a"],
     },
   },
   {

@@ -2,9 +2,8 @@ import {
   ABILITY_SCORE_KEYS,
   normalizeCharacterData,
 } from "../model/characters";
-import type { ClassSkill } from "../model/classContent";
 import type { SpellSuggestion } from "../model/spellLibrary";
-import type { CharacterData } from "../model/types";
+import type { CharacterData, CharacterSkill } from "../model/types";
 import { formatNullableNumberInput } from "../formatters";
 import {
   createFormRowId,
@@ -148,15 +147,12 @@ export function createEmptySkillFormState(): CharacterSkillFormState {
   };
 }
 
-/** A roster skill seeded at its base chance; the row is editable afterwards. */
-export function createSkillFormStateFromRoster(
-  skill: ClassSkill,
-  chanceInSix: number,
-): CharacterSkillFormState {
+/** A seeded roster row as the form holds it; editable like any other. */
+export function toSkillFormState(skill: CharacterSkill): CharacterSkillFormState {
   return {
-    id: createFormRowId("skill"),
+    id: skill.id,
     name: skill.name,
-    chanceInSix: chanceInSix.toString(),
+    chanceInSix: skill.chanceInSix.toString(),
     description: skill.description ?? "",
   };
 }

@@ -1,12 +1,20 @@
 import {
   getClassContentLookup,
   getClassLevelTables,
+  applyClassSkillBases,
+  applyStrengthToOpenDoors,
+  createMissingRosterSkills,
   getClassSpellListId,
-  getMissingClassSkills,
+  getRosterSkillBaseChance,
+  getSkillRoster,
   type ClassContentLibrary,
 } from "./classContent";
 
 const testLibrary: ClassContentLibrary = {
+  commonSkills: [
+    { id: "openDoors", name: "Open Doors" },
+    { id: "listenAtDoors", name: "Listen at Doors" },
+  ],
   classes: {
     testClass: {
       id: "testClass",
@@ -17,6 +25,7 @@ const testLibrary: ClassContentLibrary = {
         { id: "climb", name: "Climb Sheer Surfaces" },
         { id: "sneak", name: "Move Silently", description: "Quietly." },
       ],
+      skillBases: { listenAtDoors: 2 },
       abilities: [
         {
           id: "testAbility",
@@ -166,20 +175,110 @@ export const CLASS_CONTENT_MANUAL_FIXTURES = [
     expected: undefined,
   },
   {
-    name: "missing class skills skip rows already on the sheet, matched fuzzily",
-    actual: getMissingClassSkills(
-      "Test Class",
-      ["climb sheer surfaces!", "Other"],
-      testLibrary,
-    ),
-    expected: [{ id: "sneak", name: "Move Silently", description: "Quietly." }],
+    name: "skill roster is common skills with class bases, then the class roster",
+    actual: getSkillRoster("Test Class", testLibrary),
+    expected: [
+      { id: "openDoors", name: "Open Doors" },
+      { id: "listenAtDoors", name: "Listen at Doors", baseChanceInSix: 2 },
+      { id: "climb", name: "Climb Sheer Surfaces" },
+      { id: "sneak", name: "Move Silently", description: "Quietly." },
+    ],
   },
   {
-    name: "missing class skills are empty for a class without a roster or unknown",
-    actual: [
-      getMissingClassSkills("Plain Class", [], testLibrary),
-      getMissingClassSkills("Fighter", [], testLibrary),
+    name: "skill roster for an unknown or empty class is the common skills alone",
+    actual: [getSkillRoster("Fighter", testLibrary), getSkillRoster("", testLibrary)],
+    expected: [
+      [
+        { id: "openDoors", name: "Open Doors" },
+        { id: "listenAtDoors", name: "Listen at Doors" },
+      ],
+      [
+        { id: "openDoors", name: "Open Doors" },
+        { id: "listenAtDoors", name: "Listen at Doors" },
+      ],
     ],
-    expected: [[], []],
+  },
+  {
+    name: "roster base chance is the class base, else 1, with Open Doors on STR",
+    actual: [
+      getRosterSkillBaseChance({ id: "x", name: "Hear Noise" }, 18),
+      getRosterSkillBaseChance({ id: "x", name: "Hear Noise", baseChanceInSix: 2 }, 18),
+      getRosterSkillBaseChance({ id: "openDoors", name: "Open Doors" }, 17),
+      getRosterSkillBaseChance({ id: "openDoors", name: "Open Doors" }, 5),
+      getRosterSkillBaseChance({ id: "openDoors", name: "Open Doors" }, null),
+    ],
+    expected: [1, 2, 2, 1, 1],
+  },
+  {
+    name: "missing roster skills are seeded at base chance and skip rows present by fuzzy name",
+    actual: (() => {
+      let counter = 0;
+
+      return createMissingRosterSkills(
+        "Test Class",
+        [{ id: "s0", name: "climb sheer surfaces!", chanceInSix: 3 }],
+        16,
+        () => `skill-${(counter += 1)}`,
+        testLibrary,
+      );
+    })(),
+    expected: [
+      { id: "skill-1", name: "Open Doors", chanceInSix: 2 },
+      { id: "skill-2", name: "Listen at Doors", chanceInSix: 2 },
+      { id: "skill-3", name: "Move Silently", chanceInSix: 1, description: "Quietly." },
+    ],
+  },
+  {
+    name: "class skill bases move untouched common rows and leave adjusted rows alone",
+    actual: applyClassSkillBases(
+      [
+        { id: "a", name: "Listen at Doors", chanceInSix: 1 },
+        { id: "b", name: "Open Doors", chanceInSix: 1 },
+        { id: "c", name: "Climb Sheer Surfaces", chanceInSix: 1 },
+      ],
+      "Test Class",
+      null,
+      testLibrary,
+    ),
+    expected: [
+      { id: "a", name: "Listen at Doors", chanceInSix: 2 },
+      { id: "b", name: "Open Doors", chanceInSix: 1 },
+      { id: "c", name: "Climb Sheer Surfaces", chanceInSix: 1 },
+    ],
+  },
+  {
+    name: "class skill bases do not lower a common row the player raised",
+    actual: applyClassSkillBases(
+      [{ id: "a", name: "Listen at Doors", chanceInSix: 4 }],
+      "Test Class",
+      null,
+      testLibrary,
+    ),
+    expected: [{ id: "a", name: "Listen at Doors", chanceInSix: 4 }],
+  },
+  {
+    name: "open doors follows a STR change while still at the old base",
+    actual: [
+      applyStrengthToOpenDoors(
+        [{ id: "a", name: "Open Doors", chanceInSix: 1 }],
+        null,
+        17,
+      ),
+      applyStrengthToOpenDoors(
+        [{ id: "a", name: "Open Doors", chanceInSix: 3 }],
+        null,
+        17,
+      ),
+      applyStrengthToOpenDoors(
+        [{ id: "a", name: "Open Doors", chanceInSix: 2 }],
+        16,
+        9,
+      ),
+    ],
+    expected: [
+      [{ id: "a", name: "Open Doors", chanceInSix: 2 }],
+      [{ id: "a", name: "Open Doors", chanceInSix: 3 }],
+      [{ id: "a", name: "Open Doors", chanceInSix: 1 }],
+    ],
   },
 ];
