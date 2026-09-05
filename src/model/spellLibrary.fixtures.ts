@@ -1,4 +1,5 @@
 import {
+  filterSpellSuggestions,
   getSpellLookup,
   getSpellListLookup,
   type SpellLibrary,
@@ -156,5 +157,54 @@ export const SPELL_LIBRARY_MANUAL_FIXTURES = [
     name: "bundled spell library rejects unknown spell gracefully",
     actual: getSpellLookup("Definitely Not A Spell").ok,
     expected: false,
+  },
+  {
+    name: "spell suggestions list a whole spell list by level then name for an empty query",
+    actual: filterSpellSuggestions("", "listA", testLibrary),
+    expected: [
+      {
+        spell: {
+          id: "glow",
+          displayName: "Glow",
+          reversible: true,
+          duration: "1 turn",
+          range: "60'",
+          description: "Test spell A1.",
+        },
+        spellLevel: 1,
+        listId: "listA",
+      },
+      {
+        spell: {
+          id: "shared",
+          displayName: "Shared Spell",
+          description: "Appears in both lists at different levels.",
+        },
+        spellLevel: 2,
+        listId: "listA",
+      },
+    ],
+  },
+  {
+    name: "spell suggestions match a partial name ignoring case and punctuation",
+    actual: filterSpellSuggestions(" SHA-red ", "List A", testLibrary).map(
+      (suggestion) => `${suggestion.spell.id}@${suggestion.spellLevel}`,
+    ),
+    expected: ["shared@2"],
+  },
+  {
+    name: "spell suggestions stay inside the requested list",
+    actual: filterSpellSuggestions("glow", "listB", testLibrary),
+    expected: [],
+  },
+  {
+    name: "spell suggestions are empty without a list",
+    actual: filterSpellSuggestions("glow", undefined, testLibrary),
+    expected: [],
+  },
+  {
+    name: "spell suggestions are empty for an unknown list",
+    actual: filterSpellSuggestions("", "listC", testLibrary),
+    expected: [],
   },
 ];

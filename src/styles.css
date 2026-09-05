@@ -960,6 +960,7 @@ tr.pt-dragging {
   color: var(--gear-ink-2);
   font-size: 12.5px;
   line-height: 1.45;
+  white-space: pre-line;
 }
 
 .pt-pop-line.mono {
@@ -1468,6 +1469,7 @@ tr.pt-dragging {
   color: var(--gear-ink-2);
   font-size: 12.5px;
   line-height: 1.45;
+  white-space: pre-line;
   white-space: pre-line;
 }
 
@@ -2237,6 +2239,15 @@ fieldset.record-form-body {
 .autocomplete-suggestions button.highlighted {
   background: var(--gear-accent-tint);
   color: var(--gear-ink);
+}
+
+.autocomplete-suggestions .autocomplete-suggestion-tag {
+  flex: none;
+  margin-right: 7px;
+  color: var(--gear-muted);
+  font-family: var(--gear-mono);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .record-type-badge {

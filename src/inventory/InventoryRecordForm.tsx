@@ -1,11 +1,4 @@
-import {
-  type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
+import { type FormEvent, useEffect, useRef } from "react";
 import {
   getDefaultCoinRecord,
   getUsableContainerRecords,
@@ -42,6 +35,7 @@ import {
   type RecordFormState,
 } from "../view-types";
 import { getRecordDisplayName } from "../formatters";
+import { AutocompleteField } from "../ui/AutocompleteField";
 import { NumberField } from "../ui/NumberField";
 
 export function InventoryRecordForm({
@@ -110,22 +104,8 @@ export function InventoryRecordForm({
   // disable — this stops a player from saving over an item they cannot see.
   const isReadOnly = !isGm && formState.mode === "edit" && formState.isUnidentified;
   const standardItemSuggestions = getStandardItemSuggestions(formState);
-  const [itemSuggestionsOpen, setItemSuggestionsOpen] = useState(false);
-  const [highlightedItemSuggestionIndex, setHighlightedItemSuggestionIndex] =
-    useState(0);
-  const autocompleteRef = useRef<HTMLDivElement | null>(null);
   const moveLocationRef = useRef<HTMLSelectElement | null>(null);
   const previousShowMovementRef = useRef(formState.showMovement);
-  const autocompleteListboxId = useId();
-  const highlightedItemSuggestion =
-    itemSuggestionsOpen && standardItemSuggestions.length > 0
-      ? standardItemSuggestions[highlightedItemSuggestionIndex]
-      : undefined;
-  const highlightedItemSuggestionId = highlightedItemSuggestion
-    ? `${autocompleteListboxId}-${highlightedItemSuggestion.slug}`
-    : undefined;
-  const showItemSuggestions =
-    itemSuggestionsOpen && standardItemSuggestions.length > 0;
   const locationSummary = formatRecordFormLocationSummary({
     containerOptions,
     formState,
@@ -135,18 +115,6 @@ export function InventoryRecordForm({
   const coinActionRecord = formState.recordId
     ? getRecordById(formState.recordId, appState.inventoryRecords)
     : undefined;
-
-  useEffect(() => {
-    if (standardItemSuggestions.length === 0) {
-      setItemSuggestionsOpen(false);
-      setHighlightedItemSuggestionIndex(0);
-      return;
-    }
-
-    setHighlightedItemSuggestionIndex((currentIndex) =>
-      Math.min(currentIndex, standardItemSuggestions.length - 1),
-    );
-  }, [standardItemSuggestions.length]);
 
   // Opening "Move record…" removes the button that had focus. Move focus to the
   // first location control so it does not fall back to <body>.
@@ -158,76 +126,11 @@ export function InventoryRecordForm({
     previousShowMovementRef.current = formState.showMovement;
   }, [formState.showMovement]);
 
-  useEffect(() => {
-    function closeSuggestionsOnOutsidePointerDown(event: PointerEvent) {
-      if (
-        autocompleteRef.current &&
-        event.target instanceof Node &&
-        !autocompleteRef.current.contains(event.target)
-      ) {
-        setItemSuggestionsOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", closeSuggestionsOnOutsidePointerDown);
-
-    return () => {
-      document.removeEventListener(
-        "pointerdown",
-        closeSuggestionsOnOutsidePointerDown,
-      );
-    };
-  }, []);
-
   function selectStandardItemSuggestion(item: StandardItemCatalogEntry) {
     const input = createInventoryRecordInputFromStandardItem(item.slug);
 
     if (input) {
       onChange(applyInventoryRecordInputToFormState(formState, input));
-    }
-
-    setItemSuggestionsOpen(false);
-  }
-
-  function handleItemNameKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (standardItemSuggestions.length === 0) {
-      return;
-    }
-
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      setItemSuggestionsOpen(true);
-      setHighlightedItemSuggestionIndex((currentIndex) =>
-        itemSuggestionsOpen
-          ? (currentIndex + 1) % standardItemSuggestions.length
-          : 0,
-      );
-      return;
-    }
-
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setItemSuggestionsOpen(true);
-      setHighlightedItemSuggestionIndex((currentIndex) =>
-        itemSuggestionsOpen
-          ? (currentIndex - 1 + standardItemSuggestions.length) %
-            standardItemSuggestions.length
-          : standardItemSuggestions.length - 1,
-      );
-      return;
-    }
-
-    if (event.key === "Enter" && itemSuggestionsOpen) {
-      event.preventDefault();
-      selectStandardItemSuggestion(
-        standardItemSuggestions[highlightedItemSuggestionIndex],
-      );
-      return;
-    }
-
-    if (event.key === "Escape" && itemSuggestionsOpen) {
-      event.preventDefault();
-      setItemSuggestionsOpen(false);
     }
   }
 
@@ -308,72 +211,17 @@ export function InventoryRecordForm({
           ) : (
             <>
               <div className="record-core-grid">
-                <div className="autocomplete-field" ref={autocompleteRef}>
-                  <label>
-                    <span>Name</span>
-                    <input
-                      aria-activedescendant={highlightedItemSuggestionId}
-                      aria-autocomplete="list"
-                      aria-controls={
-                        showItemSuggestions ? autocompleteListboxId : undefined
-                      }
-                      aria-expanded={showItemSuggestions}
-                      aria-haspopup="listbox"
-                      autoComplete="off"
-                      maxLength={100}
-                      required
-                      role="combobox"
-                      type="text"
-                      value={formState.name}
-                      onChange={(event) => {
-                        onChange({ ...formState, name: event.target.value });
-                        setItemSuggestionsOpen(true);
-                        setHighlightedItemSuggestionIndex(0);
-                      }}
-                      onFocus={() => {
-                        if (standardItemSuggestions.length > 0) {
-                          setItemSuggestionsOpen(true);
-                          setHighlightedItemSuggestionIndex(0);
-                        }
-                      }}
-                      onKeyDown={handleItemNameKeyDown}
-                    />
-                  </label>
-                  {showItemSuggestions ? (
-                    <div
-                      id={autocompleteListboxId}
-                      className="autocomplete-suggestions"
-                      aria-label="Standard item suggestions"
-                      role="listbox"
-                    >
-                      {standardItemSuggestions.map((item, itemIndex) => (
-                        <button
-                          id={`${autocompleteListboxId}-${item.slug}`}
-                          aria-selected={
-                            itemIndex === highlightedItemSuggestionIndex
-                          }
-                          className={
-                            itemIndex === highlightedItemSuggestionIndex
-                              ? "highlighted"
-                              : undefined
-                          }
-                          key={item.slug}
-                          role="option"
-                          type="button"
-                          onClick={() => selectStandardItemSuggestion(item)}
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                          }}
-                          onMouseEnter={() => {
-                            setHighlightedItemSuggestionIndex(itemIndex);
-                          }}
-                        >
-                          {item.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <AutocompleteField
+                  label="Name"
+                  value={formState.name}
+                  onChange={(name) => onChange({ ...formState, name })}
+                  suggestions={standardItemSuggestions}
+                  getSuggestionKey={(item) => item.slug}
+                  renderSuggestion={(item) => item.name}
+                  onSelect={selectStandardItemSuggestion}
+                  suggestionsLabel="Standard item suggestions"
+                  inputProps={{ maxLength: 100, required: true }}
+                />
 
                 <NumberField
                   label="Quantity"

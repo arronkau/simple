@@ -21,6 +21,7 @@ import {
 import { getCharacterEncumbrance } from "../model/encumbrance";
 import {
   getCharacterSaveLookup,
+  getClassMetadata,
   getClassSpellSlots,
   getXpProgress,
 } from "../model/saveTables";
@@ -95,6 +96,8 @@ export function CharacterSheet({
     character.xp,
   );
   const spellSlots = getClassSpellSlots(character.className, character.level);
+  const classMetadata = getClassMetadata(character.className);
+  const hitDie = classMetadata.ok ? classMetadata.hitDie : undefined;
   const classContent = getClassContentLookup(character.className);
   const levelTables = getClassLevelTables(character.className, character.level);
   const memorizationWarnings = getSpellMemorizationWarnings(character);
@@ -138,6 +141,7 @@ export function CharacterSheet({
       <div className="sheet-header">
         <div className="sheet-identity">
           <strong>{formatPartyClassLevel(character)}</strong>
+          {hitDie ? <span title="Hit die, from the class reference">HD {hitDie}</span> : null}
           {primeRequisiteText ? <span>Prime {primeRequisiteText}</span> : null}
           {hpStatusText ? (
             <span className={`sheet-hp-status ${hpState}`}>{hpStatusText}</span>

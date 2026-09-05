@@ -1,9 +1,12 @@
 import bundledSpellLibrary from "./ose_spell_library.json";
+import { loadSpellLibraryFiles, resolveContentLibrary } from "./systemContent";
 
 export type SpellEntry = {
   id: string;
   displayName: string;
   reversible?: boolean;
+  /** Name of the reversed form, when the list prints one. */
+  reversedName?: string;
   duration?: string;
   range?: string;
   description: string;
@@ -50,7 +53,17 @@ export type SpellListLookupResult =
       message: string;
     };
 
-const DEFAULT_LIBRARY = bundledSpellLibrary as SpellLibrary;
+export type SpellSuggestion = {
+  spell: SpellEntry;
+  spellLevel: number;
+  listId: string;
+};
+
+const DEFAULT_LIBRARY = resolveContentLibrary(
+  bundledSpellLibrary as SpellLibrary,
+  "spellLists",
+  loadSpellLibraryFiles(),
+);
 
 export function getSpellLookup(
   spellName: string,
@@ -139,6 +152,45 @@ export function getSpellListLookup(
       }))
       .sort((left, right) => left.spellLevel - right.spellLevel),
   };
+}
+
+/**
+ * Spells of one list that match a typed query, for the sheet's spell
+ * autocomplete. Ordered by spell level, then name; an empty query returns the
+ * whole list. No list (a non-caster or an unknown class) means no suggestions.
+ */
+export function filterSpellSuggestions(
+  query: string,
+  listId: string | undefined,
+  library: SpellLibrary = DEFAULT_LIBRARY,
+): SpellSuggestion[] {
+  if (listId === undefined) {
+    return [];
+  }
+
+  const listLookup = getSpellListLookup(listId, library);
+
+  if (!listLookup.ok) {
+    return [];
+  }
+
+  const normalizedQuery = normalizeContentName(query);
+
+  return listLookup.levels.flatMap((level) =>
+    [...level.spells]
+      .sort((left, right) => left.displayName.localeCompare(right.displayName))
+      .filter(
+        (spell) =>
+          !normalizedQuery ||
+          normalizeContentName(spell.displayName).includes(normalizedQuery) ||
+          normalizeContentName(spell.id).includes(normalizedQuery),
+      )
+      .map((spell) => ({
+        spell,
+        spellLevel: level.spellLevel,
+        listId: listLookup.listId,
+      })),
+  );
 }
 
 export function normalizeContentName(name: string): string {

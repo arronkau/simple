@@ -16,3 +16,8 @@ ui-debug.log
 
 # Claude Code agent worktrees (transient)
 .claude/worktrees/
+
+# Rule-system content (PDFs and extracted rule text), never committed.
+# The app loads systems/*/ at build time when present; see systems/README.md.
+systems/*
+!systems/README.md
