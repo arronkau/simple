@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   ItemStatusIcon,
   type IconTone,
@@ -7,6 +7,7 @@ import {
 import type { EncumbranceWarning } from "../model/encumbrance";
 import type { ValidationIssue } from "../model/validation";
 import { formatWarningState } from "../formatters";
+import { useDismissibleDetails } from "./InfoPopover";
 
 export function WarningDetailsButton({
   validationIssues,
@@ -16,34 +17,8 @@ export function WarningDetailsButton({
   warnings: EncumbranceWarning[];
 }) {
   const warningCount = validationIssues.length + warnings.length;
-  const detailsRef = useRef<HTMLDetailsElement | null>(null);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function handlePointerDown(event: PointerEvent) {
-      if (!detailsRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
+  const detailsRef = useDismissibleDetails(open, setOpen);
 
   if (warningCount === 0) {
     return null;

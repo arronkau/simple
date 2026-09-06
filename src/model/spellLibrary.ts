@@ -1,3 +1,4 @@
+import { toAscendingArmorClassText } from "./armorClassNotation";
 import bundledSpellLibrary from "./ose_spell_library.json";
 import { loadSpellLibraryFiles, resolveContentLibrary } from "./systemContent";
 
@@ -68,11 +69,41 @@ export type SpellSuggestion = {
   listId: string;
 };
 
-const DEFAULT_LIBRARY = resolveContentLibrary(
-  bundledSpellLibrary as SpellLibrary,
-  "spellLists",
-  loadSpellLibraryFiles(),
+const DEFAULT_LIBRARY = toAscendingArmorClassLibrary(
+  resolveContentLibrary(
+    bundledSpellLibrary as SpellLibrary,
+    "spellLists",
+    loadSpellLibraryFiles(),
+  ),
 );
+
+/**
+ * The transcribed library keeps the book's dual AC notation; the app shows
+ * ascending AC only (see `armorClassNotation.ts`), so every description is
+ * rewritten once here. The text a pick copies onto a sheet is the rewritten one.
+ */
+export function toAscendingArmorClassLibrary(library: SpellLibrary): SpellLibrary {
+  return {
+    ...library,
+    spellLists: Object.fromEntries(
+      Object.entries(library.spellLists).map(([listId, list]) => [
+        listId,
+        {
+          ...list,
+          levels: Object.fromEntries(
+            Object.entries(list.levels).map(([levelKey, spells]) => [
+              levelKey,
+              spells.map((spell) => ({
+                ...spell,
+                description: toAscendingArmorClassText(spell.description),
+              })),
+            ]),
+          ),
+        },
+      ]),
+    ),
+  };
+}
 
 export function getSpellLookup(
   spellName: string,

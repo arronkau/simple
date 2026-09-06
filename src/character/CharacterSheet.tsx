@@ -18,7 +18,10 @@ import {
   getClassContentLookup,
   getClassLevelTables,
 } from "../model/classContent";
-import { getCharacterEncumbrance } from "../model/encumbrance";
+import {
+  getCharacterEncumbrance,
+  getMovementExplanation,
+} from "../model/encumbrance";
 import {
   getCharacterSaveLookup,
   getClassMetadata,
@@ -47,6 +50,8 @@ import {
   formatSpellMeta,
 } from "../formatters";
 import type { AbilityModifierResult } from "../model/abilityModifiers";
+import { MovementBreakdown } from "../components/MovementDetails";
+import { InfoPopover } from "../ui/InfoPopover";
 import { QuickStepper } from "./QuickStat";
 import { CharacterSheetInventory } from "./CharacterSheetInventory";
 
@@ -213,13 +218,24 @@ export function CharacterSheet({
           abilityModifier={getAbilityModifier(character.abilityScores.dexterity)}
           damageLabel={weaponDamage.ok ? weaponDamage.label : null}
         />
-        <div className="stat-box big">
-          <span>Move</span>
-          <strong>{formatMovementFeet(encumbrance.movement.explorationFeet)}</strong>
-          <em className="stat-sub">
-            {formatMovementFeet(encumbrance.movement.encounterFeet)} encounter
-          </em>
-        </div>
+        <InfoPopover
+          align="end"
+          className="stat-box big"
+          label={`Movement ${formatMovementFeet(encumbrance.movement.explorationFeet)}. Show what sets it.`}
+          summary={
+            <>
+              <span>Move</span>
+              <strong>{formatMovementFeet(encumbrance.movement.explorationFeet)}</strong>
+              <em className="stat-sub">
+                {formatMovementFeet(encumbrance.movement.encounterFeet)} encounter
+              </em>
+            </>
+          }
+        >
+          <MovementBreakdown
+            explanation={getMovementExplanation(entity, appState.inventoryRecords)}
+          />
+        </InfoPopover>
       </div>
 
       {!saveLookup.ok ? (

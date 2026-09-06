@@ -4,7 +4,13 @@
  * a mono used/max readout, and the "N free" badge.
  */
 
-import type { CharacterEncumbranceResult } from "../model/encumbrance";
+import {
+  getEquippedMovementBands,
+  getStowedMovementBands,
+  type CharacterEncumbranceResult,
+} from "../model/encumbrance";
+import { InfoPopover } from "../ui/InfoPopover";
+import { formatStowedBandNote, MovementBandTable } from "./MovementDetails";
 
 export type LoadTone = "ok" | "warn" | "crit";
 
@@ -63,12 +69,15 @@ export function CapBar({
 
 /**
  * Character load readout: equipped and stowed against their own limits (the
- * sheet has no combined limit). Each side takes its own warn/crit tone.
+ * sheet has no combined limit). Each side takes its own warn/crit tone and
+ * opens its movement band table when clicked; `align` anchors those panels.
  */
 export function LoadReadout({
   encumbrance,
+  align = "start",
 }: {
   encumbrance: CharacterEncumbranceResult;
+  align?: "start" | "end";
 }) {
   const equippedTone = capacityTone(
     encumbrance.equippedItems,
@@ -81,13 +90,32 @@ export function LoadReadout({
 
   return (
     <span className="load-readout mono" aria-label="Load">
-      <span className={`load-part ${equippedTone}`}>
-        Eq {encumbrance.equippedItems}/{encumbrance.equippedCapacity}
-      </span>
+      <InfoPopover
+        align={align}
+        className={`load-part ${equippedTone}`}
+        label={`Equipped ${encumbrance.equippedItems} of ${encumbrance.equippedCapacity} slots. Show the equipped movement bands.`}
+        summary={`Eq ${encumbrance.equippedItems}/${encumbrance.equippedCapacity}`}
+      >
+        <MovementBandTable
+          bands={getEquippedMovementBands()}
+          currentItems={encumbrance.equippedItems}
+          title={`Equipped · ${encumbrance.equippedItems} of ${encumbrance.equippedCapacity}`}
+        />
+      </InfoPopover>
       <span className="load-sep">·</span>
-      <span className={`load-part ${stowedTone}`}>
-        St {encumbrance.stowedItems}/{encumbrance.stowedCapacity}
-      </span>
+      <InfoPopover
+        align={align}
+        className={`load-part ${stowedTone}`}
+        label={`Stowed ${encumbrance.stowedItems} of ${encumbrance.stowedCapacity} slots. Show the stowed movement bands.`}
+        summary={`St ${encumbrance.stowedItems}/${encumbrance.stowedCapacity}`}
+      >
+        <MovementBandTable
+          bands={getStowedMovementBands(encumbrance.strengthModifier)}
+          currentItems={encumbrance.stowedItems}
+          note={formatStowedBandNote(encumbrance.strengthModifier)}
+          title={`Stowed · ${encumbrance.stowedItems} of ${encumbrance.stowedCapacity}`}
+        />
+      </InfoPopover>
     </span>
   );
 }

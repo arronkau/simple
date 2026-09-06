@@ -1,3 +1,4 @@
+import { toAscendingArmorClassText } from "./armorClassNotation";
 import { getClassSpellSlots } from "./saveTables";
 import type {
   AbilityScores,
@@ -379,8 +380,12 @@ function normalizeSpells(value: unknown): CharacterSpell[] {
       return [];
     }
 
-    // Older stored data called this field `notes`.
-    const description = getString(spell.description) || getString(spell.notes);
+    // Older stored data called this field `notes`. Text copied from the
+    // library before the ascending-AC rewrite (or typed in the book's dual
+    // notation) is rewritten the same way the library is.
+    const description = toAscendingArmorClassText(
+      getString(spell.description) || getString(spell.notes),
+    );
     const duration = getString(spell.duration);
     const range = getString(spell.range);
 

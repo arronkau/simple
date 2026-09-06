@@ -365,11 +365,15 @@ function buildParagraphs(lines) {
  * The PDF maps its ligatures to stray ASCII: "!" is "Th" at a word start
  * (The, This, Three) but "fi" inside a word (specific, sacrifice) and in a
  * handful of word-initial cases (fire, first, field); "'" between letters is
- * "ffi"; a leading "%" is the bullet glyph. A genuine "!" only ever follows a
- * letter at the end of a sentence, which the lookaheads leave alone.
+ * "ffi"; a leading "%" is the bullet glyph; a ")" after a space (and before a
+ * space or the line end, since lines are joined later) is the multiplication
+ * sign ("Att 1 × bite", "30’ × 30’ area"). A genuine "!" only ever follows a
+ * letter at the end of a sentence, which the lookaheads leave alone, and a
+ * genuine ")" never has a space before it.
  */
 function fixGlyphs(text) {
   return text
+    .replace(/ \)(?= |$)/g, " ×")
     .replace(/(?<=[A-Za-z])!(?=[a-z])/g, "fi")
     .replace(/(?<![A-Za-z])!(?=([a-z]+))/g, (_match, rest) =>
       FI_WORD_STARTS.test(rest) ? "fi" : "Th",

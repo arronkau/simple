@@ -5,11 +5,15 @@ import {
   getContentsCapacity,
   getEffectiveCarryState,
   getEncumbranceWarnings,
+  getEquippedMovementBands,
+  getMovementExplanation,
   getMovementRateForEquippedItems,
   getMovementRateForStowedItems,
+  getStowedMovementBands,
   getStowedSlotCapacity,
   getStrengthCarryModifier,
   type EncumbranceWarning,
+  type MovementBand,
 } from "./encumbrance";
 import { createDefaultBackpack, type Entity, type InventoryRecord } from "./types";
 
@@ -651,7 +655,162 @@ const storageCapacity = getContentsCapacity(
   cappedStorageRecords,
 );
 
+/**
+ * Every row's first and last item count must look up to the row's own rate, so
+ * the displayed table can never disagree with the lookup it describes.
+ */
+function bandsAgreeWithLookup(
+  bands: MovementBand[],
+  lookup: (items: number) => ReturnType<typeof getMovementRateForEquippedItems>,
+): boolean {
+  return bands.every((band) => {
+    const expected = band.band === "overloaded" ? "overloaded" : band.movement;
+
+    return [band.minItems, band.maxItems ?? band.minItems + 5].every(
+      (items) => JSON.stringify(lookup(items)) === JSON.stringify(expected),
+    );
+  });
+}
+
 export const ENCUMBRANCE_MANUAL_FIXTURES = [
+  {
+    name: "movement band tables list each row with its bounds and rate",
+    actual: {
+      equipped: getEquippedMovementBands().map(
+        (band) => `${band.band} ${band.minItems}-${band.maxItems ?? "+"} ${band.movement.explorationFeet}/${band.movement.encounterFeet}`,
+      ),
+      stowed: getStowedMovementBands().map(
+        (band) => `${band.band} ${band.minItems}-${band.maxItems ?? "+"} ${band.movement.explorationFeet}/${band.movement.encounterFeet}`,
+      ),
+      stowedStrongest: getStowedMovementBands(3).map(
+        (band) => `${band.minItems}-${band.maxItems ?? "+"}`,
+      ),
+      stowedWeakest: getStowedMovementBands(-3).map(
+        (band) => `${band.minItems}-${band.maxItems ?? "+"}`,
+      ),
+    },
+    expected: {
+      equipped: [
+        "normal 0-3 120/40",
+        "lightlyEncumbered 4-5 90/30",
+        "encumbered 6-7 60/20",
+        "heavilyEncumbered 8-9 30/10",
+        "overloaded 10-+ 0/0",
+      ],
+      stowed: [
+        "normal 0-10 120/40",
+        "lightlyEncumbered 11-12 90/30",
+        "encumbered 13-14 60/20",
+        "heavilyEncumbered 15-16 30/10",
+        "overloaded 17-+ 0/0",
+      ],
+      stowedStrongest: ["0-13", "14-15", "16-17", "18-19", "20-+"],
+      stowedWeakest: ["0-7", "8-9", "10-11", "12-13", "14-+"],
+    },
+  },
+  {
+    name: "movement band tables agree with the lookups at every row boundary",
+    actual: {
+      equipped: bandsAgreeWithLookup(
+        getEquippedMovementBands(),
+        getMovementRateForEquippedItems,
+      ),
+      stowed: [-3, -2, -1, 0, 1, 2, 3].every((modifier) =>
+        bandsAgreeWithLookup(getStowedMovementBands(modifier), (items) =>
+          getMovementRateForStowedItems(items, modifier),
+        ),
+      ),
+    },
+    expected: { equipped: true, stowed: true },
+  },
+  {
+    name: "movement explanation names the slower side as the limit",
+    actual: getMovementExplanation(characterEntity, movementReducedRecords),
+    expected: {
+      equipped: {
+        items: 6,
+        capacity: 9,
+        rate: { explorationFeet: 60, encounterFeet: 20 },
+      },
+      stowed: {
+        items: 4,
+        capacity: 16,
+        strengthModifier: 0,
+        rate: { explorationFeet: 120, encounterFeet: 40 },
+      },
+      containerOverCapacity: false,
+      handsRequiredContainerNotHeld: false,
+      movement: { explorationFeet: 60, encounterFeet: 20 },
+      limitedBy: ["equipped"],
+    },
+  },
+  {
+    name: "movement explanation credits both sides when they tie, with the STR shift applied",
+    actual: (() => {
+      const explanation = getMovementExplanation(
+        strongCharacterEntity,
+        emptyTopLevelStowedContainerRecords,
+      );
+
+      return {
+        stowed: explanation.stowed,
+        movement: explanation.movement,
+        limitedBy: explanation.limitedBy,
+      };
+    })(),
+    expected: {
+      stowed: {
+        items: 0,
+        capacity: 19,
+        strengthModifier: 3,
+        rate: { explorationFeet: 120, encounterFeet: 40 },
+      },
+      movement: { explorationFeet: 120, encounterFeet: 40 },
+      limitedBy: ["equipped", "stowed"],
+    },
+  },
+  {
+    name: "movement explanation lists every overload condition that applies",
+    actual: {
+      stowedOverload: (() => {
+        const explanation = getMovementExplanation(
+          characterEntity,
+          overloadedCharacterRecords,
+        );
+
+        return [explanation.stowed.rate, explanation.limitedBy];
+      })(),
+      containerOverload: (() => {
+        const explanation = getMovementExplanation(
+          characterEntity,
+          heldOverfilledSackWithBackpackRecords,
+        );
+
+        return [
+          explanation.containerOverCapacity,
+          explanation.movement,
+          explanation.limitedBy,
+        ];
+      })(),
+      unheldSack: (() => {
+        const explanation = getMovementExplanation(
+          characterEntity,
+          looseSackRecords,
+        );
+
+        return [explanation.handsRequiredContainerNotHeld, explanation.limitedBy];
+      })(),
+    },
+    expected: {
+      stowedOverload: ["overloaded", ["stowed"]],
+      containerOverload: [
+        true,
+        { explorationFeet: 0, encounterFeet: 0 },
+        ["container"],
+      ],
+      unheldSack: [true, ["handsRequired"]],
+    },
+  },
   {
     name: "movement lookups match configured bands",
     actual: {
