@@ -82,7 +82,7 @@ export function getCharacterArmorClass(
   )[0];
   const shieldRecords = ownedRecords.filter(isHeldShieldRecord);
   const shieldBonus = shieldRecords.reduce(
-    (bonus, record) => bonus + (record.armor.armorBonus ?? 0),
+    (bonus, record) => bonus + (record.armor?.armorBonus ?? 0),
     0,
   );
   // Every `armorClass` modifier on an equipped record counts, in any equipped
@@ -134,7 +134,7 @@ export function isActiveArmorRecord(
   return (
     record.recordType === "armor" &&
     record.location.kind === "equipped" &&
-    record.armor.baseArmorClass !== undefined
+    record.armor?.baseArmorClass !== undefined
   );
 }
 
@@ -156,8 +156,8 @@ function isHeldShieldRecord(
 ): record is Extract<InventoryRecord, { recordType: "armor" }> {
   return (
     record.recordType === "armor" &&
-    record.armor.baseArmorClass === undefined &&
-    (record.armor.armorBonus ?? 0) > 0 &&
+    record.armor?.baseArmorClass === undefined &&
+    (record.armor?.armorBonus ?? 0) > 0 &&
     record.location.kind === "equipped" &&
     (record.location.placement === "leftHand" ||
       record.location.placement === "rightHand" ||
@@ -169,8 +169,8 @@ function getArmorRecordArmorClass(
   record: Extract<InventoryRecord, { recordType: "armor" }>,
 ): number {
   return (
-    (record.armor.baseArmorClass ?? DEFAULT_ASCENDING_ARMOR_CLASS) +
-    (record.armor.armorBonus ?? 0)
+    (record.armor?.baseArmorClass ?? DEFAULT_ASCENDING_ARMOR_CLASS) +
+    (record.armor?.armorBonus ?? 0)
   );
 }
 

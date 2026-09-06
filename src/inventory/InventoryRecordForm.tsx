@@ -1015,14 +1015,14 @@ export function createRecordFormFromRecord(record: InventoryRecord): RecordFormS
     cp: record.recordType === "coins" ? record.coins.cp.toString() : "0",
     gpValue:
       record.recordType === "treasure" ? record.treasure.gpValue.toString() : "0",
-    damage: record.recordType === "weapon" ? record.weapon.damage ?? "" : "",
-    range: record.recordType === "weapon" ? record.weapon.range ?? "" : "",
+    damage: record.recordType === "weapon" ? record.weapon?.damage ?? "" : "",
+    range: record.recordType === "weapon" ? record.weapon?.range ?? "" : "",
     baseArmorClass:
-      record.recordType === "armor" && record.armor.baseArmorClass !== undefined
+      record.recordType === "armor" && record.armor?.baseArmorClass !== undefined
         ? record.armor.baseArmorClass.toString()
         : "",
     armorBonus:
-      record.recordType === "armor" && record.armor.armorBonus !== undefined
+      record.recordType === "armor" && record.armor?.armorBonus !== undefined
         ? record.armor.armorBonus.toString()
         : "",
     ...slotState,
@@ -1056,9 +1056,9 @@ export function createRecordFormFromRecord(record: InventoryRecord): RecordFormS
     notes: record.notes ?? "",
     addWeaponQualities:
       record.recordType === "weapon" &&
-      Boolean(record.weapon.qualities && record.weapon.qualities.length > 0),
+      Boolean(record.weapon?.qualities && record.weapon.qualities.length > 0),
     qualities:
-      record.recordType === "weapon" ? record.weapon.qualities?.join(", ") ?? "" : "",
+      record.recordType === "weapon" ? record.weapon?.qualities?.join(", ") ?? "" : "",
   };
 }
 

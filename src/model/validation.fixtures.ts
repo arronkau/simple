@@ -355,6 +355,20 @@ const bothHandsPoleRecord: InventoryRecord = {
   },
 };
 
+const weaponRecordWithoutWeaponData: InventoryRecord = {
+  id: "weapon-no-data-1",
+  recordType: "weapon",
+  name: "Mace",
+  entityId: characterEntity.id,
+  location: {
+    kind: "equipped",
+    placement: "rightHand",
+  },
+  sortOrder: 8100,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+};
+
 const legacyWeaponRecord: InventoryRecord = {
   id: "legacy-bow-1",
   recordType: "weapon",
@@ -886,6 +900,9 @@ export const VALIDATION_MANUAL_FIXTURES = [
       shieldHandsRequired: getRecordHandsRequired(leftHandShield),
       legacyWeaponHandsRequired: getRecordHandsRequired(legacyWeaponRecord),
       legacyContainerHandsRequired: getRecordHandsRequired(legacyContainerRecord),
+      missingWeaponDataHandsRequired: getRecordHandsRequired(
+        weaponRecordWithoutWeaponData,
+      ),
     },
     expected: {
       valid: true,
@@ -898,6 +915,7 @@ export const VALIDATION_MANUAL_FIXTURES = [
       shieldHandsRequired: 1,
       legacyWeaponHandsRequired: 2,
       legacyContainerHandsRequired: 1,
+      missingWeaponDataHandsRequired: 0,
     },
   },
   {

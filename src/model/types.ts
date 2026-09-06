@@ -305,7 +305,8 @@ export type TreasureRecord = NonCoinInventoryRecordShared & {
 export type WeaponRecord = NonCoinInventoryRecordShared & {
   recordType: "weapon";
   name: string;
-  weapon: WeaponData;
+  /** Optional legacy/imported detail data; may be absent on stored records. */
+  weapon?: WeaponData;
   container?: ContainerData;
   identification?: IdentificationData;
   coins?: never;
@@ -316,7 +317,8 @@ export type WeaponRecord = NonCoinInventoryRecordShared & {
 export type ArmorRecord = NonCoinInventoryRecordShared & {
   recordType: "armor";
   name: string;
-  armor: ArmorData;
+  /** Optional legacy/imported detail data; may be absent on stored records. */
+  armor?: ArmorData;
   container?: ContainerData;
   identification?: IdentificationData;
   coins?: never;
@@ -383,11 +385,11 @@ export function getRecordHandsRequired(record: InventoryRecord): HandsRequired {
   }
 
   if (record.recordType === "weapon") {
-    if (record.weapon.hands === "twoHands") {
+    if (record.weapon?.hands === "twoHands") {
       return 2;
     }
 
-    if (record.weapon.hands === "oneHand") {
+    if (record.weapon?.hands === "oneHand") {
       return 1;
     }
   }
