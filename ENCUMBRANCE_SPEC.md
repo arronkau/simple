@@ -209,6 +209,30 @@ function getSlowerMovementRate(a: MovementRate, b: MovementRate): MovementRate;
 
 Compare by `explorationFeet`. The encounter value should match the same row.
 
+### Movement tables and explanation (display helpers)
+
+The sheet lets a player click a movement number to see what produced it. The
+helpers behind those views derive from the same constants as the lookups above
+and never store anything:
+
+```ts
+function getEquippedMovementBands(): MovementBand[];
+function getStowedMovementBands(strengthModifier?: number): MovementBand[];
+function getMovementExplanation(entity: Entity, records: InventoryRecord[]): MovementExplanation;
+```
+
+- A `MovementBand` is one row of a table: `band`, `minItems`, `maxItems`
+  (`null` for the open-ended overloaded row), and `movement`. The stowed rows
+  shift by the STR modifier exactly as `getMovementRateForStowedItems` does,
+  so the displayed table and the lookup can never disagree (a fixture checks
+  every row boundary for each modifier −3…+3).
+- `MovementExplanation` carries both lookups (`equipped`, `stowed` with the
+  STR modifier and each side's items/capacity), the two overload conditions
+  (`containerOverCapacity`, `handsRequiredContainerNotHeld`), the final
+  `movement`, and `limitedBy`: without an overload, the side(s) whose lookup
+  equals the final rate (both when they tie); with one, every overload
+  condition that applies.
+
 ## Character Encumbrance Calculation
 
 Suggested helper:

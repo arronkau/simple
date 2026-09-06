@@ -83,7 +83,7 @@ export function CharacterSheetInventory({
     <section className="sheet-inventory" aria-label={`${entity.name} inventory`}>
       <div className="sheet-inventory-header">
         <h6>Inventory</h6>
-        <LoadReadout encumbrance={encumbrance} />
+        <LoadReadout align="end" encumbrance={encumbrance} />
         <WarningDetailsButton
           validationIssues={validationIssues}
           warnings={warnings}

@@ -688,6 +688,116 @@ h5 {
   display: none;
 }
 
+/* Info popover (InfoPopover): a <details> whose summary is the readout itself
+   and whose panel drops below it. Dismissed like the warning popover. */
+.info-popover {
+  position: relative;
+  display: inline-grid;
+}
+
+.info-popover > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.info-popover > summary::-webkit-details-marker {
+  display: none;
+}
+
+.info-popover > summary:hover {
+  text-decoration: underline dotted var(--gear-line-3);
+  text-underline-offset: 3px;
+}
+
+.info-popover > summary:focus-visible {
+  outline: 2px solid var(--gear-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.info-popover-panel {
+  position: absolute;
+  /* Above the fixed Floor tray (45) and any transformed rows. */
+  z-index: 50;
+  top: calc(100% + 5px);
+  left: 0;
+  width: min(18rem, calc(100vw - 2rem));
+  border: 1px solid var(--gear-line-2);
+  border-radius: var(--gear-r);
+  padding: 8px 10px;
+  color: var(--gear-ink);
+  background: var(--gear-surface);
+  box-shadow: 0 10px 24px rgb(17 24 30 / 0.16);
+  white-space: normal;
+  text-align: left;
+  font-family: var(--gear-sans);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.info-popover[data-align="end"] .info-popover-panel {
+  right: 0;
+  left: auto;
+}
+
+.info-popover:not([open]) .info-popover-panel {
+  display: none;
+}
+
+/* Movement popover bodies (MovementDetails): band rows and the rate breakdown. */
+.movement-table {
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+  border-collapse: collapse;
+}
+
+.movement-table caption {
+  padding: 0 6px 5px;
+  color: var(--gear-ink);
+  font-weight: 600;
+  text-align: left;
+}
+
+.movement-table td {
+  padding: 3px 6px;
+  color: var(--gear-ink-2);
+  vertical-align: baseline;
+}
+
+.movement-table td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.movement-table tr[data-current="true"] td,
+.movement-table tr[data-limiting="true"] td {
+  color: var(--gear-ink);
+  font-weight: 600;
+}
+
+.movement-table tr[data-current="true"] td {
+  background: var(--gear-accent-tint);
+}
+
+.movement-table tr[data-current="true"] td:first-child {
+  border-radius: 3px 0 0 3px;
+}
+
+.movement-table tr[data-current="true"] td:last-child {
+  border-radius: 0 3px 3px 0;
+}
+
+.movement-rate-zero {
+  color: var(--gear-load-crit);
+}
+
+.movement-note {
+  margin: 6px 0 0;
+  color: var(--gear-muted);
+  font-size: 11.5px;
+}
+
 /* ============================================================
    Party page — referee table
    ============================================================ */
@@ -1368,7 +1478,8 @@ tr.pt-dragging {
   text-align: center;
 }
 
-.stat-box > span {
+.stat-box > span,
+.stat-box > summary > span {
   color: var(--gear-muted);
   font-size: 9.5px;
   font-weight: 700;
@@ -1400,8 +1511,24 @@ tr.pt-dragging {
   box-shadow: 0 1px 2px rgb(20 25 30 / 0.05);
 }
 
-.stat-box.big > span {
+.stat-box.big > span,
+.stat-box.big > summary > span {
   font-size: 10px;
+}
+
+/* The Move box is a popover: its summary lays out like the box's own content. */
+.stat-box.info-popover > summary {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+}
+
+.stat-box.info-popover > summary:hover {
+  text-decoration: none;
+}
+
+.stat-box.info-popover:hover {
+  border-color: var(--gear-line-3);
 }
 
 .stat-box.big strong {

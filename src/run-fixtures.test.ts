@@ -1,6 +1,7 @@
 import { APP_MANUAL_FIXTURES } from "./App.fixtures";
 import { CHARACTER_SHEET_AUTOSAVE_MANUAL_FIXTURES } from "./character/characterSheetAutosave.fixtures";
 import { ABILITY_MODIFIERS_MANUAL_FIXTURES } from "./model/abilityModifiers.fixtures";
+import { ARMOR_CLASS_NOTATION_MANUAL_FIXTURES } from "./model/armorClassNotation.fixtures";
 import { AUDIT_LOG_MANUAL_FIXTURES } from "./model/auditLog.fixtures";
 import { CLASS_CONTENT_MANUAL_FIXTURES } from "./model/classContent.fixtures";
 import { CLASS_DERIVATIONS_MANUAL_FIXTURES } from "./model/classDerivations.fixtures";
@@ -66,6 +67,7 @@ type ManualFixture = {
 const manualFixtures: ManualFixture[] = [
   ...APP_MANUAL_FIXTURES,
   ...ABILITY_MODIFIERS_MANUAL_FIXTURES,
+  ...ARMOR_CLASS_NOTATION_MANUAL_FIXTURES,
   ...APP_STATE_MANUAL_FIXTURES,
   ...AUDIT_LOG_MANUAL_FIXTURES,
   ...CAMPAIGN_MANUAL_FIXTURES,

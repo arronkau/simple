@@ -59,6 +59,44 @@ export type ContentsCapacityResult = {
   overloaded: boolean;
 };
 
+/** One row of the equipped or stowed movement table, for display. */
+export type MovementBand = {
+  band: EncumbranceBand;
+  /** First item count in the row. */
+  minItems: number;
+  /** Last item count in the row; the overloaded row has no upper bound. */
+  maxItems: number | null;
+  movement: MovementRate;
+};
+
+export type MovementLimit = "equipped" | "stowed" | "container" | "handsRequired";
+
+/**
+ * Why a character moves at the rate they do: both lookups, both overload
+ * conditions, the final rate, and which of them set it.
+ */
+export type MovementExplanation = {
+  equipped: {
+    items: number;
+    capacity: number;
+    rate: MovementRate | "overloaded";
+  };
+  stowed: {
+    items: number;
+    capacity: number;
+    strengthModifier: number;
+    rate: MovementRate | "overloaded";
+  };
+  containerOverCapacity: boolean;
+  handsRequiredContainerNotHeld: boolean;
+  movement: MovementRate;
+  /**
+   * Without an overload: the side(s) whose lookup equals the final rate (both
+   * when they tie). With one: every overload condition that applies.
+   */
+  limitedBy: MovementLimit[];
+};
+
 export type EncumbranceWarningCode =
   | "entityOverCapacity"
   | "containerOverCapacity"
@@ -106,6 +144,18 @@ const OVERLOADED_MOVEMENT: MovementRate = {
   explorationFeet: 0,
   encounterFeet: 0,
 };
+
+/** The four movement rows in order; the upper bound of the last one is the capacity. */
+const MOVEMENT_ROWS: Array<{ band: EncumbranceBand; movement: MovementRate }> = [
+  { band: "normal", movement: NORMAL_MOVEMENT },
+  { band: "lightlyEncumbered", movement: LIGHTLY_ENCUMBERED_MOVEMENT },
+  { band: "encumbered", movement: ENCUMBERED_MOVEMENT },
+  { band: "heavilyEncumbered", movement: HEAVILY_ENCUMBERED_MOVEMENT },
+];
+
+/** Upper item counts of each row for STR modifier 0. */
+const EQUIPPED_ROW_LIMITS = [3, 5, 7, EQUIPPED_SLOT_CAPACITY];
+const STOWED_ROW_LIMITS = [10, 12, 14, BASE_STOWED_SLOT_CAPACITY];
 
 export function getEffectiveCarryState(
   record: InventoryRecord,
@@ -243,6 +293,95 @@ export function getSlowerMovementRate(
   return leftMovement.explorationFeet <= rightMovement.explorationFeet
     ? leftMovement
     : rightMovement;
+}
+
+/** The equipped movement table as rows. Never shifts with STR. */
+export function getEquippedMovementBands(): MovementBand[] {
+  return buildMovementBands(EQUIPPED_ROW_LIMITS);
+}
+
+/**
+ * The stowed movement table as rows, with every threshold shifted by the STR
+ * modifier the same way `getMovementRateForStowedItems` shifts them.
+ */
+export function getStowedMovementBands(strengthModifier = 0): MovementBand[] {
+  return buildMovementBands(
+    STOWED_ROW_LIMITS.map((limit) => limit + strengthModifier),
+  );
+}
+
+function buildMovementBands(rowLimits: number[]): MovementBand[] {
+  const rows = MOVEMENT_ROWS.map((row, index) => ({
+    band: row.band,
+    minItems: index === 0 ? 0 : rowLimits[index - 1] + 1,
+    maxItems: rowLimits[index],
+    movement: row.movement,
+  }));
+
+  return [
+    ...rows,
+    {
+      band: "overloaded",
+      minItems: rowLimits[rowLimits.length - 1] + 1,
+      maxItems: null,
+      movement: OVERLOADED_MOVEMENT,
+    },
+  ];
+}
+
+/** Everything behind a character's movement rate, for the sheet's breakdown. */
+export function getMovementExplanation(
+  entity: Entity,
+  records: InventoryRecord[],
+): MovementExplanation {
+  const encumbrance = getCharacterEncumbrance(entity, records);
+  const equippedRate = getMovementRateForEquippedItems(
+    encumbrance.equippedItems,
+  );
+  const stowedRate = getMovementRateForStowedItems(
+    encumbrance.stowedItems,
+    encumbrance.strengthModifier,
+  );
+  const containerOverCapacity = hasCriticalContainerOverload(entity, records);
+  const handsRequiredContainerNotHeld = hasInvalidUnheldContainer(
+    entity,
+    records,
+  );
+  const limitedBy: MovementLimit[] = encumbrance.overloaded
+    ? [
+        ...(equippedRate === "overloaded" ? ["equipped" as const] : []),
+        ...(stowedRate === "overloaded" ? ["stowed" as const] : []),
+        ...(containerOverCapacity ? ["container" as const] : []),
+        ...(handsRequiredContainerNotHeld ? ["handsRequired" as const] : []),
+      ]
+    : [
+        ...(equippedRate !== "overloaded" &&
+        equippedRate.explorationFeet === encumbrance.movement.explorationFeet
+          ? ["equipped" as const]
+          : []),
+        ...(stowedRate !== "overloaded" &&
+        stowedRate.explorationFeet === encumbrance.movement.explorationFeet
+          ? ["stowed" as const]
+          : []),
+      ];
+
+  return {
+    equipped: {
+      items: encumbrance.equippedItems,
+      capacity: encumbrance.equippedCapacity,
+      rate: equippedRate,
+    },
+    stowed: {
+      items: encumbrance.stowedItems,
+      capacity: encumbrance.stowedCapacity,
+      strengthModifier: encumbrance.strengthModifier,
+      rate: stowedRate,
+    },
+    containerOverCapacity,
+    handsRequiredContainerNotHeld,
+    movement: encumbrance.movement,
+    limitedBy,
+  };
 }
 
 export function getCharacterEncumbrance(

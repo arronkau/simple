@@ -4,6 +4,7 @@ import {
   getSpellLookup,
   getSpellListLookup,
   getSpellsMissingAtLevel,
+  toAscendingArmorClassLibrary,
   type SpellLibrary,
 } from "./spellLibrary";
 
@@ -237,5 +238,48 @@ export const SPELL_LIBRARY_MANUAL_FIXTURES = [
     name: "spells missing at a level are empty without a list",
     actual: getSpellsMissingAtLevel(undefined, 1, [], testLibrary),
     expected: [],
+  },
+  {
+    name: "library rewrite keeps only ascending AC in every description and nothing else changes",
+    actual: (() => {
+      const rewritten = toAscendingArmorClassLibrary({
+        spellLists: {
+          listA: {
+            id: "listA",
+            displayName: "List A",
+            access: "wholeList",
+            levels: {
+              "1": [
+                {
+                  id: "snakes",
+                  displayName: "Snakes",
+                  reversible: false,
+                  duration: "1 turn",
+                  description: "Conjured Snakes\nAC 6 [13], HD 1 (4hp), THAC0 19 [0], ML 7",
+                },
+              ],
+            },
+          },
+        },
+      });
+      const lookup = getSpellLookup("snakes", undefined, rewritten);
+
+      return [
+        lookup.ok ? lookup.spell : lookup.message,
+        rewritten.spellLists.listA.access,
+        rewritten.spellLists.listA.displayName,
+      ];
+    })(),
+    expected: [
+      {
+        id: "snakes",
+        displayName: "Snakes",
+        reversible: false,
+        duration: "1 turn",
+        description: "Conjured Snakes\nAC 13, HD 1 (4hp), Attack bonus +0, ML 7",
+      },
+      "wholeList",
+      "List A",
+    ],
   },
 ];

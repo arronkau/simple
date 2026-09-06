@@ -30,6 +30,7 @@ import { isLightSourceRecord } from "../model/lightSources";
 import {
   getCharacterEncumbrance,
   getContentsCapacity,
+  getMovementExplanation,
   type CharacterEncumbranceResult,
 } from "../model/encumbrance";
 import {
@@ -66,7 +67,9 @@ import {
   capacityTone,
   type LoadTone,
 } from "../components/GearMeters";
+import { InfoPopover } from "../ui/InfoPopover";
 import { WarningDetailsButton } from "../ui/WarningDetailsButton";
+import { MovementBreakdown } from "../components/MovementDetails";
 import { ItemStatusIcon } from "../components/InventoryIcons";
 import { useVisibleRecord } from "../components/ViewerRole";
 import type {
@@ -636,7 +639,11 @@ function CharacterGearCard({
             {entity.name}
           </button>
           <span className="sub">{subtitle}</span>
-          <MovementBadge encumbrance={encumbrance} />
+          <MovementBadge
+            encumbrance={encumbrance}
+            entity={entity}
+            records={records}
+          />
           <WarningDetailsButton
             validationIssues={status.validationIssues}
             warnings={status.warnings}
@@ -822,8 +829,12 @@ function EntityHeaderDrop({
 
 function MovementBadge({
   encumbrance,
+  entity,
+  records,
 }: {
   encumbrance: CharacterEncumbranceResult;
+  entity: Entity;
+  records: InventoryRecord[];
 }) {
   // Keep movement colors restrained: only the bottom tier (30') is amber and
   // overloaded (0') is red; 120'/90'/60' read as neutral.
@@ -837,10 +848,14 @@ function MovementBadge({
     : `${encumbrance.movement.explorationFeet}′ (${encumbrance.movement.encounterFeet}′)`;
 
   return (
-    <span className={`mv ${cls}`}>
-      {encumbrance.overloaded ? "⚠ " : ""}
-      {text}
-    </span>
+    <InfoPopover
+      align="end"
+      className={`mv ${cls}`}
+      label={`Movement ${text}. Show what sets it.`}
+      summary={`${encumbrance.overloaded ? "⚠ " : ""}${text}`}
+    >
+      <MovementBreakdown explanation={getMovementExplanation(entity, records)} />
+    </InfoPopover>
   );
 }
 

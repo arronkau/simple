@@ -115,6 +115,13 @@ const legacySpellsCharacterData = normalizeCharacterData({
       notes: "older text should lose",
     },
     { id: "spell-keep", name: "Charm Person", level: 1, memorized: 0 },
+    {
+      id: "spell-aac",
+      name: "Sticks to Snakes",
+      level: 4,
+      memorized: 0,
+      description: "Conjured Snakes\nAC 6 [13], HD 1 (4hp), THAC0 19 [0]",
+    },
     { name: "", level: 2, memorized: 1 },
     { name: "Web", level: "two", memorized: -3 },
     "not a spell",
@@ -300,7 +307,7 @@ export const CHARACTER_MANUAL_FIXTURES = [
     expected: [],
   },
   {
-    name: "legacy spell rows normalize ids, levels, counts, and drop unnamed rows",
+    name: "legacy spell rows normalize ids, levels, counts, AC notation, and drop unnamed rows",
     actual: legacySpellsCharacterData.spells,
     expected: [
       {
@@ -324,7 +331,14 @@ export const CHARACTER_MANUAL_FIXTURES = [
         memorized: 0,
       },
       {
-        id: "spell-5",
+        id: "spell-aac",
+        name: "Sticks to Snakes",
+        level: 4,
+        memorized: 0,
+        description: "Conjured Snakes\nAC 13, HD 1 (4hp), Attack bonus +0",
+      },
+      {
+        id: "spell-6",
         name: "Web",
         level: 1,
         memorized: 0,

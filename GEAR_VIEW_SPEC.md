@@ -44,7 +44,13 @@ Mirrors the canonical inventory layout, restyled:
 - **Header** — name (serif), `className` + `level` subtitle, an OSE movement
   badge `120′ (40′)` colored by tier (normal / amber / red; overloaded shows
   `0′`), and a load readout `Eq X/9 · St Y/16±STR` — each side against its own
-  limit, no combined total (plus the overload reason when overloaded).
+  limit, no combined total (plus the overload reason when overloaded). Both are
+  popovers: the movement badge opens the rate breakdown (each side's lookup,
+  any overload condition, which of them set the rate — `getMovementExplanation`),
+  and each load side opens its band table with the current row marked
+  (`getEquippedMovementBands` / `getStowedMovementBands`, the stowed one
+  shifted by STR). The character sheet's Move box and inventory header reuse
+  the same popovers. Numbers come from `ENCUMBRANCE_SPEC.md` helpers only.
 - **Equipped** (the `equipped` zone, accent left edge) — uppercase "Equipped"
   label; a "Hands" sub-section with the hands stacked vertically (a single
   full-width "Both hands" slot when a `bothHands` record is equipped, otherwise
