@@ -52,7 +52,7 @@ export function benefitsFromBothHands(record: InventoryRecord): boolean {
   }
   return Boolean(
     record.recordType === "weapon" &&
-      record.weapon.qualities?.some(
+      record.weapon?.qualities?.some(
         (quality) => quality.trim().toLowerCase() === "versatile",
       ),
   );

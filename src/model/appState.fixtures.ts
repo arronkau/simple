@@ -380,6 +380,27 @@ const legacyIdentificationAppState = {
   auditLog: [],
 };
 
+const missingWeaponDataAppState = {
+  schemaVersion: 1,
+  entities: [characterEntity],
+  inventoryRecords: [
+    {
+      id: "weapon-no-data-1",
+      recordType: "weapon",
+      name: "Mace",
+      entityId: characterEntity.id,
+      location: {
+        kind: "equipped",
+        placement: "rightHand",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+    },
+  ],
+  auditLog: [],
+};
+
 const legacyBackpackFlagAppState = {
   schemaVersion: 1,
   entities: [characterEntity],
@@ -530,6 +551,24 @@ export const APP_STATE_MANUAL_FIXTURES = [
       entities: [normalizedCharacterEntity],
       auditLog: [],
       recordHandsRequired: 2,
+    },
+  },
+  {
+    name: "app state parsing reads a weapon record that has no weapon data",
+    actual: parseAppState(missingWeaponDataAppState)?.inventoryRecords[0],
+    expected: {
+      id: "weapon-no-data-1",
+      recordType: "weapon",
+      name: "Mace",
+      entityId: characterEntity.id,
+      location: {
+        kind: "equipped",
+        placement: "rightHand",
+      },
+      sortOrder: 0,
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      handsRequired: 0,
     },
   },
   {

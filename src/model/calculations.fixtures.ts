@@ -273,6 +273,20 @@ const leatherArmorRecord: InventoryRecord = {
     baseArmorClass: 12,
   },
 };
+const armorRecordWithoutArmorData: InventoryRecord = {
+  id: "armor-no-data-1",
+  recordType: "armor",
+  name: "Salvaged plate",
+  entityId: "character-1",
+  location: {
+    kind: "equipped",
+    placement: "loose",
+  },
+  sortOrder: 3100,
+  quantity: 1,
+  burden: { kind: "fixed", slotsPerItem: 1 },
+};
+
 const chainmailRecord: InventoryRecord = {
   ...leatherArmorRecord,
   id: "chainmail-1",
@@ -479,6 +493,41 @@ export const CALCULATION_MANUAL_FIXTURES = [
       itemModifier: 1,
       manualModifier: 1,
       shieldRecordIds: ["shield-1"],
+      warnings: [],
+    },
+  },
+  {
+    name: "character AC tolerates an equipped armor record with no armor data",
+    actual: getCharacterArmorClass(characterEntity, [
+      armorRecordWithoutArmorData,
+    ], {
+      className: "",
+      level: null,
+      alignment: "",
+      xp: null,
+      hp: { current: null, max: null },
+      armorClass: { modifier: 0, override: null },
+      abilityScores: {
+        strength: null,
+        intelligence: null,
+        wisdom: null,
+        dexterity: null,
+        constitution: null,
+        charisma: null,
+      },
+      skills: [],
+      spells: [],
+      languages: [],
+      description: "",
+      features: [],
+    }),
+    expected: {
+      armorClass: 10,
+      baseArmorClass: 10,
+      equippedArmorRecordIds: [],
+      itemModifier: 0,
+      manualModifier: 0,
+      shieldRecordIds: [],
       warnings: [],
     },
   },

@@ -236,9 +236,9 @@ function getPartyHandDetail(
 
   if (record.recordType === "weapon") {
     const weaponParts = [
-      record.weapon.damage,
-      record.weapon.range,
-      ...(record.weapon.qualities ?? []),
+      record.weapon?.damage,
+      record.weapon?.range,
+      ...(record.weapon?.qualities ?? []),
     ].filter((part): part is string => Boolean(part && part.trim()));
 
     if (weaponParts.length > 0) {

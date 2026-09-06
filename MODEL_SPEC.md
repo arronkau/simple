@@ -423,7 +423,7 @@ export type TreasureRecord = NonCoinInventoryRecordShared & {
 export type WeaponRecord = NonCoinInventoryRecordShared & {
   recordType: "weapon";
   name: string;
-  weapon: WeaponData;
+  weapon?: WeaponData;
   container?: ContainerData;
   identification?: IdentificationData;
   coins?: never; treasure?: never; armor?: never;
@@ -432,7 +432,7 @@ export type WeaponRecord = NonCoinInventoryRecordShared & {
 export type ArmorRecord = NonCoinInventoryRecordShared & {
   recordType: "armor";
   name: string;
-  armor: ArmorData;
+  armor?: ArmorData;
   container?: ContainerData;
   identification?: IdentificationData;
   coins?: never; treasure?: never; weapon?: never;
@@ -464,6 +464,7 @@ export type InventoryRecord =
 - `treasure` is required when `recordType === "treasure"` and is ignored on other record types.
 - `weapon` is optional detail data for `recordType === "weapon"`; a weapon record may exist without a populated `weapon` object.
 - `armor` is optional detail data for `recordType === "armor"`; an armor record may exist without a populated `armor` object.
+- An absent `weapon` or `armor` object is read as though every field in it were unset. Calculation and display code must tolerate the missing object rather than assume it is present; state parsing accepts such records.
 - Type-specific data from the wrong record type should not be used by calculations or display. Parsers may tolerate excess fields from older or hand-edited data, but new write paths should avoid creating irrelevant type-specific fields.
 - `container` may appear on weapon, armor, or equipment records if that record can contain other records; treasure records do not use container data.
 - `identification` may appear on `treasure`, `weapon`, `armor`, or `equipment` records. It may also be tolerated on imported or legacy records.
