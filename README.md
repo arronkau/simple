@@ -17,7 +17,7 @@ A small TTRPG character, party, and inventory tracker built for table use.
 - Audit log for significant party and inventory changes.
 - Party management in Manage: create a party, switch to a recent one, forget one on this device, or delete the open party as the GM.
 - Local-only mode with `localStorage`.
-- Optional Firebase anonymous auth and Firestore sync when configured, tolerant of a dropped connection: edits are cached offline, failed writes retry on a backoff, and a refused write is rolled back.
+- Optional Firebase anonymous auth and Firestore sync when configured, tolerant of a dropped connection: transient authentication and connection failures reconnect automatically, edits are cached offline, failed writes retry on a backoff, and a refused write is rolled back.
 
 ## Tech Stack
 

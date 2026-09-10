@@ -46,7 +46,7 @@ type StartFirebaseAppStateSyncInput = {
   // Invite code from the URL; used to add this user to the party when they
   // are not yet a member.
   inviteCode?: string;
-  onError: (message: string) => void;
+  onError: (message: string, error?: unknown) => void;
   onAuthUserId: (userId: string) => void;
   onAuthAccount?: (account: FirebaseAuthAccount) => void;
   onJoined?: () => void;
@@ -350,7 +350,7 @@ export async function startFirebaseAppStateSync({
             .replaceDocument(assignPartyGm(getCurrentPartyState(), user.uid))
             .catch((error: unknown) => {
               creatingDocument = false;
-              onError(formatFirebaseError(error));
+              onError(formatFirebaseError(error), error);
             });
           return;
         }
@@ -373,7 +373,7 @@ export async function startFirebaseAppStateSync({
 
         legacyUpgradeLifecycle.handleVersion2Document({ metadata, partyState });
       },
-      (error) => onError(formatFirebaseError(error)),
+      (error) => onError(formatFirebaseError(error), error),
     );
 
     return () => {
@@ -382,7 +382,7 @@ export async function startFirebaseAppStateSync({
       unsubscribe();
     };
   } catch (error) {
-    onError(formatFirebaseError(error));
+    onError(formatFirebaseError(error), error);
     return () => undefined;
   }
 }
@@ -407,14 +407,14 @@ async function joinPartyWithInvite({
   partyStateRef: import("firebase/firestore").DocumentReference;
   uid: string;
   inviteCode: string;
-  onError: (message: string) => void;
+  onError: (message: string, error?: unknown) => void;
 }): Promise<JoinOutcome> {
   try {
     await firestore.getDoc(partyStateRef);
     return "already-member";
   } catch (error) {
     if (getFirebaseErrorCode(error) !== "permission-denied") {
-      onError(formatFirebaseError(error));
+      onError(formatFirebaseError(error), error);
       return "failed";
     }
   }
@@ -432,6 +432,7 @@ async function joinPartyWithInvite({
       getFirebaseErrorCode(error) === "permission-denied"
         ? "This invite link is no longer valid. Ask the GM for a new one."
         : formatFirebaseError(error),
+      error,
     );
     return "failed";
   }

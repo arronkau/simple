@@ -82,9 +82,9 @@ export type PartyMember = {
 };
 
 export type UserProfile = {
-  id: UserId;                // the local user id, not the Firebase Auth UID
+  id: UserId;                // local user id in local mode; Firebase Auth UID in Firebase mode
   displayName: string;
-  role: UserRole;            // "GM" | "Player" — a self-chosen display label
+  role: UserRole;            // "GM" | "Player" — derived from party membership
   updatedAt?: ISODateTimeString;
 };
 ```
@@ -92,10 +92,11 @@ export type UserProfile = {
 `UserProfile` and `PartyMember` both carry a "role" and they are not the same
 thing. `PartyMember.role` (`"gm" | "player"`, keyed by Firebase Auth UID) is the
 permission authority: `resolvePartyRole` reads it, `permissions.ts` and
-`firestore.rules` enforce it. `UserProfile.role` (`"GM" | "Player"`) is a label
-the user picks for themselves in the identity modal; it grants nothing and is
-only used to stamp audit entries (see Audit Log). A player who sets their
-profile role to "GM" gains no permission.
+`firestore.rules` enforce it. `UserProfile.role` (`"GM" | "Player"`) is a
+compatibility/display field normalized from that resolved permission role when
+the profile is saved; permission checks and rendered/audit roles always use the
+current membership. The identity modal accepts only a display name, so users
+cannot grant themselves a role through their profile.
 
 Party state rules:
 
@@ -166,7 +167,7 @@ Audit log rules:
 - Log character coin merges with denomination deltas where practical.
 - Log treasure value edits when the value changes.
 - Detail values may be omitted or set to `undefined` when a field is optional and not meaningful for that event.
-- `actorLabel` is stamped by the store at append time from the current user's `UserProfile`: `"<displayName> (<role>)"` — for example `"Wren (Player)"` — using the profile's self-chosen `UserProfile.role`, and `actorRole`/`actorUserId` alongside it. A user with no stored profile is logged as `"Anonymous user"` with `actorUserId` but no `actorRole`.
+- `actorLabel` is stamped by the store at append time from the current user's `UserProfile`: `"<displayName> (<role>)"` — for example `"Wren (Player)"` — using the current role resolved from party membership, and `actorRole`/`actorUserId` alongside it. A user with no stored profile is logged as `"Anonymous user"` with `actorUserId` but no `actorRole`.
 - `DEFAULT_AUDIT_ACTOR_LABEL` (`"Local user"`, in `src/model/auditLog.ts`) is only the parser/factory default for an entry that arrives without a label; display treats it as "no known actor" and omits the actor line.
 - Keep audit entries in `AppState.auditLog`; do not split them into a separate Firestore collection for v1.
 

@@ -1644,11 +1644,12 @@ export const PHASE_DND_STORE_MANUAL_FIXTURES = [
 useAppStore.getState().resetLocalState();
 useAppStore.setState({
   currentUserId: "user-1",
+  gmUid: "user-1",
+  members: { "user-1": { role: "gm" } },
   userProfiles: [],
 });
 useAppStore.getState().updateCurrentUserProfile({
   displayName: "Morgan",
-  role: "GM",
 });
 useAppStore.getState().createEntity({
   name: "Attributed Character",

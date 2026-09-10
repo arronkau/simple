@@ -1,6 +1,6 @@
 # Sync Spec — Firestore field-level writes
 
-Governs `src/persistence/firebaseSync.ts`, `src/persistence/firestoreDocument.ts`, `src/persistence/partyStateDiff.ts`, `src/persistence/firebaseWriteLifecycle.ts`, `src/persistence/retryBackoff.ts`, `src/persistence/syncWindowListeners.ts`, the Firebase write path in `src/store/useAppStore.ts`, and the party document shape in Firestore. Local mode is unaffected.
+Governs `src/persistence/firebaseSync.ts`, `src/persistence/firebaseConnectionLifecycle.ts`, `src/persistence/firestoreDocument.ts`, `src/persistence/partyStateDiff.ts`, `src/persistence/firebaseWriteLifecycle.ts`, `src/persistence/retryBackoff.ts`, `src/persistence/syncWindowListeners.ts`, the Firebase write path in `src/store/useAppStore.ts`, and the party document shape in Firestore. Local mode is unaffected.
 
 ## Goal
 
@@ -143,12 +143,26 @@ Applying a field path such as `appState.entities.<id>` to a document whose `appS
 
 ## Failure handling
 
+Initial authentication and terminal listener failures use a connection retry
+lifecycle separate from field writes. Transient codes such as
+`auth/network-request-failed`, `unavailable`, and `deadline-exceeded` restart the
+whole sync session after 1s, doubling to a 30s cap. A party switch, sign-in,
+sign-out, or successful server sync resets the schedule; an `online` event
+retries immediately. Configuration, membership, and validation failures remain
+terminal. While connection retry is pending, status is `error`, the message
+names the retry delay, and user-profile editing stays disabled.
+
+A Firebase party is added to the device index only after a snapshot from the
+server with no pending writes. Cache-only state and failed document creation do
+not create an index entry, so an authentication failure cannot leave a phantom
+party in the switcher.
+
 A failed write is not the user's problem to notice. Nothing else re-sends a batch, so a flush that fails and is only retried on the next edit leaves the party document behind indefinitely — and re-sends a rejected batch forever.
 
 Failures are classified in `src/persistence/firebaseWriteLifecycle.ts`:
 
 - **`permission-denied` — never retried.** The batch is dropped, the rest of the pending queue with it, and local state is restored from `lastRemotePartyState` so the client cannot keep showing an edit the party document will never contain. The message is role-aware (`getPermissionDeniedWriteMessage`): GM, player, and non-member each get a different one, and it is surfaced through the same friendly formatter as every other sync error (`formatFirebaseError`, which the store's `formatSyncError` delegates to). Status becomes `error`.
-- **Everything else — retried.** The batch is merged back in front of anything queued meanwhile and a retry is scheduled: 1s, doubling, capped at 30s, counted from the first failure and reset on the first success (`createRetryScheduler` in `src/persistence/retryBackoff.ts`, shared with the legacy upgrade so there is one backoff implementation). Status becomes `error` with the retry delay named in the message; the retry runs independently of user activity.
+- **Everything else — retried.** The batch is merged back in front of anything queued meanwhile and a retry is scheduled: 1s, doubling, capped at 30s, counted from the first failure and reset on the first success (`createRetryScheduler` in `src/persistence/retryBackoff.ts`, shared with connection retry and the legacy upgrade so there is one backoff implementation). Status becomes `error` with the retry delay named in the message; the retry runs independently of user activity.
 
 The retry is subject to the same generation gating as the original write: a superseded connection's retry is cancelled when sync stops, and a settled write from a superseded generation never touches status or the queue.
 
@@ -171,7 +185,7 @@ Registered when a sync session starts and removed when it stops, so a party swit
 
 - **`beforeunload`** warns while updates have not reached the Firestore SDK yet — a non-empty pending batch, or a write in flight when writes are memory-only. Once the SDK has a write and the persistent cache is active, the write survives the reload and the guard stays quiet (`shouldBlockUnloadForFirebaseWrites`).
 - **`pagehide`** cannot prompt, so it hands the pending batch to the SDK instead: a normal flush, or a direct hand-off when a write is already in flight.
-- **`online`** clears the backoff and flushes immediately instead of waiting out the timer.
+- **`online`** clears both connection and write backoffs, restarts a failed connection immediately, and flushes queued writes instead of waiting out either timer.
 
 ## Queue reset windows
 
@@ -210,5 +224,5 @@ Rules do not reference the app state shape, so field-level writes needed no rule
 
 ## Testing
 
-- Fixtures (repo convention, wired into `src/run-fixtures.test.ts`): `firestoreDocument.fixtures.ts` (to/from, legacy parse, ordering, id-key precedence, round trip preserves inviteCode and members), `partyStateDiff.fixtures.ts` (each path kind, audit-log union vs set, no-op diff is empty, merge semantics, canonical ordering ignores array order), `firebaseWriteLifecycle.fixtures.ts` (generation gating, failure classification, role-aware permission-denied messages, unload guard, status derivation), `retryBackoff.fixtures.ts` (delay schedule, pending-retry replacement, reset) and `syncWindowListeners.fixtures.ts` (guarded unload, online/pagehide dispatch, handler removal).
+- Fixtures (repo convention, wired into `src/run-fixtures.test.ts`): `firestoreDocument.fixtures.ts` (to/from, legacy parse, ordering, id-key precedence, round trip preserves inviteCode and members), `partyStateDiff.fixtures.ts` (each path kind, audit-log union vs set, no-op diff is empty, merge semantics, canonical ordering ignores array order), `firebaseConnectionLifecycle.fixtures.ts` (transient-vs-terminal connection failure classification and retry messaging), `firebaseWriteLifecycle.fixtures.ts` (generation gating, failure classification, role-aware permission-denied messages, unload guard, status derivation), `retryBackoff.fixtures.ts` (delay schedule, pending-retry replacement, reset) and `syncWindowListeners.fixtures.ts` (guarded unload, online/pagehide dispatch, handler removal).
 - `npm run typecheck`, `npm test`, `npm run build`, `npm run test:rules` (needs Java: `export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"`).

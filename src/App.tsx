@@ -28,7 +28,11 @@ import type {
   PartyRole,
 } from "./model/types";
 import { FIREBASE_PARTY_STATE_COLLECTION } from "./persistence/firebaseSync";
-import type { PersistenceMode, SyncStatus } from "./persistence/types";
+import {
+  canEditUserIdentity,
+  type PersistenceMode,
+  type SyncStatus,
+} from "./persistence/types";
 import { ManageDataModal } from "./modals/ManageDataModal";
 import { UserIdentityModal } from "./modals/UserIdentityModal";
 import { DeleteConfirmationModal } from "./modals/DeleteConfirmationModal";
@@ -176,7 +180,11 @@ function LocalAppShell() {
   const currentUserProfile = userProfiles.find(
     (profile) => profile.id === currentUserId,
   );
-  const identityReady = canEditUserIdentity(persistenceMode, syncStatus);
+  const identityReady = canEditUserIdentity(
+    persistenceMode,
+    syncStatus,
+    currentUserPartyRole,
+  );
   const identityRequired = identityReady && currentUserProfile === undefined;
 
   useEffect(() => {
@@ -536,7 +544,9 @@ function LocalAppShell() {
               onClick={openIdentityModal}
             >
               {currentUserProfile
-                ? `${currentUserProfile.displayName} (${currentUserProfile.role})`
+                ? `${currentUserProfile.displayName} (${
+                    currentUserPartyRole === "gm" ? "GM" : "Player"
+                  })`
                 : "Set User"}
             </button>
             <button type="button" onClick={() => setManageModalOpen(true)}>
@@ -789,18 +799,6 @@ function formatPersistenceSummary(
   }
 
   return `Persistence: Firebase / ${SYNC_STATUS_LABELS[syncStatus]}`;
-}
-
-function canEditUserIdentity(
-  persistenceMode: PersistenceMode,
-  syncStatus: SyncStatus,
-): boolean {
-  return (
-    persistenceMode === "local" ||
-    syncStatus === "local" ||
-    syncStatus === "synced" ||
-    syncStatus === "error"
-  );
 }
 
 const SYNC_STATUS_LABELS: Record<SyncStatus, string> = {

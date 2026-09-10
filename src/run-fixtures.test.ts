@@ -27,6 +27,9 @@ import { VALIDATION_MANUAL_FIXTURES } from "./model/validation.fixtures";
 import { GEAR_HANDS_MANUAL_FIXTURES } from "./party-gear/gearHands.fixtures";
 import { FIREBASE_CONFIG_MANUAL_FIXTURES } from "./persistence/firebaseConfig.fixtures";
 import {
+  FIREBASE_CONNECTION_LIFECYCLE_MANUAL_FIXTURES,
+} from "./persistence/firebaseConnectionLifecycle.fixtures";
+import {
   FIREBASE_WRITE_LIFECYCLE_MANUAL_FIXTURES,
 } from "./persistence/firebaseWriteLifecycle.fixtures";
 import { FIRESTORE_DOCUMENT_MANUAL_FIXTURES } from "./persistence/firestoreDocument.fixtures";
@@ -84,6 +87,7 @@ const manualFixtures: ManualFixture[] = [
   ...ENCUMBRANCE_MANUAL_FIXTURES,
   ...GEAR_HANDS_MANUAL_FIXTURES,
   ...FIREBASE_CONFIG_MANUAL_FIXTURES,
+  ...FIREBASE_CONNECTION_LIFECYCLE_MANUAL_FIXTURES,
   ...FIREBASE_WRITE_LIFECYCLE_MANUAL_FIXTURES,
   ...FIRESTORE_DOCUMENT_MANUAL_FIXTURES,
   ...LEGACY_UPGRADE_LIFECYCLE_MANUAL_FIXTURES,

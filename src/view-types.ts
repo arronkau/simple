@@ -17,7 +17,6 @@ import type {
   InventoryRecordId,
   InventoryRecordType,
   KnownModifierTarget,
-  UserRole,
 } from "./model/types";
 import type { InventoryRowStatus } from "./model/inventoryRowDisplay";
 import type { ValidationIssue } from "./model/validation";
@@ -202,7 +201,6 @@ export type ManageMessage = {
 
 export type UserProfileFormState = {
   displayName: string;
-  role: UserRole;
 };
 
 export type DeleteConfirmationState =

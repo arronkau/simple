@@ -1,4 +1,5 @@
 import { getPartyOverviewCards } from "./pages/PartyPage";
+import { canEditUserIdentity } from "./persistence/types";
 import {
   getAuditEntityFilterOptions,
   getFilteredAuditLogEntries,
@@ -356,6 +357,18 @@ const invalidLocationExport = {
 };
 
 export const APP_MANUAL_FIXTURES = [
+  {
+    name: "Firebase user identity waits for synced party membership",
+    actual: [
+      canEditUserIdentity("local", "local", null),
+      canEditUserIdentity("firebase", "authenticating", null),
+      canEditUserIdentity("firebase", "error", "gm"),
+      canEditUserIdentity("firebase", "synced", null),
+      canEditUserIdentity("firebase", "synced", "player"),
+      canEditUserIdentity("firebase", "synced", "gm"),
+    ],
+    expected: [true, false, false, false, true, true],
+  },
   {
     name: "coin display is safe for unnamed coin records",
     actual: {

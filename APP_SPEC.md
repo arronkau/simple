@@ -79,13 +79,15 @@ Firebase mode should:
 - Grant party access by membership, not by URL. The party URL alone does not let a new user read the party.
 - Take membership and `gmUid` from the party document only. A client must not assign itself GM from local state before the first remote snapshot, or opening a party URL would make a visitor its GM locally.
 - Make document creation the moment GM is assigned: the first visitor of a party whose document does not exist writes it with their authenticated UID as `party.gmUid` and as a `gm` member (which is also what the Firestore create rule requires).
+- Do not add a Firebase party to the device's party index until a server-acknowledged snapshot proves the document exists and is readable. A failed authentication or creation attempt must not leave a phantom party in the switcher.
+- Allow user-profile editing only after Firebase is synced and the current UID resolves to a party member. The profile form accepts a display name only; its displayed GM/Player role is derived from membership and never self-assigned.
 - Treat a denied read as no access: the role stays unresolved, sync status is `error` with "You are not a member of this party. Ask the GM for an invite link.", GM controls stay hidden, store mutations are refused instead of being treated as player actions, and the party is not remembered as the last party.
 - Let the GM share an invite link (`/party/{partyId}?invite={inviteCode}`). Opening it as a non-member adds the user to `party.members` as a player. The GM can regenerate the invite code to invalidate old links.
 - Store shared app state in Firestore.
 - Support real-time sync where practical.
 - Let the GM delete the party, which removes the party document for every member. Deletion is GM-only in both enforcement layers. A member whose client is subscribed when this happens is told the party was deleted and forgets it on that device, rather than writing it back.
 - Use the same logical `AppState` shape as local mode, including `auditLog`, unless a later migration explicitly changes it.
-- Keep working while the connection does not: edits are cached offline, a failed write retries on a backoff instead of waiting for the user's next edit, and a write the server refuses is rolled back rather than left showing locally — see [SYNC_SPEC.md](SYNC_SPEC.md) for the write lifecycle, retry schedule, and sync-status meanings.
+- Keep working while the connection does not: edits are cached offline, transient authentication/connection failures and failed writes retry on independent backoffs instead of waiting for the user's next action, and a write the server refuses is rolled back rather than left showing locally — see [SYNC_SPEC.md](SYNC_SPEC.md) for the connection and write lifecycles, retry schedule, and sync-status meanings.
 
 Firestore's wire shape, field-level merge behavior, and legacy-document upgrade path are defined in [SYNC_SPEC.md](SYNC_SPEC.md).
 

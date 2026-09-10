@@ -89,7 +89,6 @@ import type {
   PartyRole,
   UserId,
   UserProfile,
-  UserRole,
 } from "../model/types";
 import {
   createInitialInventoryRecordsForEntity,
@@ -112,6 +111,10 @@ import {
   type FirebaseWriter,
   type RemoteSnapshotMetadata,
 } from "../persistence/firebaseSync";
+import {
+  formatFirebaseReconnectMessage,
+  isRetryableFirebaseConnectionError,
+} from "../persistence/firebaseConnectionLifecycle";
 import {
   classifyFirebaseWriteFailure,
   deriveSnapshotSyncStatus,
@@ -230,7 +233,6 @@ type CreateEntityStoreInput = {
 
 type UserProfileInput = {
   displayName: string;
-  role: UserRole;
 };
 
 export type CoinDenomination = keyof CoinData;
@@ -293,11 +295,21 @@ export const useAppStore = create<AppStore>((set) => ({
   userProfiles: initialPartyState.userProfiles,
   updateCurrentUserProfile: (input) => {
     set((state) => {
+      // Cached membership is not authoritative on a fresh Firebase session.
+      // Do not let a profile edit create local-only identity state until the
+      // server has confirmed this UID can read the party.
+      if (
+        state.persistenceMode === "firebase" &&
+        state.syncStatus !== "synced"
+      ) {
+        return state;
+      }
+
       const displayName = normalizeUserDisplayName(input.displayName);
       const profile: UserProfile = {
         id: state.currentUserId,
         displayName,
-        role: input.role,
+        role: getStateUserRole(state) === "gm" ? "GM" : "Player",
         updatedAt: new Date().toISOString(),
       };
       const existingProfile = state.userProfiles.find(
@@ -414,8 +426,12 @@ export const useAppStore = create<AppStore>((set) => ({
     set((state) => {
       if (state.partyId === partyId) {
         // Re-selecting the open party is still an open: keep it on top of
-        // the recent list.
-        return { parties: rememberOpenedParty(partyId, state.partyDisplayName) };
+        // the recent list in local mode. Firebase parties are remembered only
+        // after a server-acknowledged snapshot proves they exist and are
+        // readable by this user.
+        return persistenceMode === "firebase"
+          ? state
+          : { parties: rememberOpenedParty(partyId, state.partyDisplayName) };
       }
 
       partyChanged = true;
@@ -434,7 +450,10 @@ export const useAppStore = create<AppStore>((set) => ({
         gmUid: partyState.party.gmUid,
         inviteCode: partyState.party.inviteCode,
         members: partyState.party.members,
-        parties: rememberOpenedParty(partyId, partyState.party.displayName),
+        parties:
+          persistenceMode === "firebase"
+            ? state.parties
+            : rememberOpenedParty(partyId, partyState.party.displayName),
         userProfiles: partyState.userProfiles,
         partyDisplayName: partyState.party.displayName,
         partyId: partyState.party.id,
@@ -460,9 +479,11 @@ export const useAppStore = create<AppStore>((set) => ({
       writeLocalPartyState(partyState);
     }
 
-    set({
-      parties: rememberOpenedParty(partyId, partyState.party.displayName),
-    });
+    if (persistenceMode === "local") {
+      set({
+        parties: rememberOpenedParty(partyId, partyState.party.displayName),
+      });
+    }
 
     return partyId;
   },
@@ -2162,6 +2183,8 @@ export const useAppStore = create<AppStore>((set) => ({
 
 const FIREBASE_WRITE_RETRY_DELAY_MS = 1000;
 const FIREBASE_WRITE_MAX_RETRY_DELAY_MS = 30_000;
+const FIREBASE_CONNECTION_RETRY_DELAY_MS = 1000;
+const FIREBASE_CONNECTION_MAX_RETRY_DELAY_MS = 30_000;
 
 let applyingRemotePartyState = false;
 let firebaseUnsubscribe: (() => void) | undefined;
@@ -2170,6 +2193,9 @@ let firebaseOfflineWritesDurable = false;
 let pendingFirebaseFieldUpdates: FieldUpdate[] = [];
 let writingFirebaseFieldUpdates = false;
 let firebaseSyncGeneration = 0;
+// A Firebase party is not added to this device's party index until a
+// server-acknowledged snapshot proves the document exists and is readable.
+let firebasePartyConfirmed = false;
 // Local state must never be written to Firebase before we know the remote
 // state. Otherwise a client that just loaded (e.g. a joining player whose
 // local party is empty) would clobber the real party document. This stays
@@ -2189,11 +2215,27 @@ const firebaseWriteRetries = createRetryScheduler({
   retryDelayMs: FIREBASE_WRITE_RETRY_DELAY_MS,
 });
 
+// Initial authentication and terminal listener failures are outside the write
+// queue, so they need their own retry lifecycle. The failure count survives a
+// retry attempt and resets only when sync succeeds or the target party changes.
+const firebaseConnectionRetries = createRetryScheduler({
+  maxRetryDelayMs: FIREBASE_CONNECTION_MAX_RETRY_DELAY_MS,
+  onRetry: () => {
+    void startConfiguredFirebaseSync();
+  },
+  retryDelayMs: FIREBASE_CONNECTION_RETRY_DELAY_MS,
+});
+
 const firebaseSyncWindowListeners = createSyncWindowListeners({
   onOnline: () => {
     // Connectivity is back: retry now instead of waiting out the backoff.
     firebaseWriteRetries.reset();
     void flushFirebasePartyStateWrite();
+
+    if (firebaseConnectionRetries.getFailureCount() > 0) {
+      firebaseConnectionRetries.reset();
+      void startConfiguredFirebaseSync();
+    }
   },
   onPageHide: () => {
     if (writingFirebaseFieldUpdates) {
@@ -2811,11 +2853,21 @@ async function startConfiguredFirebaseSync(): Promise<void> {
     getCurrentPartyState: () =>
       getPartyStateFromStoreState(useAppStore.getState()),
     inviteCode: getInviteCodeFromLocation(),
-    onError: (message) => {
+    onError: (message, error) => {
       if (!isActiveSync()) {
         return;
       }
 
+      if (isRetryableFirebaseConnectionError(error)) {
+        const retryDelayMs = firebaseConnectionRetries.recordFailure();
+        setSyncMetadata(
+          "error",
+          formatFirebaseReconnectMessage(message, retryDelayMs),
+        );
+        return;
+      }
+
+      firebaseConnectionRetries.reset();
       setSyncMetadata("error", message);
     },
     onAuthAccount: (authAccount) => {
@@ -2864,11 +2916,19 @@ async function startConfiguredFirebaseSync(): Promise<void> {
         return;
       }
 
+      if (!metadata.fromCache && !metadata.hasPendingWrites) {
+        firebaseConnectionRetries.reset();
+      }
+
       applyRemotePartyState(partyState, metadata);
     },
     onStatusChange: (syncStatus) => {
       if (!isActiveSync()) {
         return;
+      }
+
+      if (syncStatus === "synced") {
+        firebaseConnectionRetries.reset();
       }
 
       setSyncMetadata(syncStatus);
@@ -2885,6 +2945,7 @@ async function startConfiguredFirebaseSync(): Promise<void> {
 
 function stopConfiguredFirebaseSync(): void {
   firebaseSyncWindowListeners.stop();
+  firebaseConnectionRetries.cancel();
   firebaseWriteRetries.cancel();
   firebaseUnsubscribe?.();
   firebaseUnsubscribe = undefined;
@@ -2895,11 +2956,13 @@ function resetFirebaseWriteQueue(): void {
   firebaseSyncGeneration += 1;
   firebaseWriter = undefined;
   firebaseOfflineWritesDurable = false;
+  firebaseConnectionRetries.reset();
   firebaseWriteRetries.reset();
   lastRemotePartyState = undefined;
   pendingFirebaseFieldUpdates = [];
   writingFirebaseFieldUpdates = false;
   firebaseFirstSnapshotHandled = false;
+  firebasePartyConfirmed = false;
 }
 
 /**
@@ -3042,19 +3105,35 @@ function applyRemotePartyState(
     return;
   }
 
-  // The document was readable, so this party is safe to reopen by default.
-  writeLastPartyId(partyState.party.id);
-
   const currentState = useAppStore.getState();
   // Repair only: GM identity comes from the document, never from the reader.
   const resolvedPartyState = repairPartyMembership(partyState);
+  const isFirstServerConfirmation =
+    !metadata.fromCache && !firebasePartyConfirmed;
+
+  if (isFirstServerConfirmation) {
+    firebasePartyConfirmed = true;
+  }
+
   lastRemotePartyState = resolvedPartyState;
 
   applyPartyStateFromRemote(resolvedPartyState);
 
-  // A rename by the GM (or the party's real name arriving with the first
-  // snapshot) is still a rename: keep this device's party list in step.
-  if (currentState.partyDisplayName !== resolvedPartyState.party.displayName) {
+  // Only a server-acknowledged snapshot can add a Firebase party to the local
+  // index. A cached or failed creation must not leave a phantom party behind.
+  if (isFirstServerConfirmation) {
+    writeLastPartyId(resolvedPartyState.party.id);
+    useAppStore.setState({
+      parties: rememberOpenedParty(
+        resolvedPartyState.party.id,
+        resolvedPartyState.party.displayName,
+      ),
+    });
+  } else if (
+    firebasePartyConfirmed &&
+    currentState.partyDisplayName !== resolvedPartyState.party.displayName
+  ) {
+    // A later rename by the GM keeps the confirmed index entry in step.
     useAppStore.setState({
       parties: renameIndexedParty(
         resolvedPartyState.party.id,
@@ -3427,9 +3506,11 @@ function getCurrentAuditActor(): Pick<
     };
   }
 
+  const actorRole = getStateUserRole(state) === "gm" ? "GM" : "Player";
+
   return {
-    actorLabel: `${profile.displayName} (${profile.role})`,
-    actorRole: profile.role,
+    actorLabel: `${profile.displayName} (${actorRole})`,
+    actorRole,
     actorUserId: profile.id,
   };
 }

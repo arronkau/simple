@@ -16,7 +16,6 @@ export function UserIdentityModal({
 }) {
   const [formState, setFormState] = useState<UserProfileFormState>({
     displayName: profile?.displayName ?? "",
-    role: profile?.role ?? "Player",
   });
   const displayNameValid = formState.displayName.trim().length > 0;
 
@@ -33,8 +32,8 @@ export function UserIdentityModal({
   return (
     <Modal
       dismissible={!required}
-      subtitle={<p>Name yourself for this party.</p>}
-      title={profile ? "Edit user" : "Join party"}
+      subtitle={<p>Choose the display name shown in this party.</p>}
+      title={profile ? "Edit user" : "Set user"}
       onClose={onCancel}
     >
       <form className="modal-form" onSubmit={handleSubmit}>
@@ -53,22 +52,6 @@ export function UserIdentityModal({
                   }))
                 }
               />
-            </label>
-
-            <label>
-              <span>Role</span>
-              <select
-                value={formState.role}
-                onChange={(event) =>
-                  setFormState((currentState) => ({
-                    ...currentState,
-                    role: event.target.value as "GM" | "Player",
-                  }))
-                }
-              >
-                <option value="Player">Player</option>
-                <option value="GM">GM</option>
-              </select>
             </label>
 
             {!displayNameValid ? (
