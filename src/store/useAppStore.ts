@@ -982,6 +982,7 @@ export const useAppStore = create<AppStore>((set) => ({
               details: createInventoryRecordDetails(
                 buildResult.record,
                 state.appState.entities,
+                nextInventoryRecords,
               ),
             },
           ],
@@ -1112,6 +1113,7 @@ export const useAppStore = create<AppStore>((set) => ({
             previousRecord: record,
             nextRecord,
             entities: state.appState.entities,
+            records: nextInventoryRecords,
           }),
         ),
       };
@@ -1196,6 +1198,7 @@ export const useAppStore = create<AppStore>((set) => ({
                 createInventoryMoveAuditEntryInput({
                   record: nextRecord,
                   entities: state.appState.entities,
+                  records: nextInventoryRecords,
                   previousEntityId: record.entityId,
                   previousLocation: record.location,
                   nextEntityId: nextRecord.entityId,
@@ -1278,6 +1281,7 @@ export const useAppStore = create<AppStore>((set) => ({
           auditEntries.push(
             createInventoryMoveAuditEntryInput({
               entities: state.appState.entities,
+              records: workingRecords,
               record: nextRecord,
               previousEntityId,
               previousLocation,
@@ -1433,6 +1437,7 @@ export const useAppStore = create<AppStore>((set) => ({
           swapAuditEntries.push(
             createInventoryMoveAuditEntryInput({
               entities: state.appState.entities,
+              records: nextInventoryRecords,
               record,
               previousEntityId: record.entityId,
               previousLocation: record.location,
@@ -1652,6 +1657,7 @@ export const useAppStore = create<AppStore>((set) => ({
                     ...createInventoryRecordDetails(
                       litRecord,
                       state.appState.entities,
+                      lightResult.records,
                     ),
                     splitFromStack: lightResult.split,
                   },
@@ -1732,7 +1738,11 @@ export const useAppStore = create<AppStore>((set) => ({
                   : `${outcome.turns} turns remaining`
               }).`,
               details: {
-                ...createInventoryRecordDetails(record, state.appState.entities),
+                ...createInventoryRecordDetails(
+                  record,
+                  state.appState.entities,
+                  snuffResult.records,
+                ),
                 outcome: outcome.kind,
                 ...(outcome.kind === "turnsRemaining"
                   ? { turnsRemaining: outcome.turns }
@@ -2152,6 +2162,7 @@ export const useAppStore = create<AppStore>((set) => ({
               details: createInventoryRecordDetails(
                 record,
                 state.appState.entities,
+                state.appState.inventoryRecords,
               ),
             },
           ],
@@ -2355,6 +2366,7 @@ function createInventoryUpdateAuditEntries(input: {
   entity: Entity;
   nextRecord: InventoryRecord;
   previousRecord: InventoryRecord;
+  records: InventoryRecord[];
 }): AuditLogEntryInput[] {
   const entries: AuditLogEntryInput[] = [];
 
@@ -2368,6 +2380,7 @@ function createInventoryUpdateAuditEntries(input: {
     entries.push(
       createInventoryMoveAuditEntryInput({
         entities: input.entities,
+        records: input.records,
         nextEntityId: input.nextRecord.entityId,
         nextLocation: input.nextRecord.location,
         previousEntityId: input.previousRecord.entityId,
@@ -2686,6 +2699,7 @@ function removeDrainedCoinRecord(input: {
         details: createInventoryRecordDetails(
           drainedRecord,
           input.entities,
+          input.records,
         ),
       },
     ],
@@ -2694,6 +2708,7 @@ function removeDrainedCoinRecord(input: {
 
 function createInventoryMoveAuditEntryInput(input: {
   entities: Entity[];
+  records: InventoryRecord[];
   nextEntityId: EntityId;
   nextLocation: InventoryLocation;
   previousEntityId: EntityId;
@@ -2710,10 +2725,12 @@ function createInventoryMoveAuditEntryInput(input: {
       input.previousEntityId,
       input.previousLocation,
       input.entities,
+      input.records,
     )} to ${formatInventoryLocation(
       input.nextEntityId,
       input.nextLocation,
       input.entities,
+      input.records,
     )}.`,
     details: {
       fromEntityId: input.previousEntityId,
@@ -2722,11 +2739,13 @@ function createInventoryMoveAuditEntryInput(input: {
         input.previousEntityId,
         input.previousLocation,
         input.entities,
+        input.records,
       ),
       toLocation: formatInventoryLocation(
         input.nextEntityId,
         input.nextLocation,
         input.entities,
+        input.records,
       ),
     },
   };
@@ -2735,9 +2754,15 @@ function createInventoryMoveAuditEntryInput(input: {
 function createInventoryRecordDetails(
   record: InventoryRecord,
   entities: Entity[],
+  records: InventoryRecord[],
 ): Record<string, string | number | boolean | null> {
   const details: Record<string, string | number | boolean | null> = {
-    location: formatInventoryLocation(record.entityId, record.location, entities),
+    location: formatInventoryLocation(
+      record.entityId,
+      record.location,
+      entities,
+      records,
+    ),
     recordType: record.recordType,
   };
 
@@ -2776,15 +2801,37 @@ function formatInventoryLocation(
   entityId: EntityId,
   location: InventoryLocation,
   entities: Entity[],
+  records: InventoryRecord[],
 ): string {
   const entity = entities.find(
     (candidateEntity) => candidateEntity.id === entityId,
   );
-  const entityLabel = entity ? entity.name : entityId;
+  const entityLabel = entity?.name ?? "Unknown entity";
+  const container =
+    location.kind === "container"
+      ? records.find((record) => record.id === location.containerId)
+      : undefined;
   const containerLabel =
-    "containerId" in location ? ` in ${location.containerId}` : "";
+    location.kind === "container"
+      ? ` in ${
+          container
+            ? getInventoryRecordAuditLabel(container)
+            : "an unknown container"
+        }`
+      : "";
   const placement =
-    location.kind === "equipped" ? location.placement : location.kind;
+    location.kind === "equipped"
+      ? {
+          bothHands: "both hands",
+          leftHand: "left hand",
+          loose: "ready gear",
+          rightHand: "right hand",
+        }[location.placement]
+      : {
+          container: "container",
+          contents: "contents",
+          stowedRoot: "stowed gear",
+        }[location.kind];
 
   return `${entityLabel} ${placement}${containerLabel}`;
 }

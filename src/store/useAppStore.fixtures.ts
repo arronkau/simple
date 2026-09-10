@@ -1185,6 +1185,19 @@ const phase8StorageId = useAppStore.getState().createEntity({
   name: "Ledger Vault",
   entityType: "storage",
 });
+const phase8VaultChestResult = phase8StorageId
+  ? useAppStore.getState().createInventoryRecord(phase8StorageId, {
+      recordType: "equipment",
+      name: "Vault Chest",
+      quantity: 1,
+      burden: { kind: "fixed", slotsPerItem: 1 },
+      container: { capacitySlots: 10 },
+    })
+  : { ok: false as const, message: "Storage was not created." };
+const phase8VaultChestId =
+  phase8VaultChestResult.ok && "recordId" in phase8VaultChestResult
+    ? phase8VaultChestResult.recordId
+    : undefined;
 
 if (phase8CharacterId) {
   useAppStore.getState().setEntityActive(phase8CharacterId, false);
@@ -1230,10 +1243,16 @@ if (phase8CharacterId) {
     },
   );
 
-  if (ropeResult.ok && ropeResult.recordId && phase8StorageId) {
+  if (
+    ropeResult.ok &&
+    ropeResult.recordId &&
+    phase8StorageId &&
+    phase8VaultChestId
+  ) {
     useAppStore.getState().moveInventoryRecord(ropeResult.recordId, {
       entityId: phase8StorageId,
-      placement: "contents",
+      placement: "container",
+      containerId: phase8VaultChestId,
     });
     useAppStore.getState().deleteInventoryRecord(ropeResult.recordId);
   }
@@ -1302,6 +1321,7 @@ export const PHASE_8_STORE_MANUAL_FIXTURES = [
     expected: [
       "entityCreated",
       "entityCreated",
+      "inventoryRecordCreated",
       "entityDeactivated",
       "entityActivated",
       "inventoryRecordCreated",
@@ -1358,11 +1378,14 @@ export const PHASE_8_STORE_MANUAL_FIXTURES = [
     actual: {
       deletedRecordType: phase8DeleteRecordEntry?.details?.recordType,
       fromEntityId: phase8MoveEntry?.details?.fromEntityId,
+      summary: phase8MoveEntry?.summary,
       toEntityId: phase8MoveEntry?.details?.toEntityId,
     },
     expected: {
       deletedRecordType: "equipment",
       fromEntityId: phase8CharacterId,
+      summary:
+        'Moved "Rope" from Ledger Hero ready gear to Ledger Vault container in "Vault Chest".',
       toEntityId: phase8StorageId,
     },
   },

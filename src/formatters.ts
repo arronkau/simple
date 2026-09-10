@@ -565,7 +565,10 @@ export function formatWarningState(
 
 // ---- Audit display ----
 
-export function getAuditEntryDisplay(entry: AuditLogEntry) {
+export function getAuditEntryDisplay(
+  entry: AuditLogEntry,
+  records: InventoryRecord[] = [],
+) {
   const metaLabels = [getAuditEventTypeLabel(entry.eventType)];
 
   if (entry.actorLabel !== DEFAULT_AUDIT_ACTOR_LABEL) {
@@ -573,10 +576,39 @@ export function getAuditEntryDisplay(entry: AuditLogEntry) {
   }
 
   return {
-    summary: entry.summary,
+    summary: formatLegacyAuditRecordReferences(entry, records),
     timestamp: formatAuditTimestamp(entry.createdAt),
     metaLabels,
   };
+}
+
+/**
+ * Move entries created before container names were recorded embedded the raw
+ * `containerId` in their summary. Resolve those persisted references when the
+ * container still exists, and keep deleted containers readable without
+ * exposing an internal record code.
+ */
+function formatLegacyAuditRecordReferences(
+  entry: AuditLogEntry,
+  records: InventoryRecord[],
+): string {
+  const legacyLocations = [
+    entry.details?.fromLocation,
+    entry.details?.toLocation,
+  ].filter((location): location is string => typeof location === "string");
+
+  return legacyLocations.reduce((summary, location) => {
+    const readableLocation = location.replace(
+      /\bin (record-[A-Za-z0-9-]+)\b/g,
+      (_match, recordId: string) => {
+        const record = records.find((candidate) => candidate.id === recordId);
+
+        return record ? `in "${record.name}"` : "(no longer available)";
+      },
+    );
+
+    return summary.replace(location, readableLocation);
+  }, entry.summary);
 }
 
 function formatAuditTimestamp(createdAt: string): string {

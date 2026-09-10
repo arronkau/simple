@@ -5,7 +5,12 @@ import {
 } from "../model/auditLog";
 import { getSortedEntities } from "../model/entities";
 import type { AppState } from "../model/appState";
-import type { AuditEventType, AuditLogEntry, EntityId } from "../model/types";
+import type {
+  AuditEventType,
+  AuditLogEntry,
+  EntityId,
+  InventoryRecord,
+} from "../model/types";
 import { getAuditEntryDisplay } from "../formatters";
 
 export function AuditPage({
@@ -111,7 +116,11 @@ function AuditLogPanel({
             <h4 className="micro">{group.label}</h4>
             <ul className="audit-list" aria-label={`Entries for ${group.label}`}>
               {group.entries.map((entry) => (
-                <AuditLogRow key={entry.id} entry={entry} />
+                <AuditLogRow
+                  key={entry.id}
+                  entry={entry}
+                  records={appState.inventoryRecords}
+                />
               ))}
             </ul>
           </section>
@@ -121,8 +130,14 @@ function AuditLogPanel({
   );
 }
 
-function AuditLogRow({ entry }: { entry: AuditLogEntry }) {
-  const display = getAuditEntryDisplay(entry);
+function AuditLogRow({
+  entry,
+  records,
+}: {
+  entry: AuditLogEntry;
+  records: InventoryRecord[];
+}) {
+  const display = getAuditEntryDisplay(entry, records);
 
   return (
     <li className="audit-entry">

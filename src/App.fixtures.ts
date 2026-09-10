@@ -196,6 +196,24 @@ const partyBackpackRecord = createDefaultBackpack({
   entityId: partyCharacterId,
   id: "party-backpack",
 });
+const legacyAuditContainerRecord: InventoryRecord = {
+  ...partyBackpackRecord,
+  id: "record-411abf6d-6654-4f23-883c-014dd3752944",
+  name: "Backpack",
+};
+const legacyMoveAuditEntry: AuditLogEntry = {
+  id: "audit-legacy-move",
+  actorLabel: "Arron",
+  createdAt: "2026-06-03T16:33:00.000Z",
+  details: {
+    fromLocation:
+      "Plumeria container in record-411abf6d-6654-4f23-883c-014dd3752944",
+    toLocation: "Floor contents",
+  },
+  eventType: "inventoryRecordMoved",
+  summary:
+    'Moved "Oil flask" from Plumeria container in record-411abf6d-6654-4f23-883c-014dd3752944 to Floor contents.',
+};
 const partyTorchRecord: InventoryRecord = {
   id: "party-torch",
   recordType: "equipment",
@@ -448,6 +466,20 @@ export const APP_MANUAL_FIXTURES = [
       ),
       metaLabels: ["Coins changed", "Yost"],
     },
+  },
+  {
+    name: "audit log display replaces legacy record codes with container names",
+    actual: getAuditEntryDisplay(legacyMoveAuditEntry, [
+      legacyAuditContainerRecord,
+    ]).summary,
+    expected:
+      'Moved "Oil flask" from Plumeria container in "Backpack" to Floor contents.',
+  },
+  {
+    name: "audit log display hides legacy record codes for deleted containers",
+    actual: getAuditEntryDisplay(legacyMoveAuditEntry).summary,
+    expected:
+      'Moved "Oil flask" from Plumeria container (no longer available) to Floor contents.',
   },
   {
     name: "party overview cards summarize characters and retainers",
