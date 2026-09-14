@@ -89,6 +89,22 @@ export function Modal({
       dialog.showModal();
     }
 
+    // iOS keeps the layout viewport behind the keyboard. Size and position
+    // the dialog inside the visual viewport so its fields and actions scroll
+    // above the keyboard, including when Safari pans the focused input.
+    const viewport = window.visualViewport;
+    function updateViewport() {
+      dialog?.style.setProperty(
+        "--dialog-viewport-height", `${viewport?.height ?? window.innerHeight}px`,
+      );
+      dialog?.style.setProperty(
+        "--dialog-viewport-top", `${viewport?.offsetTop ?? 0}px`,
+      );
+    }
+    updateViewport();
+    viewport?.addEventListener("resize", updateViewport);
+    viewport?.addEventListener("scroll", updateViewport);
+
     openModalCount += 1;
     document.body.classList.add("modal-open");
 
@@ -98,6 +114,8 @@ export function Modal({
       // Drop the listeners first: unmount-driven close() is not a user close.
       dialog.removeEventListener("cancel", handleCancel);
       dialog.removeEventListener("close", handleClose);
+      viewport?.removeEventListener("resize", updateViewport);
+      viewport?.removeEventListener("scroll", updateViewport);
 
       if (dialog.open) {
         dialog.close();

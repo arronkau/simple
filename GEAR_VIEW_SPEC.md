@@ -31,7 +31,7 @@ Party and Characters pages. It has no left sidebar.
 A responsive grid of entity cards:
 
 ```css
-grid-template-columns: repeat(auto-fill, minmax(338px, 1fr));
+grid-template-columns: repeat(auto-fill, minmax(min(100%, 338px), 1fr));
 ```
 
 All **active** entities are shown, sorted by `sortOrder`, except the entity
@@ -121,7 +121,9 @@ clients and prevents a second client from creating a duplicate; "create the
 Floor" is only offered when no such entity exists.
 
 It renders as a fixed bottom bar on the Party Gear page (page content is given
-bottom padding so nothing hides behind it):
+bottom padding tracks the bar's measured height so nothing hides behind it).
+The contents scroll within a bounded height, and mobile padding respects the
+iPhone safe area:
 
 - Header: "The Floor" label, a `N lots · M slots` summary, a "+ Add item"
   link that opens the record form for the Floor entity (GM only — placing loot
@@ -134,8 +136,10 @@ bottom padding so nothing hides behind it):
 
 ## Drag-and-drop contract
 
-Uses `@dnd-kit/core` (pointer + keyboard + touch sensors, live-region
+Uses `@dnd-kit/core` (mouse + keyboard + touch sensors, live-region
 announcements). The Party Gear page is wrapped in a single `DndContext`.
+On touch screens, swiping a row scrolls the page; holding for 200 ms before
+moving starts a drag. Tapping the item name still opens its editor.
 
 - **Draggable** = each record row. Draggable id = `rec:{recordId}`.
 - **Droppable** = each placement zone, id-encoded:

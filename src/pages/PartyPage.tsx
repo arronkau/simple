@@ -167,7 +167,7 @@ export function PartyPage({
           >
             {activeCards.length > 0 ? (
               <div className="party-table-scroll">
-                <table className="party-table" aria-label="Party overview">
+                <table className="party-table" role="table" aria-label="Party overview">
                   <thead>
                     <tr>
                       <th className="pt-grip-cell">
@@ -238,7 +238,7 @@ function BenchedSection({
         </p>
       ) : (
         <div className="party-table-scroll">
-          <table className="party-table" aria-label="Benched entities">
+          <table className="party-table" role="table" aria-label="Benched entities">
             <tbody>
               {benchedCards.map((card) => (
                 <DraggablePartyRow card={card} key={card.id}>
@@ -368,6 +368,7 @@ function PartyRowCells({
       </td>
       <td
         className="pt-num"
+        data-label="HP"
         data-hp-state={card.hpState}
         data-hurt={card.hurt}
       >
@@ -378,16 +379,16 @@ function PartyRowCells({
           </span>
         ) : null}
       </td>
-      <td className="pt-num">{card.ac}</td>
-      <td className="pt-num">
+      <td className="pt-num" data-label="AC">{card.ac}</td>
+      <td className="pt-num" data-label="MV">
         <span className={`mv ${card.movementTone}`}>{card.movement}</span>
       </td>
-      <td className="pt-hands">
+      <td className="pt-hands" data-label="Hands">
         {card.hands.map((hand) => (
           <PartyHandRow hand={hand} key={hand.label} />
         ))}
       </td>
-      <td className="pt-spells">
+      <td className="pt-spells" data-label="Spells">
         {card.spellLines.map((line) => (
           <div className="pt-spell-line" key={line.label}>
             <span className="pt-hlabel">{line.label}</span>
@@ -402,7 +403,7 @@ function PartyRowCells({
           </div>
         ))}
       </td>
-      <td className="pt-languages">{card.languages}</td>
+      <td className="pt-languages" data-label="Languages">{card.languages}</td>
     </>
   );
 }

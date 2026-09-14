@@ -2657,6 +2657,8 @@ fieldset.record-form-body {
   gap: 12px;
   align-content: start;
   min-height: 0;
+  min-width: 0;
+  overscroll-behavior: contain;
   padding: 14px 16px 16px;
   overflow-y: auto;
 }
@@ -2943,7 +2945,7 @@ a.file-button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .app-dialog {
+  .app-dialog:not(.app-dialog-narrow) {
     width: min(100%, 44rem);
   }
 }
@@ -3079,7 +3081,7 @@ a.file-button {
 
 .gear-page {
   padding-top: 16px;
-  padding-bottom: 150px; /* clear the fixed Floor tray */
+  padding-bottom: calc(var(--floor-tray-height, 150px) + 16px);
   color: var(--gear-ink);
   font-size: 14px;
   line-height: 1.4;
@@ -3157,7 +3159,7 @@ a.file-button {
 /* ---- board ---- */
 .gear-board {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(338px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 338px), 1fr));
   gap: 18px;
   align-items: start;
 }
@@ -3513,7 +3515,7 @@ a.file-button {
 /* The whole row / container header is the drag handle, so suppress text
    selection while grabbing and keep the grab cursor across the row. */
 .gear-page .drag-row {
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
 }
 .gear-page .grip,
@@ -3846,6 +3848,9 @@ a.file-button {
   flex-wrap: wrap;
   min-height: 22px;
   align-items: flex-start;
+  max-height: 30dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .tray .item {
   background: #21262c;
@@ -3987,5 +3992,403 @@ a.file-button {
   .gear-page .dropzone {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Mobile layouts come after the board styles so desktop row rules cannot
+   override them. Keep the page fluid without hiding overflowing content. */
+.app-frame,
+.app-header > div,
+.entity-workspace,
+.character-detail,
+.character-sheet-panel,
+.modal-form,
+.modal-body,
+.record-form,
+.rs-card {
+  min-width: 0;
+}
+
+.app-frame,
+.modal-panel {
+  overflow-wrap: anywhere;
+}
+
+.tray .tinner {
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  padding-left: max(22px, env(safe-area-inset-left));
+  padding-right: max(22px, env(safe-area-inset-right));
+}
+
+.tray .drag-row {
+  touch-action: pan-y;
+  user-select: none;
+}
+
+@media (max-width: 640px), (pointer: coarse) {
+  /* 16px prevents Safari zooming the page when a form field receives focus. */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    min-height: 44px;
+    min-width: 0;
+    font-size: 16px;
+  }
+
+  button,
+  .gear-page button,
+  .tray button,
+  .file-button,
+  .file-button > span,
+  .manage-row > button,
+  .manage-row > .file-button,
+  .character-select-button,
+  .character-selector-item .pt-grip,
+  .autocomplete-suggestions button,
+  .checkbox-field {
+    min-height: 44px;
+  }
+
+  .quick-stepper button,
+  .modal-close,
+  .light-toggle,
+  .pt-grip {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .quick-stepper {
+    flex: none;
+  }
+
+  .checkbox-field input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .party-switcher > summary, .party-switcher-list a {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  .app-dialog {
+    position: fixed;
+    top: calc(var(--dialog-viewport-top, 0px) + max(8px, env(safe-area-inset-top)));
+    bottom: auto;
+    max-height: calc(var(--dialog-viewport-height, 100dvh) - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
+    margin: 0 auto;
+  }
+
+  .modal-panel {
+    padding: 12px;
+    scroll-padding-block: 76px 16px;
+  }
+
+  .modal-header {
+    position: sticky;
+    top: -12px;
+    z-index: 5;
+    margin: -12px -12px 0;
+    padding: 12px;
+    background: var(--gear-surface);
+    border-bottom: 1px solid var(--gear-line);
+  }
+}
+
+@media (max-width: 640px) {
+  .app-frame {
+    padding: max(10px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .app-header {
+    gap: 8px;
+  }
+
+  .header-actions {
+    justify-content: flex-start;
+  }
+
+  .header-actions > button:first-child {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .app-nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+  }
+
+  .app-nav a {
+    min-height: 48px;
+    padding: 0 3px;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .party-switcher-panel {
+    min-width: 0;
+    width: calc(100vw - 32px);
+  }
+
+  .party-switcher-list a {
+    flex-wrap: wrap;
+    gap: 2px 10px;
+  }
+
+  /* A party member becomes a labeled card, keeping every table value and
+     the marching-order handle available without sideways scrolling. */
+  .party-table-scroll {
+    border: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .party-table, .party-table tbody {
+    display: block;
+  }
+
+  .party-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .party-table tr {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) 44px;
+    border: 1px solid var(--gear-line-2);
+    border-radius: var(--gear-r);
+    margin-bottom: 12px;
+    padding: 10px;
+    background: var(--gear-surface);
+  }
+
+  .party-table td, .party-table th:first-child, .party-table td:first-child, .party-table td:last-child {
+    min-width: 0;
+    width: auto;
+    padding: 6px;
+    border: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
+  .party-table .pt-grip-cell {
+    grid-column: 4;
+    grid-row: 1;
+    padding: 0;
+  }
+
+  .party-table .pt-name {
+    grid-column: 1 / 4;
+    grid-row: 1;
+    align-self: center;
+  }
+
+  .party-table td.pt-num {
+    grid-row: 2;
+    text-align: left;
+  }
+
+  .party-table .pt-hands, .party-table .pt-spells, .party-table .pt-languages {
+    grid-column: 1 / -1;
+  }
+
+  .party-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 3px;
+    color: var(--gear-muted);
+    font: 600 10px var(--gear-sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .party-table td[data-label]:empty::after {
+    content: "—";
+    color: var(--gear-muted);
+  }
+
+  .party-summary-item, .party-light {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .party-summary-item {
+    gap: 4px 10px;
+  }
+
+  .pt-char-name {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .character-selector {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .character-detail, .character-sheet-form {
+    padding: 10px;
+  }
+
+  .character-entity-settings, .repeatable-heading, .record-location-heading {
+    flex-wrap: wrap;
+  }
+
+  .sheet-stat-lines {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sheet-inventory-header {
+    flex-wrap: wrap;
+  }
+
+  .sheet-inventory-row {
+    flex-wrap: wrap;
+  }
+
+  .sheet-xp-add {
+    flex-wrap: wrap;
+  }
+
+  .sheet-stat-value {
+    gap: 3px;
+  }
+
+  .record-form .snuff-turns {
+    flex-wrap: wrap;
+  }
+
+  .coin-spend-grid {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.8fr) minmax(0, 1fr);
+  }
+
+  .modal-footer > button, .record-form-action-group > button {
+    flex: 1 1 auto;
+  }
+
+  .record-form-action-group {
+    width: 100%;
+  }
+
+  .gear-board {
+    gap: 12px;
+  }
+
+  .gear-subbar, .gear-legend {
+    gap: 8px 12px;
+  }
+
+  .gear-legend .leg {
+    white-space: normal;
+  }
+
+  .gear-page .ghost-btn {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .rs-head, .gear-page .zone, .gear-page .rs-foot {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .rs-head .top, .rs-head .meter, .gear-page .chead, .tray .chead {
+    flex-wrap: wrap;
+  }
+
+  .gear-page .nm {
+    flex: 1 1 55%;
+    min-width: 0;
+  }
+
+  .gear-page .mv {
+    margin-left: 0;
+  }
+
+  .gear-page .hand {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .gear-page .hlabel {
+    width: 100%;
+  }
+
+  .gear-page .hand .item, .gear-page .hand .cont {
+    flex-basis: 100%;
+  }
+
+  .gear-page .item, .tray .item {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+    gap: 5px;
+  }
+
+  .gear-page .iname-button, .tray .iname-button, .gear-page .cname-row, .tray .cname-row {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .gear-page .iname, .gear-page .cname, .tray .iname, .tray .cname {
+    overflow-wrap: anywhere;
+  }
+
+  .gear-page .islots, .tray .item .islots {
+    white-space: normal;
+    padding-left: 0;
+  }
+
+  .gear-page .cbody, .tray .cbody {
+    padding-left: 8px;
+  }
+
+  .gear-page .act, .tray .act {
+    margin-left: 0;
+  }
+
+  .tray .tinner {
+    padding: 8px max(12px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+
+  .tray .thead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 4px 10px;
+    margin-bottom: 4px;
+  }
+
+  .tray .tmeta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: 11px;
+  }
+
+  .tray .tbody {
+    max-height: 25dvh;
+  }
+
+  .tray .tbody > * {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Details open inside the phone viewport, clear of card clipping and the
+     Floor tray. Tapping outside still dismisses them via the shared hook. */
+  .info-popover .info-popover-panel,
+  .warning-details .warning-details-panel,
+  .pt-hand-pop .pt-hand-pop-panel {
+    position: fixed;
+    inset: auto 12px max(12px, env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+    max-height: 45dvh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    z-index: 60;
   }
 }

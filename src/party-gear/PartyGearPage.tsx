@@ -13,7 +13,7 @@ import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   pointerWithin,
   useDraggable,
@@ -214,7 +214,8 @@ export function PartyGearPage(actions: GearActions) {
   );
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    // Keep touch gestures with TouchSensor: a swipe scrolls; a hold drags.
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 200, tolerance: 8 },
     }),
@@ -456,7 +457,7 @@ export function PartyGearPage(actions: GearActions) {
             <div className="gear-subbar">
               <div className="gear-legend">
                 <span className="leg">
-                  Drag a row — across cards too
+                  Drag a row (touch: hold, then drag)
                 </span>
                 <span className="leg">
                   <span className="leg-flame">
@@ -1476,6 +1477,21 @@ function FloorTray({
   onCreateFloor: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const trayRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const tray = trayRef.current;
+    if (!tray) return;
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty(
+        "--floor-tray-height", `${tray.getBoundingClientRect().height}px`,
+      );
+    });
+    observer.observe(tray);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--floor-tray-height");
+    };
+  }, []);
   const actions = useGearActions();
   // Placing loot on the Floor is the GM's job; players move it off with a
   // drag. Fail closed while the role is unresolved.
@@ -1483,7 +1499,7 @@ function FloorTray({
 
   if (!floorEntity) {
     return (
-      <aside className="tray">
+      <aside className="tray" ref={trayRef}>
         <div className="tinner">
           <div className="thead">
             <span className="tt">The Floor</span>
@@ -1505,7 +1521,7 @@ function FloorTray({
   );
 
   return (
-    <aside className={`tray${collapsed ? " collapsed" : ""}`}>
+    <aside className={`tray${collapsed ? " collapsed" : ""}`} ref={trayRef}>
       <div className="tinner">
         <div className="thead">
           <span className="tt">The Floor</span>
